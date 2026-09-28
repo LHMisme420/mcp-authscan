@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v0.4 -- static detector for self-rolled-auth failure classes in MCP servers.
+VATA mcp_authscan v0.5 -- static detector for self-rolled-auth failure classes in MCP servers.
 Seeded from filed VATA findings (lucky-aeon, mcpjungle, metamcp).
 Stdlib only. Heuristic static analysis: flags patterns, does not prove exploitability.
 Confidence per rule is stated. Ground-truth test = re-detect your own known findings.
@@ -108,6 +108,15 @@ VALIDATES_REDIRECT = re.compile(
     r"redirect_uri[\s\S]{0,160}?(includes|startsWith|indexOf|allow|whitelist|allowlist|"
     r"validat|verif|\.match|registr|RedirectURIs|registered)", re.I)
 
+# A1 server/client discriminators: only an authorization SERVER endpoint is vulnerable.
+# A client doing token exchange legitimately handles redirect_uri (sends it outbound).
+CLIENT_EXCHANGE = re.compile(
+    r"(grant_type|token_endpoint|tokenEndpoint|URLSearchParams|postFormToToken|"
+    r"new FormData|params\.(set|append)\s*\(\s*['\"]redirect_uri)", re.I)
+SERVER_AUTHZ_ROLE = re.compile(
+    r"(response_type|FormValue|\.Query\(|searchParams|req\.query|request\.query|"
+    r"\.Redirect\(|res\.redirect|\.redirect\(|StatusFound|Location|authorization_endpoint)", re.I)
+
 def rule_oauth_authorize(path, text, F):
     for m in AUTHZ_HANDLER.finditer(text):
         if defname(m.group(0)).lower().startswith("test"):
@@ -123,6 +132,9 @@ def rule_oauth_authorize(path, text, F):
         if reads_redirect and not VALIDATES_REDIRECT.search(block):
             missing.append("redirect_uri")
         if missing:
+            # server-role gate: skip client token-exchange; require authorize-server signals
+            if CLIENT_EXCHANGE.search(block) or not SERVER_AUTHZ_ROLE.search(block):
+                continue
             add(F, "A1", "CRITICAL",
                 f"OAuth authorize handler reads but never validates {', '.join(missing)}",
                 path, text, m.start(),
@@ -157,14 +169,21 @@ MIDDLEWARE = re.compile(
     r"\w*[Mm]iddleware\w*\s*[:=]\s*(async\s*)?\(|"
     r"def\s+\w*middleware\w*)", re.I)
 AUTHZ_CHECK = re.compile(r"(role|tenant|workspace|scope|permission|rbac|org(_?id)?|is_?admin)", re.I)
+# A3 must read an INBOUND credential to be an authentication gate (not a rate limiter,
+# a handler factory, or a client-side OAuth flow that merely obtains a token).
+INBOUND_AUTH = re.compile(
+    r"(Bearer\b|[\"']?[Aa]uthorization[\"']?\s*[)\]:,]|\.[Gg]etHeader\s*\(|"
+    r"[Rr]equest\(\)\.Header|req\.[Hh]eaders?|headers\[|bearerToken|parseBearer|"
+    r"stripBearer|extractToken|jwt\.(Parse|Verify)|ParseWithClaims|[Vv]alidateToken|"
+    r"[Vv]erifyToken|[Ii]ntrospect)", re.I)
 
 def rule_middleware_authz(path, text, F):
     for m in MIDDLEWARE.finditer(text):
         if defname(m.group(0)).lower().startswith("test"):
             continue
         block = brace_block(text, m.start())
-        touches_token = re.search(r"(bearer|authorization|token|jwt)", block, re.I)
-        if touches_token and not AUTHZ_CHECK.search(block):
+        reads_inbound_cred = INBOUND_AUTH.search(block)
+        if reads_inbound_cred and not AUTHZ_CHECK.search(block):
             add(F, "A3", "HIGH",
                 "Auth middleware validates token but enforces no role/tenant/scope",
                 path, text, m.start(),
@@ -262,7 +281,7 @@ def scan(root, include_tests):
     return F
 
 def main():
-    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.4")
+    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.5")
     ap.add_argument("target", help="path to MCP server repo/dir")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
