@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.b64
+/tmp/
+*.egg-info/
+.venv/
+scans/*.json
