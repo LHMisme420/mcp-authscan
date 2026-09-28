@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v0.5 -- static detector for self-rolled-auth failure classes in MCP servers.
+VATA mcp_authscan v0.6 -- static detector for self-rolled-auth failure classes in MCP servers.
 Seeded from filed VATA findings (lucky-aeon, mcpjungle, metamcp).
 Stdlib only. Heuristic static analysis: flags patterns, does not prove exploitability.
 Confidence per rule is stated. Ground-truth test = re-detect your own known findings.
@@ -112,7 +112,8 @@ VALIDATES_REDIRECT = re.compile(
 # A client doing token exchange legitimately handles redirect_uri (sends it outbound).
 CLIENT_EXCHANGE = re.compile(
     r"(grant_type|token_endpoint|tokenEndpoint|URLSearchParams|postFormToToken|"
-    r"new FormData|params\.(set|append)\s*\(\s*['\"]redirect_uri)", re.I)
+    r"new FormData|params\.(set|append)\s*\(\s*['\"]redirect_uri|"
+    r"urlencode|authorization_url|authorizationUrl|credentials\[|generate_pkce)", re.I)
 SERVER_AUTHZ_ROLE = re.compile(
     r"(response_type|FormValue|\.Query\(|searchParams|req\.query|request\.query|"
     r"\.Redirect\(|res\.redirect|\.redirect\(|StatusFound|Location|authorization_endpoint)", re.I)
@@ -132,8 +133,11 @@ def rule_oauth_authorize(path, text, F):
         if reads_redirect and not VALIDATES_REDIRECT.search(block):
             missing.append("redirect_uri")
         if missing:
-            # server-role gate: skip client token-exchange; require authorize-server signals
-            if CLIENT_EXCHANGE.search(block) or not SERVER_AUTHZ_ROLE.search(block):
+            # server-role gate: skip client token-exchange / outbound URL builders;
+            # require authorize-server signals. Use a forward window (brace_block on
+            # Python grabs an inner dict literal and misses trailing client signals).
+            gate = text[m.start():m.start() + 900]
+            if CLIENT_EXCHANGE.search(gate) or not SERVER_AUTHZ_ROLE.search(gate):
                 continue
             add(F, "A1", "CRITICAL",
                 f"OAuth authorize handler reads but never validates {', '.join(missing)}",
@@ -281,7 +285,7 @@ def scan(root, include_tests):
     return F
 
 def main():
-    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.5")
+    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.6")
     ap.add_argument("target", help="path to MCP server repo/dir")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
