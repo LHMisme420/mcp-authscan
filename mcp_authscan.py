@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v0.6 -- static detector for self-rolled-auth failure classes in MCP servers.
+VATA mcp_authscan v0.7 -- static detector for self-rolled-auth failure classes in MCP servers.
 Seeded from filed VATA findings (lucky-aeon, mcpjungle, metamcp).
 Stdlib only. Heuristic static analysis: flags patterns, does not prove exploitability.
 Confidence per rule is stated. Ground-truth test = re-detect your own known findings.
@@ -150,13 +150,33 @@ def rule_oauth_authorize(path, text, F):
 DEFAULT_CRED = re.compile(
     r"(admin@[\w.-]+\.local|"
     r"(password|passwd|secret|apikey|api_key|token)\s*[:=]\s*['\"][^'\"\s]{6,}['\"])", re.I)
-RESEED = re.compile(r"(UpsertAdmin|seedAdmin|ensureAdmin|createDefaultAdmin|\bBootstrap\b)", re.I)
+RESEED = re.compile(r"(UpsertAdmin|seedAdmin|ensureAdmin|createDefaultAdmin|"
+    r"(func|def|const|async)\s+\w*[Bb]ootstrap\w*|\.[Bb]ootstrap\s*\()", re.I)
 CRED_CONTEXT = re.compile(r"(admin|account|identity|password|credential|passwd|secret)", re.I)
+
+# A2 noise filters: placeholder/example values and doctest/example lines are not real creds.
+CRED_PLACEHOLDER = re.compile(
+    r"(\.\.\.|<[^>]+>|\$\{|your[-_ ]?|example|redacted|changeme|xxx+|placeholder|"
+    r"dummy|sample|test|doctest|foo|bar|jwt\.token\.here|token\.here|"
+    r"^[A-Z][A-Z0-9_]+$|-\d+\.\d+$)", re.I)
+
+def _cred_value(evidence):
+    """Extract the quoted value from an A2 evidence string, or '' if none."""
+    m = re.search(r"['\"]([^'\"]{6,})['\"]", evidence)
+    return m.group(1) if m else ""
 
 def rule_default_creds(path, text, F):
     for m in DEFAULT_CRED.finditer(text):
+        ev = m.group(0)
+        val = _cred_value(ev)
+        line = linetext(text, m.start())
+        # skip obvious placeholders/examples and doctest/comment lines
+        if val and CRED_PLACEHOLDER.search(val):
+            continue
+        if re.match(r"\s*(>>>|\.\.\.|#|//|\*)", line):
+            continue
         add(F, "A2", "CRITICAL", "Hardcoded default credential literal",
-            path, text, m.start(), m.group(0)[:80],
+            path, text, m.start(), ev[:80],
             "VATA:lucky-aeon default admin creds", "HIGH")
     for m in RESEED.finditer(text):
         window = text[max(0, m.start()-200):m.start()+200]
@@ -285,7 +305,7 @@ def scan(root, include_tests):
     return F
 
 def main():
-    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.6")
+    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.7")
     ap.add_argument("target", help="path to MCP server repo/dir")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
