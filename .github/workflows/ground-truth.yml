@@ -1,0 +1,28 @@
+name: ground-truth
+
+# Verifies mcp-authscan still re-detects its seed findings on every push and PR.
+# A rule that stops detecting its seed is a regression and fails the build.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out mcp-authscan
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Scanner compiles
+        run: python3 -m py_compile mcp_authscan.py
+
+      - name: Re-detect seed findings (ground truth)
+        run: python3 tests/verify_ground_truth.py

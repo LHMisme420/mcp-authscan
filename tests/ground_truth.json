@@ -1,0 +1,37 @@
+{
+  "description": "Seed findings mcp-authscan must re-detect. A rule that stops detecting its seed is a regression. Each entry: the repo, the rule, and a file:line substring that must appear in the scan output.",
+  "cases": [
+    {
+      "repo": "https://github.com/lucky-aeon/mcp-gateway",
+      "name": "lucky-aeon",
+      "must_detect": [
+        {
+          "rule": "A1",
+          "match": "internal/gateway/auth.go:174",
+          "note": "handleOAuthAuthorize: redirect_uri not validated"
+        },
+        {
+          "rule": "A3",
+          "match": "internal/gateway/auth.go:22",
+          "note": "mcpAuthMiddleware: authn without authz"
+        },
+        {
+          "rule": "A2",
+          "match": "internal/platform/config/config.go:63",
+          "note": "hardcoded admin default (admin@gateway.local at :63)"
+        }
+      ]
+    },
+    {
+      "repo": "https://github.com/mcpjungle/mcpjungle",
+      "name": "mcpjungle",
+      "must_detect": [
+        {
+          "rule": "A4",
+          "match": "internal/service/mcp/upstream_oauth.go:466",
+          "note": "DCR SSRF: RegistrationEndpoint fetched unguarded"
+        }
+      ]
+    }
+  ]
+}
