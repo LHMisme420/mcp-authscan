@@ -32,6 +32,17 @@
           "note": "DCR SSRF: RegistrationEndpoint fetched unguarded"
         }
       ]
+    },
+    {
+      "repo": "https://github.com/Ttokkime/mcp-gateway",
+      "name": "ttokkime",
+      "must_detect": [
+        {
+          "rule": "A6",
+          "match": "internal/proxy/proxy.go:144",
+          "note": "method-scoped authz: RBAC gated on tools/call, other methods bypass"
+        }
+      ]
     }
   ]
 }
