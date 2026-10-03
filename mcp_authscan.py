@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v0.7 -- static detector for self-rolled-auth failure classes in MCP servers.
+VATA mcp_authscan v0.8 -- static detector for self-rolled-auth failure classes in MCP servers
+and issuer-binding gaps in MCP OAuth clients.
 Seeded from filed VATA findings (lucky-aeon, mcpjungle, metamcp).
 Stdlib only. Heuristic static analysis: flags patterns, does not prove exploitability.
 Confidence per rule is stated. Ground-truth test = re-detect your own known findings.
+
+v0.8 changes:
+ - New client-side rule family C1-C3 (issuer binding on M2M MCP OAuth providers).
+   Upgrading the SDK does not close this: Python ClientCredentialsOAuthProvider /
+   PrivateKeyJWTOAuthProvider need issuer=, TS ClientCredentialsProvider /
+   PrivateKeyJwtProvider / StaticPrivateKeyJwtProvider / CrossAppAccessProvider need
+   expectedIssuer, or credentials follow whatever AS the MCP server advertises.
+   Refs: GHSA-qx49-fqc8-xw99 (python-sdk), typescript-sdk PR #2887 (SEP-2352).
+ - --exclude DIR (repeatable) so rule fixtures don't trip the self-scan gate.
 
 v0.4 changes:
  - A4 rebuilt sink-first: finds HTTP calls, inspects the URL argument, flags a non-literal
@@ -32,8 +42,10 @@ def is_test_path(p):
         return True
     return bool(TEST_FILE.search(p.as_posix()))
 
-def iter_files(root, include_tests):
-    for p in Path(root).rglob("*"):
+def iter_files(root, include_tests, exclude=()):
+    root = Path(root)
+    excl = [ (root / e).resolve() for e in exclude ]
+    for p in root.rglob("*"):
         if not (p.is_file() and p.suffix in SRC_EXT):
             continue
         if p.resolve() == SELF_PATH:
@@ -41,6 +53,9 @@ def iter_files(root, include_tests):
         if any(s in p.parts for s in SKIP_DIR):
             continue
         if not include_tests and is_test_path(p):
+            continue
+        rp = p.resolve()
+        if any(rp == e or e in rp.parents for e in excl):
             continue
         yield p
 
@@ -343,12 +358,136 @@ def rule_method_scoped_authz(path, text, F):
             path, text, m.start(), line[:70],
             "VATA:ttokkime method-scoped RBAC (tools/list bypass)", "LOW")
 
-RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
-         rule_ssrf, rule_excluded_tools, rule_method_scoped_authz]
+# ===================== Client-side rules (C-series) =====================
+# Issuer binding on MCP OAuth CLIENT providers holding pre-provisioned credentials.
+# These credentials were not obtained by the SDK, so only the configured issuer says
+# which authorization server they belong to. Without it, a malicious or compromised
+# MCP server can advertise its own AS (RFC 9728 PRM) and receive the client secret
+# or signed JWT assertion. A fixed SDK version alone does NOT close this.
 
-def scan(root, include_tests):
+PY_M2M = re.compile(r"\b(ClientCredentialsOAuthProvider|PrivateKeyJWTOAuthProvider)\s*\(")
+TS_M2M = re.compile(r"\bnew\s+(ClientCredentialsProvider|PrivateKeyJwtProvider|"
+                    r"StaticPrivateKeyJwtProvider|CrossAppAccessProvider)\s*\(")
+PY_LEGACY = re.compile(r"\bRFC7523OAuthClientProvider\s*\(")
+ISSUER_ESCAPE = re.compile(
+    r"(skip\w*Issuer\w*\s*[:=]\s*(true|True|1)\b|"
+    r"skip_\w*issuer\w*\s*[:=]\s*(true|True|1)\b|"
+    r"(validate|verify|check)_?[Ii]ssuer\w*\s*[:=]\s*(false|False|0)\b|"
+    r"[\"']verify_iss[\"']\s*:\s*(false|False)\b)")
+
+def call_args(text, open_idx):
+    """Return the argument text of a call whose '(' is at open_idx (paren-balanced,
+    string-aware), or the next 1500 chars if unbalanced."""
+    depth, i, q = 0, open_idx, None
+    while i < len(text):
+        c = text[i]
+        if q:
+            if c == "\\":
+                i += 2; continue
+            if c == q:
+                q = None
+        elif c in "\"'`":
+            q = c
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return text[open_idx + 1:i]
+        i += 1
+    return text[open_idx + 1:open_idx + 1500]
+
+def _comment_line(line):
+    return line.strip().startswith(("#", "//", "*", "/*"))
+
+def _resolve_ts_options(text, name, before_idx):
+    """If args are a bare identifier, find `const|let|var name = {...}` earlier in the
+    file and return that object literal, else None."""
+    rx = re.compile(r"\b(?:const|let|var)\s+" + re.escape(name) + r"\b[^=\n]*=\s*\{")
+    last = None
+    for m in rx.finditer(text, 0, before_idx):
+        last = m
+    if not last:
+        return None
+    return brace_block(text, last.end() - 1)
+
+def rule_client_issuer_binding(path, text, F):
+    # C1 (Python): issuer= missing
+    for m in PY_M2M.finditer(text):
+        line = linetext(text, m.start())
+        if _comment_line(line) or re.match(r"\s*(class|def|from|import)\b", line):
+            continue
+        args = call_args(text, m.end() - 1)
+        if re.search(r"\bissuer\s*=", args):
+            continue
+        if "**" in args:
+            add(F, "C1", "HIGH",
+                f"{m.group(1)} built from **kwargs - verify issuer= is set (review)",
+                path, text, m.start(), "options spread from elsewhere; issuer not visible at call site",
+                "GHSA-qx49-fqc8-xw99 (python-sdk issuer binding)", "MEDIUM")
+            continue
+        add(F, "C1", "HIGH",
+            f"{m.group(1)} constructed without issuer= - credentials follow any AS the MCP server advertises",
+            path, text, m.start(), f"{m.group(1)}(...) has no issuer= argument",
+            "GHSA-qx49-fqc8-xw99 (python-sdk issuer binding)", "HIGH")
+
+    # C1 (TypeScript/JS): expectedIssuer missing
+    for m in TS_M2M.finditer(text):
+        line = linetext(text, m.start())
+        if _comment_line(line):
+            continue
+        args = call_args(text, m.end() - 1)
+        if "expectedIssuer" in args:
+            continue
+        ident = re.fullmatch(r"\s*([A-Za-z_$][\w$]*)\s*,?\s*", args)
+        if ident:
+            obj = _resolve_ts_options(text, ident.group(1), m.start())
+            if obj is not None and "expectedIssuer" in obj:
+                continue
+            if obj is None:
+                add(F, "C1", "HIGH",
+                    f"{m.group(1)} options built elsewhere - verify expectedIssuer is set (review)",
+                    path, text, m.start(), f"options identifier '{ident.group(1)}' not resolvable in file",
+                    "typescript-sdk PR #2887 (SEP-2352 issuer binding)", "MEDIUM")
+                continue
+        elif "..." in args:
+            add(F, "C1", "HIGH",
+                f"{m.group(1)} options spread from elsewhere - verify expectedIssuer is set (review)",
+                path, text, m.start(), "object spread; expectedIssuer not visible at call site",
+                "typescript-sdk PR #2887 (SEP-2352 issuer binding)", "MEDIUM")
+            continue
+        add(F, "C1", "HIGH",
+            f"{m.group(1)} constructed without expectedIssuer - credentials follow any AS the MCP server advertises",
+            path, text, m.start(), f"new {m.group(1)}(...) has no expectedIssuer",
+            "typescript-sdk PR #2887 (SEP-2352 issuer binding)", "HIGH")
+
+    # C2: legacy provider with no issuer option at all
+    for m in PY_LEGACY.finditer(text):
+        line = linetext(text, m.start())
+        if _comment_line(line) or re.match(r"\s*(class|def|from|import)\b", line):
+            continue
+        add(F, "C2", "HIGH",
+            "Deprecated RFC7523OAuthClientProvider - has no issuer option; cannot be bound, migrate",
+            path, text, m.start(), "RFC7523OAuthClientProvider(...)",
+            "GHSA-qx49-fqc8-xw99 (legacy provider, no fix by config)", "HIGH")
+
+    # C3: issuer validation switched off
+    for m in ISSUER_ESCAPE.finditer(text):
+        line = linetext(text, m.start())
+        if _comment_line(line):
+            continue
+        add(F, "C3", "HIGH",
+            "Issuer validation disabled - mix-up / credential redirection guard turned off",
+            path, text, m.start(), m.group(0)[:70],
+            "RFC 8414 s3.3 / RFC 9207 / SEP-2352 escape hatch", "MEDIUM")
+
+RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
+         rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
+         rule_client_issuer_binding]
+
+def scan(root, include_tests, exclude=()):
     F = []
-    for path in iter_files(root, include_tests):
+    for path in iter_files(root, include_tests, exclude):
         try:
             text = path.read_text(errors="ignore")
         except Exception:
@@ -358,14 +497,16 @@ def scan(root, include_tests):
     return F
 
 def main():
-    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.7")
+    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.8")
     ap.add_argument("target", help="path to MCP server repo/dir")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
+    ap.add_argument("--exclude", action="append", default=[], metavar="DIR",
+                    help="skip a directory relative to target (repeatable)")
     ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default=None)
     args = ap.parse_args()
 
-    F = scan(args.target, args.include_tests)
+    F = scan(args.target, args.include_tests, args.exclude)
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 

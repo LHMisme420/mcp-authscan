@@ -9,7 +9,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Self-scan (must be clean)
-        run: python3 mcp_authscan.py . --fail-on high
+        run: python3 mcp_authscan.py . --exclude rule_corpus --fail-on high
   ground-truth:
     runs-on: ubuntu-latest
     steps:

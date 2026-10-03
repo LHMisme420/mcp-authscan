@@ -55,6 +55,38 @@
           "note": "authz deny gated on tools/call branch, no catch-all"
         }
       ]
+    },
+    {
+      "name": "fixture-client-issuer",
+      "path": "rule_corpus/client_issuer_binding",
+      "note": "self-contained C-series fixture; bound providers and resolved opts must NOT appear",
+      "must_detect": [
+        {
+          "rule": "C1",
+          "match": "py/client.py:5",
+          "note": "ClientCredentialsOAuthProvider without issuer="
+        },
+        {
+          "rule": "C2",
+          "match": "py/client.py:18",
+          "note": "legacy RFC7523OAuthClientProvider"
+        },
+        {
+          "rule": "C1",
+          "match": "py/client.py:20",
+          "note": "**kwargs review"
+        },
+        {
+          "rule": "C1",
+          "match": "ts/client.ts:4",
+          "note": "ClientCredentialsProvider without expectedIssuer"
+        },
+        {
+          "rule": "C3",
+          "match": "ts/client.ts:13",
+          "note": "skipIssuerMetadataValidation: true"
+        }
+      ]
     }
   ]
 }
