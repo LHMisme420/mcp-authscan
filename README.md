@@ -38,6 +38,12 @@ exposed. Refs: python-sdk GHSA-qx49-fqc8-xw99; typescript-sdk PR #2887
 (SEP-2352). C1 is a call-site check: options built in another file show up
 as MEDIUM-confidence review items.
 
+A runtime proof of the C1/C2 gap - a rogue authorization server harvesting
+the client's credentials across all three M2M shapes, and refusing once
+issuer= is set - is in
+rule_corpus/client_issuer_binding/live_repro/ (--json emits a
+report_sha256 to anchor).
+
 ## Usage
 
 ```
