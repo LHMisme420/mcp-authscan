@@ -306,8 +306,45 @@ def rule_excluded_tools(path, text, F):
             path, text, m.start(), m.group(0),
             "VATA:mcpjungle excluded_tools bypass / REST Enabled-flag gap", "LOW")
 
+# ---- Rule A6: authz/deny check gated on a specific method/path (review-list) ----
+# Confidence: LOW. Review pointer, NOT a detector. Static analysis cannot prove
+# whether OTHER methods bypass the check (that is control-flow reasoning), so this
+# only surfaces authz checks that sit inside a method/path conditional for a human
+# to verify a catch-all deny exists. Seeded by VATA:ttokkime tools/list bypass.
+METHOD_GATE = re.compile(
+    r"(if\s+[^\n{]*\b(req\.)?[Mm]ethod\s*==|switch\s+[^\n{]*[Mm]ethod\b|"
+    r"case\s+[\"'][a-z]+/[a-z]+[\"']|==\s*[\"'](tools|resources|prompts)/)", re.I)
+AUTHZ_DECISION = re.compile(
+    r"(DeniedRBAC|Unauthorized|[Ff]orbidden|StatusForbidden|403|"
+    r"!\s*\w*\.?(ToolAllowed|IsWildcard|hasRole|canAccess|isAllowed)|"
+    r"return\s+[^\n]*(deny|denied|unauthor))", re.I)
+
+def rule_method_scoped_authz(path, text, F):
+    # Skip test/mock fixtures: they dispatch by method but carry no real authz.
+    if is_test_path(path) or "mock" in str(path).lower():
+        return
+    seen = set()
+    for m in METHOD_GATE.finditer(text):
+        # Look only in a tight window around the method conditional (the gated
+        # branch), not the whole function, so an authz word drifting elsewhere
+        # in the file does not trigger a match.
+        near = text[m.start():m.start()+400]
+        if not AUTHZ_DECISION.search(near):
+            continue
+        key = lineno(text, m.start())
+        if key in seen:
+            continue
+        seen.add(key)
+        line = linetext(text, m.start()).strip()
+        if line.startswith(("//", "#", "*", "/*")):
+            continue
+        add(F, "A6", "MEDIUM",
+            "Authz check gated on a specific method/path - verify other methods are not bypassed (review each)",
+            path, text, m.start(), line[:70],
+            "VATA:ttokkime method-scoped RBAC (tools/list bypass)", "LOW")
+
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
-         rule_ssrf, rule_excluded_tools]
+         rule_ssrf, rule_excluded_tools, rule_method_scoped_authz]
 
 def scan(root, include_tests):
     F = []
