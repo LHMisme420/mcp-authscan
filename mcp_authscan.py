@@ -169,6 +169,10 @@ def _cred_value(evidence):
     m = re.search(r"['\"]([^'\"]{6,})['\"]", evidence)
     return m.group(1) if m else ""
 
+# A dangerous re-seed runs on every startup/restart. A bare setup function
+# (idempotent, first-boot) is not a finding. Require a startup trigger nearby.
+RESEED_TRIGGER = re.compile(r"on_?start|startup|on_?boot|every restart|on_event|lifespan|if __name__|OnInitialize", re.I)
+
 def rule_default_creds(path, text, F):
     for m in DEFAULT_CRED.finditer(text):
         ev = m.group(0)
@@ -179,12 +183,20 @@ def rule_default_creds(path, text, F):
             continue
         if re.match(r"\s*(>>>|\.\.\.|#|//|\*)", line):
             continue
+        if "pragma: allowlist secret" in line.lower():
+            continue
+        if any(seg in str(path).lower() for seg in ("/demo", "demo_", "/example", "example_", "/sample", "sample_")):
+            continue
         add(F, "A2", "CRITICAL", "Hardcoded default credential literal",
             path, text, m.start(), ev[:80],
             "VATA:lucky-aeon default admin creds", "HIGH")
     for m in RESEED.finditer(text):
         window = text[max(0, m.start()-200):m.start()+200]
         if not CRED_CONTEXT.search(window):
+            continue
+        if "idempotent" in window.lower():
+            continue
+        if not RESEED_TRIGGER.search(window):
             continue
         add(F, "A2", "HIGH", "Admin re-seed routine (verify not run every restart)",
             path, text, m.start(), m.group(0),
