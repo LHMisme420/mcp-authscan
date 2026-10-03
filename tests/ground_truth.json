@@ -43,6 +43,18 @@
           "note": "method-scoped authz: RBAC gated on tools/call, other methods bypass"
         }
       ]
+    },
+    {
+      "name": "fixture-a6",
+      "path": "rule_corpus/method_scoped_authz",
+      "note": "self-contained A6 fixture (no network); stays green even if Ttokkime patches",
+      "must_detect": [
+        {
+          "rule": "A6",
+          "match": "internal/proxy/proxy.go:7",
+          "note": "authz deny gated on tools/call branch, no catch-all"
+        }
+      ]
     }
   ]
 }

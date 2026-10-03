@@ -42,7 +42,28 @@ def main():
     failures = []
 
     for case in manifest["cases"]:
-        name, repo = case["name"], case["repo"]
+        name = case["name"]
+        # Local fixture case: scan a path in the repo, no clone/network.
+        if "path" in case:
+            dest = (MANIFEST.parent.parent / case["path"]).resolve()
+            print(f"[local]  {name}: {dest}")
+            scan = run([sys.executable, str(SCANNER), str(dest)])
+            out = scan.stdout
+            for exp in case["must_detect"]:
+                total_expected += 1
+                lines = out.splitlines()
+                rule_ok = False
+                for i, line in enumerate(lines):
+                    if f"] {exp['rule']} " in line and exp["match"] in "\n".join(lines[i:i+3]):
+                        rule_ok = True; break
+                if rule_ok:
+                    total_found += 1
+                    print(f"  PASS  {exp['rule']}  {exp['match']}")
+                else:
+                    failures.append((name, exp["rule"], exp["match"], "not detected"))
+                    print(f"  FAIL  {exp['rule']}  {exp['match']}  <- NOT re-detected")
+            continue
+        repo = case["repo"]
         dest = workdir / name
         if not dest.exists():
             print(f"[clone] {repo}")
