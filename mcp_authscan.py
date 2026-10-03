@@ -19,6 +19,8 @@ from pathlib import Path
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
+# A scanner must not flag its own rule definitions. Skip our own source file.
+SELF_PATH = __import__("pathlib").Path(__file__).resolve()
 TEST_DIR = {"__tests__", "test", "tests", "e2e", "testdata", "spec",
             "testhelpers", "testhelper", "mocks", "fixtures", "testutil", "testutils"}
 TEST_FILE = re.compile(
@@ -33,6 +35,8 @@ def is_test_path(p):
 def iter_files(root, include_tests):
     for p in Path(root).rglob("*"):
         if not (p.is_file() and p.suffix in SRC_EXT):
+            continue
+        if p.resolve() == SELF_PATH:
             continue
         if any(s in p.parts for s in SKIP_DIR):
             continue

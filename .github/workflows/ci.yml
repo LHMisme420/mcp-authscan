@@ -1,0 +1,21 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  selfscan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Self-scan (must be clean)
+        run: python3 mcp_authscan.py . --fail-on high
+  ground-truth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Re-detect seed findings
+        run: python3 tests/verify_ground_truth.py
