@@ -27,6 +27,8 @@ v0.4 changes:
 import argparse, hashlib, json, re, sys
 from pathlib import Path
 
+VERSION = "0.8"
+
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
 # A scanner must not flag its own rule definitions. Skip our own source file.
@@ -481,6 +483,114 @@ def rule_client_issuer_binding(path, text, F):
             path, text, m.start(), m.group(0)[:70],
             "RFC 8414 s3.3 / RFC 9207 / SEP-2352 escape hatch", "MEDIUM")
 
+# ===================== SARIF 2.1.0 output (GitHub code scanning) =====================
+# Rule metadata for the Security tab. Rules absent here still emit results via a
+# graceful fallback, so adding a new detector rule never breaks SARIF output.
+# security-severity is a string float GitHub buckets as: >=9 critical, 7-8.9 high,
+# 4-6.9 medium, <4 low. It is a rule-level property, so a rule that spans severities
+# (e.g. A2) buckets by its canonical value; the per-finding severity still rides on
+# the result `level` (error/warning/note) below.
+RULE_META = {
+    "A1": {"name": "OAuthAuthorizeNoClientValidation",
+           "desc": "OAuth authorize handler reads client_id/redirect_uri but never validates against an allowlist (auth bypass / open redirect / account takeover).",
+           "sev": 9.0, "cwe": ["CWE-862", "CWE-863", "CWE-601"]},
+    "A2": {"name": "HardcodedDefaultAdminCredential",
+           "desc": "Hardcoded default admin credential, or an admin re-seed routine that may run on every restart.",
+           "sev": 9.0, "cwe": ["CWE-798", "CWE-1392"]},
+    "A3": {"name": "AuthMiddlewareNoAuthorization",
+           "desc": "Auth middleware validates a token but enforces no role/tenant/scope (cross-tenant access).",
+           "sev": 7.5, "cwe": ["CWE-862", "CWE-863"]},
+    "A4": {"name": "SSRFOutboundNonLiteralURL",
+           "desc": "Outbound HTTP request to a non-literal, externally-influenced URL with no allowlist / internal-IP guard (review-list).",
+           "sev": 5.0, "cwe": ["CWE-918"]},
+    "A5": {"name": "ToolBlocklistEnforcementUnverified",
+           "desc": "excluded_tools/blocklist defined but enforcement unverified across surfaces (review pointer).",
+           "sev": 3.0, "cwe": ["CWE-863"]},
+    "A6": {"name": "MethodScopedAuthorization",
+           "desc": "Authorization check gated on a specific method/path; other methods may bypass it (review-list).",
+           "sev": 5.0, "cwe": ["CWE-863"]},
+    "C1": {"name": "MCPClientMissingIssuerBinding",
+           "desc": "M2M MCP OAuth client provider built without issuer/expectedIssuer; pre-provisioned credentials follow whatever AS the MCP server advertises.",
+           "sev": 7.5, "cwe": ["CWE-346", "CWE-290"]},
+    "C2": {"name": "MCPClientLegacyProviderNoIssuer",
+           "desc": "Deprecated RFC7523OAuthClientProvider has no issuer option and cannot be bound; migrate.",
+           "sev": 7.5, "cwe": ["CWE-346"]},
+    "C3": {"name": "MCPClientIssuerValidationDisabled",
+           "desc": "Issuer validation explicitly disabled; authorization-server mix-up / credential-redirection guard turned off.",
+           "sev": 7.5, "cwe": ["CWE-346", "CWE-290"]},
+}
+SARIF_LEVEL = {"CRITICAL": "error", "HIGH": "error", "MEDIUM": "warning", "LOW": "note"}
+
+def _ghsa_uri(ref):
+    m = re.search(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}", ref or "", re.I)
+    return f"https://github.com/advisories/{m.group(0)}" if m else None
+
+def to_sarif(findings, target):
+    """Build a SARIF 2.1.0 log. Carries the same report_sha256 receipt as --json
+    (over the identical findings payload) in run.properties so a SARIF run is as
+    anchorable as a JSON one."""
+    root = Path(target).resolve()
+    # declare every known rule, plus any rule that fired but isn't in RULE_META
+    rule_ids = list(RULE_META.keys())
+    for f in findings:
+        if f["rule"] not in rule_ids:
+            rule_ids.append(f["rule"])
+    rule_index = {rid: i for i, rid in enumerate(rule_ids)}
+    rules = []
+    for rid in rule_ids:
+        meta = RULE_META.get(rid, {})
+        rules.append({
+            "id": rid,
+            "name": meta.get("name", f"Rule{rid}"),
+            "shortDescription": {"text": meta.get("desc", f"VATA mcp-authscan rule {rid}")},
+            "helpUri": "https://github.com/LHMisme420/mcp-authscan#rules",
+            "properties": {
+                "security-severity": f"{meta.get('sev', 5.0):.1f}",
+                "tags": ["security", "mcp", "oauth"] + meta.get("cwe", []),
+            },
+        })
+    results = []
+    for f in findings:
+        rid = f["rule"]
+        try:
+            uri = Path(f["file"]).resolve().relative_to(root).as_posix()
+        except Exception:
+            uri = Path(f["file"]).as_posix()
+        ref = f.get("ref", "")
+        fp = hashlib.sha256(f"{rid}|{uri}|{f.get('evidence','')}".encode()).hexdigest()[:16]
+        props = {"confidence": f.get("confidence", ""), "vataSeverity": f.get("severity", ""),
+                 "ref": ref, "evidence": f.get("evidence", "")}
+        adv = _ghsa_uri(ref)
+        if adv:
+            props["advisory"] = adv
+        results.append({
+            "ruleId": rid,
+            "ruleIndex": rule_index[rid],
+            "level": SARIF_LEVEL.get(f["severity"], "warning"),
+            "message": {"text": f"{f['title']} [{f['severity']}/{f['confidence']}] ({ref})"},
+            "locations": [{"physicalLocation": {
+                "artifactLocation": {"uri": uri},
+                "region": {"startLine": max(1, int(f.get("line", 1)))},
+            }}],
+            "partialFingerprints": {"vataAuthscan/v1": fp},
+            "properties": props,
+        })
+    blob = json.dumps({"target": target, "count": len(findings), "findings": findings},
+                      sort_keys=True).encode()
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "mcp-authscan",
+                "informationUri": "https://github.com/LHMisme420/mcp-authscan",
+                "version": VERSION,
+                "rules": rules,
+            }},
+            "properties": {"reportSha256": hashlib.sha256(blob).hexdigest()},
+            "results": results,
+        }],
+    }
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
          rule_client_issuer_binding]
@@ -497,9 +607,10 @@ def scan(root, include_tests, exclude=()):
     return F
 
 def main():
-    ap = argparse.ArgumentParser(description="VATA mcp_authscan v0.8")
+    ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
     ap.add_argument("target", help="path to MCP server repo/dir")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
+    ap.add_argument("--sarif", action="store_true", help="emit SARIF 2.1.0 (GitHub code scanning)")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
     ap.add_argument("--exclude", action="append", default=[], metavar="DIR",
                     help="skip a directory relative to target (repeatable)")
@@ -510,7 +621,9 @@ def main():
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 
-    if args.json:
+    if args.sarif:
+        print(json.dumps(to_sarif(F, args.target), indent=2))
+    elif args.json:
         payload = {"target": args.target, "count": len(F), "findings": F}
         blob = json.dumps(payload, sort_keys=True).encode()
         payload["report_sha256"] = hashlib.sha256(blob).hexdigest()  # anchor hook
