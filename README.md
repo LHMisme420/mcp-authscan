@@ -1,13 +1,53 @@
 # mcp-authscan
 
-Static detector for **self-rolled-auth failure classes in MCP servers**, plus
-**issuer-binding gaps in MCP OAuth clients.**
-Part of the VATA program — *Receipts Over Promises.*
+![license](https://img.shields.io/badge/license-MIT-blue)
+![python](https://img.shields.io/badge/python-3%20%C2%B7%20stdlib%20only-blue)
+![output](https://img.shields.io/badge/output-SARIF%202.1.0-brightgreen)
+![findings](https://img.shields.io/badge/findings-anchored%20on--chain-8A2BE2)
 
-Most MCP security scanners target AI-native failures (tool poisoning, prompt
-injection, rug pulls). `mcp-authscan` targets the boring, classic web-auth
-failures that keep shipping in MCP gateway code — the ones found by hand across
-real repos and anchored as VATA findings. Stdlib Python 3, zero dependencies.
+> Static security scanner for the classic web-auth failures that keep shipping in
+> MCP servers, gateways, and OAuth clients — the boring bugs the AI-native scanners skip.
+
+*Built and maintained by **Leroy H. Mason** (RU∞X / VATA) — an independent security
+researcher applying two decades of law-enforcement and risk-management
+chain-of-custody discipline to AI-agent security.*
+
+Most MCP security tools chase AI-native failures (tool poisoning, prompt injection,
+rug pulls). `mcp-authscan` targets the plain web-auth failures that keep shipping in
+MCP gateway and OAuth code — authorization servers that skip PKCE, authorization
+codes that replay or never expire, issuer-binding gaps in M2M clients, hardcoded
+admin credentials. **Every rule is seeded from a vulnerability VATA found and
+live-reproduced in a real MCP project.** Stdlib Python 3, zero dependencies.
+
+**What makes it different:** every scan emits a SHA-256 over its findings that you can
+anchor to a public blockchain — a tamper-evident, timestamped receipt. Commodity
+scanners give you output; this gives you proof. *Receipts Over Promises.*
+
+## Quick start
+
+```
+git clone https://github.com/LHMisme420/mcp-authscan.git
+python3 mcp-authscan/mcp_authscan.py <path-to-repo>     # scan
+python3 mcp-authscan/mcp_authscan.py <path> --sarif     # SARIF for GitHub code scanning
+python3 mcp-authscan/mcp_authscan.py <path> --json      # emits report_sha256 to anchor
+```
+
+No install step, no dependencies — stdlib Python 3. *(PyPI package coming next.)*
+
+## Findings behind the rules
+
+`mcp-authscan` is not theoretical. Its rules encode real vulnerabilities VATA
+discovered, live-reproduced, and disclosed through coordinated channels:
+
+- **PraisonAI** — CVE-2026-60085 (GHSA-5r6c-gj4g-r697), unenforced security policy in
+  the subprocess sandbox; fixed in 4.6.78, credited to LHMisme420.
+- **B-series rules (PKCE / authorization-code lifecycle)** are seeded from findings
+  live-reproduced in the webrix, atrawog, and akshay5995 self-rolled OAuth gateways —
+  each anchored in the VATA corpus below.
+
+Every finding is reproduced before disclosure and anchored on-chain for
+chain-of-custody. Full corpus → [VATA dashboard](https://lhmisme420.github.io/VATA-SCORES-0311)
+· [Zenodo (DOI, ORCID-linked)](https://doi.org/10.5281/zenodo.21839413)
 
 ## Rules
 
@@ -80,11 +120,9 @@ B1-skip and B3 are detectors; B1-verifier and B2 are review-lists, for the same
 reason A4/A5 are — the certain cases are findings, the dataflow-dependent cases
 enumerate surface to inspect. The confidence column says which.
 
-## Usage
+## Usage (all options)
 
 ```
-python3 mcp_authscan.py <path-to-repo>
-python3 mcp_authscan.py <path> --json          # emits report_sha256 for anchoring
 python3 mcp_authscan.py <path> --include-tests # test files skipped by default
 python3 mcp_authscan.py <path> --fail-on high  # CI gate: nonzero exit on >= sev
 python3 mcp_authscan.py <path> --exclude DIR   # skip a dir (repeatable)
