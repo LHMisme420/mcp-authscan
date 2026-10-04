@@ -81,3 +81,54 @@ Dashboard: https://lhmisme420.github.io/VATA-SCORES-0311
 
 Heuristic static analysis. It flags patterns; it does not prove exploitability.
 A4/A5 are review-lists by design. **Absence of a finding is not proof of safety.**
+
+## GitHub code scanning (SARIF)
+
+`mcp-authscan` can emit SARIF 2.1.0 so findings surface natively in a repo's
+**Security → Code scanning** tab. Each rule carries a `security-severity` score
+and its CWE identifier, so GitHub renders severity and taxonomy with no extra
+configuration.
+
+```bash
+# write SARIF to a file
+mcp-authscan . --sarif results.sarif
+```
+
+To scan on every push/PR and upload results, drop this into a consuming repo at
+`.github/workflows/mcp-authscan.yml` (identical copy shipped at
+`examples/github-code-scanning.yml`):
+
+```yaml
+name: MCP auth scan
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  mcp-authscan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install git+https://github.com/LHMisme420/mcp-authscan.git
+      - run: mcp-authscan . --sarif results.sarif
+        continue-on-error: true
+      - if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: mcp-authscan
+```
+
+`security-events: write` is mandatory for the upload. `continue-on-error` +
+`if: always()` ensure findings still reach the Security tab when the scan exits
+non-zero on a hit.
