@@ -27,7 +27,7 @@ v0.4 changes:
 import argparse, hashlib, json, re, sys
 from pathlib import Path
 
-VERSION = "0.8"
+VERSION = "0.8.0"
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}

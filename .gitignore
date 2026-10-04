@@ -11,3 +11,5 @@ _validation/
 *.bak
 *.prewire.bak
 tools/
+dist/
+build/
