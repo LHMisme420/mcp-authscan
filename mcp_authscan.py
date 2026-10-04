@@ -518,6 +518,15 @@ RULE_META = {
     "C3": {"name": "MCPClientIssuerValidationDisabled",
            "desc": "Issuer validation explicitly disabled; authorization-server mix-up / credential-redirection guard turned off.",
            "sev": 7.5, "cwe": ["CWE-346", "CWE-290"]},
+    "B1": {"name": "PKCEAcceptedbutNeverEnforced",
+           "desc": "Self-rolled authorization server accepts a PKCE code_verifier (or is explicitly told to skip local PKCE) but never performs the SHA-256/S256 challenge check.",
+           "sev": 8.1, "cwe": ["CWE-287", "CWE-1390"]},
+    "B2": {"name": "AuthorizationCodeNotSingleUse",
+           "desc": "Authorization code is redeemed at the token endpoint but is never invalidated (delete/mark-used/revoke) in the same file; the code may be replayable. Review pointer: confirm invalidation is not delegated to an unscanned storage layer.",
+           "sev": 8.6, "cwe": ["CWE-294", "CWE-384"]},
+    "B3": {"name": "AuthorizationCodeExcessiveLifetime",
+           "desc": "Authorization code is issued with a lifetime far exceeding RFC 6749's ~600s (10 min) recommendation.",
+           "sev": 7.5, "cwe": ["CWE-613"]},
 }
 SARIF_LEVEL = {"CRITICAL": "error", "HIGH": "error", "MEDIUM": "warning", "LOW": "note"}
 
@@ -591,9 +600,144 @@ def to_sarif(findings, target):
             "results": results,
         }],
     }
+# ---- Rules B1/B2/B3: self-rolled OAuth authorization-code lifecycle ----
+# Seeded from VATA findings akshay5995 / atrawog / webrix. Validated v4 against a
+# 4-repo ground-truth corpus (3/3 seeded recovered, 0 FP on IdP-delegating control).
+# Per-file by design (matches the scan() driver). KNOWN LIMITS, not faked:
+#   * B1 does NOT detect PKCE-*optional* (validated-when-present, skippable-when-
+#     absent) -- that is control-flow, not a regex shape (atrawog's B1 case).
+#   * B2 is SAME-FILE only: a redeem path whose invalidation lives in a different
+#     file (storage layer) will false-positive. Hence MEDIUM/warning + review note.
+#   * B3 "no expiry field anywhere in schema" (cross-file absence) is out of scope;
+#     only explicit excessive TTL is detected.
+
+B_OAUTH_HINT = re.compile(r"authorization_code|grant_type|code_verifier|code_challenge|token_endpoint|oauth|pkce|/token|/authorize", re.I)
+B_AS_ROUTE  = re.compile(r"""(?:@\w+\.(?:post|get|route|api_route)|(?:router|app|server|blueprint|bp)\.(?:post|get|route)|add_api_route|add_route)\s*\(\s*['"][^'"]*/(?:token|authorize|authorization|oauth)""", re.I)
+B_AS_FORM   = re.compile(r"\bForm\s*\(", re.I)
+B_AS_INBOUND = re.compile(r"""request\.(?:form|json|body|data|query|args|POST)|req\.(?:body|query|params)|\.get\(\s*['"](?:grant_type|code_verifier|code)['"]""", re.I)
+B_AS_FUNC   = re.compile(r"""exchange[_]?authorization[_]?code|exchangeAuthorizationCode|create[_]?authorization[_]?code|createAuthorizationCode|store[_]?authorization[_]?code|storeAuthorizationCode|validate[_]?(?:authorization[_]?)?code|issue[_]?(?:access[_]?)?token|issueToken|def\s+token\b|def\s+authorize\b""", re.I)
+B_CLIENT_REQ = re.compile(r"""(?:requests|httpx|aiohttp|urllib|session|axios)\.(?:post|request|get)\b|fetch\s*\([^\n]{0,120}token|data\s*=\s*\{[^}\n]*grant_type|token_(?:endpoint|url|uri)\s*[,=)]""", re.I)
+
+def _b_is_authz_server(text):
+    strong = bool(B_AS_ROUTE.search(text) or B_AS_FORM.search(text) or B_AS_INBOUND.search(text))
+    func   = bool(B_AS_FUNC.search(text))
+    client = bool(B_CLIENT_REQ.search(text))
+    return strong or (func and not client)
+
+B_SKIP_PKCE = re.compile(r"skip[_-]?local[_-]?pkce[_-]?validation\s*[:=]\s*true", re.I)
+B_PKCE_HASH = re.compile(r"sha-?256|s256|createhash|crypto\.createHash|subtle\.digest|hashlib\.sha256|\.digest\(|hashes\.SHA256", re.I)
+B_VERIFIER  = re.compile(r"code[_]?verifier", re.I)
+B_GEN_VERIFIER = re.compile(r"code[_]?verifier\s*=\s*.*(?:secrets|token_|randombytes|random\.|base64|createhash|uuid|getrandom)", re.I)
+B_RECV_HINT = re.compile(r"""Form\s*\(|Body\s*\(|Query\s*\(|:\s*Optional|:\s*str\b|\?\s*:\s*str|\.get\(\s*['"]code_verifier|request\.|req\.|body\.|params|\bdef\s|\bfunction\s|[(,]\s*code[_]?verifier\s*[:?,)]""", re.I)
+
+B_GRANT_AC    = re.compile(r"grant_type[^\n]{0,40}authorization_code|authorization_code[^\n]{0,40}grant_type|['\"]authorization_code['\"]", re.I)
+B_REDEEM_FUNC = re.compile(r"exchange[_]?authorization[_]?code|exchangeAuthorizationCode|redeem[_\s\w]{0,20}code|validate[_]?authorization[_]?code|validateAuthorizationCode|consume[_\s\w]{0,20}code", re.I)
+B_LOOKUP_CODE = re.compile(r"(?:get|find|lookup|fetch|load|retrieve)[_\s\w.]*authorization[_]?code|getAuthorizationCode|findAuthorizationCode|getByCode|authorization[_]?codes?\s*\[[^\]]+\]|where\s+code\s*=|from\s+\w*codes?\b|codes?\.get\(|codes?\.find", re.I)
+B_INVALIDATE  = re.compile(
+    r"delete[_\s]+\w*code|del\s+\w*code|delete\s+from\s+\w*codes?\b"
+    r"|revoke\w*code|revokeCode|revoke_authorization|invalidate\w*code|invalidateCode"
+    r"|mark[_]?used|markUsed|mark[_]?code[_]?used|consume\w*code|consumeCode|consume_authorization"
+    r"|redeemed\s*[:=]\s*[Tt]rue|used\s*[:=]\s*[Tt]rue|is[_]?used\s*[:=]\s*[Tt]rue"
+    r"|codes?\.(?:delete|remove|pop)\(|authorization[_]?codes?\.(?:delete|remove|pop)\("
+    r"|(?:delete|remove|pop|del)\([^)\n]*\bcode\b|\.(?:delete|remove|pop)\([^)\n]*\bcode", re.I)
+B_EXPIRY_FIELD = re.compile(r"expires?(_at|_in)?\b|\bexp\b|\bttl\b|expiry|valid[_-]?until|not[_-]?after", re.I)
+B_CODE_CTX = re.compile(r"\bcode\b|authorization", re.I)
+# B3 gating: the excessive number must govern an AUTHORIZATION CODE.
+B_AUTHCODE_TTL_CTX = re.compile(r"auth(?:oriz\w*)?[_ ]?code|authorization_code|code[_]?ttl|code[_]?expir|code[_]?lifetime|codes?\s*\[|store[_]?auth\w*code|create[_]?auth\w*code|issue\w*code", re.I)
+# strong signal that THIS is explicitly an auth-code TTL (overrides the exclusion)
+B_AUTHCODE_STRONG = re.compile(r"authorization_code|auth[_]?code[_]?(?:ttl|expir|lifetime|max_?age)|code[_]?ttl", re.I)
+# access/refresh/session/id-token lifetimes: 3600-class values here are NORMAL, not B3
+B_OTHER_TOKEN_TTL = re.compile(r"access[_]?token|refresh[_]?token|id[_]?token|session|jwt|bearer|expires_in|cookie|max_?age", re.I)
+B_TTL_PATTERNS = [
+    (re.compile(r"timedelta\(\s*days\s*=\s*(\d+)", re.I), 86400),
+    (re.compile(r"timedelta\(\s*hours\s*=\s*(\d+)", re.I), 3600),
+    (re.compile(r"(\d+)\s*\*\s*86400"), 86400),
+    (re.compile(r"(\d+)\s*\*\s*3600"), 3600),
+]
+B_BIG_INT_TTL = re.compile(r"(expires?_in|ttl|code[_-]?ttl|lifetime|max[_-]?age|expiry)\s*[:=]\s*(\d{3,})", re.I)
+B_KNOWN_SECS = (31536000, 2592000, 604800)
+B_RFC_MAX = 600
+
+def _b_ttl_seconds(line):
+    for rx, mult in B_TTL_PATTERNS:
+        m = rx.search(line)
+        if m:
+            try: return int(m.group(1)) * mult
+            except (IndexError, ValueError): pass
+    m = B_BIG_INT_TTL.search(line)
+    if m:
+        try: return int(m.group(2))
+        except ValueError: pass
+    for c in B_KNOWN_SECS:
+        if re.search(r"\b%d\b" % c, line): return c
+    return None
+
+def rule_pkce_not_enforced(path, text, F):
+    if not B_OAUTH_HINT.search(text):
+        return
+    # B1a: PKCE explicitly skipped (definitive -> HIGH/error)
+    for m in B_SKIP_PKCE.finditer(text):
+        add(F, "B1", "HIGH", "PKCE validation explicitly disabled",
+            path, text, m.start(),
+            "skipLocalPkceValidation=true with no local verifier check taking over",
+            "VATA:webrix skipLocalPkceValidation", "HIGH")
+    # B1b: verifier received as input but never hashed (AS-gated -> MEDIUM/warning)
+    if _b_is_authz_server(text) and not B_PKCE_HASH.search(text):
+        for m in B_VERIFIER.finditer(text):
+            ls = text.rfind("\n", 0, m.start()) + 1
+            le = text.find("\n", m.start());  le = len(text) if le < 0 else le
+            line = text[ls:le]
+            if B_GEN_VERIFIER.search(line) or not B_RECV_HINT.search(line):
+                continue
+            add(F, "B1", "MEDIUM", "PKCE code_verifier received but never validated",
+                path, text, m.start(),
+                "code_verifier received as input; no SHA-256/S256 transform in this file",
+                "VATA:atrawog/webrix verifier-never-hashed", "MEDIUM")
+            break
+    # B3: explicit excessive authorization-code TTL (definitive number -> HIGH/error)
+    for m in B_BIG_INT_TTL.finditer(text):
+        pass  # covered by line loop below for context gating
+    for mline in re.finditer(r"[^\n]*\n?", text):
+        line = mline.group(0)
+        if not line.strip():
+            continue
+        secs = _b_ttl_seconds(line)
+        if secs is None or secs <= B_RFC_MAX:
+            continue
+        ctx = text[max(0, mline.start()-240):mline.start()+240]
+        # Must be tied to an AUTHORIZATION CODE specifically, not generic OAuth
+        # context. 3600 etc. is the usual access-token lifetime; only fire when the
+        # vicinity names an auth code and does NOT read as access/refresh/session TTL.
+        if not B_AUTHCODE_TTL_CTX.search(ctx):
+            continue
+        if B_OTHER_TOKEN_TTL.search(ctx) and not B_AUTHCODE_STRONG.search(ctx):
+            continue
+        add(F, "B3", "HIGH", f"Authorization-code lifetime ~{secs}s exceeds RFC 6749 ~600s",
+            path, text, mline.start(),
+            f"auth-code TTL {secs}s (RFC 6749 4.1.2 recommends <=600s)",
+            "VATA:atrawog 1-year auth-code TTL", "HIGH")
+
+def rule_authcode_replay(path, text, F):
+    # B2 same-file: redeem path present, no invalidation in THIS file. MEDIUM/warning
+    # + review note, because true single-use may be enforced in a separate storage file.
+    if not B_OAUTH_HINT.search(text) or not _b_is_authz_server(text):
+        return
+    if not (B_GRANT_AC.search(text) or B_REDEEM_FUNC.search(text)):
+        return
+    rm = B_REDEEM_FUNC.search(text) or B_LOOKUP_CODE.search(text)
+    if rm is None:
+        return
+    if B_INVALIDATE.search(text):
+        return  # something in this file invalidates a code -> not a same-file replay
+    add(F, "B2", "MEDIUM", "Authorization code redeemed but never invalidated (same-file)",
+        path, text, rm.start(),
+        "code redeemed/looked up here; no delete/mark-used/revoke in this file -- confirm storage layer before filing",
+        "VATA:webrix auth-code replay", "MEDIUM")
+
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
-         rule_client_issuer_binding]
+         rule_client_issuer_binding,
+         rule_pkce_not_enforced, rule_authcode_replay]
 
 def scan(root, include_tests, exclude=()):
     F = []

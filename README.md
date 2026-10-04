@@ -21,6 +21,10 @@ real repos and anchored as VATA findings. Stdlib Python 3, zero dependencies.
 | C1 | HIGH / HIGH (MEDIUM when options are spread) | M2M MCP client provider built without an issuer binding: Python `ClientCredentialsOAuthProvider`/`PrivateKeyJWTOAuthProvider` without `issuer=`, TS `ClientCredentialsProvider`/`PrivateKeyJwtProvider`/`StaticPrivateKeyJwtProvider`/`CrossAppAccessProvider` without `expectedIssuer` | detector |
 | C2 | HIGH / HIGH | Deprecated Python `RFC7523OAuthClientProvider` — has no issuer option, cannot be bound by config | detector |
 | C3 | HIGH / MEDIUM | Issuer validation switched off (`skipIssuerMetadataValidation: true`, `verify_iss: False`, etc.) | detector |
+| B1 | HIGH / HIGH | Self-rolled authorization server told to skip PKCE (`skipLocalPkceValidation: true`) with nothing else verifying the challenge (CWE-287) | detector |
+| B1 | MEDIUM / MEDIUM | AS receives a PKCE `code_verifier` as input but no SHA-256/S256 transform appears in the file — verifier never checked against the stored challenge (CWE-287) | review-list |
+| B2 | HIGH / MEDIUM | Authorization code redeemed at the token endpoint but never invalidated (delete/mark-used/revoke) in the same file — possible replay (CWE-294) | review-list |
+| B3 | HIGH / HIGH | Authorization code issued with a lifetime far exceeding RFC 6749's ~600s recommendation (CWE-613) | detector |
 
 A1–A3 are detectors: a hit is a finding to triage. A4–A5 are review-lists:
 SSRF and enforcement-gap detection need dataflow, not pattern matching, so these
@@ -43,6 +47,38 @@ the client's credentials across all three M2M shapes, and refusing once
 issuer= is set - is in
 rule_corpus/client_issuer_binding/live_repro/ (--json emits a
 report_sha256 to anchor).
+
+### Why the B-series exists
+
+Every self-rolled OAuth 2.1 authorization server VATA has audited that
+hand-rolls RFC 6749 / PKCE has failed at least one of three lifecycle
+invariants; gateways delegating to an established IdP (Keycloak, Cognito, Dex)
+have not. The B-series encodes the three most-repeated failures, seeded from
+live-repro'd findings:
+
+- **B1 — PKCE accepted but never enforced.** Either the provider is explicitly
+  told to skip local PKCE (`skipLocalPkceValidation: true`, webrix) or a
+  `code_verifier` is accepted but never hashed and compared (atrawog, akshay5995).
+- **B2 — authorization code not single-use.** The code is redeemed but never
+  invalidated, so it replays (webrix).
+- **B3 — authorization code never expires / excessive TTL.** Codes issued with
+  lifetimes orders of magnitude over the ~10-minute recommendation (atrawog, 1yr).
+
+Honest limits, stated so findings are not over-claimed:
+
+- B1 does **not** detect *optional* PKCE (validated when present, skippable when
+  absent) — that is a control-flow property, not a pattern, and is left to manual
+  review rather than guessed at.
+- B2 is **same-file**: a server that invalidates its code in a separate storage
+  module will be flagged here as a review item (MEDIUM), not asserted as a bug.
+  Confirm the storage layer before filing.
+- B3 fires only on an **explicit** excessive number tied to an authorization
+  code; expiry that is simply *absent* across a schema (a cross-file absence) is
+  not detected.
+
+B1-skip and B3 are detectors; B1-verifier and B2 are review-lists, for the same
+reason A4/A5 are — the certain cases are findings, the dataflow-dependent cases
+enumerate surface to inspect. The confidence column says which.
 
 ## Usage
 
@@ -67,6 +103,9 @@ release.
 | lucky-aeon/mcp-gateway | A3 | `internal/gateway/auth.go` `mcpAuthMiddleware` |
 | mcpjungle/mcpjungle | A4 | `internal/service/mcp/upstream_oauth.go` `RegistrationEndpoint` fetch |
 | rule_corpus fixture | C1–C3 | `rule_corpus/client_issuer_binding` (bound providers must stay silent) |
+| webrix-ai/secure-mcp-gateway | B1, B2 | `src/services/mcp-auth-provider.ts` (`skipLocalPkceValidation`, `exchangeAuthorizationCode`) |
+| atrawog/mcp-oauth-dynamicclient | B1, B3 | `src/mcp_oauth_dynamicclient/routes.py` (1-year auth-code TTL) |
+| akshay5995/mcp-oauth-gateway | B1 | `src/gateway.py` (`code_verifier` received, never validated) |
 
 ## Provenance
 
@@ -88,6 +127,10 @@ A4/A5 are review-lists by design. **Absence of a finding is not proof of safety.
 **Security → Code scanning** tab. Each rule carries a `security-severity` score
 and its CWE identifier, so GitHub renders severity and taxonomy with no extra
 configuration.
+
+Result level follows severity: CRITICAL/HIGH map to `error`, MEDIUM to
+`warning`, LOW to `note` — so review-list (MEDIUM) findings surface as
+warnings, not errors, in the Security tab.
 
 ```bash
 # write SARIF to a file

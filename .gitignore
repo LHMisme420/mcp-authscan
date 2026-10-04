@@ -5,3 +5,9 @@ __pycache__/
 *.egg-info/
 .venv/
 scans/*.json
+
+# B-series wiring: validation corpus, local backups, standalone scaffolding
+_validation/
+*.bak
+*.prewire.bak
+tools/
