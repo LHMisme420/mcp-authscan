@@ -4,6 +4,7 @@
 ![python](https://img.shields.io/badge/python-3%20%C2%B7%20stdlib%20only-blue)
 ![output](https://img.shields.io/badge/output-SARIF%202.1.0-brightgreen)
 ![findings](https://img.shields.io/badge/findings-anchored%20on--chain-8A2BE2)
+![pypi](https://img.shields.io/pypi/v/mcp-authscan?color=blue)
 
 > Static security scanner for the classic web-auth failures that keep shipping in
 > MCP servers, gateways, and OAuth clients — the boring bugs the AI-native scanners skip.
@@ -32,7 +33,14 @@ python3 mcp-authscan/mcp_authscan.py <path> --sarif     # SARIF for GitHub code 
 python3 mcp-authscan/mcp_authscan.py <path> --json      # emits report_sha256 to anchor
 ```
 
-No install step, no dependencies — stdlib Python 3. *(PyPI package coming next.)*
+### Install
+
+```
+pip install mcp-authscan
+mcp-authscan <path-to-repo>
+```
+
+Or run from source with zero install — stdlib Python 3, no dependencies.
 
 ## Findings behind the rules
 
