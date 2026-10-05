@@ -27,7 +27,7 @@ v0.4 changes:
 import argparse, hashlib, json, re, sys
 from pathlib import Path
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
@@ -863,16 +863,66 @@ def rule_fastmcp_auth_default(path, text, F):
         "None unless an opt-in flag is set) - unauthenticated by default (class A)",
         "VATA:mcp-pinot GHSA-73cv auth-disabled-by-default", "MEDIUM")
 
+
+DEP_NAMES = {"requirements.txt", "requirements-dev.txt", "pyproject.toml", "setup.cfg", "Pipfile"}
+
+def _ver_tuple(s):
+    nums = re.findall(r"\d+", s)
+    return tuple(int(n) for n in nums[:3]) if nums else None
+
+def _mcp_vulnerable(spec):
+    """True only for an explicit pin in GHSA-qx49-fqc8-xw99's ranges."""
+    m = re.search(r"(?:==|===)\s*([^,\s;]+)", spec)
+    if not m:
+        return False
+    raw = m.group(1)
+    vt = _ver_tuple(raw)
+    if not vt:
+        return False
+    if vt[0] == 1 and (1, 9, 1) <= vt < (1, 30, 0):
+        return True
+    if vt[0] == 2 and vt < (2, 2, 0):
+        return True
+    return False
+
+def rule_mcp_sdk_version(path, text, F):
+    if path.name not in DEP_NAMES and not path.name.startswith("requirements"):
+        return
+    for m in re.finditer(r"(?m)^\s*(?:[\"']|)mcp(?:\[[^\]]*\])?\s*([=~<>!]+[^\s#\"']+)", text):
+        spec = m.group(1)
+        if not _mcp_vulnerable(spec):
+            continue
+        add(F, "D1", "HIGH",
+            "mcp SDK pin is inside GHSA-qx49-fqc8-xw99; upgrade to 1.30.0 or 2.2.0 and set issuer=",
+            path, text, m.start(), m.group(0)[:80],
+            "GHSA-qx49-fqc8-xw99", "HIGH")
+
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
          rule_client_issuer_binding,
          rule_pkce_not_enforced, rule_authcode_replay,
-         rule_cross_tenant_list, rule_fastmcp_auth_default]
+         rule_cross_tenant_list, rule_fastmcp_auth_default, rule_mcp_sdk_version]
 
 def scan(root, include_tests, exclude=()):
     global SCOPED_REPOS
     docs = []
     for path in iter_files(root, include_tests, exclude):
+        try:
+            docs.append((path, path.read_text(errors="ignore")))
+        except Exception:
+            continue
+    rootp = Path(root)
+    excl = [(rootp / e).resolve() for e in exclude]
+    for path in rootp.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.name not in DEP_NAMES and not path.name.startswith("requirements"):
+            continue
+        if any(s in path.parts for s in SKIP_DIR):
+            continue
+        rp = path.resolve()
+        if any(rp == e or e in rp.parents for e in excl):
+            continue
         try:
             docs.append((path, path.read_text(errors="ignore")))
         except Exception:
