@@ -1,4 +1,6 @@
 name: ground-truth
+permissions:
+  contents: read
 
 # Verifies mcp-authscan still re-detects its seed findings on every push and PR.
 # A rule that stops detecting its seed is a regression and fails the build.
@@ -14,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out mcp-authscan
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.x"
 
