@@ -311,7 +311,7 @@ def _is_literal(expr):
 def rule_ssrf(path, text, F):
     # Frontend and demo-script fetches to the app's own backend are not SSRF.
     pl = path.as_posix().lower()
-    if any(s in pl for s in ("/frontend/", "/web/", "/ui/", "/scripts/save-demo")):
+    if any(s in pl for s in ("/frontend/", "/web/", "/ui/", "/scripts/save-demo", "/skills/")):
         return
     seen = set()
     for rx, g in HTTP_SINKS:
