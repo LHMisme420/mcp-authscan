@@ -27,7 +27,7 @@ v0.4 changes:
 import argparse, hashlib, json, re, sys
 from pathlib import Path
 
-VERSION = "0.9.2"
+VERSION = "0.9.3"
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
@@ -864,7 +864,7 @@ def rule_fastmcp_auth_default(path, text, F):
         "VATA:mcp-pinot GHSA-73cv auth-disabled-by-default", "MEDIUM")
 
 
-DEP_NAMES = {"requirements.txt", "requirements-dev.txt", "pyproject.toml", "setup.cfg", "Pipfile"}
+DEP_NAMES = {"requirements.txt", "requirements-dev.txt", "pyproject.toml", "setup.cfg", "Pipfile", "package.json"}
 
 def _ver_tuple(s):
     nums = re.findall(r"\d+", s)
@@ -926,7 +926,38 @@ def _mcp_vulnerable(spec):
         return False
     return _overlaps(low, high)
 
+def _npm_vulnerable(name, spec):
+    spec = spec.strip().strip("\"'")
+    if spec.startswith("^"):
+        low = _ver_tuple(spec[1:])
+        if not low:
+            return False
+        high = (low[0] + 1, 0, 0)
+        if name == "@modelcontextprotocol/sdk":
+            return _overlaps(low, high) and low < (1, 31, 0)
+        if name == "@modelcontextprotocol/client":
+            return low < (2, 2, 0) and high > (2, 0, 0)
+        return False
+    vt = _ver_tuple(spec.lstrip("=v"))
+    if not vt:
+        return False
+    if name == "@modelcontextprotocol/sdk":
+        return (1, 12, 0) <= vt < (1, 31, 0)
+    if name == "@modelcontextprotocol/client":
+        return (2, 0, 0) <= vt < (2, 2, 0)
+    return False
+
 def rule_mcp_sdk_version(path, text, F):
+    if path.name == "package.json":
+        for m in re.finditer(r'"(@modelcontextprotocol/(?:sdk|client))"\s*:\s*"([^"]+)"', text):
+            if not _npm_vulnerable(m.group(1), m.group(2)):
+                continue
+            add(F, "D1", "HIGH",
+                "MCP TypeScript SDK pin is inside GHSA-6qxp-vccf-f47h; upgrade sdk to 1.31.0 or client to 2.2.0 and set expectedIssuer",
+                path, text, m.start(), m.group(0)[:80],
+                "GHSA-6qxp-vccf-f47h", "HIGH")
+        return
+
     if path.name not in DEP_NAMES and not path.name.startswith("requirements"):
         return
     for m in re.finditer(r"(?m)^\s*(?:[\"']|)mcp(?:\[[^\]]*\])?\s*([=~<>!]+[^\s#\"']+)", text):
