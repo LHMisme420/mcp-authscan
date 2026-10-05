@@ -24,7 +24,7 @@ jobs:
         run: pip install git+https://github.com/LHMisme420/mcp-authscan.git
 
       - name: Run scan (SARIF)
-        run: mcp-authscan . --sarif results.sarif
+        run: mcp-authscan . --sarif > results.sarif
         continue-on-error: true   # still upload findings if scan exits non-zero
 
       - name: Upload SARIF to the Security tab
