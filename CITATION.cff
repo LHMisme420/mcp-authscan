@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use mcp-authscan, please cite it as below."
+title: "mcp-authscan: static detection of authentication and authorization logic flaws in MCP servers and OAuth gateways"
+authors:
+  - name: "Leroy (VATA / LHMisme420)"
+    # given-names: Leroy
+    # family-names: <add>
+    # orcid: "https://orcid.org/XXXX-XXXX-XXXX-XXXX"   # fill from your ORCID
+repository-code: "https://github.com/LHMisme420/mcp-authscan"
+url: "https://github.com/LHMisme420/mcp-authscan"
+license: MIT
+keywords:
+  - MCP
+  - static analysis
+  - OAuth
+  - authorization
+  - SAST
+# doi: "10.5281/zenodo.XXXXXXX"   # fill after Zenodo mints it, then add the badge to README
+version: 0.1.0
+date-released: "2026-10-05"
