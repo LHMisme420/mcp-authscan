@@ -15,6 +15,6 @@ keywords:
   - OAuth
   - authorization
   - SAST
-# doi: "10.5281/zenodo.XXXXXXX"   # fill after Zenodo mints it, then add the badge to README
+doi: "10.5281/zenodo.23169041"
 version: 0.1.0
 date-released: "2026-10-05"

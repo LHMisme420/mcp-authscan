@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23169041.svg)](https://doi.org/10.5281/zenodo.23169041)
+
 # mcp-authscan
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
