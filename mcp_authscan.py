@@ -27,7 +27,7 @@ v0.4 changes:
 import argparse, hashlib, json, re, sys
 from pathlib import Path
 
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
@@ -868,15 +868,12 @@ DEP_NAMES = {"requirements.txt", "requirements-dev.txt", "pyproject.toml", "setu
 
 def _ver_tuple(s):
     nums = re.findall(r"\d+", s)
-    return tuple(int(n) for n in nums[:3]) if nums else None
+    if not nums:
+        return None
+    vt = tuple(int(n) for n in nums[:3])
+    return vt + (0,) * (3 - len(vt))
 
-def _mcp_vulnerable(spec):
-    """True only for an explicit pin in GHSA-qx49-fqc8-xw99's ranges."""
-    m = re.search(r"(?:==|===)\s*([^,\s;]+)", spec)
-    if not m:
-        return False
-    raw = m.group(1)
-    vt = _ver_tuple(raw)
+def _in_advisory(vt):
     if not vt:
         return False
     if vt[0] == 1 and (1, 9, 1) <= vt < (1, 30, 0):
@@ -884,6 +881,50 @@ def _mcp_vulnerable(spec):
     if vt[0] == 2 and vt < (2, 2, 0):
         return True
     return False
+
+def _overlaps(low, high):
+    """True if [low, high) can install a GHSA-qx49-fqc8-xw99 version."""
+    if low is None:
+        low = (0, 0, 0)
+    if high is None:
+        high = (99, 0, 0)
+    for a, b in (((1, 9, 1), (1, 30, 0)), ((2, 0, 0), (2, 2, 0))):
+        if low < b and a < high:
+            return True
+    return False
+
+def _mcp_vulnerable(spec):
+    spec = spec.strip().strip("\"'")
+    parts = [p.strip() for p in spec.split(",") if p.strip()]
+    low = high = None
+    for p in parts:
+        m = re.match(r"(?:==|===)\s*(.+)", p)
+        if m:
+            return _in_advisory(_ver_tuple(m.group(1)))
+        m = re.match(r"~=\s*(.+)", p)
+        if m:
+            vt = _ver_tuple(m.group(1))
+            if not vt:
+                return False
+            upper = (vt[0], vt[1] + 1, 0) if len(vt) >= 2 else (vt[0] + 1, 0, 0)
+            return _overlaps(vt, upper)
+        m = re.match(r">=\s*(.+)", p)
+        if m:
+            low = _ver_tuple(m.group(1))
+        m = re.match(r">\s*(.+)", p)
+        if m and _ver_tuple(m.group(1)):
+            vt = _ver_tuple(m.group(1))
+            low = vt[:-1] + (vt[-1] + 1,)
+        m = re.match(r"<\s*(.+)", p)
+        if m:
+            high = _ver_tuple(m.group(1))
+        m = re.match(r"<=\s*(.+)", p)
+        if m and _ver_tuple(m.group(1)):
+            vt = _ver_tuple(m.group(1))
+            high = vt[:-1] + (vt[-1] + 1,)
+    if low is None and high is None:
+        return False
+    return _overlaps(low, high)
 
 def rule_mcp_sdk_version(path, text, F):
     if path.name not in DEP_NAMES and not path.name.startswith("requirements"):
