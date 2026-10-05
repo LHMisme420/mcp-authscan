@@ -541,6 +541,9 @@ RULE_META = {
     "A7": {"name": "CrossTenantUnscopedList",
            "desc": "Unscoped list (findAll/listAll) on a repo that also exposes a tenant-scoped sibling, reached from a request handler - cross-tenant read.",
            "sev": 7.5, "cwe": ["CWE-863", "CWE-862"]},
+    "A10": {"name": "FastMCPAuthNoneByDefault",
+            "desc": "FastMCP server on a network transport (http/sse/0.0.0.0) with auth=None or an auth var that defaults to None unless an opt-in flag is set - unauthenticated by default.",
+            "sev": 7.5, "cwe": ["CWE-306", "CWE-1188"]},
     "C1": {"name": "MCPClientMissingIssuerBinding",
            "desc": "M2M MCP OAuth client provider built without issuer/expectedIssuer; pre-provisioned credentials follow whatever AS the MCP server advertises.",
            "sev": 7.5, "cwe": ["CWE-346", "CWE-290"]},
@@ -657,6 +660,10 @@ def _b_is_authz_server(text):
     return strong or (func and not client)
 
 B_SKIP_PKCE = re.compile(r"skip[_-]?local[_-]?pkce[_-]?validation\s*[:=]\s*true", re.I)
+# PKCE downgradeable to 'plain': challenge method defaults to / falls back to 'plain'
+# (plain -> challenge == verifier, no protection). CVE-2025-4144 class.
+B_PKCE_PLAIN_DEFAULT = re.compile(
+    r"code[_-]?challenge[_-]?method\b[^;\n]{0,60}(?:\|\||\?\?)\s*[\'\"]plain[\'\"]", re.I)
 B_PKCE_HASH = re.compile(r"sha-?256|s256|createhash|crypto\.createHash|subtle\.digest|hashlib\.sha256|\.digest\(|hashes\.SHA256", re.I)
 B_VERIFIER  = re.compile(r"code[_]?verifier", re.I)
 B_GEN_VERIFIER = re.compile(r"code[_]?verifier\s*=\s*.*(?:secrets|token_|randombytes|random\.|base64|createhash|uuid|getrandom)", re.I)
@@ -715,6 +722,15 @@ def rule_pkce_not_enforced(path, text, F):
             path, text, m.start(),
             "skipLocalPkceValidation=true with no local verifier check taking over",
             "VATA:webrix skipLocalPkceValidation", "HIGH")
+    # B1c: PKCE downgradeable to 'plain' (CVE-2025-4144 class). With method 'plain',
+    # challenge == verifier, so anyone who observes the authorize request can replay it;
+    # OAuth 2.1 requires S256. Defaulting/falling back to 'plain' is the downgrade.
+    for m in B_PKCE_PLAIN_DEFAULT.finditer(text):
+        add(F, "B1", "HIGH", "PKCE downgradeable to 'plain' method",
+            path, text, m.start(),
+            "code_challenge_method defaults/falls back to 'plain'; plain PKCE has "
+            "challenge==verifier and is bypassable by anyone who sees the authorize request",
+            "VATA:cloudflare CVE-2025-4144 PKCE plain downgrade", "HIGH")
     # B1b: verifier received as input but never hashed (AS-gated -> MEDIUM/warning)
     if _b_is_authz_server(text) and not B_PKCE_HASH.search(text):
         for m in B_VERIFIER.finditer(text):
@@ -807,11 +823,37 @@ def rule_cross_tenant_list(path, text, F):
             f"unscoped {m.group(2)}() - cross-tenant read (CWE-863)",
             "VATA:metamcp cross-tenant unscoped list", "MEDIUM")
 
+# ---- Rule A10: MCP server on a network transport with auth None by default ----
+# Seed: startreedata/mcp-pinot GHSA-73cv - FastMCP(auth=_auth) where _auth stays None
+# unless oauth_enabled (default False); transport defaults http on 0.0.0.0. VATA class A
+# (fail-open / disabled-by-default). External ground truth (reporter: GitHub advisory).
+A10_FASTMCP   = re.compile(r"\bFastMCP\s*\(", re.I)
+A10_NET       = re.compile(r"(0\.0\.0\.0|uvicorn\.run|transport\s*[:=]\s*['\"](?:http|sse|streamable[-_]?http)['\"]|\.run\([^)]*transport\s*=\s*['\"](?:http|sse|streamable))", re.I)
+A10_AUTH_NONE = re.compile(r"FastMCP\s*\([^)]*\bauth\s*=\s*None\b", re.I)
+A10_AUTH_VAR  = re.compile(r"FastMCP\s*\([^)]*\bauth\s*=\s*([A-Za-z_]\w*)")
+
+def rule_fastmcp_auth_default(path, text, F):
+    if not A10_FASTMCP.search(text) or not A10_NET.search(text):
+        return  # not a FastMCP server, or not network-exposed (stdio-only is not this bug)
+    hit = A10_AUTH_NONE.search(text)
+    if not hit:
+        mv = A10_AUTH_VAR.search(text)
+        if not (mv and mv.group(1).lower() != "none"
+                and re.search(r"\b" + re.escape(mv.group(1)) + r"\s*=\s*None\b", text)):
+            return  # auth is a real provider, not a None-defaulting var
+        hit = mv
+    add(F, "A10", "HIGH",
+        "FastMCP network server with auth None by default",
+        path, text, hit.start(),
+        "FastMCP on an http/sse transport with auth=None (or an auth var that defaults to "
+        "None unless an opt-in flag is set) - unauthenticated by default (class A)",
+        "VATA:mcp-pinot GHSA-73cv auth-disabled-by-default", "MEDIUM")
+
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
          rule_client_issuer_binding,
          rule_pkce_not_enforced, rule_authcode_replay,
-         rule_cross_tenant_list]
+         rule_cross_tenant_list, rule_fastmcp_auth_default]
 
 def scan(root, include_tests, exclude=()):
     global SCOPED_REPOS

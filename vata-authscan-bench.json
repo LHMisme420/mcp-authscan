@@ -2,6 +2,7 @@
   "tool": "mcp-authscan benchmark",
   "detector_rules": [
     "A1",
+    "A10",
     "A2",
     "A3",
     "A6",
@@ -12,7 +13,7 @@
     "C3"
   ],
   "confusion": {
-    "TP": 6,
+    "TP": 7,
     "FP": 0,
     "FN": 0,
     "TN": 4
@@ -27,17 +28,17 @@
       "commit": "846cdf0f8d3f7cc4e261debc6988672e1f909fd6",
       "detector_fired": {
         "A2": [
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/frontend/app/login/page.tsx:270",
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/frontend/app/login/page.tsx:347",
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/platform/config/config.go:63",
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/platform/config/config.go:87",
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/platform/config/config.go:162"
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/frontend/app/login/page.tsx:270",
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/frontend/app/login/page.tsx:347",
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/internal/platform/config/config.go:63",
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/internal/platform/config/config.go:87",
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/internal/platform/config/config.go:162"
         ],
         "A3": [
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/gateway/auth.go:22"
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/internal/gateway/auth.go:22"
         ],
         "A1": [
-          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/gateway/auth.go:174"
+          "/tmp/mcp-authscan-bench-hqga31ne/lucky-aeon/internal/gateway/auth.go:174"
         ]
       },
       "expected": [
@@ -52,7 +53,7 @@
       "commit": "0bc7e1112a9611e83576bb929f279ce2eae77c09",
       "detector_fired": {
         "B1": [
-          "/tmp/mcp-authscan-bench-iywau47l/webrix/src/services/mcp-auth-provider.ts:133"
+          "/tmp/mcp-authscan-bench-hqga31ne/webrix/src/services/mcp-auth-provider.ts:133"
         ]
       },
       "expected": [
@@ -65,7 +66,7 @@
       "commit": "f44769db53e773d094c99a11bf8bf26af2d0b99c",
       "detector_fired": {
         "B3": [
-          "/tmp/mcp-authscan-bench-iywau47l/atrawog/src/mcp_oauth_dynamicclient/routes.py:449"
+          "/tmp/mcp-authscan-bench-hqga31ne/atrawog/src/mcp_oauth_dynamicclient/routes.py:449"
         ]
       },
       "expected": [
@@ -78,7 +79,7 @@
       "commit": "f5ef7c60f144210db3032a1fcf11d77917181e7c",
       "detector_fired": {
         "B3": [
-          "/tmp/mcp-authscan-bench-iywau47l/akshay5995/src/auth/oauth_server.py:206"
+          "/tmp/mcp-authscan-bench-hqga31ne/akshay5995/src/auth/oauth_server.py:206"
         ]
       },
       "expected": []
@@ -103,18 +104,31 @@
       "commit": "ff4ff2de9d25453c52dcc7be32680b30700a6012",
       "detector_fired": {
         "A3": [
-          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/middleware/better-auth-mcp.middleware.ts:13"
+          "/tmp/mcp-authscan-bench-hqga31ne/metamcp/apps/backend/src/middleware/better-auth-mcp.middleware.ts:13"
         ],
         "A7": [
-          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:92",
-          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:299",
-          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:336",
-          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/public-metamcp/admin.ts:41",
-          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/public-metamcp/admin.ts:96"
+          "/tmp/mcp-authscan-bench-hqga31ne/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:92",
+          "/tmp/mcp-authscan-bench-hqga31ne/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:299",
+          "/tmp/mcp-authscan-bench-hqga31ne/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:336",
+          "/tmp/mcp-authscan-bench-hqga31ne/metamcp/apps/backend/src/routers/public-metamcp/admin.ts:41",
+          "/tmp/mcp-authscan-bench-hqga31ne/metamcp/apps/backend/src/routers/public-metamcp/admin.ts:96"
         ]
       },
       "expected": [
         "A7"
+      ]
+    },
+    {
+      "case": "mcp-pinot",
+      "label": "positive",
+      "commit": "f021f8bfb3855b922e3c3b7f0155a1eadac31ae0",
+      "detector_fired": {
+        "A10": [
+          "/tmp/mcp-authscan-bench-hqga31ne/mcp-pinot/mcp_pinot/server.py:46"
+        ]
+      },
+      "expected": [
+        "A10"
       ]
     },
     {
@@ -184,5 +198,5 @@
     "unla-middleware-ordering"
   ],
   "errors": [],
-  "report_sha256": "b2c4239281b74f1c216e56f0129045518e64c57a78e5d5401906eac3e8fb3779"
+  "report_sha256": "9e7da52a11f766888f5a341795e29e43ff5d2f5ba1645828ebf090abd91f92f0"
 }

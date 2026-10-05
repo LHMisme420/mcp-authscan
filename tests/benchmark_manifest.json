@@ -9,7 +9,8 @@
     "C1",
     "C2",
     "C3",
-    "B3"
+    "B3",
+    "A10"
   ],
   "review_rules": [
     "A4",
@@ -97,6 +98,18 @@
         "A7": "admin.ts"
       },
       "note": "admin error-state routes call unscoped findAll() while findAllAccessibleToUser exists - cross-tenant (CWE-863); covered by A7"
+    },
+    {
+      "repo": "https://github.com/startreedata/mcp-pinot",
+      "name": "mcp-pinot",
+      "commit": "f021f8bfb3855b922e3c3b7f0155a1eadac31ae0",
+      "expect_detect": [
+        "A10"
+      ],
+      "expect_near": {
+        "A10": "server.py"
+      },
+      "note": "EXTERNAL ground truth (GHSA-73cv, independent reporter, not VATA): FastMCP auth=None by default on http/0.0.0.0 - class A; caught by A10"
     }
   ],
   "negatives": [

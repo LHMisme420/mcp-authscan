@@ -1,0 +1,44 @@
+{
+  "description": "External ground truth. MCP/OAuth auth advisories filed by OTHER researchers, pinned at the pre-fix commit. A CATCH = the scanner fires the expected rule (or, for class-level entries, any detector) AT the advisory's root-cause file. Deliberately NOT seeded from VATA findings - it measures whether detectors generalize. Misses are the roadmap. Verified pre-fix SHAs as of 2026-10-05.",
+  "advisories": [
+    {
+      "id": "GHSA-qx49-fqc8-xw99",
+      "url": "https://github.com/modelcontextprotocol/python-sdk/security/advisories/GHSA-qx49-fqc8-xw99",
+      "reporter": "Cycode",
+      "repo": "https://github.com/modelcontextprotocol/python-sdk",
+      "prefix_commit": "b22271305c59dfc7910f1493faea78cb1d396e48",
+      "prefix_tag": "v1.29.1",
+      "fixed_in": "1.30.0 / 2.2.0",
+      "root_cause_file": "mcp/client/auth",
+      "expected_rule": "C3",
+      "class_note": "issuer validation skipped in a 404 fallback path in discovery - logic/dataflow bug, not a missing-issuer= construction",
+      "status": "MISS"
+    },
+    {
+      "id": "CVE-2025-4144",
+      "url": "https://osv.dev/vulnerability/CVE-2025-4144",
+      "reporter": "Cloudflare",
+      "repo": "https://github.com/cloudflare/workers-oauth-provider",
+      "prefix_commit": "2803fe497eeb6eda5a4a559225f8b8764bd6bdf8",
+      "prefix_tag": "v0.0.4",
+      "fixed_in": "0.0.5 (PR #27)",
+      "root_cause_file": "oauth-provider.ts",
+      "expected_rule": "B1",
+      "class_note": "PKCE bypass via downgrade; B1 only matches skipLocalPkceValidation:true or verifier-without-S256",
+      "status": "CATCH (B1c)"
+    },
+    {
+      "id": "GHSA-73cv-556c-w3g6",
+      "url": "https://osv.dev/vulnerability/GHSA-73cv-556c-w3g6",
+      "reporter": "independent (GitHub Security Advisory)",
+      "repo": "https://github.com/startreedata/mcp-pinot",
+      "prefix_commit": "f021f8bfb3855b922e3c3b7f0155a1eadac31ae0",
+      "prefix_tag": "v3.0.1",
+      "fixed_in": "3.1.0",
+      "root_cause_file": "mcp_pinot/server.py",
+      "expected_rule": "A-class",
+      "class_note": "FastMCP(auth=_auth) where _auth stays None when oauth_enabled is false (default) - auth disabled by default, VATA class A; no rule yet, only A4 SSRF noise fires",
+      "status": "CATCH (A10)"
+    }
+  ]
+}

@@ -51,11 +51,11 @@ researchers, pinned at their pre-fix commit. This set is deliberately not seeded
 VATA findings — it measures whether the detectors generalize beyond what they were
 written against. A "catch" requires a finding at the advisory's root-cause file.
 
-Current: **1/3**.
+Current: **2/3**.
 - CATCH — GHSA-73cv-556c-w3g6 (mcp-pinot, FastMCP auth disabled by default), caught by
   rule A10, which was authored from this third-party advisory.
-- MISS — CVE-2025-4144 (cloudflare/workers-oauth-provider, PKCE downgrade): B1 matches
-  explicit skip flags, not a downgrade path. Roadmap.
+- CATCH — CVE-2025-4144 (cloudflare/workers-oauth-provider, PKCE plain-downgrade), caught
+  by rule B1c, authored from this third-party advisory.
 - MISS — GHSA-qx49-fqc8-xw99 (modelcontextprotocol/python-sdk, issuer validation skipped
   in a 404 discovery fallback): a conditional logic bug requiring dataflow, not a lexical
   construction. Roadmap.
