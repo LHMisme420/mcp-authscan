@@ -38,7 +38,7 @@ python3 mcp-authscan/mcp_authscan.py <path> --json      # emits report_sha256 to
 ### Install
 
 ```
-pip install mcp-authscan==0.9.1
+pip install mcp-authscan==0.9.2
 mcp-authscan <path-to-repo>
 ```
 
@@ -211,7 +211,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install mcp-authscan==0.9.1
+      - run: pip install mcp-authscan==0.9.2
       - run: mcp-authscan . --sarif > results.sarif
         continue-on-error: true
       - if: always()
