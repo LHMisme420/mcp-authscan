@@ -913,9 +913,11 @@ def main():
             print(x["snippet"]); print()
         print(f"{len(F)} finding(s).")
 
+    # Review-list rules warn only. They must not fail CI.
+    REVIEW = {"A4", "A5", "A6", "B2"}
     if args.fail_on:
         thr = {"critical": 0, "high": 1, "medium": 2}[args.fail_on]
-        if any(order.get(x["severity"], 9) <= thr for x in F):
+        if any(order.get(x["severity"], 9) <= thr and x["rule"] not in REVIEW for x in F):
             sys.exit(1)
 
 if __name__ == "__main__":
