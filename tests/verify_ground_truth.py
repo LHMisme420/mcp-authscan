@@ -62,6 +62,15 @@ def main():
                 else:
                     failures.append((name, exp["rule"], exp["match"], "not detected"))
                     print(f"  FAIL  {exp['rule']}  {exp['match']}  <- NOT re-detected")
+            for exp in case.get("must_not_detect", []):
+                total_expected += 1
+                fired = any(f"] {exp['rule']} " in line for line in out.splitlines())
+                if not fired:
+                    total_found += 1
+                    print(f"  PASS  {exp['rule']}  (correctly absent)")
+                else:
+                    failures.append((name, exp["rule"], "(must be absent)", "false positive"))
+                    print(f"  FAIL  {exp['rule']}  <- FIRED but must stay silent (FP regression)")
             continue
         repo = case["repo"]
         dest = workdir / name

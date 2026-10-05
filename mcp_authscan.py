@@ -132,9 +132,17 @@ AUTHZ_HANDLER = re.compile(
 VALIDATES_CLIENT = re.compile(
     r"client_id[\s\S]{0,160}?(includes|find|lookup|exists|validat|verif|allow|"
     r"registr|db\.|query|SELECT|WHERE|clients?\[)", re.I)
+# Anchor is underscore-optional so it matches snake_case redirect_uri AND camelCase
+# RedirectURI/redirectUri (Go/TS validate the camelCase form, often via a helper).
 VALIDATES_REDIRECT = re.compile(
-    r"redirect_uri[\s\S]{0,160}?(includes|startsWith|indexOf|allow|whitelist|allowlist|"
-    r"validat|verif|\.match|registr|RedirectURIs|registered)", re.I)
+    r"redirect[_]?uri[s]?[\s\S]{0,200}?(includes|startsWith|indexOf|allow|whitelist|allowlist|"
+    r"validat|verif|\.match|registr|registered|RedirectURIs\b|GetClient|checkRedirect|contains)", re.I)
+# Handler that delegates the whole authorize to an authorization service/helper
+# (e.g. h.authorize.StartAuthorization(req)) validates there, not inline. Action-verb
+# prefix required so boolean checks (usesInternalAuthorizationServer) do NOT match.
+DELEGATES_AUTHZ = re.compile(
+    r"\.\s*(?:Start|Handle|Process|Do|Perform|Run|Begin)[Aa]uthoriz(?:e|ation)\w*\s*\(|"
+    r"ValidateRedirect\w*\s*\(|registeredRedirect\s*\(", re.I)
 
 # A1 server/client discriminators: only an authorization SERVER endpoint is vulnerable.
 # A client doing token exchange legitimately handles redirect_uri (sends it outbound).
@@ -173,6 +181,16 @@ def rule_oauth_authorize(path, text, F):
             if CLIENT_EXCHANGE.search(gate) or not SERVER_AUTHZ_ROLE.search(gate):
                 continue
             if not INBOUND_REQ.search(gate):   # outbound URL builder, not a server handler
+                continue
+            # Validation may be delegated to a helper/service or sit just past the
+            # brace_block (Go/TS validate camelCase RedirectURI via a called function).
+            # Re-check the wider gate before firing so we don't FP on handlers that
+            # validate via registeredRedirect()/ValidateRedirectURI()/StartAuthorization().
+            if "redirect_uri" in missing and (VALIDATES_REDIRECT.search(gate) or DELEGATES_AUTHZ.search(gate)):
+                missing.remove("redirect_uri")
+            if "client_id" in missing and (VALIDATES_CLIENT.search(gate) or DELEGATES_AUTHZ.search(gate)):
+                missing.remove("client_id")
+            if not missing:
                 continue
             add(F, "A1", "MEDIUM",
                 f"OAuth authorize handler reads {', '.join(missing)} \u2014 verify validation (here or in a downstream service)",

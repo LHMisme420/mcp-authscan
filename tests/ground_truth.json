@@ -87,6 +87,30 @@
           "note": "skipIssuerMetadataValidation: true"
         }
       ]
+    },
+    {
+      "name": "fixture-redirect-unvalidated",
+      "path": "rule_corpus/redirect_unvalidated",
+      "note": "self-contained A1 must-fire: authorize handler trusts client redirect_uri, no allowlist",
+      "must_detect": [
+        {
+          "rule": "A1",
+          "match": "redirect_unvalidated/handler.go:6",
+          "note": "redirect_uri used in redirect with no registered-URI check"
+        }
+      ]
+    },
+    {
+      "name": "fixture-redirect-validated",
+      "path": "rule_corpus/redirect_validated_via_helper",
+      "note": "self-contained A1 must-stay-silent: redirect validated via helper / delegated to service (paladin/AuthPlane shape)",
+      "must_detect": [],
+      "must_not_detect": [
+        {
+          "rule": "A1",
+          "note": "validation via registeredRedirect()/StartAuthorization() must not FP"
+        }
+      ]
     }
   ]
 }
