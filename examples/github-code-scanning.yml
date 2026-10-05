@@ -21,7 +21,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install mcp-authscan
-        run: pip install git+https://github.com/LHMisme420/mcp-authscan.git@v0.9.1
+        run: pip install mcp-authscan==0.9.1@v0.9.1
 
       - name: Run scan (SARIF)
         run: mcp-authscan . --sarif > results.sarif

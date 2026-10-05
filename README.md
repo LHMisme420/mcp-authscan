@@ -38,7 +38,7 @@ python3 mcp-authscan/mcp_authscan.py <path> --json      # emits report_sha256 to
 ### Install
 
 ```
-pip install mcp-authscan
+pip install mcp-authscan==0.9.1
 mcp-authscan <path-to-repo>
 ```
 
@@ -183,7 +183,7 @@ warnings, not errors, in the Security tab.
 
 ```bash
 # write SARIF to a file
-mcp-authscan . --sarif results.sarif
+mcp-authscan . --sarif > results.sarif
 ```
 
 To scan on every push/PR and upload results, drop this into a consuming repo at
@@ -212,7 +212,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install mcp-authscan==0.9.1
-      - run: mcp-authscan . --sarif results.sarif
+      - run: mcp-authscan . --sarif > results.sarif
         continue-on-error: true
       - if: always()
         uses: github/codeql-action/upload-sarif@v3
