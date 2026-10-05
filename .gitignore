@@ -14,3 +14,4 @@ tools/
 dist/
 build/
 _external/
+*.bak.*
