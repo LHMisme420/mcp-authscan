@@ -321,6 +321,12 @@ def rule_ssrf(path, text, F):
                 continue
             if not URL_INFLUENCE.search(urlarg):
                 continue
+            # Configured base URL, not caller-controlled. Leave those to review by hand.
+            if re.search(r"gateway_url|provisioner_url|sandbox_url|discovery_url|jwks_uri|token_endpoint|userinfo_endpoint|getenv|os\.environ|_host\(", urlarg):
+                continue
+            # Configured base URL, not caller-controlled. Leave those to review by hand.
+            if re.search(r"gateway_url|provisioner_url|sandbox_url|discovery_url|jwks_uri|token_endpoint|userinfo_endpoint|getenv|os\.environ|_host\(", urlarg):
+                continue
             block = enclosing_block(text, m.start())
             if SSRF_GUARD.search(block):
                 continue
