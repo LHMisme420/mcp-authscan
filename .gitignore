@@ -15,3 +15,5 @@ dist/
 build/
 _external/
 *.bak.*
+scorecard
+gosec
