@@ -73,6 +73,7 @@ chain-of-custody. Full corpus → [VATA dashboard](https://lhmisme420.github.io/
 | B1 | MEDIUM / MEDIUM | AS receives a PKCE `code_verifier` as input but no SHA-256/S256 transform appears in the file — verifier never checked against the stored challenge (CWE-287) | review-list |
 | B2 | HIGH / MEDIUM | Authorization code redeemed at the token endpoint but never invalidated (delete/mark-used/revoke) in the same file — possible replay (CWE-294) | review-list |
 | B3 | HIGH / HIGH | Authorization code issued with a lifetime far exceeding RFC 6749's ~600s recommendation (CWE-613) | detector |
+| A7 | HIGH / MEDIUM | Unscoped list (`findAll`/`listAll`) on a repo that also exposes a tenant-scoped sibling, reached from a request handler - cross-tenant read (CWE-863) | detector |
 
 A1–A3 are detectors: a hit is a finding to triage. A4–A5 are review-lists:
 SSRF and enforcement-gap detection need dataflow, not pattern matching, so these

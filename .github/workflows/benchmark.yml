@@ -1,0 +1,20 @@
+name: benchmark
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m py_compile mcp_authscan.py
+      - name: Precision/recall benchmark (pinned corpus)
+        run: python3 tests/benchmark.py --json benchmark-report.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: benchmark-report.json

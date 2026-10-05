@@ -1,0 +1,157 @@
+{
+  "description": "Pinned precision/recall benchmark for mcp-authscan. Each repo is frozen at a commit SHA so results are reproducible and survive upstream patching. Labels are human ground truth from the VATA corpus, independent of what the scanner currently detects: recall measures how much of that ground truth the detectors catch. Detector rules carry precision claims; review-list rules (A4/A5/B2, MEDIUM B1) enumerate surface and are never scored as false positives. Negatives are repos VATA audited and cleared. Coverage gaps are confirmed findings no current rule can catch - roadmap, not failures.",
+  "detector_rules": [
+    "A1",
+    "A2",
+    "A3",
+    "A6",
+    "A7",
+    "C1",
+    "C2",
+    "C3",
+    "B3"
+  ],
+  "review_rules": [
+    "A4",
+    "A5",
+    "B2"
+  ],
+  "b1_detector_confidence": "HIGH",
+  "recall_floor": 0.8,
+  "positives": [
+    {
+      "repo": "https://github.com/lucky-aeon/mcp-gateway",
+      "name": "lucky-aeon",
+      "commit": "846cdf0f8d3f7cc4e261debc6988672e1f909fd6",
+      "expect_detect": [
+        "A1",
+        "A2",
+        "A3"
+      ],
+      "expect_near": {
+        "A1": "auth.go",
+        "A2": "config.go",
+        "A3": "auth.go"
+      },
+      "note": "self-rolled AS: redirect_uri unvalidated (A1), hardcoded admin default re-seeded on boot (A2), authn-without-authz middleware (A3)"
+    },
+    {
+      "repo": "https://github.com/webrix-ai/secure-mcp-gateway",
+      "name": "webrix",
+      "commit": "0bc7e1112a9611e83576bb929f279ce2eae77c09",
+      "expect_detect": [
+        "B1"
+      ],
+      "expect_review": [
+        "B2"
+      ],
+      "note": "skipLocalPkceValidation:true with codeVerifier accepted and never used (B1); auth code never invalidated after redemption (B2)"
+    },
+    {
+      "repo": "https://github.com/atrawog/mcp-oauth-dynamicclient",
+      "name": "atrawog",
+      "commit": "f44769db53e773d094c99a11bf8bf26af2d0b99c",
+      "expect_detect": [
+        "B3"
+      ],
+      "expect_review": [
+        "B2"
+      ],
+      "note": "authorization code TTL ~1 year vs RFC6749 ~600s (B3); PKCE optional in practice"
+    },
+    {
+      "repo": "https://github.com/akshay5995/mcp-oauth-gateway",
+      "name": "akshay5995",
+      "commit": "f5ef7c60f144210db3032a1fcf11d77917181e7c",
+      "expect_review": [
+        "B2"
+      ],
+      "note": "PKCE documented mandatory but never enforced; maps to B1 review variant / code-lifecycle surface"
+    },
+    {
+      "repo": "https://github.com/mcpjungle/mcpjungle",
+      "name": "mcpjungle",
+      "commit": "12648be5edc70391dc3f9c4aecfd37b83b3e30be",
+      "expect_review": [
+        "A4"
+      ],
+      "note": "DCR confused-deputy SSRF via self-declared RegistrationEndpoint (A4 review-list surface)"
+    },
+    {
+      "repo": "https://github.com/docker/mcp-gateway-oauth-helpers",
+      "name": "docker-oauth-helpers",
+      "commit": "ff743567bceffd6786a7e2a35dd03564ee79177c",
+      "expect_review": [
+        "A4"
+      ],
+      "note": "PerformDCR POSTs to attacker-controlled RegistrationEndpoint via unguarded client (A4 review-list surface)"
+    },
+    {
+      "repo": "https://github.com/metatool-ai/metamcp",
+      "name": "metamcp",
+      "commit": "ff4ff2de9d25453c52dcc7be32680b30700a6012",
+      "expect_detect": [
+        "A7"
+      ],
+      "expect_near": {
+        "A7": "admin.ts"
+      },
+      "note": "admin error-state routes call unscoped findAll() while findAllAccessibleToUser exists - cross-tenant (CWE-863); covered by A7"
+    }
+  ],
+  "negatives": [
+    {
+      "repo": "https://github.com/agentic-community/mcp-gateway-registry",
+      "name": "agentic-community",
+      "commit": "14f8589a2e8393b132916b8432cf261801b3c61a",
+      "note": "OAuth-delegating, SSRF guard with DNS-rebind pinning, fail-closed throughout; no detector should fire"
+    },
+    {
+      "repo": "https://github.com/1mcp-app/agent",
+      "name": "1mcp-agent",
+      "commit": "6775c0ff7be5a6647e72335605ff9b45b9caa003",
+      "note": "fetch layer hardened; single-tenant admin session/CSRF correctly ordered; no detector should fire"
+    },
+    {
+      "repo": "https://github.com/microsoft/mcp-gateway",
+      "name": "ms-mcp-gateway",
+      "commit": "ce37788ae0719fd73a1707c9a7bc379a68dd775e",
+      "note": "session-scoping, permission provider, agent tool authz, builtin sandboxing all clean; prior MSRC hardening; no detector should fire"
+    },
+    {
+      "repo": "https://github.com/microsoft/azure-devops-mcp",
+      "name": "ms-azure-devops",
+      "commit": "2ffa682e2394e961e804a2739d0de62651213365",
+      "note": "PAT fetch interceptor host allowlist; org is CLI arg not per-call; retracted FP guard - no detector should fire"
+    }
+  ],
+  "latent": [
+    {
+      "repo": "https://github.com/cuongdev/mcp-gateway",
+      "name": "cuongdev",
+      "commit": "5a51d5a743c6df0e6762c1f4cb331f373dd96a54",
+      "tolerate_detect": [
+        "A3"
+      ],
+      "note": "X-Tenant header trusted with no membership check (isInOrg exists, never called) BUT no wired route passes header-derived tenantId into a vulnerable repo. A3 pattern present; human downgraded to latent. NOTE: benchmark also fired A2 on a dev-gated session secret - label call pending."
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "name": "empires-unauth-dcr-scope",
+      "repo": "https://github.com/empires-security/mcp-oauth2-aws-cognito",
+      "commit": "3ab540c43e7ee38f2a32ed4c5a1e482a06269258",
+      "finding": "unauthenticated DCR endpoint lets anonymous caller self-assign privileged scope",
+      "why_uncovered": "no rule links unauth registration route to client-supplied scope grant",
+      "candidate_rule": "A8: DCR/registration handler reads client-supplied scope/role with no auth guard on the route"
+    },
+    {
+      "name": "unla-middleware-ordering",
+      "repo": "https://github.com/amoylab/unla",
+      "commit": "87c3169b9fd525b51b31202df553aad8ecb9dcca",
+      "finding": "AdminAuthMiddleware .Use() attached AFTER CreateTenant already registered - zero authz (CWE-862)",
+      "why_uncovered": "requires modeling router-group registration order",
+      "candidate_rule": "A9: Gin/Echo RouterGroup.Use(auth) called after routes already registered on the same group"
+    }
+  ]
+}

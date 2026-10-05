@@ -1,0 +1,188 @@
+{
+  "tool": "mcp-authscan benchmark",
+  "detector_rules": [
+    "A1",
+    "A2",
+    "A3",
+    "A6",
+    "A7",
+    "B3",
+    "C1",
+    "C2",
+    "C3"
+  ],
+  "confusion": {
+    "TP": 6,
+    "FP": 0,
+    "FN": 0,
+    "TN": 4
+  },
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "cases": [
+    {
+      "case": "lucky-aeon",
+      "label": "positive",
+      "commit": "846cdf0f8d3f7cc4e261debc6988672e1f909fd6",
+      "detector_fired": {
+        "A2": [
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/frontend/app/login/page.tsx:270",
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/frontend/app/login/page.tsx:347",
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/platform/config/config.go:63",
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/platform/config/config.go:87",
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/platform/config/config.go:162"
+        ],
+        "A3": [
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/gateway/auth.go:22"
+        ],
+        "A1": [
+          "/tmp/mcp-authscan-bench-iywau47l/lucky-aeon/internal/gateway/auth.go:174"
+        ]
+      },
+      "expected": [
+        "A1",
+        "A2",
+        "A3"
+      ]
+    },
+    {
+      "case": "webrix",
+      "label": "positive",
+      "commit": "0bc7e1112a9611e83576bb929f279ce2eae77c09",
+      "detector_fired": {
+        "B1": [
+          "/tmp/mcp-authscan-bench-iywau47l/webrix/src/services/mcp-auth-provider.ts:133"
+        ]
+      },
+      "expected": [
+        "B1"
+      ]
+    },
+    {
+      "case": "atrawog",
+      "label": "positive",
+      "commit": "f44769db53e773d094c99a11bf8bf26af2d0b99c",
+      "detector_fired": {
+        "B3": [
+          "/tmp/mcp-authscan-bench-iywau47l/atrawog/src/mcp_oauth_dynamicclient/routes.py:449"
+        ]
+      },
+      "expected": [
+        "B3"
+      ]
+    },
+    {
+      "case": "akshay5995",
+      "label": "positive",
+      "commit": "f5ef7c60f144210db3032a1fcf11d77917181e7c",
+      "detector_fired": {
+        "B3": [
+          "/tmp/mcp-authscan-bench-iywau47l/akshay5995/src/auth/oauth_server.py:206"
+        ]
+      },
+      "expected": []
+    },
+    {
+      "case": "mcpjungle",
+      "label": "positive",
+      "commit": "12648be5edc70391dc3f9c4aecfd37b83b3e30be",
+      "detector_fired": {},
+      "expected": []
+    },
+    {
+      "case": "docker-oauth-helpers",
+      "label": "positive",
+      "commit": "ff743567bceffd6786a7e2a35dd03564ee79177c",
+      "detector_fired": {},
+      "expected": []
+    },
+    {
+      "case": "metamcp",
+      "label": "positive",
+      "commit": "ff4ff2de9d25453c52dcc7be32680b30700a6012",
+      "detector_fired": {
+        "A3": [
+          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/middleware/better-auth-mcp.middleware.ts:13"
+        ],
+        "A7": [
+          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:92",
+          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:299",
+          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/mcp-proxy/server.ts:336",
+          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/public-metamcp/admin.ts:41",
+          "/tmp/mcp-authscan-bench-iywau47l/metamcp/apps/backend/src/routers/public-metamcp/admin.ts:96"
+        ]
+      },
+      "expected": [
+        "A7"
+      ]
+    },
+    {
+      "case": "agentic-community",
+      "label": "negative",
+      "commit": "14f8589a2e8393b132916b8432cf261801b3c61a",
+      "detector_fired": {}
+    },
+    {
+      "case": "1mcp-agent",
+      "label": "negative",
+      "commit": "6775c0ff7be5a6647e72335605ff9b45b9caa003",
+      "detector_fired": {}
+    },
+    {
+      "case": "ms-mcp-gateway",
+      "label": "negative",
+      "commit": "ce37788ae0719fd73a1707c9a7bc379a68dd775e",
+      "detector_fired": {}
+    },
+    {
+      "case": "ms-azure-devops",
+      "label": "negative",
+      "commit": "2ffa682e2394e961e804a2739d0de62651213365",
+      "detector_fired": {}
+    },
+    {
+      "case": "cuongdev",
+      "label": "latent",
+      "commit": "5a51d5a743c6df0e6762c1f4cb331f373dd96a54",
+      "detector_fired": {},
+      "tolerate": [
+        "A3"
+      ]
+    }
+  ],
+  "review_list_hits": [
+    {
+      "case": "webrix",
+      "rule": "B2",
+      "status": "fired"
+    },
+    {
+      "case": "atrawog",
+      "rule": "B2",
+      "status": "absent"
+    },
+    {
+      "case": "akshay5995",
+      "rule": "B2",
+      "status": "absent"
+    },
+    {
+      "case": "mcpjungle",
+      "rule": "A4",
+      "status": "fired"
+    },
+    {
+      "case": "docker-oauth-helpers",
+      "rule": "A4",
+      "status": "fired"
+    }
+  ],
+  "tolerated_latent": [],
+  "coverage_gaps": [
+    "empires-unauth-dcr-scope",
+    "unla-middleware-ordering"
+  ],
+  "errors": [],
+  "report_sha256": "b2c4239281b74f1c216e56f0129045518e64c57a78e5d5401906eac3e8fb3779"
+}

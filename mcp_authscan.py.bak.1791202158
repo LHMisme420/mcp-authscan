@@ -39,11 +39,6 @@ TEST_FILE = re.compile(
     r"(_test\.go$|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|_test\.py$|(^|/)test_[^/]+\.py$|"
     r"(^|/)testhelpers?\.go$|(^|/)mock_[^/]+\.go$|_mock\.go$)", re.I)
 
-# Minified / hashed JS-CSS bundles are build output, not source. Skip scanner-wide.
-MINIFIED_FILE = re.compile(
-    r"(\.min\.(js|css)$|\.bundle\.(js|css)$|\.[0-9a-f]{8,}\.(js|css)$|"
-    r"(^|/)static/js/[^/]+\.js$)", re.I)
-
 def is_test_path(p):
     if any(part.lower() in TEST_DIR for part in p.parts):
         return True
@@ -58,8 +53,6 @@ def iter_files(root, include_tests, exclude=()):
         if p.resolve() == SELF_PATH:
             continue
         if any(s in p.parts for s in SKIP_DIR):
-            continue
-        if MINIFIED_FILE.search(p.as_posix()):
             continue
         if not include_tests and is_test_path(p):
             continue
@@ -146,11 +139,6 @@ SERVER_AUTHZ_ROLE = re.compile(
     r"(response_type|FormValue|\.Query\(|searchParams|req\.query|request\.query|"
     r"\.Redirect\(|res\.redirect|\.redirect\(|StatusFound|Location|authorization_endpoint)", re.I)
 
-INBOUND_REQ = re.compile(
-    r"(\.Query\(\)|\.FormValue\(|URL\.Query|request\.args|request\.query_params|"
-    r"req\.query|request\.GET\b|searchParams\.get|query_params|c\.Query\(|ctx\.Query\(|"
-    r"http\.Request|http\.ResponseWriter|@(?:app|router|bp|blueprint)\.(?:get|post))", re.I)
-
 def rule_oauth_authorize(path, text, F):
     for m in AUTHZ_HANDLER.finditer(text):
         if defname(m.group(0)).lower().startswith("test"):
@@ -171,8 +159,6 @@ def rule_oauth_authorize(path, text, F):
             # Python grabs an inner dict literal and misses trailing client signals).
             gate = text[m.start():m.start() + 900]
             if CLIENT_EXCHANGE.search(gate) or not SERVER_AUTHZ_ROLE.search(gate):
-                continue
-            if not INBOUND_REQ.search(gate):   # outbound URL builder, not a server handler
                 continue
             add(F, "A1", "MEDIUM",
                 f"OAuth authorize handler reads {', '.join(missing)} \u2014 verify validation (here or in a downstream service)",
@@ -216,12 +202,6 @@ def rule_default_creds(path, text, F):
             continue
         if "pragma: allowlist secret" in line.lower():
             continue
-        if val and "@" not in ev and (re.search(r"\{[^}]*\}|\$\{|%[sd]\b|%\(", val)
-                    or re.fullmatch(r"(\S)\1{5,}", val)
-                    or re.fullmatch(r"[\w$]+(?:\.[\w$]+)+", val)):
-            continue
-        if re.search(r"(#|//)\s*nosec\b", line, re.I):
-            continue
         if "nolint:gosec" in line.lower() or "not a credential" in line.lower():
             continue
         if val and val.lower().startswith("urn:"):
@@ -229,7 +209,7 @@ def rule_default_creds(path, text, F):
         if any(seg in str(path).lower() for seg in ("/demo", "demo_", "/example", "example_", "/sample", "sample_")):
             continue
         pl = str(path).lower()
-        if "@" not in ev and any(seg in pl for seg in (".config.", "/scripts/", "tsdown", "vite.config", "webpack", "rollup", "/config/", ".env.example")):
+        if any(seg in pl for seg in (".config.", "/scripts/", "tsdown", "vite.config", "webpack", "rollup", "/config/", ".env.example")):
             continue
         if val and (re.search(r"\.(ts|js|tsx|jsx|py|go|json|ya?ml)$", val) or val.startswith("eyJ")):
             continue
@@ -538,9 +518,6 @@ RULE_META = {
     "A6": {"name": "MethodScopedAuthorization",
            "desc": "Authorization check gated on a specific method/path; other methods may bypass it (review-list).",
            "sev": 5.0, "cwe": ["CWE-863"]},
-    "A7": {"name": "CrossTenantUnscopedList",
-           "desc": "Unscoped list (findAll/listAll) on a repo that also exposes a tenant-scoped sibling, reached from a request handler - cross-tenant read.",
-           "sev": 7.5, "cwe": ["CWE-863", "CWE-862"]},
     "C1": {"name": "MCPClientMissingIssuerBinding",
            "desc": "M2M MCP OAuth client provider built without issuer/expectedIssuer; pre-provisioned credentials follow whatever AS the MCP server advertises.",
            "sev": 7.5, "cwe": ["CWE-346", "CWE-290"]},
@@ -770,63 +747,18 @@ def rule_authcode_replay(path, text, F):
         "code redeemed/looked up here; no delete/mark-used/revoke in this file -- confirm storage layer before filing",
         "VATA:webrix auth-code replay", "MEDIUM")
 
-# ---- Rule A7: cross-tenant unscoped list (seed: metamcp, CWE-863) ----
-# Unscoped list on a repo that ALSO exposes a tenant-scoped sibling, reached from a
-# request/auth handler -> cross-tenant read. Needs repo-wide context (SCOPED_REPOS).
-SCOPED_REPOS = set()
-A7_SCOPED_CALL = re.compile(
-    r"(\w*(?:[Rr]epository|[Rr]epo|[Ss]tore|[Dd]ao))\."
-    r"(?:findAllAccessibleTo\w*|findAccessibleTo\w*|listAccessibleTo\w*|"
-    r"findVisibleTo\w*|visibleTo\w*|\w*ScopedTo\w*|findAllForUser\w*)\s*\(", re.I)
-A7_UNSCOPED_LIST = re.compile(
-    r"(\w*(?:[Rr]epository|[Rr]epo|[Ss]tore|[Dd]ao))\."
-    r"(findAll|listAll|getAll|findMany|list)\s*\(\s*\)")
-A7_BOOT_PATH = re.compile(
-    r"(startup|bootstrap|seed|migrat|/cli|scripts?/|/bin/|(^|/)main\.|(^|/)index\.)", re.I)
-A7_REQ_CTX = re.compile(
-    r"(routers?/|controllers?/|handlers?/|req\.|request\.|res\.|ctx\.|"
-    r"userId|user_id|session|getServerSession|currentUser|current_user|principal)", re.I)
-
-def rule_cross_tenant_list(path, text, F):
-    if not SCOPED_REPOS:
-        return
-    ppath = path.as_posix()
-    if A7_BOOT_PATH.search(ppath):
-        return
-    for m in A7_UNSCOPED_LIST.finditer(text):
-        repo = m.group(1)
-        if repo not in SCOPED_REPOS:
-            continue
-        window = text[max(0, m.start() - 400):m.start() + 160]
-        if not (A7_REQ_CTX.search(ppath) or A7_REQ_CTX.search(window)):
-            continue
-        add(F, "A7", "HIGH",
-            f"Unscoped {repo}.{m.group(2)}() in a handler; a tenant-scoped sibling exists",
-            path, text, m.start(),
-            f"{repo} exposes a *AccessibleTo* method but this handler calls the "
-            f"unscoped {m.group(2)}() - cross-tenant read (CWE-863)",
-            "VATA:metamcp cross-tenant unscoped list", "MEDIUM")
-
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
          rule_client_issuer_binding,
-         rule_pkce_not_enforced, rule_authcode_replay,
-         rule_cross_tenant_list]
+         rule_pkce_not_enforced, rule_authcode_replay]
 
 def scan(root, include_tests, exclude=()):
-    global SCOPED_REPOS
-    docs = []
+    F = []
     for path in iter_files(root, include_tests, exclude):
         try:
-            docs.append((path, path.read_text(errors="ignore")))
+            text = path.read_text(errors="ignore")
         except Exception:
             continue
-    SCOPED_REPOS = set()
-    for _, text in docs:
-        for m in A7_SCOPED_CALL.finditer(text):
-            SCOPED_REPOS.add(m.group(1))
-    F = []
-    for path, text in docs:
         for r in RULES:
             r(path, text, F)
     return F
