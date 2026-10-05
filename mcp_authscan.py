@@ -309,6 +309,10 @@ def _is_literal(expr):
     return False
 
 def rule_ssrf(path, text, F):
+    # Frontend and demo-script fetches to the app's own backend are not SSRF.
+    pl = path.as_posix().lower()
+    if any(s in pl for s in ("/frontend/", "/web/", "/ui/", "/scripts/save-demo")):
+        return
     seen = set()
     for rx, g in HTTP_SINKS:
         for m in rx.finditer(text):
@@ -739,6 +743,10 @@ def rule_pkce_not_enforced(path, text, F):
             line = text[ls:le]
             if B_GEN_VERIFIER.search(line) or not B_RECV_HINT.search(line):
                 continue
+            # Client generating a verifier is not an authorization server failing to check one.
+            if re.search(r"generate_code_verifier|compute_code_challenge|code_challenge\s*=", text):
+                if not re.search(r"request\.(?:form|json|body)|req\.(?:body|query)|code_verifier\s*=\s*request", text):
+                    continue
             add(F, "B1", "MEDIUM", "PKCE code_verifier received but never validated",
                 path, text, m.start(),
                 "code_verifier received as input; no SHA-256/S256 transform in this file",
