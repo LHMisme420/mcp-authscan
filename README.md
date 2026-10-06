@@ -232,3 +232,9 @@ Call-site requirement, fixture, and install: [docs/issuer-binding.md](docs/issue
 ## Issuer binding
 
 Call-site requirement and fixture: docs/issuer-binding.md
+
+## Fail the build when a client secret is not bound
+
+The MCP SDK advisories say an upgrade is not enough. A machine-to-machine client must pass `issuer=` or `expectedIssuer`, or the secret follows whatever authorization server the MCP server names. This check fails that pull request.
+
+`examples/fastmcp-issuer` fails. `examples/fastmcp-issuer-fixed` stays quiet. Copy `.github/workflows/example-issuer.yml` into the repo you want gated.
