@@ -183,6 +183,50 @@
                     "note": "issuer= present"
                 }
             ]
+        },
+        {
+            "name": "fixture-issuer-wrapper-bad",
+            "path": "examples/issuer-wrapper",
+            "must_detect": [
+                {
+                    "rule": "C1",
+                    "match": "wrap.py",
+                    "note": "super() drops issuer="
+                }
+            ]
+        },
+        {
+            "name": "fixture-issuer-wrapper-fixed",
+            "path": "examples/issuer-wrapper-fixed",
+            "must_detect": [],
+            "must_not_detect": [
+                {
+                    "rule": "C1",
+                    "note": "issuer= passed"
+                }
+            ]
+        },
+        {
+            "name": "fixture-lock-pin-bad",
+            "path": "examples/lock-pin-bad",
+            "must_detect": [
+                {
+                    "rule": "D1",
+                    "match": "uv.lock",
+                    "note": "mcp 1.29.0"
+                }
+            ]
+        },
+        {
+            "name": "fixture-lock-pin-fixed",
+            "path": "examples/lock-pin-fixed",
+            "must_detect": [],
+            "must_not_detect": [
+                {
+                    "rule": "D1",
+                    "note": "mcp 1.30.0"
+                }
+            ]
         }
     ]
 }
