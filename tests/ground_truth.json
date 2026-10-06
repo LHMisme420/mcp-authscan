@@ -159,6 +159,30 @@
                     "note": "S256-only enforcement must not FP"
                 }
             ]
+        },
+        {
+            "name": "fixture-fastmcp-issuer-bad",
+            "path": "examples/fastmcp-issuer",
+            "note": "FastMCP ClientCredentialsOAuthProvider without issuer= must fail",
+            "must_detect": [
+                {
+                    "rule": "C1",
+                    "match": "bad.py:2",
+                    "note": "no issuer="
+                }
+            ]
+        },
+        {
+            "name": "fixture-fastmcp-issuer-fixed",
+            "path": "examples/fastmcp-issuer-fixed",
+            "note": "same call with issuer= must stay silent",
+            "must_detect": [],
+            "must_not_detect": [
+                {
+                    "rule": "C1",
+                    "note": "issuer= present"
+                }
+            ]
         }
     ]
 }
