@@ -115,6 +115,19 @@ def enclosing_block(text, idx):
         return text[max(0, s):idx + 400]
     return brace_block(text, last.start())
 
+# --- optional AST engine (A6-ast): graceful-degrade to stdlib regex if absent ---
+HAVE_AST = False
+try:
+    import os as _os, sys as _sys
+    _eng = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "engine")
+    if _eng not in _sys.path:
+        _sys.path.insert(0, _eng)
+    import a6_ast as _a6ast  # loads tree_sitter + tree_sitter_go at import time
+    HAVE_AST = True
+except Exception:
+    HAVE_AST = False
+
+
 def add(findings, rule, sev, title, path, text, idx, evidence, ref, conf):
     findings.append({
         "rule": rule, "severity": sev, "confidence": conf, "title": title,
@@ -416,6 +429,22 @@ def rule_method_scoped_authz(path, text, F):
             "Authz check gated on a specific method/path - verify other methods are not bypassed (review each)",
             path, text, m.start(), line[:70],
             "VATA:ttokkime method-scoped RBAC (tools/list bypass)", "LOW")
+
+    # --- A6-ast: structural confirmation on Go files when the AST engine is present ---
+    # Regex-A6 above is a LOW review-pointer; A6-ast is a HIGH structural detector.
+    # Reached only for non-test/.go files (test/mock returned early at top of fn).
+    if HAVE_AST and str(path).endswith(".go"):
+        try:
+            for _f in _a6ast.analyze(str(path)):
+                _gl = _f["gate_line"]
+                _off = sum(len(p) + 1 for p in text.split("\n")[:_gl - 1])
+                add(F, "A6-ast", "HIGH",
+                    "Method-scoped authz gate with ungated sink on another method path (structural)",
+                    path, text, _off,
+                    "gate L%d -> ungated sink L%d (%s)" % (_gl, _f["sink_line"], _f["sink"]),
+                    "VATA:ttokkime method-scoped RBAC (tools/list bypass) [AST-confirmed]", "HIGH")
+        except Exception:
+            pass  # engine failure must never break the stdlib scan
 
 # ===================== Client-side rules (C-series) =====================
 # Issuer binding on MCP OAuth CLIENT providers holding pre-provisioned credentials.

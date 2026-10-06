@@ -1,116 +1,121 @@
 {
-  "description": "Seed findings mcp-authscan must re-detect. A rule that stops detecting its seed is a regression. Each entry: the repo, the rule, and a file:line substring that must appear in the scan output.",
-  "cases": [
-    {
-      "repo": "https://github.com/lucky-aeon/mcp-gateway",
-      "name": "lucky-aeon",
-      "must_detect": [
+    "description": "Seed findings mcp-authscan must re-detect. A rule that stops detecting its seed is a regression. Each entry: the repo, the rule, and a file:line substring that must appear in the scan output.",
+    "cases": [
         {
-          "rule": "A1",
-          "match": "internal/gateway/auth.go:174",
-          "note": "handleOAuthAuthorize: redirect_uri not validated"
+            "repo": "https://github.com/lucky-aeon/mcp-gateway",
+            "name": "lucky-aeon",
+            "must_detect": [
+                {
+                    "rule": "A1",
+                    "match": "internal/gateway/auth.go:174",
+                    "note": "handleOAuthAuthorize: redirect_uri not validated"
+                },
+                {
+                    "rule": "A3",
+                    "match": "internal/gateway/auth.go:22",
+                    "note": "mcpAuthMiddleware: authn without authz"
+                },
+                {
+                    "rule": "A2",
+                    "match": "internal/platform/config/config.go:63",
+                    "note": "hardcoded admin default (admin@gateway.local at :63)"
+                }
+            ]
         },
         {
-          "rule": "A3",
-          "match": "internal/gateway/auth.go:22",
-          "note": "mcpAuthMiddleware: authn without authz"
+            "repo": "https://github.com/mcpjungle/mcpjungle",
+            "name": "mcpjungle",
+            "must_detect": [
+                {
+                    "rule": "A4",
+                    "match": "internal/service/mcp/upstream_oauth.go:466",
+                    "note": "DCR SSRF: RegistrationEndpoint fetched unguarded"
+                }
+            ]
         },
         {
-          "rule": "A2",
-          "match": "internal/platform/config/config.go:63",
-          "note": "hardcoded admin default (admin@gateway.local at :63)"
-        }
-      ]
-    },
-    {
-      "repo": "https://github.com/mcpjungle/mcpjungle",
-      "name": "mcpjungle",
-      "must_detect": [
-        {
-          "rule": "A4",
-          "match": "internal/service/mcp/upstream_oauth.go:466",
-          "note": "DCR SSRF: RegistrationEndpoint fetched unguarded"
-        }
-      ]
-    },
-    {
-      "repo": "https://github.com/Ttokkime/mcp-gateway",
-      "name": "ttokkime",
-      "must_detect": [
-        {
-          "rule": "A6",
-          "match": "internal/proxy/proxy.go:144",
-          "note": "method-scoped authz: RBAC gated on tools/call, other methods bypass"
-        }
-      ]
-    },
-    {
-      "name": "fixture-a6",
-      "path": "rule_corpus/method_scoped_authz",
-      "note": "self-contained A6 fixture (no network); stays green even if Ttokkime patches",
-      "must_detect": [
-        {
-          "rule": "A6",
-          "match": "internal/proxy/proxy.go:7",
-          "note": "authz deny gated on tools/call branch, no catch-all"
-        }
-      ]
-    },
-    {
-      "name": "fixture-client-issuer",
-      "path": "rule_corpus/client_issuer_binding",
-      "note": "self-contained C-series fixture; bound providers and resolved opts must NOT appear",
-      "must_detect": [
-        {
-          "rule": "C1",
-          "match": "py/client.py:5",
-          "note": "ClientCredentialsOAuthProvider without issuer="
+            "repo": "https://github.com/Ttokkime/mcp-gateway",
+            "name": "ttokkime",
+            "must_detect": [
+                {
+                    "rule": "A6",
+                    "match": "internal/proxy/proxy.go:144",
+                    "note": "method-scoped authz: RBAC gated on tools/call, other methods bypass"
+                },
+                {
+                    "rule": "A6-ast",
+                    "match": "internal/proxy/proxy.go:144",
+                    "note": "AST structural: method-scoped authz gate w/ ungated sink (confirms A6 review-pointer)"
+                }
+            ]
         },
         {
-          "rule": "C2",
-          "match": "py/client.py:18",
-          "note": "legacy RFC7523OAuthClientProvider"
+            "name": "fixture-a6",
+            "path": "rule_corpus/method_scoped_authz",
+            "note": "self-contained A6 fixture (no network); stays green even if Ttokkime patches",
+            "must_detect": [
+                {
+                    "rule": "A6",
+                    "match": "internal/proxy/proxy.go:7",
+                    "note": "authz deny gated on tools/call branch, no catch-all"
+                }
+            ]
         },
         {
-          "rule": "C1",
-          "match": "py/client.py:20",
-          "note": "**kwargs review"
+            "name": "fixture-client-issuer",
+            "path": "rule_corpus/client_issuer_binding",
+            "note": "self-contained C-series fixture; bound providers and resolved opts must NOT appear",
+            "must_detect": [
+                {
+                    "rule": "C1",
+                    "match": "py/client.py:5",
+                    "note": "ClientCredentialsOAuthProvider without issuer="
+                },
+                {
+                    "rule": "C2",
+                    "match": "py/client.py:18",
+                    "note": "legacy RFC7523OAuthClientProvider"
+                },
+                {
+                    "rule": "C1",
+                    "match": "py/client.py:20",
+                    "note": "**kwargs review"
+                },
+                {
+                    "rule": "C1",
+                    "match": "ts/client.ts:4",
+                    "note": "ClientCredentialsProvider without expectedIssuer"
+                },
+                {
+                    "rule": "C3",
+                    "match": "ts/client.ts:13",
+                    "note": "skipIssuerMetadataValidation: true"
+                }
+            ]
         },
         {
-          "rule": "C1",
-          "match": "ts/client.ts:4",
-          "note": "ClientCredentialsProvider without expectedIssuer"
+            "name": "fixture-redirect-unvalidated",
+            "path": "rule_corpus/redirect_unvalidated",
+            "note": "self-contained A1 must-fire: authorize handler trusts client redirect_uri, no allowlist",
+            "must_detect": [
+                {
+                    "rule": "A1",
+                    "match": "redirect_unvalidated/handler.go:6",
+                    "note": "redirect_uri used in redirect with no registered-URI check"
+                }
+            ]
         },
         {
-          "rule": "C3",
-          "match": "ts/client.ts:13",
-          "note": "skipIssuerMetadataValidation: true"
+            "name": "fixture-redirect-validated",
+            "path": "rule_corpus/redirect_validated_via_helper",
+            "note": "self-contained A1 must-stay-silent: redirect validated via helper / delegated to service (paladin/AuthPlane shape)",
+            "must_detect": [],
+            "must_not_detect": [
+                {
+                    "rule": "A1",
+                    "note": "validation via registeredRedirect()/StartAuthorization() must not FP"
+                }
+            ]
         }
-      ]
-    },
-    {
-      "name": "fixture-redirect-unvalidated",
-      "path": "rule_corpus/redirect_unvalidated",
-      "note": "self-contained A1 must-fire: authorize handler trusts client redirect_uri, no allowlist",
-      "must_detect": [
-        {
-          "rule": "A1",
-          "match": "redirect_unvalidated/handler.go:6",
-          "note": "redirect_uri used in redirect with no registered-URI check"
-        }
-      ]
-    },
-    {
-      "name": "fixture-redirect-validated",
-      "path": "rule_corpus/redirect_validated_via_helper",
-      "note": "self-contained A1 must-stay-silent: redirect validated via helper / delegated to service (paladin/AuthPlane shape)",
-      "must_detect": [],
-      "must_not_detect": [
-        {
-          "rule": "A1",
-          "note": "validation via registeredRedirect()/StartAuthorization() must not FP"
-        }
-      ]
-    }
-  ]
+    ]
 }
