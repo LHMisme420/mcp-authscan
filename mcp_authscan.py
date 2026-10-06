@@ -430,6 +430,21 @@ def rule_method_scoped_authz(path, text, F):
             path, text, m.start(), line[:70],
             "VATA:ttokkime method-scoped RBAC (tools/list bypass)", "LOW")
 
+    # ---- Rule A6-ast: structural method-scoped authz bypass (HIGH, detector) ----
+    # Upgrades regex-A6 (a LOW review-pointer) to a real detector via tree-sitter.
+    # FIRES when: an `if <x>.Method == <protocol-method>` guard CONTAINS an authz
+    #   call (ToolAllowed/Authorized/HasScope/...), AND a sink (proxy/ServeHTTP/
+    #   forward/catalog) is a later sibling of that guard -- i.e. reachable when the
+    #   guarded method condition is false. That asymmetry is the bypass.
+    # VALIDATED: Ttokkime/mcp-gateway @ e2fa419 proxy.go:144 (tools/list RBAC
+    #   bypass, Sepolia-anchored). Corpus sweep: 1/258 Go files, seed-only, 0 FP.
+    # BLIND SPOT (documented, not a bug): guards keyed on HTTP transport verbs
+    #   (GET/POST/OPTIONS) are treated as routing/CORS and ignored. A gateway that
+    #   keys real authorization off HTTP verbs instead of protocol methods will
+    #   NOT be detected by this rule. Scoped to MCP protocol-method dispatch.
+    # CLAIM BOUNDARY: precision validated (0 FP on corpus); detection validated at
+    #   n=1 (the seed). This rule has not yet DISCOVERED an unknown bug -- that
+    #   requires a fire on a fresh target confirmed by hand. Receipts over promises.
     # --- A6-ast: structural confirmation on Go files when the AST engine is present ---
     # Regex-A6 above is a LOW review-pointer; A6-ast is a HIGH structural detector.
     # Reached only for non-test/.go files (test/mock returned early at top of fn).
