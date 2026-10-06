@@ -691,7 +691,14 @@ B_SKIP_PKCE = re.compile(r"skip[_-]?local[_-]?pkce[_-]?validation\s*[:=]\s*true"
 # PKCE downgradeable to 'plain': challenge method defaults to / falls back to 'plain'
 # (plain -> challenge == verifier, no protection). CVE-2025-4144 class.
 B_PKCE_PLAIN_DEFAULT = re.compile(
-    r"code[_-]?challenge[_-]?method\b[^;\n]{0,60}(?:\|\||\?\?)\s*[\'\"]plain[\'\"]", re.I)
+    # JS idiom: code_challenge_method || 'plain' / ?? 'plain'
+    r"code[_-]?challenge[_-]?method\b[^;\n]{0,60}(?:\|\||\?\?)\s*[\'\"]plain[\'\"]"
+    # Python/generic default idiom: .get("code_challenge_method", "plain") or (= ... or "plain")
+    r"|code[_-]?challenge[_-]?method[\'\"]?\s*,\s*[\'\"]plain[\'\"]"
+    r"|code[_-]?challenge[_-]?method[^\n]{0,40}\bor\s+[\'\"]plain[\'\"]"
+    # The smoking gun: non-S256 branch falls through to a RAW verifier compare
+    # (calc = verifier / = code_verifier), i.e. plain is honored, not rejected.
+    r"|==\s*[\'\"]S256[\'\"][^\n]*\n(?:[^\n]*\n){0,8}?\s*else\s*:\s*\n\s*\w+\s*=\s*(?:code_)?verifier\b", re.I | re.M)
 B_PKCE_HASH = re.compile(r"sha-?256|s256|createhash|crypto\.createHash|subtle\.digest|hashlib\.sha256|\.digest\(|hashes\.SHA256", re.I)
 B_VERIFIER  = re.compile(r"code[_]?verifier", re.I)
 B_GEN_VERIFIER = re.compile(r"code[_]?verifier\s*=\s*.*(?:secrets|token_|randombytes|random\.|base64|createhash|uuid|getrandom)", re.I)
@@ -706,6 +713,13 @@ B_INVALIDATE  = re.compile(
     r"|mark[_]?used|markUsed|mark[_]?code[_]?used|consume\w*code|consumeCode|consume_authorization"
     r"|redeemed\s*[:=]\s*[Tt]rue|used\s*[:=]\s*[Tt]rue|is[_]?used\s*[:=]\s*[Tt]rue"
     r"|codes?\.(?:delete|remove|pop)\(|authorization[_]?codes?\.(?:delete|remove|pop)\("
+    # timestamp-column single-use (cortex idiom): usedAt/consumedAt/redeemedAt set to a
+    # date/now, plus the .usedAt read-guard that enforces it. KNOWN LIMIT: a file that
+    # SETS usedAt but never CHECKS it is now silenced too (set-but-unchecked); acceptable
+    # for a MEDIUM review-pointer.
+    r"|(?:used|consumed|redeemed|revoked)_?at\s*[:=]\s*(?:new\s+Date|Date\.now|datetime|now\(|timezone\.now|Time\.now|\bnow\b|sql\w*\.now)"
+    r"|(?:\.|\?\.)(?:used|consumed|redeemed|revoked)_?at\b"
+    r"|data\s*:\s*\{[^}\n]*(?:used|consumed|redeemed)_?at"
     r"|(?:delete|remove|pop|del)\([^)\n]*\bcode\b|\.(?:delete|remove|pop)\([^)\n]*\bcode", re.I)
 B_EXPIRY_FIELD = re.compile(r"expires?(_at|_in)?\b|\bexp\b|\bttl\b|expiry|valid[_-]?until|not[_-]?after", re.I)
 B_CODE_CTX = re.compile(r"\bcode\b|authorization", re.I)
