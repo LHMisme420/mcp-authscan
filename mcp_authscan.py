@@ -27,7 +27,7 @@ v0.4 changes:
 import argparse, hashlib, json, re, sys
 from pathlib import Path
 
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
@@ -52,7 +52,9 @@ def is_test_path(p):
 def iter_files(root, include_tests, exclude=()):
     root = Path(root)
     excl = [ (root / e).resolve() for e in exclude ]
-    for p in root.rglob("*"):
+    paths = [root] if root.is_file() else root.rglob("*")
+    skipped = 0
+    for p in paths:
         if not (p.is_file() and p.suffix in SRC_EXT):
             continue
         if p.resolve() == SELF_PATH:
@@ -62,11 +64,14 @@ def iter_files(root, include_tests, exclude=()):
         if MINIFIED_FILE.search(p.as_posix()):
             continue
         if not include_tests and is_test_path(p):
+            skipped += 1
             continue
         rp = p.resolve()
         if any(rp == e or e in rp.parents for e in excl):
             continue
         yield p
+    if skipped:
+        print(f"skipped {skipped} test/fixture path(s); pass --include-tests to scan them", file=sys.stderr)
 
 def lineno(text, idx):
     return text.count("\n", 0, idx) + 1
@@ -520,6 +525,21 @@ def rule_client_issuer_binding(path, text, F):
             path, text, m.start(), f"new {m.group(1)}(...) has no expectedIssuer",
             "typescript-sdk PR #2887 (SEP-2352 issuer binding)", "HIGH")
 
+    # Wrapper that cannot pass issuer= through to the SDK.
+    for m in re.finditer(r"class\s+\w+\((?:\w*ClientCredentialsOAuthProvider|\w*PrivateKeyJWTOAuthProvider)\)", text):
+        block = text[m.start():m.start()+1200]
+        sup = re.search(r"super\(\)\.__init__\((.*?)\)", block, re.S)
+        if sup and not re.search(r"\bissuer\s*=", sup.group(1)):
+            add(F, "C1", "HIGH",
+                "M2M provider wrapper calls super().__init__ without issuer= - callers cannot bind the secret",
+                path, text, m.start(), "super().__init__ has no issuer=",
+                "GHSA-qx49-fqc8-xw99 (python-sdk issuer binding)", "HIGH")
+    for m in re.finditer(r"expectedIssuer[^\n]{0,80}\?[^\n]{0,120}:\s*\{\s*\}", text):
+        add(F, "C1", "HIGH",
+            "expectedIssuer is omitted when the issuer value is missing - binding is conditional",
+            path, text, m.start(), m.group(0)[:80],
+            "typescript-sdk PR #2887 (SEP-2352 issuer binding)", "HIGH")
+
     # C2: legacy provider with no issuer option at all
     for m in PY_LEGACY.finditer(text):
         line = linetext(text, m.start())
@@ -896,7 +916,7 @@ def rule_fastmcp_auth_default(path, text, F):
         "VATA:mcp-pinot GHSA-73cv auth-disabled-by-default", "MEDIUM")
 
 
-DEP_NAMES = {"requirements.txt", "requirements-dev.txt", "pyproject.toml", "setup.cfg", "Pipfile", "package.json"}
+DEP_NAMES = {"requirements.txt", "requirements-dev.txt", "pyproject.toml", "setup.cfg", "Pipfile", "package.json", "uv.lock", "package-lock.json", "poetry.lock"}
 
 def _ver_tuple(s):
     nums = re.findall(r"\d+", s)
@@ -980,6 +1000,20 @@ def _npm_vulnerable(name, spec):
     return False
 
 def rule_mcp_sdk_version(path, text, F):
+    if path.name in {"uv.lock", "package-lock.json", "poetry.lock"}:
+        for m in re.finditer(r'name\s*=\s*"mcp"|"(?:mcp|@modelcontextprotocol/(?:sdk|client))"\s*:\s*\{[^}]{0,200}"version"\s*:\s*"([^"]+)"', text):
+            spec = m.group(1) if m.lastindex else ""
+            window = text[m.start():m.start()+240]
+            vm = re.search(r'version\s*=\s*"([^"]+)"', window)
+            pin = spec or (vm.group(1) if vm else "")
+            if not pin:
+                continue
+            bad = _mcp_vulnerable("=="+pin) if path.name != "package-lock.json" else _npm_vulnerable("@modelcontextprotocol/sdk", pin) or _mcp_vulnerable("=="+pin)
+            if bad:
+                add(F, "D1", "HIGH",
+                    "lockfile pin is inside the MCP issuer-binding advisory range",
+                    path, text, m.start(), pin, "GHSA-qx49-fqc8-xw99", "HIGH")
+        return
     if path.name == "package.json":
         for m in re.finditer(r'"(@modelcontextprotocol/(?:sdk|client))"\s*:\s*"([^"]+)"', text):
             if not _npm_vulnerable(m.group(1), m.group(2)):
