@@ -224,3 +224,11 @@ jobs:
 `security-events: write` is mandatory for the upload. `continue-on-error` +
 `if: always()` ensure findings still reach the Security tab when the scan exits
 non-zero on a hit.
+
+## Issuer binding
+
+Call-site requirement, fixture, and install: [docs/issuer-binding.md](docs/issuer-binding.md).
+
+## Issuer binding
+
+Call-site requirement and fixture: docs/issuer-binding.md
