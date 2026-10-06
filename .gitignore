@@ -18,3 +18,4 @@ _external/
 scorecard
 gosec
 FETCH_HEAD
+.ts-venv/
