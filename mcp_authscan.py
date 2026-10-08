@@ -1127,3 +1127,14 @@ OAUTH_2_1_CHECKS = {
     "response_type_confusion": [r'response_type.*multiple', r'accepts.*code.*token'],
     "dop_not_enforced": [r'dpop.*optional', r'dpop.*not.*required'],
 }
+
+# OAuth 2.1 Compliance Checks (v1.1)
+OAUTH_2_1_CHECKS = {
+    "implicit_flow_used": [r'response_type.*implicit', r'response_type.*token', r'flow.*implicit'],
+    "pkce_plain_allowed": [r'code_challenge_method.*plain', r'method.*=.*plain', r'plain.*PKCE'],
+    "pkce_not_required": [r'code_challenge.*optional', r'pkce.*not.*required'],
+    "issuer_not_validated": [r'issuer.*validation.*skip', r'skipIssuerValidation.*true', r'validateIssuer.*false'],
+    "weak_state_validation": [r'state.*length.*<.*16', r'state.*entropy.*weak'],
+    "response_type_confusion": [r'response_type.*multiple', r'accepts.*code.*token'],
+    "dop_not_enforced": [r'dpop.*optional', r'dpop.*not.*required'],
+}
