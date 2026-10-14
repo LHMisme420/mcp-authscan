@@ -151,10 +151,10 @@ def threat_intelligence():
         conn.close()
         return jsonify({
             'total_findings': len(recent), 
-            'critical': recent.count('CRITICAL'), 
-            'high': recent.count('HIGH'), 
-            'medium': recent.count('MEDIUM'),
-            'low': recent.count('LOW'),
+            'critical': recent.count('critical') + recent.count('CRITICAL'), 
+            'high': recent.count('high') + recent.count('HIGH'), 
+            'medium': recent.count('medium') + recent.count('MEDIUM'),
+            'low': recent.count('low') + recent.count('LOW'),
             'week_trend': week, 
             'month_trend': month, 
             'trend_direction': 'increasing' if week > month/4 else 'decreasing'
