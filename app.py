@@ -19,33 +19,25 @@ PORT = int(os.getenv('PORT', 7777))
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS organizations (
-        id INTEGER PRIMARY KEY,
-        name TEXT UNIQUE,
-        api_key TEXT UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS findings (
-        id INTEGER PRIMARY KEY,
-        org_id INTEGER,
-        vector_type TEXT,
-        severity TEXT,
-        description TEXT,
-        remediation TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (org_id) REFERENCES organizations(id)
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS compliance_reports (
-        id INTEGER PRIMARY KEY,
-        org_id INTEGER,
-        score INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (org_id) REFERENCES organizations(id)
-    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS organizations (id INTEGER PRIMARY KEY, name TEXT UNIQUE, api_key TEXT UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS findings (id INTEGER PRIMARY KEY, org_id INTEGER, vector_type TEXT, severity TEXT, description TEXT, remediation TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (org_id) REFERENCES organizations(id))''')
+    c.execute('''CREATE TABLE IF NOT EXISTS compliance_reports (id INTEGER PRIMARY KEY, org_id INTEGER, score INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (org_id) REFERENCES organizations(id))''')
     conn.commit()
     conn.close()
 
 init_db()
+
+@app.route('/')
+def index():
+    return '''<html><body><h1>VATA Security Platform</h1><p><a href="/dashboard.html">Dashboard</a></p></body></html>'''
+
+@app.route('/dashboard.html')
+def dashboard():
+    try:
+        with open('dashboard.html', 'r') as f:
+            return f.read(), 200, {'Content-Type': 'text/html'}
+    except:
+        return 'Dashboard not found', 404
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -63,8 +55,7 @@ def register():
         if existing:
             org_id = existing[0]
         else:
-            c.execute('INSERT INTO organizations (name, api_key) VALUES (?, ?)',
-                     (org_name, f'key_{org_name}'))
+            c.execute('INSERT INTO organizations (name, api_key) VALUES (?, ?)', (org_name, f'key_{org_name}'))
             conn.commit()
             org_id = c.lastrowid
         access_token = create_access_token(identity=str(org_id))
@@ -135,15 +126,7 @@ def threat_intelligence():
         c.execute('SELECT COUNT(*) FROM findings WHERE org_id = ? AND created_at > datetime("now", "-30 days")', (org_id,))
         month = c.fetchone()[0]
         conn.close()
-        return jsonify({
-            'total_findings': len(recent),
-            'critical': recent.count('CRITICAL'),
-            'high': recent.count('HIGH'),
-            'medium': recent.count('MEDIUM'),
-            'week_trend': week,
-            'month_trend': month,
-            'trend_direction': 'increasing' if week > month/4 else 'decreasing'
-        }), 200
+        return jsonify({'total_findings': len(recent), 'critical': recent.count('CRITICAL'), 'high': recent.count('HIGH'), 'medium': recent.count('MEDIUM'), 'week_trend': week, 'month_trend': month, 'trend_direction': 'increasing' if week > month/4 else 'decreasing'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -166,26 +149,3 @@ def compliance_report():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False)
-
-@app.route('/dashboard')
-def dashboard():
-    """Serve dashboard"""
-    try:
-        with open('dashboard.html', 'r') as f:
-            return f.read()
-    except:
-        return 'Dashboard not found', 404
-
-@app.route('/')
-def index():
-    """Redirect to dashboard"""
-    return '''
-    <html>
-    <head><title>VATA Security Platform</title></head>
-    <body>
-    <h1>VATA Security Platform</h1>
-    <p><a href="/dashboard">Open Dashboard</a></p>
-    <p><a href="/health">API Health</a></p>
-    </body>
-    </html>
-    '''
