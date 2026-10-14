@@ -253,7 +253,7 @@ function Dashboard() {
   const API_URL = 'http://127.0.0.1:7777';
 
   useEffect(() => {
-    const stored = localStorage.getItem('vata_token');
+    const stored = 'REDACTED_JWT';
     if (stored) {
       setToken(stored);
       fetchData(stored);
@@ -270,7 +270,7 @@ function Dashboard() {
         body: JSON.stringify({ org_name: 'Dashboard-Viewer', username: 'viewer' })
       });
       const json = await res.json();
-      localStorage.setItem('vata_token', json.access_token);
+      // using shared token;
       setToken(json.access_token);
       fetchData(json.access_token);
     } catch (e) {
