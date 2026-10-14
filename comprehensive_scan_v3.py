@@ -6,8 +6,8 @@ from scanner_v3 import MCPScannerV3
 with open("../mcp-security-registry/data/comprehensive_scan_v2.json") as f:
     servers_data = json.load(f)
 
-# Extract server list
-servers = [(name, f"https://{name.split('/')[0]}") for name in servers_data["findings"].keys()]
+# Extract server list - FIXED URL construction
+servers = [(name, f"https://{name}") for name in servers_data["findings"].keys()]
 
 # Run concurrent scan (10 at a time)
 print(f"Scanning {len(servers)} servers with v3 scanner (concurrent)...")

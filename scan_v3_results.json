@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-10-13T11:18:43.790286+00:00",
+  "total": 2,
+  "critical": 0,
+  "high": 1,
+  "medium": 2,
+  "findings": {
+    "Server2": [
+      {
+        "endpoint": "CORS",
+        "severity": "HIGH",
+        "issue": "CORS wildcard allows cross-origin attacks",
+        "header_value": "*",
+        "response_headers": {
+          "x-powered-by": "Express",
+          "access-control-allow-origin": "*",
+          "access-control-allow-headers": "authorization, content-type, mcp-protocol-version",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-expose-headers": "WWW-Authenticate",
+          "x-cloud-trace-context": "a98e6d364ea5848da1c5a5766068c17f",
+          "date": "Tue, 13 Oct 2026 11:18:45 GMT",
+          "content-type": "text/html",
+          "server": "Google Frontend",
+          "via": "1.1 google",
+          "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+        }
+      },
+      {
+        "endpoint": "Rate Limiting",
+        "severity": "MEDIUM",
+        "issue": "No rate limiting detected on endpoints",
+        "requests_before_limit": 10
+      },
+      {
+        "endpoint": "Headers",
+        "severity": "LOW",
+        "issue": "Version disclosed in Server",
+        "value": "Google Frontend"
+      },
+      {
+        "endpoint": "Headers",
+        "severity": "LOW",
+        "issue": "Version disclosed in X-Powered-By",
+        "value": "Express"
+      }
+    ],
+    "Server1": [
+      {
+        "endpoint": "Rate Limiting",
+        "severity": "MEDIUM",
+        "issue": "No rate limiting detected on endpoints",
+        "requests_before_limit": 10
+      },
+      {
+        "endpoint": "Headers",
+        "severity": "LOW",
+        "issue": "Version disclosed in Server",
+        "value": "cloudflare"
+      }
+    ]
+  }
+}

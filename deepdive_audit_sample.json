@@ -1,0 +1,5601 @@
+{
+  "timestamp": "2026-10-13T18:54:52.081519",
+  "total_servers": 1300,
+  "vectors": {
+    "openapi_exposure": [],
+    "credential_exposure": [
+      {
+        "server": "Model Context Protocol (MCP) Quickstart",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "GarphenGate/moltline-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "team886/findagent-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "BotHireAgent/BotHireMCPServer",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "@neoninnovationlab/neon-mcp-gateway",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/coinopai-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/anomaly-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "1mcp/agent",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "8randonpickart5/alderpost-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/utility-grid-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "GTCC777/pulsenetwork-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "minia2auk/minia2a-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "tadas-github/a2asearch-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "aidevelopers2/remoteopenclaw-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "alexanderclapp/clirank-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "AIsa-public/AIsa-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "arikusi/deepseek-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ariekogan/ateam-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "adw0rd/awesome-mcp-tools-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "avotsai/avots-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "blockrunai/blockrun-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "bridgenode-ai/bridgenode-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Continuum-AI-Corp/orcarouter-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "entire-vc/evc-spark-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Gliana-Labs/gliana-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "hamflx/imagen3-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "hashgraph-online/hashnet-mcp-js",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "hedging8563/tokenlab-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "HelpCode-ai/anythingmcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Jackalope-Dev/allmcps-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "K-Dense-AI/claude-skills-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "kansei-link/kansei-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "kevmoz/macaroonnetwork-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Markgatcha/universal-mcp-toolkit",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "merterbak/Grok-MCP",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "mirastacklabs-ai/mirastack-redfish-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "mroops0111/openapi-mcp-gateway",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "particlefuture/MCPDiscovery",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "sonnyflylock/voxie-ai-directory-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "SureScaleAI/openai-gpt-image-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "swaltersjrtest/microtap-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "VeriTeknik/pluggedin-mcp-proxy",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "wegotdocs/open-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "rplryan/x402-discovery-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "x402-index/x402search-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ikoskela/wisepanel-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "YangLiangwei/PersonalizationMCP",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "skillselion/skillselion-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "singhpratech/crimson-crab-mcp-template",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "forcedreamai/forcedream-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "mcccsm/x402-list-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "viventine-space/orbit-sentinel-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "humanforai/humanforai-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "gofrantic/frantic-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "t3ratech/market-pulse-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "TheRealDalaiLama/glyphdna-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "sttruji/mundane-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "vince-gonzalez/opticquiz-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPFlux",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "musajala/musajala-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPSeedream",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "AIDataNordic/alexandria-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "fgbytes/sansfiction-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "abhiemj/manim-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "austenstone/myinstants-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ahujasid/blender-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "albertnahas/icogenie-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "alexzavialov/travel-art-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "aliafsahnoudeh/shahnameh-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ArturLys/ao3-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "asmith26/jupytercad-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "attalla1/photopea-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "krupalghori44-dev/infyicon-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "quokkapix/quokkapix-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "BluesPrince/thiri-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "burningion/video-editing-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "cantian-ai/bazi-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "cfpramod/open-museum-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/imagegen-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "codex-curator/studiomcphub",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "cswkim/discogs-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "DataCraftsmanAU/vineverse-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "diivi/aseprite-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "djalal/quran-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "drakonkat/wizzy-mcp-tmdb",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "effectustasi/autodesk-inventor-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "fatenava/fatenava-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "flamexnreal/davinci-resolve-ai-bridge-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Gatyh/3dtexel-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "gavxm/ani-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "gokimedia/tarot-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "gupta-kush/spotify-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "jau123/MeiGen-AI-Design-MCP",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "j-east/pixel-surgeon-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "kenzolika/yandex-music-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "khglynn/spotify-bulk-actions-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "labelgrid/labelgrid-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "leonardoca1/aesthetics-wiki-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "memebo-at/memeboat-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "mikechao/metmuseum-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "molanojustin/smithsonian-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "joshseane/-nmlp-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ni-c/calibreweb-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "omni-mcp/isaac-sim-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Pantani/tdmcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "PatrickPalmer/MayaMCP",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "pzfreo/build123d-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Psalmustrack/lambdacad-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "doctorm333/promptpilot-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "r-huijts/oorlogsbronnen-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "r-huijts/rijksmuseum-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "raveenb/fal-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "rekordcloud/sonovault-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "rosasynthesiz/flstudio-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "runcomfy-com/runcomfy-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "samuelgursky/davinci-resolve-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "sharafutdinovdi/revit-model-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "shunshi-ai/bazi-reader-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "slshults/shakespeare-monologues-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "speedwarnsf/scenef-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "TOBYCAI/image-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "TwelveTake-Studios/reaper-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "UModeler/picoberry-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "vicseeai/vicsee-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "XavierFabregat/spotify-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "yonlandwu/chinese-almanac-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "yuluo688/gen-image-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "yuna0x0/anilist-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "AETumiApp/aetumi-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "aidc2026ai-melon/aidc-ai-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ant-dev-lab/nightmarquee-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "BV-Venky/excalidraw-architect-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Daksh-create349/Contradiction-MCP",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ejwhite7/brandkit-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "erajasekar/ai-diagram-maker-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "flowzap-xyz/flowzap-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "GittyBurstein/mermaid-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "HalidSaglam/saglitzdesign-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "jgsystemsconsulting/jgs-magic-sysmlv1-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "karyaboyraz/mockit-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "KasayoDotCom/identityforge-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Narasimhaponnada/mermaid-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "odd-Innocent/den_archi_mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "rdanieli/tentra-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "RedHold/diagrams-mcp-app-core",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "RNVizion/rnv-color-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "yenchieh/diagramzu-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ajibadedapo/flowproof-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Crindo2/gph-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "davidmosiah/google-health-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "davidmosiah/wellness-cgm-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "dnaerys/onekgpd-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "ericblair1903/nutrients-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "forever-healthy/evipedia-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "fulcradynamics/fulcra-context-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "genomoncology/biomcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "helena-bioinformatics/noodle-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "hlydecker/ucsc-genome-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "JamesANZ/medical-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "JaviMaligno/vitamind-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "kushaim/practice-fusion-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "mgnirck/lecka-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "MyMedi-AI/mymedi-ai-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "NyxToolsDev/dicom-hl7-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "longevity-genie/biothings-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "longevity-genie/gget-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "longevity-genie/opengenes-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "longevity-genie/synergy-age-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "musharna/plant-genomics-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "neptun2000/heor-agent-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "OHNLP/omop_mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "PantelisGeorgiadis/dicomweb-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "tatsuju/opdstar-nhi-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "pkotecha-eng/aria-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Rajskij/oura-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "rewire-bio/genomics-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "SidneyBissoli/medical-terminologies-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "smaniches/alphafold-sovereign-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "smaniches/uniprot-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "the-momentum/apple-health-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "the-momentum/fhir-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "thehealthai/clarity-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "thehealthai/fda-risk-radar-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "thelongevityvault/decoder-3am-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "wso2/fhir-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "wjgoarxiv/pymol-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "34892002/bilibili-mcp-js",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "achiya-automation/safari-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "aethynio/aethyn-browser-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "Agent360dk/browser-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "andresolbach/nodriver-mcp-server",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "aparajithn/agent-scraper-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "auspy/supasidebar-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "bch1212/agentfetch-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "bighippoman/intercept-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "blackwhite084/playwright-plus-python-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      },
+      {
+        "server": "browserless/browserless-mcp",
+        "findings": [
+          "Pattern match: (api[_-]?key|token|p"
+        ]
+      }
+    ],
+    "error_disclosure": [
+      {
+        "server": "reefapi/reefapi-mcp",
+        "findings": [
+          "Error detail: (traceback|stack trace|exception|error)"
+        ]
+      }
+    ],
+    "command_execution": [
+      {
+        "server": "MCP",
+        "findings": [
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: bash"
+        ]
+      },
+      {
+        "server": "Model Context Protocol (MCP) Quickstart",
+        "findings": [
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: bash"
+        ]
+      },
+      {
+        "server": "GarphenGate/moltline-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "team886/findagent-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "BotHireAgent/BotHireMCPServer",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "@neoninnovationlab/neon-mcp-gateway",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/coinopai-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/anomaly-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "1mcp/agent",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "8randonpickart5/alderpost-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/utility-grid-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "GTCC777/pulsenetwork-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "minia2auk/minia2a-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "tadas-github/a2asearch-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "aidevelopers2/remoteopenclaw-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "alexanderclapp/clirank-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "AIsa-public/AIsa-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "reefapi/reefapi-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "arikusi/deepseek-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ariekogan/ateam-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "adw0rd/awesome-mcp-tools-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "avotsai/avots-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "blockrunai/blockrun-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "bridgenode-ai/bridgenode-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Continuum-AI-Corp/orcarouter-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "entire-vc/evc-spark-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Gliana-Labs/gliana-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "hamflx/imagen3-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "hashgraph-online/hashnet-mcp-js",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "hedging8563/tokenlab-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "HelpCode-ai/anythingmcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Jackalope-Dev/allmcps-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "K-Dense-AI/claude-skills-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "kansei-link/kansei-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "kevmoz/macaroonnetwork-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Markgatcha/universal-mcp-toolkit",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: bash"
+        ]
+      },
+      {
+        "server": "merterbak/Grok-MCP",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "mirastacklabs-ai/mirastack-redfish-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "mroops0111/openapi-mcp-gateway",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "particlefuture/MCPDiscovery",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "sonnyflylock/voxie-ai-directory-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "SureScaleAI/openai-gpt-image-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "swaltersjrtest/microtap-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "VeriTeknik/pluggedin-mcp-proxy",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "wegotdocs/open-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "rplryan/x402-discovery-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "x402-index/x402search-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ikoskela/wisepanel-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "YangLiangwei/PersonalizationMCP",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "skillselion/skillselion-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "singhpratech/crimson-crab-mcp-template",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "forcedreamai/forcedream-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "mcccsm/x402-list-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "viventine-space/orbit-sentinel-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "humanforai/humanforai-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "gofrantic/frantic-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "t3ratech/market-pulse-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "TheRealDalaiLama/glyphdna-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "sttruji/mundane-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "vince-gonzalez/opticquiz-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPFlux",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "musajala/musajala-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPSeedream",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "AIDataNordic/alexandria-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "fgbytes/sansfiction-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "abhiemj/manim-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "austenstone/myinstants-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ahujasid/blender-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "albertnahas/icogenie-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "alexzavialov/travel-art-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "aliafsahnoudeh/shahnameh-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ArturLys/ao3-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "asmith26/jupytercad-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "attalla1/photopea-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "krupalghori44-dev/infyicon-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "quokkapix/quokkapix-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "BluesPrince/thiri-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "burningion/video-editing-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "cantian-ai/bazi-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "cfpramod/open-museum-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/imagegen-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "codex-curator/studiomcphub",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "cswkim/discogs-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "DataCraftsmanAU/vineverse-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "diivi/aseprite-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "djalal/quran-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "drakonkat/wizzy-mcp-tmdb",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "effectustasi/autodesk-inventor-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "fatenava/fatenava-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "flamexnreal/davinci-resolve-ai-bridge-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: bash"
+        ]
+      },
+      {
+        "server": "Gatyh/3dtexel-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "gavxm/ani-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "gokimedia/tarot-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "gupta-kush/spotify-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "jau123/MeiGen-AI-Design-MCP",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "j-east/pixel-surgeon-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "kenzolika/yandex-music-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "khglynn/spotify-bulk-actions-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "labelgrid/labelgrid-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "leonardoca1/aesthetics-wiki-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "memebo-at/memeboat-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "mikechao/metmuseum-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "molanojustin/smithsonian-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "joshseane/-nmlp-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ni-c/calibreweb-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "omni-mcp/isaac-sim-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "Pantani/tdmcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "PatrickPalmer/MayaMCP",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "pzfreo/build123d-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "Psalmustrack/lambdacad-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "doctorm333/promptpilot-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "r-huijts/oorlogsbronnen-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "r-huijts/rijksmuseum-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "raveenb/fal-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "rekordcloud/sonovault-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "rosasynthesiz/flstudio-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "runcomfy-com/runcomfy-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "samuelgursky/davinci-resolve-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "sharafutdinovdi/revit-model-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "shunshi-ai/bazi-reader-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "slshults/shakespeare-monologues-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "speedwarnsf/scenef-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "TOBYCAI/image-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "TwelveTake-Studios/reaper-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "UModeler/picoberry-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "vicseeai/vicsee-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "XavierFabregat/spotify-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "yonlandwu/chinese-almanac-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "yuluo688/gen-image-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "yuna0x0/anilist-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "AETumiApp/aetumi-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "aidc2026ai-melon/aidc-ai-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ant-dev-lab/nightmarquee-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "BV-Venky/excalidraw-architect-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Daksh-create349/Contradiction-MCP",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ejwhite7/brandkit-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "erajasekar/ai-diagram-maker-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "flowzap-xyz/flowzap-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "GittyBurstein/mermaid-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "HalidSaglam/saglitzdesign-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "jgsystemsconsulting/jgs-magic-sysmlv1-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "karyaboyraz/mockit-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "KasayoDotCom/identityforge-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Narasimhaponnada/mermaid-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "odd-Innocent/den_archi_mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "rdanieli/tentra-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "RedHold/diagrams-mcp-app-core",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "RNVizion/rnv-color-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "yenchieh/diagramzu-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "ajibadedapo/flowproof-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Crindo2/gph-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "davidmosiah/google-health-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "davidmosiah/wellness-cgm-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "dnaerys/onekgpd-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "ericblair1903/nutrients-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "forever-healthy/evipedia-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "fulcradynamics/fulcra-context-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "genomoncology/biomcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: bash"
+        ]
+      },
+      {
+        "server": "helena-bioinformatics/noodle-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "hlydecker/ucsc-genome-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "JamesANZ/medical-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "JaviMaligno/vitamind-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "kushaim/practice-fusion-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "mgnirck/lecka-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "MyMedi-AI/mymedi-ai-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "NyxToolsDev/dicom-hl7-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "longevity-genie/biothings-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "longevity-genie/gget-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "longevity-genie/opengenes-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "longevity-genie/synergy-age-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "musharna/plant-genomics-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "neptun2000/heor-agent-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "OHNLP/omop_mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "PantelisGeorgiadis/dicomweb-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "tatsuju/opdstar-nhi-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "pkotecha-eng/aria-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Rajskij/oura-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "rewire-bio/genomics-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "SidneyBissoli/medical-terminologies-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "smaniches/alphafold-sovereign-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "smaniches/uniprot-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: bash",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "the-momentum/apple-health-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "the-momentum/fhir-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "thehealthai/clarity-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "thehealthai/fda-risk-radar-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "thelongevityvault/decoder-3am-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "wso2/fhir-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "wjgoarxiv/pymol-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "34892002/bilibili-mcp-js",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "achiya-automation/safari-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "aethynio/aethyn-browser-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "Agent360dk/browser-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell",
+          "Pattern: cmd"
+        ]
+      },
+      {
+        "server": "andresolbach/nodriver-mcp-server",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "aparajithn/agent-scraper-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "auspy/supasidebar-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "bch1212/agentfetch-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "bighippoman/intercept-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "blackwhite084/playwright-plus-python-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      },
+      {
+        "server": "browserless/browserless-mcp",
+        "findings": [
+          "Pattern: exec",
+          "Pattern: eval",
+          "Pattern: system",
+          "Pattern: shell"
+        ]
+      }
+    ],
+    "database_servers": [
+      {
+        "server": "MCP",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Model Context Protocol (MCP) Quickstart",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "GarphenGate/moltline-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "team886/findagent-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "BotHireAgent/BotHireMCPServer",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "@neoninnovationlab/neon-mcp-gateway",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/coinopai-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/anomaly-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "1mcp/agent",
+        "findings": [
+          "Pattern: mongodb",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "8randonpickart5/alderpost-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/utility-grid-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "GTCC777/pulsenetwork-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "minia2auk/minia2a-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "tadas-github/a2asearch-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "aidevelopers2/remoteopenclaw-mcp",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "alexanderclapp/clirank-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "AIsa-public/AIsa-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "reefapi/reefapi-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "arikusi/deepseek-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ariekogan/ateam-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "adw0rd/awesome-mcp-tools-mcp",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "avotsai/avots-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "blockrunai/blockrun-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "bridgenode-ai/bridgenode-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Continuum-AI-Corp/orcarouter-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "entire-vc/evc-spark-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Gliana-Labs/gliana-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "hamflx/imagen3-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "hashgraph-online/hashnet-mcp-js",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "hedging8563/tokenlab-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "HelpCode-ai/anythingmcp",
+        "findings": [
+          "Pattern: mysql",
+          "Pattern: postgres",
+          "Pattern: mongodb",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Jackalope-Dev/allmcps-server",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "K-Dense-AI/claude-skills-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "kansei-link/kansei-mcp-server",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "kevmoz/macaroonnetwork-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Markgatcha/universal-mcp-toolkit",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: mongodb",
+          "Pattern: redis",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "merterbak/Grok-MCP",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "mirastacklabs-ai/mirastack-redfish-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "mroops0111/openapi-mcp-gateway",
+        "findings": [
+          "Pattern: redis",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "particlefuture/MCPDiscovery",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "sonnyflylock/voxie-ai-directory-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "SureScaleAI/openai-gpt-image-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "swaltersjrtest/microtap-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "VeriTeknik/pluggedin-mcp-proxy",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "wegotdocs/open-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "rplryan/x402-discovery-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "x402-index/x402search-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ikoskela/wisepanel-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "YangLiangwei/PersonalizationMCP",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "skillselion/skillselion-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "singhpratech/crimson-crab-mcp-template",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "forcedreamai/forcedream-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "mcccsm/x402-list-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "viventine-space/orbit-sentinel-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "humanforai/humanforai-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "gofrantic/frantic-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "t3ratech/market-pulse-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "TheRealDalaiLama/glyphdna-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "sttruji/mundane-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "vince-gonzalez/opticquiz-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPFlux",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "musajala/musajala-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPSeedream",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "AIDataNordic/alexandria-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "fgbytes/sansfiction-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "abhiemj/manim-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "austenstone/myinstants-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ahujasid/blender-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "albertnahas/icogenie-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "alexzavialov/travel-art-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "aliafsahnoudeh/shahnameh-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ArturLys/ao3-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "asmith26/jupytercad-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "attalla1/photopea-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "krupalghori44-dev/infyicon-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "quokkapix/quokkapix-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "BluesPrince/thiri-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "burningion/video-editing-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "cantian-ai/bazi-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "cfpramod/open-museum-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/imagegen-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "codex-curator/studiomcphub",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "cswkim/discogs-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "DataCraftsmanAU/vineverse-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "diivi/aseprite-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "djalal/quran-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "drakonkat/wizzy-mcp-tmdb",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "effectustasi/autodesk-inventor-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "fatenava/fatenava-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "flamexnreal/davinci-resolve-ai-bridge-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Gatyh/3dtexel-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "gavxm/ani-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "gokimedia/tarot-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "gupta-kush/spotify-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "jau123/MeiGen-AI-Design-MCP",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "j-east/pixel-surgeon-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "kenzolika/yandex-music-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "khglynn/spotify-bulk-actions-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "labelgrid/labelgrid-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "leonardoca1/aesthetics-wiki-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "memebo-at/memeboat-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "mikechao/metmuseum-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "molanojustin/smithsonian-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "joshseane/-nmlp-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ni-c/calibreweb-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "omni-mcp/isaac-sim-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Pantani/tdmcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "PatrickPalmer/MayaMCP",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "pzfreo/build123d-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Psalmustrack/lambdacad-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "doctorm333/promptpilot-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "r-huijts/oorlogsbronnen-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "r-huijts/rijksmuseum-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "raveenb/fal-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "rekordcloud/sonovault-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "rosasynthesiz/flstudio-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "runcomfy-com/runcomfy-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "samuelgursky/davinci-resolve-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "sharafutdinovdi/revit-model-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "shunshi-ai/bazi-reader-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "slshults/shakespeare-monologues-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "speedwarnsf/scenef-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "TOBYCAI/image-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "TwelveTake-Studios/reaper-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "UModeler/picoberry-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "vicseeai/vicsee-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "XavierFabregat/spotify-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "yonlandwu/chinese-almanac-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "yuluo688/gen-image-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "yuna0x0/anilist-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "AETumiApp/aetumi-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "aidc2026ai-melon/aidc-ai-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ant-dev-lab/nightmarquee-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "BV-Venky/excalidraw-architect-mcp",
+        "findings": [
+          "Pattern: mysql",
+          "Pattern: postgres",
+          "Pattern: mongodb",
+          "Pattern: redis",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Daksh-create349/Contradiction-MCP",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ejwhite7/brandkit-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "erajasekar/ai-diagram-maker-mcp",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "flowzap-xyz/flowzap-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "GittyBurstein/mermaid-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "HalidSaglam/saglitzdesign-mcp",
+        "findings": [
+          "Pattern: redis",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "jgsystemsconsulting/jgs-magic-sysmlv1-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "karyaboyraz/mockit-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "KasayoDotCom/identityforge-mcp",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Narasimhaponnada/mermaid-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "odd-Innocent/den_archi_mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "rdanieli/tentra-mcp",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "RedHold/diagrams-mcp-app-core",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "RNVizion/rnv-color-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "yenchieh/diagramzu-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ajibadedapo/flowproof-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Crindo2/gph-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "davidmosiah/google-health-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "davidmosiah/wellness-cgm-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "dnaerys/onekgpd-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "ericblair1903/nutrients-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "forever-healthy/evipedia-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "fulcradynamics/fulcra-context-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "genomoncology/biomcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "helena-bioinformatics/noodle-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "hlydecker/ucsc-genome-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "JamesANZ/medical-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "JaviMaligno/vitamind-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "kushaim/practice-fusion-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "mgnirck/lecka-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "MyMedi-AI/mymedi-ai-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "NyxToolsDev/dicom-hl7-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "longevity-genie/biothings-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "longevity-genie/gget-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "longevity-genie/opengenes-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "longevity-genie/synergy-age-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "musharna/plant-genomics-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "neptun2000/heor-agent-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "OHNLP/omop_mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "PantelisGeorgiadis/dicomweb-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "tatsuju/opdstar-nhi-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "pkotecha-eng/aria-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Rajskij/oura-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "rewire-bio/genomics-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "SidneyBissoli/medical-terminologies-mcp",
+        "findings": [
+          "Pattern: redis",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "smaniches/alphafold-sovereign-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "smaniches/uniprot-mcp",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "the-momentum/apple-health-mcp-server",
+        "findings": [
+          "Pattern: sql",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "the-momentum/fhir-mcp-server",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "thehealthai/clarity-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "thehealthai/fda-risk-radar-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "thelongevityvault/decoder-3am-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "wso2/fhir-mcp-server",
+        "findings": [
+          "Pattern: postgres",
+          "Pattern: sql",
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "wjgoarxiv/pymol-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "34892002/bilibili-mcp-js",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "achiya-automation/safari-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "aethynio/aethyn-browser-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "Agent360dk/browser-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "andresolbach/nodriver-mcp-server",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "aparajithn/agent-scraper-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "auspy/supasidebar-mcp",
+        "findings": [
+          "Pattern: database",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "bch1212/agentfetch-mcp",
+        "findings": [
+          "Pattern: redis",
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "bighippoman/intercept-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "blackwhite084/playwright-plus-python-mcp",
+        "findings": [
+          "Pattern: db"
+        ]
+      },
+      {
+        "server": "browserless/browserless-mcp",
+        "findings": [
+          "Pattern: redis",
+          "Pattern: db"
+        ]
+      }
+    ],
+    "auth_issues": [
+      {
+        "server": "MCP",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Model Context Protocol (MCP) Quickstart",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "GarphenGate/moltline-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "team886/findagent-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "BotHireAgent/BotHireMCPServer",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "@neoninnovationlab/neon-mcp-gateway",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/coinopai-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/anomaly-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "1mcp/agent",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "8randonpickart5/alderpost-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/utility-grid-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "GTCC777/pulsenetwork-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "minia2auk/minia2a-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "tadas-github/a2asearch-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "aidevelopers2/remoteopenclaw-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "alexanderclapp/clirank-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "AIsa-public/AIsa-mcp-server",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "reefapi/reefapi-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "arikusi/deepseek-mcp-server",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "ariekogan/ateam-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "adw0rd/awesome-mcp-tools-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "avotsai/avots-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "blockrunai/blockrun-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "bridgenode-ai/bridgenode-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Continuum-AI-Corp/orcarouter-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "entire-vc/evc-spark-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Gliana-Labs/gliana-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "hamflx/imagen3-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: apikey"
+        ]
+      },
+      {
+        "server": "hashgraph-online/hashnet-mcp-js",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "hedging8563/tokenlab-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "HelpCode-ai/anythingmcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "Jackalope-Dev/allmcps-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "K-Dense-AI/claude-skills-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "kansei-link/kansei-mcp-server",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "kevmoz/macaroonnetwork-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Markgatcha/universal-mcp-toolkit",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "merterbak/Grok-MCP",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "mirastacklabs-ai/mirastack-redfish-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "mroops0111/openapi-mcp-gateway",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "particlefuture/MCPDiscovery",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "sonnyflylock/voxie-ai-directory-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "SureScaleAI/openai-gpt-image-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "swaltersjrtest/microtap-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "VeriTeknik/pluggedin-mcp-proxy",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "wegotdocs/open-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "rplryan/x402-discovery-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "x402-index/x402search-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "ikoskela/wisepanel-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "YangLiangwei/PersonalizationMCP",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "skillselion/skillselion-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "singhpratech/crimson-crab-mcp-template",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "forcedreamai/forcedream-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "mcccsm/x402-list-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "viventine-space/orbit-sentinel-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "humanforai/humanforai-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "gofrantic/frantic-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "t3ratech/market-pulse-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "TheRealDalaiLama/glyphdna-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "sttruji/mundane-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "vince-gonzalez/opticquiz-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPFlux",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "musajala/musajala-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "AceDataCloud/MCPSeedream",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "AIDataNordic/alexandria-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "fgbytes/sansfiction-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "abhiemj/manim-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "austenstone/myinstants-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "ahujasid/blender-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "albertnahas/icogenie-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "alexzavialov/travel-art-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "aliafsahnoudeh/shahnameh-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "ArturLys/ao3-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "asmith26/jupytercad-mcp",
+        "findings": [
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "attalla1/photopea-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "krupalghori44-dev/infyicon-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "quokkapix/quokkapix-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "BluesPrince/thiri-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "burningion/video-editing-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: apikey"
+        ]
+      },
+      {
+        "server": "cantian-ai/bazi-mcp",
+        "findings": [
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "cfpramod/open-museum-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "forgemeshlabs/imagegen-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "codex-curator/studiomcphub",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "cswkim/discogs-mcp-server",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "DataCraftsmanAU/vineverse-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "diivi/aseprite-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "djalal/quran-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "drakonkat/wizzy-mcp-tmdb",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "effectustasi/autodesk-inventor-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "fatenava/fatenava-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "flamexnreal/davinci-resolve-ai-bridge-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Gatyh/3dtexel-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "gavxm/ani-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "gokimedia/tarot-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "gupta-kush/spotify-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "jau123/MeiGen-AI-Design-MCP",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "j-east/pixel-surgeon-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: apikey"
+        ]
+      },
+      {
+        "server": "kenzolika/yandex-music-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "khglynn/spotify-bulk-actions-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "labelgrid/labelgrid-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "leonardoca1/aesthetics-wiki-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "memebo-at/memeboat-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "mikechao/metmuseum-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "molanojustin/smithsonian-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "joshseane/-nmlp-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "ni-c/calibreweb-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "omni-mcp/isaac-sim-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Pantani/tdmcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "PatrickPalmer/MayaMCP",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "pzfreo/build123d-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Psalmustrack/lambdacad-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "doctorm333/promptpilot-mcp-server",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "r-huijts/oorlogsbronnen-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "r-huijts/rijksmuseum-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "raveenb/fal-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "rekordcloud/sonovault-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "rosasynthesiz/flstudio-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "runcomfy-com/runcomfy-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "samuelgursky/davinci-resolve-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "sharafutdinovdi/revit-model-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "shunshi-ai/bazi-reader-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "slshults/shakespeare-monologues-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "speedwarnsf/scenef-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "TOBYCAI/image-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "TwelveTake-Studios/reaper-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "UModeler/picoberry-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "vicseeai/vicsee-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "XavierFabregat/spotify-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "yonlandwu/chinese-almanac-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "yuluo688/gen-image-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "yuna0x0/anilist-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "AETumiApp/aetumi-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "aidc2026ai-melon/aidc-ai-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "ant-dev-lab/nightmarquee-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "BV-Venky/excalidraw-architect-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Daksh-create349/Contradiction-MCP",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "ejwhite7/brandkit-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "erajasekar/ai-diagram-maker-mcp",
+        "findings": [
+          "Pattern: jwt",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "flowzap-xyz/flowzap-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "GittyBurstein/mermaid-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "HalidSaglam/saglitzdesign-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "jgsystemsconsulting/jgs-magic-sysmlv1-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "karyaboyraz/mockit-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "KasayoDotCom/identityforge-mcp",
+        "findings": [
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Narasimhaponnada/mermaid-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "odd-Innocent/den_archi_mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "rdanieli/tentra-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "RedHold/diagrams-mcp-app-core",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "RNVizion/rnv-color-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "yenchieh/diagramzu-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "ajibadedapo/flowproof-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "Crindo2/gph-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "davidmosiah/google-health-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "davidmosiah/wellness-cgm-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "dnaerys/onekgpd-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "ericblair1903/nutrients-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "forever-healthy/evipedia-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "fulcradynamics/fulcra-context-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "genomoncology/biomcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "helena-bioinformatics/noodle-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "hlydecker/ucsc-genome-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "JamesANZ/medical-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "JaviMaligno/vitamind-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "kushaim/practice-fusion-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "mgnirck/lecka-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "MyMedi-AI/mymedi-ai-mcp-server",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth",
+          "Pattern: apikey",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "NyxToolsDev/dicom-hl7-mcp-server",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "longevity-genie/biothings-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "longevity-genie/gget-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "longevity-genie/opengenes-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "longevity-genie/synergy-age-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "musharna/plant-genomics-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "neptun2000/heor-agent-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "OHNLP/omop_mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "PantelisGeorgiadis/dicomweb-mcp-server",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "tatsuju/opdstar-nhi-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "pkotecha-eng/aria-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Rajskij/oura-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "rewire-bio/genomics-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "SidneyBissoli/medical-terminologies-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "smaniches/alphafold-sovereign-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "smaniches/uniprot-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "the-momentum/apple-health-mcp-server",
+        "findings": [
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "the-momentum/fhir-mcp-server",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "thehealthai/clarity-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "thehealthai/fda-risk-radar-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "thelongevityvault/decoder-3am-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "wso2/fhir-mcp-server",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "wjgoarxiv/pymol-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "34892002/bilibili-mcp-js",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: apikey"
+        ]
+      },
+      {
+        "server": "achiya-automation/safari-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "aethynio/aethyn-browser-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "Agent360dk/browser-mcp",
+        "findings": [
+          "Pattern: oauth",
+          "Pattern: jwt",
+          "Pattern: auth",
+          "Pattern: apikey"
+        ]
+      },
+      {
+        "server": "andresolbach/nodriver-mcp-server",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "aparajithn/agent-scraper-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "auspy/supasidebar-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "bch1212/agentfetch-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "bighippoman/intercept-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: apikey",
+          "Pattern: bearer"
+        ]
+      },
+      {
+        "server": "blackwhite084/playwright-plus-python-mcp",
+        "findings": [
+          "Pattern: auth"
+        ]
+      },
+      {
+        "server": "browserless/browserless-mcp",
+        "findings": [
+          "Pattern: auth",
+          "Pattern: bearer"
+        ]
+      }
+    ],
+    "schema_exposure": []
+  },
+  "total_findings": 795,
+  "scan_sample_size": 200
+}
