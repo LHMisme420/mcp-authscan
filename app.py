@@ -166,3 +166,26 @@ def compliance_report():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False)
+
+@app.route('/dashboard')
+def dashboard():
+    """Serve dashboard"""
+    try:
+        with open('dashboard.html', 'r') as f:
+            return f.read()
+    except:
+        return 'Dashboard not found', 404
+
+@app.route('/')
+def index():
+    """Redirect to dashboard"""
+    return '''
+    <html>
+    <head><title>VATA Security Platform</title></head>
+    <body>
+    <h1>VATA Security Platform</h1>
+    <p><a href="/dashboard">Open Dashboard</a></p>
+    <p><a href="/health">API Health</a></p>
+    </body>
+    </html>
+    '''
