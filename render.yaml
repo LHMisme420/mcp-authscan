@@ -1,6 +1,0 @@
-services:
-  - type: web
-    name: vata
-    env: python
-    startCommand: python app.py
-    buildCommand: pip install -r requirements.txt
