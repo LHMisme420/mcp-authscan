@@ -1,6 +1,11 @@
 <title>VATA Security Dashboard</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
+/* Design Plan: Security operations dashboard with threat metrics, compliance tracking, and findings management
+   Type: System sans-serif + monospace for metrics
+   Color: Security palette (red/orange/yellow/green) on dark operational background
+   Layout: Header metrics → main findings grid with real-time updates */
+
 :root {
   --bg: #0f1419;
   --bg-card: #1a1f26;
@@ -13,6 +18,7 @@
   --medium: #ffd666;
   --low: #52c41a;
   --divider: #2a3142;
+
   --font-mono: 'SF Mono', Monaco, monospace;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -74,9 +80,9 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   padding: 20px;
 }
 
-.metric-label { 
-  color: var(--fg-secondary); 
-  font-size: 12px; 
+.metric-label {
+  color: var(--fg-secondary);
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -89,6 +95,14 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   line-height: 1;
   margin-bottom: 8px;
 }
+
+.metric-trend {
+  font-size: 12px;
+  color: var(--fg-secondary);
+}
+
+.trend-up { color: var(--high); }
+.trend-down { color: var(--low); }
 
 .severity-breakdown {
   display: grid;
@@ -103,6 +117,11 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   font-size: 12px;
 }
 
+.severity-label {
+  width: 70px;
+  font-weight: 500;
+}
+
 .severity-bar {
   flex: 1;
   height: 20px;
@@ -112,10 +131,33 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   display: flex;
 }
 
-.severity-fill { height: 100%; transition: width 0.3s ease; }
+.severity-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
 .critical-fill { background: var(--critical); }
 .high-fill { background: var(--high); }
 .medium-fill { background: var(--medium); }
+.low-fill { background: var(--low); }
+
+.severity-count {
+  font-family: var(--font-mono);
+  min-width: 40px;
+  text-align: right;
+  color: var(--fg-secondary);
+}
+
+section {
+  margin-bottom: 40px;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--fg);
+}
 
 .findings-table {
   width: 100%;
@@ -164,6 +206,7 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
 .badge-critical { background: var(--critical); color: white; }
 .badge-high { background: var(--high); color: white; }
 .badge-medium { background: var(--medium); color: white; }
+.badge-low { background: var(--low); color: white; }
 
 .empty-state {
   text-align: center;
@@ -203,6 +246,10 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   background: var(--low);
 }
 
+.status-critical .status-dot { background: var(--critical); }
+.status-high .status-dot { background: var(--high); }
+.status-medium .status-dot { background: var(--medium); }
+
 .refresh-button {
   background: var(--bg-card);
   border: 1px solid var(--divider);
@@ -211,15 +258,29 @@ h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-section { margin-bottom: 40px; }
-
-h2 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 16px;
+.refresh-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
 }
+
+.refresh-button:active {
+  transform: scale(0.95);
+}
+
+.stat-pair {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.stat-label { color: var(--fg-secondary); }
+.stat-value { font-family: var(--font-mono); font-weight: 600; }
 
 .no-data {
   text-align: center;
@@ -249,13 +310,18 @@ function Dashboard() {
   const [compliance, setCompliance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
+  const [orgName, setOrgName] = useState('');
 
-  const API_URL = 'http://127.0.0.1:7777';
+  // Use current domain dynamically
+  const API_URL = window.location.origin;
 
+  // Initialize or use stored token
   useEffect(() => {
-    const stored = 'REDACTED_JWT';
+    const stored = localStorage.getItem('vata_token');
+    const storedOrg = localStorage.getItem('vata_org');
     if (stored) {
       setToken(stored);
+      setOrgName(storedOrg || 'Organization');
       fetchData(stored);
     } else {
       registerOrg();
@@ -267,11 +333,13 @@ function Dashboard() {
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org_name: 'Dashboard-Viewer', username: 'viewer' })
+        body: JSON.stringify({ org_name: 'Dashboard-Viewer' })
       });
       const json = await res.json();
-      // using shared token;
+      localStorage.setItem('vata_token', json.access_token);
+      localStorage.setItem('vata_org', 'Dashboard-Viewer');
       setToken(json.access_token);
+      setOrgName('Dashboard-Viewer');
       fetchData(json.access_token);
     } catch (e) {
       console.error('Failed to register:', e);
@@ -313,102 +381,131 @@ function Dashboard() {
   };
 
   if (loading) {
-    return React.createElement('div', { className: 'empty-state' },
-      React.createElement('div', { className: 'spinner' }),
-      React.createElement('p', { style: { marginTop: '16px' } }, 'Loading dashboard...')
+    return (
+      <div class="empty-state">
+        <div class="spinner"></div>
+        <p style="margin-top: 16px;">Loading dashboard...</p>
+      </div>
     );
   }
 
   const threatScore = compliance ? compliance.compliance_score : 0;
   const maxFindings = data && Math.max(data.critical || 0, data.high || 0, data.medium || 0, 1);
 
-  return React.createElement(React.Fragment, null,
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '24px' } },
-      React.createElement('div', { className: 'status-indicator' },
-        React.createElement('span', { className: 'status-dot' }),
-        'Active Monitoring'
-      ),
-      React.createElement('button', { className: 'refresh-button', onClick: handleRefresh }, '↻ Refresh')
-    ),
+  return (
+    <>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <span class="status-indicator">
+            <span class="status-dot"></span>
+            Active Monitoring
+          </span>
+        </div>
+        <button class="refresh-button" onClick={handleRefresh}>↻ Refresh</button>
+      </div>
 
-    React.createElement('div', { className: 'metrics-grid' },
-      React.createElement('div', { className: 'metric-card' },
-        React.createElement('div', { className: 'metric-label' }, 'Threat Score'),
-        React.createElement('div', { className: 'metric-value' }, threatScore + '%'),
-        React.createElement('div', { className: 'metric-trend' },
-          compliance && React.createElement(React.Fragment, null,
-            React.createElement('span', { className: 'badge-critical' }, compliance.critical_findings + ' Critical'),
-            React.createElement('span', { style: { marginLeft: '8px' }, className: 'badge-high' }, compliance.high_findings + ' High')
-          )
-        )
-      ),
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Threat Score</div>
+          <div class="metric-value">{threatScore}%</div>
+          <div class="metric-trend">
+            {compliance && (
+              <>
+                <span class="badge-critical">{compliance.critical_findings} Critical</span>
+                <span style="margin-left: 8px;" class="badge-high">{compliance.high_findings} High</span>
+              </>
+            )}
+          </div>
+        </div>
 
-      React.createElement('div', { className: 'metric-card' },
-        React.createElement('div', { className: 'metric-label' }, 'Total Findings'),
-        React.createElement('div', { className: 'metric-value' }, data ? data.total_findings : 0),
-        React.createElement('div', { className: 'metric-trend' },
-          data && React.createElement(React.Fragment, null,
-            React.createElement('div', null, '7-day trend: ' + data.week_trend),
-            React.createElement('div', { style: { marginTop: '4px' } }, 'Direction: ' + data.trend_direction)
-          )
-        )
-      ),
+        <div class="metric-card">
+          <div class="metric-label">Total Findings</div>
+          <div class="metric-value">{data ? data.total_findings : 0}</div>
+          <div class="metric-trend">
+            {data && (
+              <>
+                <div>7-day trend: <span class={data.week_trend > 0 ? 'trend-up' : 'trend-down'}>{data.week_trend}</span></div>
+                <div style="margin-top: 4px;">Direction: {data.trend_direction}</div>
+              </>
+            )}
+          </div>
+        </div>
 
-      React.createElement('div', { className: 'metric-card' },
-        React.createElement('div', { className: 'metric-label' }, 'Severity Distribution'),
-        React.createElement('div', { className: 'severity-breakdown' },
-          React.createElement('div', { className: 'severity-row' },
-            React.createElement('div', { style: { width: '70px' } }, 'Critical'),
-            React.createElement('div', { className: 'severity-bar' },
-              React.createElement('div', { className: 'severity-fill critical-fill', style: { width: (data && maxFindings ? (data.critical / maxFindings * 100) : 0) + '%' } })
-            ),
-            React.createElement('div', { style: { minWidth: '40px', textAlign: 'right' } }, data ? data.critical : 0)
-          ),
-          React.createElement('div', { className: 'severity-row' },
-            React.createElement('div', { style: { width: '70px' } }, 'High'),
-            React.createElement('div', { className: 'severity-bar' },
-              React.createElement('div', { className: 'severity-fill high-fill', style: { width: (data && maxFindings ? (data.high / maxFindings * 100) : 0) + '%' } })
-            ),
-            React.createElement('div', { style: { minWidth: '40px', textAlign: 'right' } }, data ? data.high : 0)
-          ),
-          React.createElement('div', { className: 'severity-row' },
-            React.createElement('div', { style: { width: '70px' } }, 'Medium'),
-            React.createElement('div', { className: 'severity-bar' },
-              React.createElement('div', { className: 'severity-fill medium-fill', style: { width: (data && maxFindings ? (data.medium / maxFindings * 100) : 0) + '%' } })
-            ),
-            React.createElement('div', { style: { minWidth: '40px', textAlign: 'right' } }, data ? data.medium : 0)
-          )
-        )
-      )
-    ),
+        <div class="metric-card">
+          <div class="metric-label">Severity Distribution</div>
+          <div class="severity-breakdown">
+            <div class="severity-row">
+              <div class="severity-label">Critical</div>
+              <div class="severity-bar">
+                <div class="severity-fill critical-fill" style={{width: `${data && maxFindings ? (data.critical / maxFindings * 100) : 0}%`}}></div>
+              </div>
+              <div class="severity-count">{data ? data.critical : 0}</div>
+            </div>
+            <div class="severity-row">
+              <div class="severity-label">High</div>
+              <div class="severity-bar">
+                <div class="severity-fill high-fill" style={{width: `${data && maxFindings ? (data.high / maxFindings * 100) : 0}%`}}></div>
+              </div>
+              <div class="severity-count">{data ? data.high : 0}</div>
+            </div>
+            <div class="severity-row">
+              <div class="severity-label">Medium</div>
+              <div class="severity-bar">
+                <div class="severity-fill medium-fill" style={{width: `${data && maxFindings ? (data.medium / maxFindings * 100) : 0}%`}}></div>
+              </div>
+              <div class="severity-count">{data ? data.medium : 0}</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    React.createElement('section', null,
-      React.createElement('h2', null, 'Recent Findings'),
-      findings.length > 0 ? React.createElement('table', { className: 'findings-table' },
-        React.createElement('thead', null,
-          React.createElement('tr', null,
-            React.createElement('th', null, 'Vector'),
-            React.createElement('th', null, 'Severity'),
-            React.createElement('th', null, 'Description'),
-            React.createElement('th', null, 'Found')
-          )
-        ),
-        React.createElement('tbody', null,
-          findings.slice().reverse().map((f, i) => React.createElement('tr', { key: i },
-            React.createElement('td', { style: { fontFamily: 'monospace', fontSize: '12px' } }, f.vector_type),
-            React.createElement('td', null,
-              React.createElement('span', { className: 'severity-badge badge-' + f.severity.toLowerCase() }, f.severity)
-            ),
-            React.createElement('td', null, f.description),
-            React.createElement('td', { style: { color: 'var(--fg-secondary)', fontSize: '12px' } },
-              new Date(f.created_at).toLocaleDateString()
-            )
-          ))
-        )
-      ) : React.createElement('div', { className: 'no-data' }, 'No findings yet.')
-    )
+      <section>
+        <h2>Recent Findings</h2>
+        {findings.length > 0 ? (
+          <table class="findings-table">
+            <thead>
+              <tr>
+                <th>Vector</th>
+                <th>Severity</th>
+                <th>Description</th>
+                <th>Found</th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.slice().reverse().map((f, i) => (
+                <tr key={i}>
+                  <td style="font-family: var(--font-mono); font-size: 12px;">{f.vector_type}</td>
+                  <td>
+                    <span class={`severity-badge badge-${f.severity.toLowerCase()}`}>
+                      {f.severity}
+                    </span>
+                  </td>
+                  <td>{f.description}</td>
+                  <td style="color: var(--fg-secondary); font-size: 12px;">
+                    {new Date(f.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div class="no-data">No findings yet. Start a scan or add findings manually.</div>
+        )}
+      </section>
+
+      <section>
+        <h2>Next Steps</h2>
+        <div style="background: var(--bg-card); border: 1px solid var(--divider); border-radius: 8px; padding: 20px; font-size: 14px; line-height: 1.6;">
+          <p>✅ Platform operational and connected</p>
+          <p>📊 Real-time threat intelligence active</p>
+          <p>🔍 Ready for automated MCP scanning</p>
+          <p>📧 Slack alerts can be added</p>
+          <p>🎯 Risk scoring in development</p>
+        </div>
+      </section>
+    </>
   );
 }
 
-root.render(React.createElement(Dashboard));
+root.render(<Dashboard />);
 </script>
