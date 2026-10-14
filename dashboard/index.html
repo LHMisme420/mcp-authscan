@@ -216,7 +216,7 @@
         const { useState, useEffect, useRef } = React;
         
         function Dashboard() {
-            const [apiKey, setApiKey] = useState(localStorage.getItem('vata_api_key') || '');
+            const [apiKey, setApiKey] = useState('');
             const [jwt, setJwt] = useState(localStorage.getItem('vata_jwt') || '');
             const [authenticated, setAuthenticated] = useState(!!localStorage.getItem('vata_jwt'));
             const [findings, setFindings] = useState([]);
@@ -239,7 +239,7 @@
                     const data = await res.json();
                     setApiKey(data.api_key);
                     localStorage.setItem('vata_api_key', data.api_key);
-                    setSuccess('Organization registered! Use the API key to login.');
+                    setSuccess('Organization registered! API key: ' + data.api_key);
                 } catch (e) {
                     setError('Failed to register: ' + e.message);
                 }
@@ -256,8 +256,13 @@
                         body: JSON.stringify({ api_key: apiKey })
                     });
                     const data = await res.json();
+                    if (data.error) {
+                        setError('Login failed: ' + data.error);
+                        return;
+                    }
                     setJwt(data.access_token);
                     localStorage.setItem('vata_jwt', data.access_token);
+                    localStorage.setItem('vata_api_key', apiKey);
                     setAuthenticated(true);
                     setSuccess('Logged in successfully!');
                     loadDashboard(data.access_token);
@@ -302,23 +307,35 @@
             
             useEffect(() => {
                 if (authenticated && chartRef.current && Object.keys(severityBreakdown).length > 0) {
-                    const ctx = chartRef.current.getContext('2d');
-                    new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: Object.keys(severityBreakdown),
-                            datasets: [{
-                                data: Object.values(severityBreakdown),
-                                backgroundColor: ['#c00', '#ff9800', '#f57f17', '#2e7d32']
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true
-                        }
-                    });
+                    try {
+                        const ctx = chartRef.current.getContext('2d');
+                        new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: Object.keys(severityBreakdown),
+                                datasets: [{
+                                    data: Object.values(severityBreakdown),
+                                    backgroundColor: ['#c00', '#ff9800', '#f57f17', '#2e7d32']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true
+                            }
+                        });
+                    } catch(e) {}
                 }
             }, [severityBreakdown, authenticated]);
+            
+            const handleLogout = () => {
+                localStorage.removeItem('vata_jwt');
+                localStorage.removeItem('vata_api_key');
+                setAuthenticated(false);
+                setJwt('');
+                setApiKey('');
+                setError('');
+                setSuccess('');
+            };
             
             return (
                 <div className="app">
@@ -335,20 +352,24 @@
                             <div className="auth-form">
                                 <input
                                     type="text"
-                                    placeholder="API Key (or leave blank to register new org)"
+                                    placeholder="Paste API Key from scanner output"
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
                                 />
                                 <button onClick={handleLogin} disabled={!apiKey || loading}>
-                                    {loading ? 'Loading...' : 'Login'}
+                                    {loading ? 'Logging in...' : 'Login'}
                                 </button>
                                 <button onClick={handleRegister} disabled={loading}>
-                                    {loading ? 'Loading...' : 'Register'}
+                                    {loading ? 'Registering...' : 'Register New'}
                                 </button>
                             </div>
                         </div>
                     ) : (
                         <>
+                            <button onClick={handleLogout} style={{marginBottom: '20px', padding: '10px 20px', background: '#667eea', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer'}}>
+                                Logout
+                            </button>
+                            
                             {error && <div className="error">{error}</div>}
                             {success && <div className="success">{success}</div>}
                             
