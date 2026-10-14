@@ -29,8 +29,7 @@
         .severity-high { background: #ffaa00; color: #000; }
         .severity-medium { background: #ffdd00; color: #000; }
         .severity-low { background: #44ff44; color: #000; }
-        .button { background: #0066ff; color: #fff; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .button:hover { background: #0052cc; }
+        .empty { text-align: center; padding: 40px 20px; color: #999; }
     </style>
 </head>
 <body>
@@ -40,46 +39,64 @@
         let token = localStorage.getItem('token');
         
         function Dashboard() {
-            const [stats, setStats] = React.useState(null);
+            const [stats, setStats] = React.useState({critical: 0, high: 0, total_findings: 0, trend_direction: 'flat'});
             const [findings, setFindings] = React.useState([]);
+            const [loading, setLoading] = React.useState(!token);
             
             React.useEffect(() => {
                 if (!token) {
-                    const org = prompt('Organization name:');
-                    loginUser(org);
+                    const email = prompt('Email:') || 'user@example.com';
+                    const password = prompt('Password:') || 'password123';
+                    loginUser(email, password);
                 } else {
                     loadData();
                     setInterval(loadData, 5000);
                 }
             }, []);
             
-            async function loginUser(org) {
-                const resp = await fetch(`${API_URL}/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ org_name: org })
-                });
-                const data = await resp.json();
-                localStorage.setItem('token', data.access_token);
-                token = data.access_token;
-                loadData();
+            async function loginUser(email, password) {
+                try {
+                    const resp = await fetch(`${API_URL}/auth/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    const data = await resp.json();
+                    if (data.access_token) {
+                        localStorage.setItem('token', data.access_token);
+                        token = data.access_token;
+                        loadData();
+                    }
+                } catch(e) {
+                    console.error('Login error:', e);
+                    setLoading(false);
+                }
             }
             
             async function loadData() {
-                const stats_resp = await fetch(`${API_URL}/api/threat-intelligence`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const stats_data = await stats_resp.json();
-                setStats(stats_data);
-                
-                const findings_resp = await fetch(`${API_URL}/api/findings`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const findings_data = await findings_resp.json();
-                setFindings(findings_data.findings || []);
+                try {
+                    const stats_resp = await fetch(`${API_URL}/api/threat-intelligence`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (stats_resp.ok) {
+                        const stats_data = await stats_resp.json();
+                        setStats(stats_data);
+                    }
+                    
+                    const findings_resp = await fetch(`${API_URL}/api/findings`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (findings_resp.ok) {
+                        const findings_data = await findings_resp.json();
+                        setFindings(findings_data.findings || []);
+                    }
+                    setLoading(false);
+                } catch(e) {
+                    console.error('Load error:', e);
+                }
             }
             
-            if (!stats) return <div className="container"><p>Loading...</p></div>;
+            if (loading) return <div className="container"><p>Loading...</p></div>;
             
             return (
                 <div className="container">
@@ -91,15 +108,15 @@
                     <div className="grid">
                         <div className="card critical">
                             <h3>Critical Findings</h3>
-                            <div className="value">{stats.critical}</div>
+                            <div className="value">{stats.critical || 0}</div>
                         </div>
                         <div className="card high">
                             <h3>High Severity</h3>
-                            <div className="value">{stats.high}</div>
+                            <div className="value">{stats.high || 0}</div>
                         </div>
                         <div className="card">
                             <h3>Total Findings</h3>
-                            <div className="value">{stats.total_findings}</div>
+                            <div className="value">{stats.total_findings || 0}</div>
                         </div>
                         <div className="card">
                             <h3>30-Day Trend</h3>
@@ -109,15 +126,19 @@
                     
                     <h2 style={{marginBottom: '15px'}}>Recent Findings</h2>
                     <div className="findings">
-                        {findings.slice(0, 20).map(f => (
-                            <div key={f.id} className="finding-row">
-                                <div>
-                                    <div className="finding-server">{f.server}</div>
-                                    <div style={{fontSize: '12px', color: '#999', marginTop: '5px'}}>{f.rule}: {f.description}</div>
+                        {findings.length === 0 ? (
+                            <div className="empty">No findings yet. Submit scanner findings through the API to see them here.</div>
+                        ) : (
+                            findings.slice(0, 20).map(f => (
+                                <div key={f.id} className="finding-row">
+                                    <div>
+                                        <div className="finding-server">{f.server}</div>
+                                        <div style={{fontSize: '12px', color: '#999', marginTop: '5px'}}>{f.rule || 'Unknown Rule'}: {f.description}</div>
+                                    </div>
+                                    <div className={`finding-severity severity-${(f.severity || 'medium').toLowerCase()}`}>{f.severity}</div>
                                 </div>
-                                <div className={`finding-severity severity-${f.severity.toLowerCase()}`}>{f.severity}</div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             );
