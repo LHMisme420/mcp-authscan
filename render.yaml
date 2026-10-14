@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: vata-saas
+    runtime: python
+    buildCommand: pip install -r requirements_full.txt
+    startCommand: python3 app_full.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: 10000
