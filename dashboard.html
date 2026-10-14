@@ -1,154 +1,129 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>VATA Security Dashboard</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --bg-card: #1a1f26;
-      --fg: #e4e6eb;
-      --fg-secondary: #adb5c9;
-      --critical: #ff3838;
-      --high: #ffa940;
-      --medium: #ffd666;
-      --low: #52c41a;
-      --divider: #2a3142;
-    }
-    
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; }
-    header { border-bottom: 1px solid var(--divider); padding-bottom: 24px; margin-bottom: 32px; }
-    h1 { font-size: 28px; margin-bottom: 8px; }
-    .subtitle { color: var(--fg-secondary); font-size: 14px; }
-    
-    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
-    .metric-card { background: var(--bg-card); border: 1px solid var(--divider); border-radius: 8px; padding: 20px; }
-    .metric-label { color: var(--fg-secondary); font-size: 12px; text-transform: uppercase; margin-bottom: 12px; }
-    .metric-value { font-size: 40px; font-weight: 600; margin-bottom: 8px; font-family: monospace; }
-    
-    .findings-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border: 1px solid var(--divider); border-radius: 8px; margin-top: 20px; }
-    .findings-table th { background: #232a34; padding: 12px; text-align: left; font-size: 12px; color: var(--fg-secondary); border-bottom: 1px solid var(--divider); }
-    .findings-table td { padding: 12px; border-bottom: 1px solid var(--divider); }
-    .findings-table tbody tr:hover { background: #232a34; }
-    
-    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .badge-critical { background: var(--critical); color: white; }
-    .badge-high { background: var(--high); color: white; }
-    .badge-medium { background: var(--medium); color: white; }
-    
-    .loading { text-align: center; padding: 40px; color: var(--fg-secondary); }
-    .error { color: var(--critical); padding: 20px; background: rgba(255, 56, 56, 0.1); border-radius: 8px; margin-bottom: 20px; }
-  </style>
+    <title>VATA Security Platform</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; margin-bottom: 5px; }
+        .header p { color: #999; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px; }
+        .card h3 { font-size: 14px; color: #999; text-transform: uppercase; margin-bottom: 10px; }
+        .card .value { font-size: 32px; font-weight: bold; color: #fff; }
+        .card.critical { border-left: 4px solid #ff4444; }
+        .card.high { border-left: 4px solid #ffaa00; }
+        .findings { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+        .finding-row { padding: 15px 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .finding-row:last-child { border-bottom: none; }
+        .finding-server { font-weight: bold; }
+        .finding-severity { font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .severity-critical { background: #ff4444; color: #fff; }
+        .severity-high { background: #ffaa00; color: #000; }
+        .severity-medium { background: #ffdd00; color: #000; }
+        .severity-low { background: #44ff44; color: #000; }
+        .button { background: #0066ff; color: #fff; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .button:hover { background: #0052cc; }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>🛡️ VATA Security Dashboard</h1>
-    <p class="subtitle">Real-time vulnerability intelligence and compliance tracking</p>
-  </header>
-  
-  <div id="error" class="error" style="display:none;"></div>
-  <div id="loading" class="loading">Loading dashboard...</div>
-  <div id="content" style="display:none;">
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-label">Threat Score</div>
-        <div class="metric-value" id="threatScore">0%</div>
-        <div>
-          <span class="badge badge-critical" id="criticalCount">0 Critical</span>
-          <span class="badge badge-high" id="highCount" style="margin-left: 8px;">0 High</span>
-        </div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Total Findings</div>
-        <div class="metric-value" id="totalFindings">0</div>
-      </div>
-    </div>
-    
-    <h2>Recent Findings</h2>
-    <table class="findings-table">
-      <thead>
-        <tr>
-          <th>Vector Type</th>
-          <th>Severity</th>
-          <th>Description</th>
-          <th>Found</th>
-        </tr>
-      </thead>
-      <tbody id="findingsTable">
-        <tr><td colspan="4" style="text-align: center; padding: 40px; color: var(--fg-secondary);">No findings yet</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <script>
-    const API_URL = window.location.origin;
-    
-    async function loadDashboard() {
-      try {
-        // Get or create token
-        let token = localStorage.getItem('vata_token');
-        if (!token) {
-          const registerRes = await fetch(`${API_URL}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ org_name: 'Dashboard-Viewer' })
-          });
-          const registerData = await registerRes.json();
-          token = registerData.access_token;
-          localStorage.setItem('vata_token', token);
+    <div id="root"></div>
+    <script type="text/babel">
+        const API_URL = window.location.origin;
+        let token = localStorage.getItem('token');
+        
+        function Dashboard() {
+            const [stats, setStats] = React.useState(null);
+            const [findings, setFindings] = React.useState([]);
+            
+            React.useEffect(() => {
+                if (!token) {
+                    const org = prompt('Organization name:');
+                    loginUser(org);
+                } else {
+                    loadData();
+                    setInterval(loadData, 5000);
+                }
+            }, []);
+            
+            async function loginUser(org) {
+                const resp = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ org_name: org })
+                });
+                const data = await resp.json();
+                localStorage.setItem('token', data.access_token);
+                token = data.access_token;
+                loadData();
+            }
+            
+            async function loadData() {
+                const stats_resp = await fetch(`${API_URL}/api/threat-intelligence`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const stats_data = await stats_resp.json();
+                setStats(stats_data);
+                
+                const findings_resp = await fetch(`${API_URL}/api/findings`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const findings_data = await findings_resp.json();
+                setFindings(findings_data.findings || []);
+            }
+            
+            if (!stats) return <div className="container"><p>Loading...</p></div>;
+            
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>VATA Security Platform</h1>
+                        <p>Real-time threat intelligence & compliance scoring</p>
+                    </div>
+                    
+                    <div className="grid">
+                        <div className="card critical">
+                            <h3>Critical Findings</h3>
+                            <div className="value">{stats.critical}</div>
+                        </div>
+                        <div className="card high">
+                            <h3>High Severity</h3>
+                            <div className="value">{stats.high}</div>
+                        </div>
+                        <div className="card">
+                            <h3>Total Findings</h3>
+                            <div className="value">{stats.total_findings}</div>
+                        </div>
+                        <div className="card">
+                            <h3>30-Day Trend</h3>
+                            <div className="value">{stats.trend_direction === 'increasing' ? '📈' : '📉'}</div>
+                        </div>
+                    </div>
+                    
+                    <h2 style={{marginBottom: '15px'}}>Recent Findings</h2>
+                    <div className="findings">
+                        {findings.slice(0, 20).map(f => (
+                            <div key={f.id} className="finding-row">
+                                <div>
+                                    <div className="finding-server">{f.server}</div>
+                                    <div style={{fontSize: '12px', color: '#999', marginTop: '5px'}}>{f.rule}: {f.description}</div>
+                                </div>
+                                <div className={`finding-severity severity-${f.severity.toLowerCase()}`}>{f.severity}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
         }
         
-        // Fetch all data
-        const [threatRes, findingsRes, complianceRes] = await Promise.all([
-          fetch(`${API_URL}/api/threat-intelligence`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`${API_URL}/api/findings`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`${API_URL}/api/reports/compliance`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-        ]);
-        
-        const threatData = await threatRes.json();
-        const findingsData = await findingsRes.json();
-        const complianceData = await complianceRes.json();
-        
-        // Update metrics
-        document.getElementById('threatScore').textContent = complianceData.compliance_score + '%';
-        document.getElementById('criticalCount').textContent = complianceData.critical_findings + ' Critical';
-        document.getElementById('highCount').textContent = complianceData.high_findings + ' High';
-        document.getElementById('totalFindings').textContent = threatData.total_findings;
-        
-        // Update findings table
-        const tbody = document.getElementById('findingsTable');
-        const findings = findingsData.findings || [];
-        
-        if (findings.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px; color: var(--fg-secondary);">No findings yet</td></tr>';
-        } else {
-          tbody.innerHTML = findings.reverse().map(f => `
-            <tr>
-              <td style="font-family: monospace; font-size: 12px;">${f.vector_type}</td>
-              <td><span class="badge badge-${f.severity.toLowerCase()}">${f.severity}</span></td>
-              <td>${f.description}</td>
-              <td style="color: var(--fg-secondary); font-size: 12px;">${new Date(f.created_at).toLocaleDateString()}</td>
-            </tr>
-          `).join('');
-        }
-        
-        // Show content
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
-      } catch (e) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').textContent = 'Error: ' + e.message;
-      }
-    }
-    
-    loadDashboard();
-  </script>
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
 </body>
 </html>
