@@ -141,9 +141,16 @@ def compliance_report():
         critical = c.fetchone()[0]
         c.execute('SELECT COUNT(*) FROM findings WHERE org_id = ? AND severity = "HIGH"', (org_id,))
         high = c.fetchone()[0]
+        c.execute('SELECT COUNT(*) FROM findings WHERE org_id = ?', (org_id,))
+        total = c.fetchone()[0]
         conn.close()
-        score = max(0, 100 - (critical*40 + high*20))
-        return jsonify({'compliance_score': score, 'critical_findings': critical, 'high_findings': high}), 200
+        # Better scoring: ratio of critical+high to total findings
+        if total == 0:
+            score = 100
+        else:
+            risk_points = (critical * 100) + (high * 50)
+            score = max(0, min(100, 100 - (risk_points / total)))
+        return jsonify({'compliance_score': int(score), 'critical_findings': critical, 'high_findings': high}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
