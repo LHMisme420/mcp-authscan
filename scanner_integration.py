@@ -111,3 +111,13 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# Add more sophisticated test vectors
+ADVANCED_VECTORS = {
+    'sql_injection': ['SELECT * FROM users', "'; DROP TABLE--", "1' OR '1'='1"],
+    'xxe_injection': ['<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>'],
+    'insecure_deserialization': ['pickle:exploit', 'java:rce'],
+    'hardcoded_secrets': ['aws_access_key_id=', 'password=', 'api_key=', 'token='],
+    'rate_limit_bypass': ['X-Forwarded-For: 127.0.0.1', 'X-Real-IP: 127.0.0.1', 'X-Client-IP: 127.0.0.1'],
+    'jwt_validation_bypass': ['none algorithm', 'empty signature', 'algorithm confusion'],
+}
