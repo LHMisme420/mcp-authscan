@@ -1,511 +1,154 @@
-<title>VATA Security Dashboard</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<style>
-/* Design Plan: Security operations dashboard with threat metrics, compliance tracking, and findings management
-   Type: System sans-serif + monospace for metrics
-   Color: Security palette (red/orange/yellow/green) on dark operational background
-   Layout: Header metrics → main findings grid with real-time updates */
-
-:root {
-  --bg: #0f1419;
-  --bg-card: #1a1f26;
-  --bg-hover: #232a34;
-  --fg: #e4e6eb;
-  --fg-secondary: #adb5c9;
-  --accent: #ff6b6b;
-  --critical: #ff3838;
-  --high: #ffa940;
-  --medium: #ffd666;
-  --low: #52c41a;
-  --divider: #2a3142;
-
-  --font-mono: 'SF Mono', Monaco, monospace;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f5f7fa;
-    --bg-card: #ffffff;
-    --bg-hover: #f0f2f5;
-    --fg: #1f2937;
-    --fg-secondary: #6b7280;
-    --divider: #e5e7eb;
-    color-scheme: light;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg: #0f1419;
-  --bg-card: #1a1f26;
-  --bg-hover: #232a34;
-  --fg: #e4e6eb;
-  --fg-secondary: #adb5c9;
-  --divider: #2a3142;
-  color-scheme: dark;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  background: var(--bg);
-  color: var(--fg);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-top: env(safe-area-inset-top, 16px);
-  padding-bottom: env(safe-area-inset-bottom, 16px);
-  line-height: 1.5;
-}
-
-header {
-  border-bottom: 1px solid var(--divider);
-  padding-block: 24px;
-  margin-bottom: 32px;
-}
-
-h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
-.header-subtitle { color: var(--fg-secondary); font-size: 14px; }
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 40px;
-}
-
-.metric-card {
-  background: var(--bg-card);
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.metric-label {
-  color: var(--fg-secondary);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
-}
-
-.metric-value {
-  font-family: var(--font-mono);
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
-.metric-trend {
-  font-size: 12px;
-  color: var(--fg-secondary);
-}
-
-.trend-up { color: var(--high); }
-.trend-down { color: var(--low); }
-
-.severity-breakdown {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.severity-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-}
-
-.severity-label {
-  width: 70px;
-  font-weight: 500;
-}
-
-.severity-bar {
-  flex: 1;
-  height: 20px;
-  background: var(--bg-hover);
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-}
-
-.severity-fill {
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.critical-fill { background: var(--critical); }
-.high-fill { background: var(--high); }
-.medium-fill { background: var(--medium); }
-.low-fill { background: var(--low); }
-
-.severity-count {
-  font-family: var(--font-mono);
-  min-width: 40px;
-  text-align: right;
-  color: var(--fg-secondary);
-}
-
-section {
-  margin-bottom: 40px;
-}
-
-h2 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  color: var(--fg);
-}
-
-.findings-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--bg-card);
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.findings-table thead {
-  background: var(--bg-hover);
-  border-bottom: 1px solid var(--divider);
-}
-
-.findings-table th {
-  padding: 12px 16px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-secondary);
-}
-
-.findings-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--divider);
-  font-size: 14px;
-}
-
-.findings-table tbody tr:hover {
-  background: var(--bg-hover);
-}
-
-.severity-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge-critical { background: var(--critical); color: white; }
-.badge-high { background: var(--high); color: white; }
-.badge-medium { background: var(--medium); color: white; }
-.badge-low { background: var(--low); color: white; }
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--fg-secondary);
-}
-
-.spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--divider);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-hover);
-  border-radius: 20px;
-  font-size: 12px;
-  color: var(--fg-secondary);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--low);
-}
-
-.status-critical .status-dot { background: var(--critical); }
-.status-high .status-dot { background: var(--high); }
-.status-medium .status-dot { background: var(--medium); }
-
-.refresh-button {
-  background: var(--bg-card);
-  border: 1px solid var(--divider);
-  color: var(--fg);
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.refresh-button:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent);
-}
-
-.refresh-button:active {
-  transform: scale(0.95);
-}
-
-.stat-pair {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--divider);
-}
-
-.stat-label { color: var(--fg-secondary); }
-.stat-value { font-family: var(--font-mono); font-weight: 600; }
-
-.no-data {
-  text-align: center;
-  padding: 20px;
-  color: var(--fg-secondary);
-  font-size: 13px;
-}
-</style>
-
-<header>
-  <h1>🛡️ VATA Security Dashboard</h1>
-  <p class="header-subtitle">Real-time vulnerability intelligence and compliance tracking</p>
-</header>
-
-<div id="app"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-
-<script>
-const { useState, useEffect } = React;
-const root = ReactDOM.createRoot(document.getElementById('app'));
-
-function Dashboard() {
-  const [data, setData] = useState(null);
-  const [findings, setFindings] = useState([]);
-  const [compliance, setCompliance] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(null);
-  const [orgName, setOrgName] = useState('');
-
-  // Use current domain dynamically
-  const API_URL = window.location.origin;
-
-  // Initialize or use stored token
-  useEffect(() => {
-    const stored = localStorage.getItem('vata_token');
-    const storedOrg = localStorage.getItem('vata_org');
-    if (stored) {
-      setToken(stored);
-      setOrgName(storedOrg || 'Organization');
-      fetchData(stored);
-    } else {
-      registerOrg();
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VATA Security Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --bg-card: #1a1f26;
+      --fg: #e4e6eb;
+      --fg-secondary: #adb5c9;
+      --critical: #ff3838;
+      --high: #ffa940;
+      --medium: #ffd666;
+      --low: #52c41a;
+      --divider: #2a3142;
     }
-  }, []);
-
-  const registerOrg = async () => {
-    try {
-      const res = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org_name: 'Dashboard-Viewer' })
-      });
-      const json = await res.json();
-      localStorage.setItem('vata_token', json.access_token);
-      localStorage.setItem('vata_org', 'Dashboard-Viewer');
-      setToken(json.access_token);
-      setOrgName('Dashboard-Viewer');
-      fetchData(json.access_token);
-    } catch (e) {
-      console.error('Failed to register:', e);
-      setLoading(false);
-    }
-  };
-
-  const fetchData = async (authToken) => {
-    try {
-      const [threatRes, findingsRes, complianceRes] = await Promise.all([
-        fetch(`${API_URL}/api/threat-intelligence`, {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        }),
-        fetch(`${API_URL}/api/findings`, {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        }),
-        fetch(`${API_URL}/api/reports/compliance`, {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        })
-      ]);
-
-      const threatData = await threatRes.json();
-      const findingsData = await findingsRes.json();
-      const complianceData = await complianceRes.json();
-
-      setData(threatData);
-      setFindings(findingsData.findings || []);
-      setCompliance(complianceData);
-    } catch (e) {
-      console.error('Failed to fetch data:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    setLoading(true);
-    if (token) fetchData(token);
-  };
-
-  if (loading) {
-    return (
-      <div class="empty-state">
-        <div class="spinner"></div>
-        <p style="margin-top: 16px;">Loading dashboard...</p>
-      </div>
-    );
-  }
-
-  const threatScore = compliance ? compliance.compliance_score : 0;
-  const maxFindings = data && Math.max(data.critical || 0, data.high || 0, data.medium || 0, 1);
-
-  return (
-    <>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; }
+    header { border-bottom: 1px solid var(--divider); padding-bottom: 24px; margin-bottom: 32px; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    .subtitle { color: var(--fg-secondary); font-size: 14px; }
+    
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
+    .metric-card { background: var(--bg-card); border: 1px solid var(--divider); border-radius: 8px; padding: 20px; }
+    .metric-label { color: var(--fg-secondary); font-size: 12px; text-transform: uppercase; margin-bottom: 12px; }
+    .metric-value { font-size: 40px; font-weight: 600; margin-bottom: 8px; font-family: monospace; }
+    
+    .findings-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border: 1px solid var(--divider); border-radius: 8px; margin-top: 20px; }
+    .findings-table th { background: #232a34; padding: 12px; text-align: left; font-size: 12px; color: var(--fg-secondary); border-bottom: 1px solid var(--divider); }
+    .findings-table td { padding: 12px; border-bottom: 1px solid var(--divider); }
+    .findings-table tbody tr:hover { background: #232a34; }
+    
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-critical { background: var(--critical); color: white; }
+    .badge-high { background: var(--high); color: white; }
+    .badge-medium { background: var(--medium); color: white; }
+    
+    .loading { text-align: center; padding: 40px; color: var(--fg-secondary); }
+    .error { color: var(--critical); padding: 20px; background: rgba(255, 56, 56, 0.1); border-radius: 8px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛡️ VATA Security Dashboard</h1>
+    <p class="subtitle">Real-time vulnerability intelligence and compliance tracking</p>
+  </header>
+  
+  <div id="error" class="error" style="display:none;"></div>
+  <div id="loading" class="loading">Loading dashboard...</div>
+  <div id="content" style="display:none;">
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Threat Score</div>
+        <div class="metric-value" id="threatScore">0%</div>
         <div>
-          <span class="status-indicator">
-            <span class="status-dot"></span>
-            Active Monitoring
-          </span>
-        </div>
-        <button class="refresh-button" onClick={handleRefresh}>↻ Refresh</button>
-      </div>
-
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">Threat Score</div>
-          <div class="metric-value">{threatScore}%</div>
-          <div class="metric-trend">
-            {compliance && (
-              <>
-                <span class="badge-critical">{compliance.critical_findings} Critical</span>
-                <span style="margin-left: 8px;" class="badge-high">{compliance.high_findings} High</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-label">Total Findings</div>
-          <div class="metric-value">{data ? data.total_findings : 0}</div>
-          <div class="metric-trend">
-            {data && (
-              <>
-                <div>7-day trend: <span class={data.week_trend > 0 ? 'trend-up' : 'trend-down'}>{data.week_trend}</span></div>
-                <div style="margin-top: 4px;">Direction: {data.trend_direction}</div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-label">Severity Distribution</div>
-          <div class="severity-breakdown">
-            <div class="severity-row">
-              <div class="severity-label">Critical</div>
-              <div class="severity-bar">
-                <div class="severity-fill critical-fill" style={{width: `${data && maxFindings ? (data.critical / maxFindings * 100) : 0}%`}}></div>
-              </div>
-              <div class="severity-count">{data ? data.critical : 0}</div>
-            </div>
-            <div class="severity-row">
-              <div class="severity-label">High</div>
-              <div class="severity-bar">
-                <div class="severity-fill high-fill" style={{width: `${data && maxFindings ? (data.high / maxFindings * 100) : 0}%`}}></div>
-              </div>
-              <div class="severity-count">{data ? data.high : 0}</div>
-            </div>
-            <div class="severity-row">
-              <div class="severity-label">Medium</div>
-              <div class="severity-bar">
-                <div class="severity-fill medium-fill" style={{width: `${data && maxFindings ? (data.medium / maxFindings * 100) : 0}%`}}></div>
-              </div>
-              <div class="severity-count">{data ? data.medium : 0}</div>
-            </div>
-          </div>
+          <span class="badge badge-critical" id="criticalCount">0 Critical</span>
+          <span class="badge badge-high" id="highCount" style="margin-left: 8px;">0 High</span>
         </div>
       </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Findings</div>
+        <div class="metric-value" id="totalFindings">0</div>
+      </div>
+    </div>
+    
+    <h2>Recent Findings</h2>
+    <table class="findings-table">
+      <thead>
+        <tr>
+          <th>Vector Type</th>
+          <th>Severity</th>
+          <th>Description</th>
+          <th>Found</th>
+        </tr>
+      </thead>
+      <tbody id="findingsTable">
+        <tr><td colspan="4" style="text-align: center; padding: 40px; color: var(--fg-secondary);">No findings yet</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-      <section>
-        <h2>Recent Findings</h2>
-        {findings.length > 0 ? (
-          <table class="findings-table">
-            <thead>
-              <tr>
-                <th>Vector</th>
-                <th>Severity</th>
-                <th>Description</th>
-                <th>Found</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.slice().reverse().map((f, i) => (
-                <tr key={i}>
-                  <td style="font-family: var(--font-mono); font-size: 12px;">{f.vector_type}</td>
-                  <td>
-                    <span class={`severity-badge badge-${f.severity.toLowerCase()}`}>
-                      {f.severity}
-                    </span>
-                  </td>
-                  <td>{f.description}</td>
-                  <td style="color: var(--fg-secondary); font-size: 12px;">
-                    {new Date(f.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div class="no-data">No findings yet. Start a scan or add findings manually.</div>
-        )}
-      </section>
-
-      <section>
-        <h2>Next Steps</h2>
-        <div style="background: var(--bg-card); border: 1px solid var(--divider); border-radius: 8px; padding: 20px; font-size: 14px; line-height: 1.6;">
-          <p>✅ Platform operational and connected</p>
-          <p>📊 Real-time threat intelligence active</p>
-          <p>🔍 Ready for automated MCP scanning</p>
-          <p>📧 Slack alerts can be added</p>
-          <p>🎯 Risk scoring in development</p>
-        </div>
-      </section>
-    </>
-  );
-}
-
-root.render(<Dashboard />);
-</script>
+  <script>
+    const API_URL = window.location.origin;
+    
+    async function loadDashboard() {
+      try {
+        // Get or create token
+        let token = localStorage.getItem('vata_token');
+        if (!token) {
+          const registerRes = await fetch(`${API_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ org_name: 'Dashboard-Viewer' })
+          });
+          const registerData = await registerRes.json();
+          token = registerData.access_token;
+          localStorage.setItem('vata_token', token);
+        }
+        
+        // Fetch all data
+        const [threatRes, findingsRes, complianceRes] = await Promise.all([
+          fetch(`${API_URL}/api/threat-intelligence`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/api/findings`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/api/reports/compliance`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+        
+        const threatData = await threatRes.json();
+        const findingsData = await findingsRes.json();
+        const complianceData = await complianceRes.json();
+        
+        // Update metrics
+        document.getElementById('threatScore').textContent = complianceData.compliance_score + '%';
+        document.getElementById('criticalCount').textContent = complianceData.critical_findings + ' Critical';
+        document.getElementById('highCount').textContent = complianceData.high_findings + ' High';
+        document.getElementById('totalFindings').textContent = threatData.total_findings;
+        
+        // Update findings table
+        const tbody = document.getElementById('findingsTable');
+        const findings = findingsData.findings || [];
+        
+        if (findings.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px; color: var(--fg-secondary);">No findings yet</td></tr>';
+        } else {
+          tbody.innerHTML = findings.reverse().map(f => `
+            <tr>
+              <td style="font-family: monospace; font-size: 12px;">${f.vector_type}</td>
+              <td><span class="badge badge-${f.severity.toLowerCase()}">${f.severity}</span></td>
+              <td>${f.description}</td>
+              <td style="color: var(--fg-secondary); font-size: 12px;">${new Date(f.created_at).toLocaleDateString()}</td>
+            </tr>
+          `).join('');
+        }
+        
+        // Show content
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+      } catch (e) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    loadDashboard();
+  </script>
+</body>
+</html>
