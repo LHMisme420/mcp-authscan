@@ -1,0 +1,414 @@
+<title>VATA Security Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root {
+  --bg: #0f1419;
+  --bg-card: #1a1f26;
+  --bg-hover: #232a34;
+  --fg: #e4e6eb;
+  --fg-secondary: #adb5c9;
+  --accent: #ff6b6b;
+  --critical: #ff3838;
+  --high: #ffa940;
+  --medium: #ffd666;
+  --low: #52c41a;
+  --divider: #2a3142;
+  --font-mono: 'SF Mono', Monaco, monospace;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f7fa;
+    --bg-card: #ffffff;
+    --bg-hover: #f0f2f5;
+    --fg: #1f2937;
+    --fg-secondary: #6b7280;
+    --divider: #e5e7eb;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1419;
+  --bg-card: #1a1f26;
+  --bg-hover: #232a34;
+  --fg: #e4e6eb;
+  --fg-secondary: #adb5c9;
+  --divider: #2a3142;
+  color-scheme: dark;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  line-height: 1.5;
+}
+
+header {
+  border-bottom: 1px solid var(--divider);
+  padding-block: 24px;
+  margin-bottom: 32px;
+}
+
+h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+.header-subtitle { color: var(--fg-secondary); font-size: 14px; }
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.metric-label { 
+  color: var(--fg-secondary); 
+  font-size: 12px; 
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.severity-breakdown {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.severity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.severity-bar {
+  flex: 1;
+  height: 20px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+}
+
+.severity-fill { height: 100%; transition: width 0.3s ease; }
+.critical-fill { background: var(--critical); }
+.high-fill { background: var(--high); }
+.medium-fill { background: var(--medium); }
+
+.findings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.findings-table thead {
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--divider);
+}
+
+.findings-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-secondary);
+}
+
+.findings-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+  font-size: 14px;
+}
+
+.findings-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.severity-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-critical { background: var(--critical); color: white; }
+.badge-high { background: var(--high); color: white; }
+.badge-medium { background: var(--medium); color: white; }
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--fg-secondary);
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--divider);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-hover);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--fg-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--low);
+}
+
+.refresh-button {
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  color: var(--fg);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+section { margin-bottom: 40px; }
+
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: var(--fg-secondary);
+  font-size: 13px;
+}
+</style>
+
+<header>
+  <h1>🛡️ VATA Security Dashboard</h1>
+  <p class="header-subtitle">Real-time vulnerability intelligence and compliance tracking</p>
+</header>
+
+<div id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+
+<script>
+const { useState, useEffect } = React;
+const root = ReactDOM.createRoot(document.getElementById('app'));
+
+function Dashboard() {
+  const [data, setData] = useState(null);
+  const [findings, setFindings] = useState([]);
+  const [compliance, setCompliance] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
+
+  const API_URL = 'http://127.0.0.1:7777';
+
+  useEffect(() => {
+    const stored = localStorage.getItem('vata_token');
+    if (stored) {
+      setToken(stored);
+      fetchData(stored);
+    } else {
+      registerOrg();
+    }
+  }, []);
+
+  const registerOrg = async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_name: 'Dashboard-Viewer', username: 'viewer' })
+      });
+      const json = await res.json();
+      localStorage.setItem('vata_token', json.access_token);
+      setToken(json.access_token);
+      fetchData(json.access_token);
+    } catch (e) {
+      console.error('Failed to register:', e);
+      setLoading(false);
+    }
+  };
+
+  const fetchData = async (authToken) => {
+    try {
+      const [threatRes, findingsRes, complianceRes] = await Promise.all([
+        fetch(`${API_URL}/api/threat-intelligence`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        }),
+        fetch(`${API_URL}/api/findings`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        }),
+        fetch(`${API_URL}/api/reports/compliance`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        })
+      ]);
+
+      const threatData = await threatRes.json();
+      const findingsData = await findingsRes.json();
+      const complianceData = await complianceRes.json();
+
+      setData(threatData);
+      setFindings(findingsData.findings || []);
+      setCompliance(complianceData);
+    } catch (e) {
+      console.error('Failed to fetch data:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setLoading(true);
+    if (token) fetchData(token);
+  };
+
+  if (loading) {
+    return React.createElement('div', { className: 'empty-state' },
+      React.createElement('div', { className: 'spinner' }),
+      React.createElement('p', { style: { marginTop: '16px' } }, 'Loading dashboard...')
+    );
+  }
+
+  const threatScore = compliance ? compliance.compliance_score : 0;
+  const maxFindings = data && Math.max(data.critical || 0, data.high || 0, data.medium || 0, 1);
+
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '24px' } },
+      React.createElement('div', { className: 'status-indicator' },
+        React.createElement('span', { className: 'status-dot' }),
+        'Active Monitoring'
+      ),
+      React.createElement('button', { className: 'refresh-button', onClick: handleRefresh }, '↻ Refresh')
+    ),
+
+    React.createElement('div', { className: 'metrics-grid' },
+      React.createElement('div', { className: 'metric-card' },
+        React.createElement('div', { className: 'metric-label' }, 'Threat Score'),
+        React.createElement('div', { className: 'metric-value' }, threatScore + '%'),
+        React.createElement('div', { className: 'metric-trend' },
+          compliance && React.createElement(React.Fragment, null,
+            React.createElement('span', { className: 'badge-critical' }, compliance.critical_findings + ' Critical'),
+            React.createElement('span', { style: { marginLeft: '8px' }, className: 'badge-high' }, compliance.high_findings + ' High')
+          )
+        )
+      ),
+
+      React.createElement('div', { className: 'metric-card' },
+        React.createElement('div', { className: 'metric-label' }, 'Total Findings'),
+        React.createElement('div', { className: 'metric-value' }, data ? data.total_findings : 0),
+        React.createElement('div', { className: 'metric-trend' },
+          data && React.createElement(React.Fragment, null,
+            React.createElement('div', null, '7-day trend: ' + data.week_trend),
+            React.createElement('div', { style: { marginTop: '4px' } }, 'Direction: ' + data.trend_direction)
+          )
+        )
+      ),
+
+      React.createElement('div', { className: 'metric-card' },
+        React.createElement('div', { className: 'metric-label' }, 'Severity Distribution'),
+        React.createElement('div', { className: 'severity-breakdown' },
+          React.createElement('div', { className: 'severity-row' },
+            React.createElement('div', { style: { width: '70px' } }, 'Critical'),
+            React.createElement('div', { className: 'severity-bar' },
+              React.createElement('div', { className: 'severity-fill critical-fill', style: { width: (data && maxFindings ? (data.critical / maxFindings * 100) : 0) + '%' } })
+            ),
+            React.createElement('div', { style: { minWidth: '40px', textAlign: 'right' } }, data ? data.critical : 0)
+          ),
+          React.createElement('div', { className: 'severity-row' },
+            React.createElement('div', { style: { width: '70px' } }, 'High'),
+            React.createElement('div', { className: 'severity-bar' },
+              React.createElement('div', { className: 'severity-fill high-fill', style: { width: (data && maxFindings ? (data.high / maxFindings * 100) : 0) + '%' } })
+            ),
+            React.createElement('div', { style: { minWidth: '40px', textAlign: 'right' } }, data ? data.high : 0)
+          ),
+          React.createElement('div', { className: 'severity-row' },
+            React.createElement('div', { style: { width: '70px' } }, 'Medium'),
+            React.createElement('div', { className: 'severity-bar' },
+              React.createElement('div', { className: 'severity-fill medium-fill', style: { width: (data && maxFindings ? (data.medium / maxFindings * 100) : 0) + '%' } })
+            ),
+            React.createElement('div', { style: { minWidth: '40px', textAlign: 'right' } }, data ? data.medium : 0)
+          )
+        )
+      )
+    ),
+
+    React.createElement('section', null,
+      React.createElement('h2', null, 'Recent Findings'),
+      findings.length > 0 ? React.createElement('table', { className: 'findings-table' },
+        React.createElement('thead', null,
+          React.createElement('tr', null,
+            React.createElement('th', null, 'Vector'),
+            React.createElement('th', null, 'Severity'),
+            React.createElement('th', null, 'Description'),
+            React.createElement('th', null, 'Found')
+          )
+        ),
+        React.createElement('tbody', null,
+          findings.slice().reverse().map((f, i) => React.createElement('tr', { key: i },
+            React.createElement('td', { style: { fontFamily: 'monospace', fontSize: '12px' } }, f.vector_type),
+            React.createElement('td', null,
+              React.createElement('span', { className: 'severity-badge badge-' + f.severity.toLowerCase() }, f.severity)
+            ),
+            React.createElement('td', null, f.description),
+            React.createElement('td', { style: { color: 'var(--fg-secondary)', fontSize: '12px' } },
+              new Date(f.created_at).toLocaleDateString()
+            )
+          ))
+        )
+      ) : React.createElement('div', { className: 'no-data' }, 'No findings yet.')
+    )
+  );
+}
+
+root.render(React.createElement(Dashboard));
+</script>
