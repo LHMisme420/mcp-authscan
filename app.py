@@ -156,3 +156,46 @@ def compliance_report():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False)
+
+import subprocess
+import json
+
+@app.route('/api/scan', methods=['POST'])
+@jwt_required()
+def run_scan():
+    org_id = get_jwt_identity()
+    try:
+        data = request.get_json()
+        target = data.get('target')  # GitHub URL or local path
+        
+        # Run CLI scanner
+        result = subprocess.run(
+            ['python3', 'mcp_authscan.py', target],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        
+        # Parse findings from output
+        lines = result.stdout.split('\n')
+        findings = []
+        for line in lines:
+            if line.startswith('[CRITICAL'):
+                severity = 'CRITICAL'
+                findings.append({'severity': severity, 'line': line})
+            elif line.startswith('[MEDIUM'):
+                severity = 'MEDIUM'
+                findings.append({'severity': severity, 'line': line})
+        
+        # Store in DB
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        for f in findings:
+            c.execute('INSERT INTO findings (org_id, vector_type, severity, description, remediation) VALUES (?, ?, ?, ?, ?)',
+                     (org_id, 'source_code', f['severity'], f['line'], 'Review finding details'))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'status': 'ok', 'findings_count': len(findings)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
