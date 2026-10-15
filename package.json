@@ -1,0 +1,11 @@
+{
+  "name": "vata-scanner",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "python3 app.py",
+    "start": "python3 app.py",
+    "build": "echo 'No build needed'"
+  },
+  "dependencies": {}
+}
