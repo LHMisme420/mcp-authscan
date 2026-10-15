@@ -7,6 +7,26 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from datetime import timedelta
 
 app = Flask(__name__)
+
+# Auto-initialize database
+import sqlite3
+try:
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS findings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id INTEGER NOT NULL,
+        vector_type TEXT,
+        severity TEXT,
+        description TEXT,
+        remediation TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+    conn.close()
+except Exception as e:
+    print(f"DB init warning: {e}")
+
 CORS(app)
 
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET', 'vata-secret-key')
