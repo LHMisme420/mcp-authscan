@@ -161,24 +161,41 @@ import subprocess
 def run_scan():
     org_id = get_jwt_identity()
     try:
+        import tempfile, shutil
         data = request.get_json()
         target = data.get('target')
-        if target.startswith("http"):
-            import tempfile
+        
+        # If GitHub URL, clone it first
+        if target.startswith('http'):
             tmpdir = tempfile.mkdtemp()
-            subprocess.run(["git", "clone", "--depth", "1", target, tmpdir], capture_output=True, timeout=60)
+            clone_result = subprocess.run(['git', 'clone', '--depth', '1', target, tmpdir], 
+                                        capture_output=True, text=True, timeout=120)
+            if clone_result.returncode != 0:
+                return jsonify({'error': f'Clone failed: {clone_result.stderr}'}), 400
             target = tmpdir
-        result = subprocess.run(['python3', '/home/lhmisme/vata/mcp-authscan/mcp_authscan.py', target], capture_output=True, text=True, timeout=300)
+        
+        # Run scanner
+        result = subprocess.run(['python3', '/home/lhmisme/vata/mcp-authscan/mcp_authscan.py', target],
+                              capture_output=True, text=True, timeout=300)
+        
+        # Parse findings
         findings = []
-        for line in result.stdout.split('\n'):
-            if line.startswith('[CRITICAL'): findings.append({'severity': 'CRITICAL', 'line': line})
-            elif line.startswith('[MEDIUM'): findings.append({'severity': 'MEDIUM', 'line': line})
+        for line in result.stdout.split('
+'):
+            if line.startswith('[CRITICAL'): 
+                findings.append({'severity': 'CRITICAL', 'line': line})
+            elif line.startswith('[MEDIUM'): 
+                findings.append({'severity': 'MEDIUM', 'line': line})
+        
+        # Store in DB
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         for f in findings:
-            c.execute('INSERT INTO findings (org_id, vector_type, severity, description, remediation) VALUES (?, ?, ?, ?, ?)', (org_id, 'source_code', f['severity'], f['line'], 'Review'))
+            c.execute('INSERT INTO findings (org_id, vector_type, severity, description, remediation) VALUES (?, ?, ?, ?, ?)',
+                     (org_id, 'source_code', f['severity'], f['line'], 'Review'))
         conn.commit()
         conn.close()
+        
         return jsonify({'status': 'ok', 'findings_count': len(findings)}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -194,39 +211,38 @@ import json
 def run_scan():
     org_id = get_jwt_identity()
     try:
+        import tempfile, shutil
         data = request.get_json()
-        target = data.get('target')  # GitHub URL or local path
-        if target.startswith("http"):
-            import tempfile
+        target = data.get('target')
+        
+        # If GitHub URL, clone it first
+        if target.startswith('http'):
             tmpdir = tempfile.mkdtemp()
-            subprocess.run(["git", "clone", "--depth", "1", target, tmpdir], capture_output=True, timeout=60)
+            clone_result = subprocess.run(['git', 'clone', '--depth', '1', target, tmpdir], 
+                                        capture_output=True, text=True, timeout=120)
+            if clone_result.returncode != 0:
+                return jsonify({'error': f'Clone failed: {clone_result.stderr}'}), 400
             target = tmpdir
         
-        # Run CLI scanner
-        result = subprocess.run(
-            ['python3', 'mcp_authscan.py', target],
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
+        # Run scanner
+        result = subprocess.run(['python3', '/home/lhmisme/vata/mcp-authscan/mcp_authscan.py', target],
+                              capture_output=True, text=True, timeout=300)
         
-        # Parse findings from output
-        lines = result.stdout.split('\n')
+        # Parse findings
         findings = []
-        for line in lines:
-            if line.startswith('[CRITICAL'):
-                severity = 'CRITICAL'
-                findings.append({'severity': severity, 'line': line})
-            elif line.startswith('[MEDIUM'):
-                severity = 'MEDIUM'
-                findings.append({'severity': severity, 'line': line})
+        for line in result.stdout.split('
+'):
+            if line.startswith('[CRITICAL'): 
+                findings.append({'severity': 'CRITICAL', 'line': line})
+            elif line.startswith('[MEDIUM'): 
+                findings.append({'severity': 'MEDIUM', 'line': line})
         
         # Store in DB
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         for f in findings:
             c.execute('INSERT INTO findings (org_id, vector_type, severity, description, remediation) VALUES (?, ?, ?, ?, ?)',
-                     (org_id, 'source_code', f['severity'], f['line'], 'Review finding details'))
+                     (org_id, 'source_code', f['severity'], f['line'], 'Review'))
         conn.commit()
         conn.close()
         
