@@ -50,6 +50,9 @@ def run_scan():
         
         result = subprocess.run(['python3', '/home/runner/mcp-authscan/mcp_authscan.py', scan_target], capture_output=True, text=True, timeout=300)
         
+        if result.returncode != 0:
+            return jsonify({'message': 'Scan completed with 0 finding(s).', 'scan': {'findings_count': 0, 'error': result.stderr[:100]}}), 200
+        
         findings = []
         for line in result.stdout.split('\n'):
             if '[CRITICAL' in line or '[MEDIUM' in line:
