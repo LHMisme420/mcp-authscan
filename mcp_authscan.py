@@ -494,6 +494,9 @@ def _is_literal(expr):
     return False
 
 def rule_ssrf(path, text, F):
+    pl = path.as_posix().lower()
+    if any(x in pl for x in ("/internal/httpx", "/oryx/httpx", "/fosite/integration", "/examples/", "cypress")):
+        return
     # Frontend and demo-script fetches to the app's own backend are not SSRF.
     pl = path.as_posix().lower()
     if any(s in pl for s in ("/frontend/", "/web/", "/ui/", "/scripts/save-demo", "/skills/")):
