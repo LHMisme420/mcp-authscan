@@ -185,6 +185,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 def create_scan_endpoint(app):
     @app.route('/api/scan', methods=['POST'])
     @jwt_required()
+    @app.route('/api/scan', methods=['POST'])
+    @jwt_required()
     def run_scan():
         org_id = get_jwt_identity()
         tmpdir = None
@@ -193,7 +195,7 @@ def create_scan_endpoint(app):
             target = data.get('target', '').strip()
             
             if not target:
-                return jsonify({'error': 'No target provided'}), 400
+                return jsonify({'error': 'No target provided', 'findings_count': 0}), 400
             
             # Handle GitHub URLs
             if target.startswith('http'):
@@ -206,19 +208,26 @@ def create_scan_endpoint(app):
                     return jsonify({
                         'status': 'error',
                         'findings_count': 0,
-                        'error': f'Clone failed: {clone_result.stderr[:200]}'
+                        'debug': f'Clone failed: {clone_result.stderr[:200]}'
                     }), 400
                 scan_target = tmpdir
             else:
                 scan_target = target
             
-            # Run scanner
+            # Run scanner with output capture
             result = subprocess.run(
                 ['python3', '/home/lhmisme/vata/mcp-authscan/mcp_authscan.py', scan_target],
                 capture_output=True, text=True, timeout=300
             )
             
-            # Parse findings
+            if result.returncode != 0:
+                return jsonify({
+                    'status': 'error',
+                    'findings_count': 0,
+                    'debug': f'Scanner error: {result.stderr[:200]}'
+                }), 500
+            
+            # Parse findings with logging
             findings = []
             for line in result.stdout.split('\n'):
                 if '[CRITICAL' in line or '[MEDIUM' in line:
@@ -229,7 +238,7 @@ def create_scan_endpoint(app):
             
             # Store in DB
             if findings:
-                conn = sqlite3.connect('/home/lhmisme/vata/mcp-authscan/findings.db')
+                conn = sqlite3.connect(DB_FILE)
                 c = conn.cursor()
                 for f in findings:
                     c.execute(
@@ -248,19 +257,8 @@ def create_scan_endpoint(app):
         except subprocess.TimeoutExpired:
             return jsonify({'error': 'Scan timeout', 'findings_count': 0}), 500
         except Exception as e:
-            return jsonify({'error': str(e), 'findings_count': 0}), 500
+            return jsonify({'error': str(e), 'findings_count': 0, 'type': type(e).__name__}), 500
         finally:
             if tmpdir and os.path.exists(tmpdir):
                 shutil.rmtree(tmpdir, ignore_errors=True)
-    
-    return run_scan
 
-
-run_scan_endpoint = create_scan_endpoint(app)
-
-
-
-if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 7777))
-    app.run(host='0.0.0.0', port=port, debug=False)
