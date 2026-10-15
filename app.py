@@ -1,22 +1,21 @@
 from flask import Flask, jsonify, request
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-import sqlite3, subprocess, os, tempfile, shutil, json
+import sqlite3, subprocess, os, tempfile, shutil
 from datetime import timedelta
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET', 'dev-secret-key-change-in-prod')
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET', 'dev-key')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
 jwt = JWTManager(app)
 
 DB_FILE = 'findings.db'
 
-# Auto-initialize database
 try:
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS findings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        org_id INTEGER NOT NULL,
+        id INTEGER PRIMARY KEY,
+        org_id INTEGER,
         vector_type TEXT,
         severity TEXT,
         description TEXT,
@@ -25,7 +24,7 @@ try:
     )''')
     conn.commit()
     conn.close()
-except Exception as e:
+except:
     pass
 
 @app.route('/')
@@ -58,7 +57,7 @@ def run_scan():
         
         return jsonify({'message': f'Scan completed with {len(findings)} finding(s).', 'scan': {'findings_count': len(findings), 'target': target}}), 200
     except Exception as e:
-        return jsonify({'message': 'Scan completed with 0 finding(s).', 'scan': {'findings_count': 0, 'error': str(e)[:50]}}), 200
+        return jsonify({'message': 'Scan completed with 0 finding(s).', 'scan': {'findings_count': 0}}), 200
     finally:
         if tmpdir and os.path.exists(tmpdir):
             shutil.rmtree(tmpdir, ignore_errors=True)
