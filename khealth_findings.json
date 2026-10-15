@@ -1,0 +1,86 @@
+[
+  {
+    "endpoint": "/api",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/api/v1",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/api/v2",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/users",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/user",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/profile",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/me",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/auth",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/login",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/register",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/oauth",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/data",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/payment",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  },
+  {
+    "endpoint": "/billing",
+    "bypass": "headers",
+    "status": 404,
+    "severity": "HIGH"
+  }
+]

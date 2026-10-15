@@ -1,0 +1,3 @@
+/api/users
+/api/profile
+/api/payments

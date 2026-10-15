@@ -201,9 +201,9 @@ def create_scan_endpoint(app):
             # Parse findings
             findings = []
             for line in result.stdout.split('\n'):
-                if '[CRITICAL]' in line or '[MEDIUM]' in line:
+                if '[CRITICAL' in line or '[MEDIUM' in line:
                     findings.append({
-                        'severity': 'CRITICAL' if '[CRITICAL]' in line else 'MEDIUM',
+                        'severity': 'CRITICAL' if '[CRITICAL' in line else 'MEDIUM',
                         'description': line.strip()
                     })
             
@@ -239,3 +239,8 @@ def create_scan_endpoint(app):
 run_scan_endpoint = create_scan_endpoint(app)
 
 
+
+if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 7777))
+    app.run(host='0.0.0.0', port=port, debug=False)
