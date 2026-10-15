@@ -262,3 +262,4 @@ def create_scan_endpoint(app):
             if tmpdir and os.path.exists(tmpdir):
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
+# Force redeploy Thu Oct 15 13:04:58 EDT 2026
