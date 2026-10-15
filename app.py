@@ -163,6 +163,11 @@ def run_scan():
     try:
         data = request.get_json()
         target = data.get('target')
+        if target.startswith("http"):
+            import tempfile
+            tmpdir = tempfile.mkdtemp()
+            subprocess.run(["git", "clone", "--depth", "1", target, tmpdir], capture_output=True, timeout=60)
+            target = tmpdir
         result = subprocess.run(['python3', '/home/lhmisme/vata/mcp-authscan/mcp_authscan.py', target], capture_output=True, text=True, timeout=300)
         findings = []
         for line in result.stdout.split('\n'):
@@ -191,6 +196,11 @@ def run_scan():
     try:
         data = request.get_json()
         target = data.get('target')  # GitHub URL or local path
+        if target.startswith("http"):
+            import tempfile
+            tmpdir = tempfile.mkdtemp()
+            subprocess.run(["git", "clone", "--depth", "1", target, tmpdir], capture_output=True, timeout=60)
+            target = tmpdir
         
         # Run CLI scanner
         result = subprocess.run(
