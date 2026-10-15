@@ -154,6 +154,30 @@ def compliance_report():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+import subprocess
+
+@app.route('/api/scan', methods=['POST'])
+@jwt_required()
+def run_scan():
+    org_id = get_jwt_identity()
+    try:
+        data = request.get_json()
+        target = data.get('target')
+        result = subprocess.run(['python3', '/home/lhmisme/vata/mcp-authscan/mcp_authscan.py', target], capture_output=True, text=True, timeout=300)
+        findings = []
+        for line in result.stdout.split('\n'):
+            if line.startswith('[CRITICAL'): findings.append({'severity': 'CRITICAL', 'line': line})
+            elif line.startswith('[MEDIUM'): findings.append({'severity': 'MEDIUM', 'line': line})
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        for f in findings:
+            c.execute('INSERT INTO findings (org_id, vector_type, severity, description, remediation) VALUES (?, ?, ?, ?, ?)', (org_id, 'source_code', f['severity'], f['line'], 'Review'))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'ok', 'findings_count': len(findings)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False)
 
