@@ -39,3 +39,13 @@ replacement still failed on the existing writer lock. Do not repeat that
 sequence as a fix. Inspect the full stop/unpublish confirmation and its data
 and URL consequences before asking the operator to proceed; brief-downtime
 approval is not approval to delete the project or production database.
+
+Full Unpublish followed by Publish is an owner-confirmed working handoff.
+Verify that the deployment service reports no active deployment between those
+steps; do not treat this as permission for future outages without approval.
+
+**Why:** The owner confirmed the live feature worked after this handoff, unlike
+the earlier Pause-based attempt.
+
+**How to apply:** Use the full stop-before-start sequence for approved releases
+while this exclusive-writer architecture remains in place.
