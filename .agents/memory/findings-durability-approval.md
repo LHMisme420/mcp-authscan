@@ -3,18 +3,21 @@ name: Findings durability approval
 description: Owner-approved scope for preserving SQLite findings across replacement deployments.
 ---
 
-## Current preservation decision
+## Current PostgreSQL durability decision
 
-The owner's latest choice is: **"Preserve findings and wait for recovery preparation (recommended)"**.
-This supersedes the earlier acceptance of a local-only publishing shortcut below.
+The owner subsequently said **"dont preserve the findings"**, then clarified
+**"Don't switch back to local-only"** and requested initialization from a newly
+created SQLite database for PostgreSQL-backed findings storage.
+This supersedes the preservation-first and local-only publishing choices below.
 
-**Why:** After the PostgreSQL-backed startup failed, the owner chose preservation
-over preparing local-only startup with possible findings loss.
+**Why:** The owner wants PostgreSQL durability without preserving old findings,
+rather than bypassing the startup check with temporary local-only storage.
 
-**How to apply:** Leave the current live deployment unchanged while recovery is
-prepared. Do not switch to local-only storage to bypass the startup guard, seed
-from a new empty database, or publish before the production schema and a verified
-live snapshot are ready. Publication still requires separate approval.
+**How to apply:** Keep PostgreSQL durability. A fresh initial findings snapshot is
+authorized, but must target the actual intended production database and must not
+overwrite an existing namespace, delete unrelated records, or reassign ownership.
+Do not treat workspace DATABASE_URL as production. Follow the managed PostgreSQL
+schema process and verify initialization before suggesting publication.
 
 ## Earlier release investigation constraint
 
@@ -44,7 +47,7 @@ said “lets do the fastest ok” in response to the explained local-only option
 and its data-loss consequences.
 
 **How to apply:** The historical local-only exception must not override the current
-preservation decision above. Do not weaken the application's default durability
+PostgreSQL decision above. Do not weaken the application's default durability
 requirement or claim
 data preservation or active backups. This acceptance does not authorize seeding
 production from workspace findings, reassigning organization ownership, or a
