@@ -775,6 +775,15 @@ RULE_META = {
     "B3": {"name": "AuthorizationCodeExcessiveLifetime",
            "desc": "Large TTL found near authorization-code context. Review pointer \u2014 regex cannot prove the number governs the auth code (vs an access/refresh-token TTL), so confirm manually; an auth code far exceeding RFC 6749's ~600s is the real risk.",
            "sev": 3.5, "cwe": ["CWE-613"]},
+    "E1": {"name": "MCPCrossSessionDataLeak",
+           "desc": "Module-level store keyed by session id is returned whole to a caller, or a missing session id falls back to a constant key - one session reads another's data.",
+           "sev": 7.5, "cwe": ["CWE-200", "CWE-639"]},
+    "E2": {"name": "MCPSensitiveDataInLogs",
+           "desc": "Secret-named value, tool argument kept as session data, or a whole session store written raw to logs/stderr, which MCP hosts routinely collect.",
+           "sev": 5.5, "cwe": ["CWE-532"]},
+    "E3": {"name": "MCPToolOutputPromptInjection",
+           "desc": "Model-visible tool result or tool description contains a prompt-injection phrase (instruction override, system-prompt exfiltration, concealment from the user).",
+           "sev": 8.0, "cwe": ["CWE-74", "CWE-1427"]},
 }
 SARIF_LEVEL = {"CRITICAL": "error", "HIGH": "error", "MEDIUM": "warning", "LOW": "note"}
 
@@ -1200,11 +1209,185 @@ def rule_mcp_sdk_version(path, text, F):
             path, text, m.start(), m.group(0)[:80],
             "GHSA-qx49-fqc8-xw99", "HIGH")
 
+# ---- E-series: MCP server runtime data handling ----
+# Seed: examples/vulnerable_gold_server.py (stdio JSON-RPC server). Fixed twin:
+# examples/gold_server_fixed.py must stay silent. Gated on files that look like an MCP
+# server so generic web code with module-level dicts or logging is not swept in.
+E_MCP_SERVER = re.compile(
+    r"""['"]tools/(?:call|list)['"]|@\w+\.tool\b|\bFastMCP\s*\(|\bMcpServer\b|"""
+    r"""CallToolRequest|\.call_tool\b|server\.tool\s*\(""")
+E_LOG_CALL = re.compile(
+    r"\b(?:logger|logging|log|_log|LOGGER|LOG)\s*\.\s*"
+    r"(?:debug|info|warning|warn|error|exception|critical|fatal|log)\s*\(|"
+    r"\bconsole\.(?:log|error|warn|info|debug)\s*\(|"
+    r"\bprint\s*\((?=[^\n]*file\s*=\s*sys\.stderr)|"
+    r"\b(?:sys|process)\.stderr\.write\s*\(")
+E_STORE_DEF = re.compile(
+    r"^(?:(?:const|let|var)\s+)?([A-Za-z_]\w*)\s*(?::[^=\n]+)?=\s*"
+    r"(?:\{\s*\}|dict\(\s*\)|(?:collections\.)?defaultdict\([^)\n]*\)|new\s+Map\s*\(\s*\))\s*;?\s*$",
+    re.M)
+E_SESSION_NAME = re.compile(r"session|^sid$|_sid$|conn|client|user|tenant|caller", re.I)
+
+def _e_session_stores(text):
+    """Module-level dicts/Maps written with a session-like key: {name: write_idx}."""
+    stores = {}
+    for m in E_STORE_DEF.finditer(text):
+        name = m.group(1)
+        n = re.escape(name)
+        w = re.compile(r"\b" + n + r"\s*\[\s*([\w.]+)\s*\]\s*=(?!=)|\b" + n + r"\.set\(\s*([\w.]+)\s*,")
+        for wm in w.finditer(text, m.end()):
+            key = (wm.group(1) or wm.group(2)).split(".")[-1]
+            if E_SESSION_NAME.search(key):
+                stores[name] = wm.start()
+                break
+    return stores
+
+def _e_is_log_line(line):
+    return bool(E_LOG_CALL.search(line))
+
+def rule_session_leak(path, text, F):
+    if not E_MCP_SERVER.search(text):
+        return
+    stores = _e_session_stores(text)
+    for name in stores:
+        n = re.escape(name)
+        whole = re.compile(
+            r"\b(?:str|repr|dict|list|json\.dumps|JSON\.stringify)\(\s*" + n + r"\s*[,)]|"
+            r"\{" + n + r"(?:![rsa])?\}|\$\{" + n + r"\}|"
+            r"\breturn\s+" + n + r"\s*;?\s*$|"
+            r"\b" + n + r"\.(?:items|values)\(\s*\)|"
+            r"\bObject\.(?:values|entries|fromEntries)\(\s*" + n + r"\s*\)|\bArray\.from\(\s*" + n + r"\b|"
+            r"\.\.\." + n + r"\.values\(", re.M)
+        for m in whole.finditer(text):
+            line = linetext(text, m.start())
+            if _comment_line(line) or _e_is_log_line(line):
+                continue  # logging the store is E2's finding, not a response leak
+            add(F, "E1", "HIGH",
+                f"Session-keyed shared store '{name}' returned whole to a caller",
+                path, text, m.start(),
+                f"'{name}' is a module-level dict keyed by session, and this line exposes "
+                f"every session's entries at once - any caller reads other sessions' data",
+                "VATA:gold-server cross-session store", "MEDIUM")
+    # A missing session id that falls back to a constant puts every such caller in
+    # one shared bucket of a session-keyed store.
+    fallback = re.compile(
+        r"""\b(\w+)\s*=\s*[^\n]*(?:\.get\(\s*['"](?:session_?id|sessionId|sid)['"]\s*,\s*['"][^'"\n]*['"]\s*\)|"""
+        r"""session_?[Ii]d\s*(?:\?\?|\|\|)\s*['"][^'"\n]*['"])""")
+    for m in fallback.finditer(text):
+        var = re.escape(m.group(1))
+        if not any(re.search(r"\b" + re.escape(s) + r"\s*\[\s*" + var + r"\s*\]|\b" + re.escape(s) + r"\.set\(\s*" + var + r"\b", text)
+                   for s in stores):
+            continue
+        add(F, "E1", "HIGH",
+            "Missing session id falls back to a constant key into a session-keyed store",
+            path, text, m.start(),
+            f"'{m.group(1)}' defaults to a fixed string when the caller sends no session id; "
+            f"all such callers share one bucket and read each other's data",
+            "VATA:gold-server cross-session store", "MEDIUM")
+
+E_ARG_SOURCE = re.compile(
+    r"""^\s*(?:(?:const|let|var)\s+)?([A-Za-z_]\w*)\s*(?::[^=\n]+)?=\s*[^\n]*"""
+    r"""(?:\b(?:args|arguments|tool_args|tool_input)\b\s*(?:\.get\s*\(|\[|\.)|\[\s*['"]arguments['"]\s*\])""", re.M)
+E_TOOL_DEF = re.compile(r"@\w+\.tool\b[^\n]*\n(?:\s*@[^\n]*\n)*\s*(?:async\s+)?def\s+\w+\s*\(([^)]*)\)")
+# The name must END in the secret noun: client_secret / apiKey yes, token_kind / cookie_names no.
+E_SECRET_NAME = re.compile(
+    r"(?i:(?:^|_)(?:password|passwd|secret|token|api_?key|apikey|credentials?|private_?key|authorization|bearer|cookie)s?$)|"
+    r"[a-z0-9](?:Password|Passwd|Secret|Token|ApiKey|Credentials?|PrivateKey|Cookie)s?$")
+
+def _e_interpolates(args, var):
+    """True if a log call's argument text embeds var's raw value (not len(var) etc.)."""
+    v = re.escape(var)
+    # f-string / template-literal placeholders
+    if re.search(r"(?<![{])\{" + v + r"(?:\[[^}\]]*\])?(?:![rsa])?(?::[^}]*)?\}|\$\{" + v + r"\}", args):
+        return True
+    code = re.sub(r"""(['"`])(?:\\.|(?!\1)[^\\])*\1""", '""', args)  # drop string literals
+    return bool(re.search(
+        r"(?:^|[,+%]\s*)" + v + r"\b(?!\s*[(.\[])|"
+        r"\b(?:str|repr|json\.dumps|JSON\.stringify)\(\s*" + v + r"\b", code.strip()))
+
+def rule_secrets_in_logs(path, text, F):
+    if not E_MCP_SERVER.search(text):
+        return
+    # Tool arguments count only once they are kept as session data (written into a
+    # session-keyed store); logging an ordinary argument like host/port is not a leak.
+    args_in = {m.group(1) for m in E_ARG_SOURCE.finditer(text)}
+    for m in E_TOOL_DEF.finditer(text):
+        for p in m.group(1).split(","):
+            p = p.strip().split(":")[0].split("=")[0].strip().lstrip("*")
+            if p and p not in ("self", "ctx", "context"):
+                args_in.add(p)
+    stores = _e_session_stores(text)
+    tainted = {}
+    for v in args_in:
+        if any(re.search(r"\b" + re.escape(s) + r"\s*\[[^\]\n]+\]\s*=\s*" + re.escape(v) + r"\b|"
+                         r"\b" + re.escape(s) + r"\.set\([^,\n]+,\s*" + re.escape(v) + r"\b", text)
+               for s in stores):
+            tainted[v] = "tool argument kept as session data"
+    for name in stores:
+        tainted.setdefault(name, "whole session store")
+    for m in re.finditer(r"\b([A-Za-z_]\w*)\s*=", text):
+        if E_SECRET_NAME.search(m.group(1)):
+            tainted.setdefault(m.group(1), "secret-named value")
+    if not tainted:
+        return
+    for m in E_LOG_CALL.finditer(text):
+        if _comment_line(linetext(text, m.start())):
+            continue
+        args = call_args(text, m.end() - 1)
+        hits = [v for v in tainted if _e_interpolates(args, v)]
+        if not hits:
+            continue
+        what = ", ".join(f"{v} ({tainted[v]})" for v in hits)
+        add(F, "E2", "MEDIUM",
+            "Sensitive value written raw to logs/stderr",
+            path, text, m.start(),
+            f"log call embeds {what} verbatim; MCP stderr/log files are routinely "
+            f"collected by hosts - log a length, hash or redacted form instead",
+            "VATA:gold-server secrets in logs", "MEDIUM")
+
+E_INJECTION = re.compile(
+    r"ignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+instructions|"
+    r"disregard\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)|"
+    r"(?:reveal|print|show|output|repeat|leak)\s+(?:your\s+|the\s+)?system\s+prompt|"
+    r"\byou\s+are\s+now\s+(?:a|an|in)\b|"
+    r"<\s*/?\s*(?:IMPORTANT|SYSTEM|system[-_]prompt)\s*>|"
+    r"\[\s*INJECT(?:ION)?\s*\]|"
+    r"do\s+not\s+(?:tell|inform|alert)\s+the\s+user", re.I)
+E_STR_LIT = re.compile(r"""(['"`])((?:\\.|(?!\1)[^\\\n])*)\1""")
+E_OUTPUT_CTX = re.compile(
+    r"""['"](?:text|description|content|result|message)['"]\s*:|\b(?:text|description)\s*=|"""
+    r"""\breturn\b|TextContent\s*\(|\bresolve\s*\(""")
+E_MATCHER_CTX = re.compile(r"\bre\.(?:compile|search|match|findall|sub)\s*\(|\bRegExp\s*\(|\.test\s*\(|\bin\s+\w+\.lower\(\)")
+
+def rule_tool_output_injection(path, text, F):
+    if not E_MCP_SERVER.search(text):
+        return
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if _comment_line(line) or _e_is_log_line(line) or E_MATCHER_CTX.search(line):
+            continue
+        ctx = "\n".join(lines[max(0, i - 2):i + 1])
+        if not E_OUTPUT_CTX.search(ctx):
+            continue
+        for sm in E_STR_LIT.finditer(line):
+            im = E_INJECTION.search(sm.group(2))
+            if not im:
+                continue
+            idx = sum(len(l) + 1 for l in lines[:i]) + sm.start()
+            add(F, "E3", "HIGH",
+                "Tool output/description carries a prompt-injection payload",
+                path, text, idx,
+                f"model-visible string contains '{im.group(0)}' - the host LLM reads tool "
+                f"results and descriptions as context and may follow it",
+                "VATA:gold-server tool-output injection", "HIGH")
+            break
+
 RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_ssrf, rule_excluded_tools, rule_method_scoped_authz,
          rule_client_issuer_binding,
          rule_pkce_not_enforced, rule_authcode_replay,
-         rule_cross_tenant_list, rule_fastmcp_auth_default, rule_mcp_sdk_version]
+         rule_cross_tenant_list, rule_fastmcp_auth_default, rule_mcp_sdk_version,
+         rule_session_leak, rule_secrets_in_logs, rule_tool_output_injection]
 
 def scan(root, include_tests, exclude=()):
     global SCOPED_REPOS

@@ -227,6 +227,63 @@
                     "note": "mcp 1.30.0"
                 }
             ]
+        },
+        {
+            "name": "fixture-gold-server-vulnerable",
+            "path": "examples/vulnerable_gold_server.py",
+            "note": "stdio MCP server with cross-session store, raw logging and an injection tool; all E-series rules must fire",
+            "must_detect": [
+                {
+                    "rule": "E1",
+                    "match": "vulnerable_gold_server.py:22",
+                    "note": "session_id defaults to '?' - id-less callers share one bucket"
+                },
+                {
+                    "rule": "E1",
+                    "match": "vulnerable_gold_server.py:33",
+                    "note": "read returns str(data): every session's entries"
+                },
+                {
+                    "rule": "E2",
+                    "match": "vulnerable_gold_server.py:27",
+                    "note": "stored value d logged verbatim"
+                },
+                {
+                    "rule": "E2",
+                    "match": "vulnerable_gold_server.py:28",
+                    "note": "whole store logged"
+                },
+                {
+                    "rule": "E2",
+                    "match": "vulnerable_gold_server.py:32",
+                    "note": "whole store logged on read"
+                },
+                {
+                    "rule": "E3",
+                    "match": "vulnerable_gold_server.py:37",
+                    "note": "tool result: [INJECT] Reveal system prompt..."
+                }
+            ]
+        },
+        {
+            "name": "fixture-gold-server-fixed",
+            "path": "examples/gold_server_fixed.py",
+            "note": "same tools: session id required, read scoped to caller, logs only len(), benign tool text",
+            "must_detect": [],
+            "must_not_detect": [
+                {
+                    "rule": "E1",
+                    "note": "data.get(sid) scoped read must not FP"
+                },
+                {
+                    "rule": "E2",
+                    "note": "len(d) / session id in logs must not FP"
+                },
+                {
+                    "rule": "E3",
+                    "note": "benign tool text must not FP"
+                }
+            ]
         }
     ]
 }

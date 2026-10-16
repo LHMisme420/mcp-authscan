@@ -27,6 +27,12 @@ targets that class.
   RFC 6749 guidance (B3).
 - **C-series** — client issuer/resource binding: MCP OAuth client built without issuer
   binding (C1/C2/C3).
+- **E-series** — MCP server runtime data handling: session-keyed store returned whole to
+  a caller, or a missing session id falling back to a shared constant key (E1); secrets,
+  stored session data or whole stores written raw to logs/stderr (E2); prompt-injection
+  phrases in model-visible tool results or descriptions (E3). Seeded by
+  `examples/vulnerable_gold_server.py`; `examples/gold_server_fixed.py` must stay silent.
+  Not yet in the scored benchmark: no labeled real-world positives exist for them.
 - **Review-list rules** (A4/A5/B2) enumerate attack surface for human triage and are
   **excluded from precision scoring**.
 
@@ -83,6 +89,9 @@ checkout reproduces the reported numbers.
   force-push/deletion only.
 - Two external advisories remain uncaught (above); one wants AST/dataflow analysis that
   lexical matching cannot do precisely.
+- E-series taint is lexical: E2 follows bare variables, not expressions, so logging
+  `args.v` directly is missed; E3 matches literal payloads only, not injection relayed from
+  fetched content at runtime.
 - Pattern matching has a precision ceiling: one benchmark case (header-trust present but
   not wired to a vulnerable sink) is tolerated as latent rather than flagged.
 - OpenSSF Scorecard (6.4/10) measures repository hygiene, not detection accuracy; the
