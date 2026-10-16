@@ -18,3 +18,4 @@
 - [Recovery validation resources](recovery-validation-resources.md) — avoid concurrent scaled recovery runs; temporary disk quotas can fail writes even when df reports free space.
 - [Dependency runtime compatibility](dependency-runtime-compatibility.md) — preserve runtime and CommonJS compatibility when patching transitive dependencies.
 - [Production SQL console](production-sql-console.md) — use a single atomic operator import; never let an empty bootstrap outrank normal snapshots.
+- [SQLite writer handoff](sqlite-writer-deployment-handoff.md) — Autoscale revision overlap can block republishing; verify stop-before-start, never bypass the writer lock.
