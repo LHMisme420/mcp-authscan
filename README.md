@@ -33,6 +33,10 @@ python3 -m mcp_authscan.cli scan http://target:port --output report.json
 
 ## Checks
 
+For explicit authorized endpoints without registry enumeration, automatic
+uploads, or treating every HTTP 200 as a vulnerability, see
+[the authorized HTTP probe](docs/authorized-scans.md).
+
 1. **Endpoint Reachability** — Verify MCP endpoints respond
 2. **SSE Authentication** — Detect zero-auth on /sse (CRITICAL)
 3. **Message Endpoint Authentication** — Detect zero-auth on /message (CRITICAL)
