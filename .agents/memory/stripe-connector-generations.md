@@ -23,3 +23,18 @@ no scan quotas or history restrictions. Use the confirmed monthly USD price.
 Do not weaken sign-in, tenant ownership, or owner-only team/token
 management. Preserve historical database records. Do not cancel or delete
 anything in the owner's external Stripe account without separate authorization.
+
+## Publishing authorization is separate from app readiness
+
+Do not call a Stripe-connected release ready to publish solely because its
+build and health checks pass. Verify Publishing's live-account authorization
+separately, even when production billing is disabled in the application.
+
+**Why:** Publishing blocked a release with “Connect a live Stripe account before
+publishing” despite a healthy workspace test connection and disabled production
+billing. This pre-build check did not create a failed build-history entry.
+
+**How to apply:** Keep the working test connection intact. A test-mode API response
+does not establish whether production authorization exists. Inspect the actual
+Publishing authorization state before asking the owner to repeat installation or
+changing application code.
