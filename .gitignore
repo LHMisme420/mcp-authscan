@@ -35,6 +35,9 @@ venv/
 *.db-*
 /register_and_capture.py
 /attached_assets/Pasted--Scanning-source-code-directory-skipped-215-test-fixtur_1792089019951.txt
+# Account-settings troubleshooting screenshots stay local.
+/attached_assets/image_1792146535204.png
+/attached_assets/image_1792146630283.png
 *.sqlite
 *.sqlite-*
 *.sqlite3
