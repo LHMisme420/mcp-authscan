@@ -2,26 +2,25 @@
 
 This imported project contains the `mcp-authscan` Python command-line scanner and a hybrid Node/Flask VATA dashboard. Scanner findings remain in SQLite; accounts and scheduling use PostgreSQL.
 
-Payments are disabled **by default in Preview and production** for the current
-payments-free release. The project's Stripe connector must also be disconnected
+## Current release: Stripe removed
+
+Stripe SDKs, connector code, payment UI, checkout handlers, synchronization,
+webhooks and payment setup scripts have been removed. Old payment URLs return
+410 in all environments; stale test/live environment flags cannot reactivate
+payments. The project's Stripe connector must also be disconnected
 in Replit's Integrations UI to remove Publishing's live-account authorization
-requirement; disabling application billing alone does not remove that check.
-Billing code is retained for future use. Restoring Preview test checkout later
-requires a sandbox connector and explicit development `VATA_BILLING_MODE=test`.
-Live billing preparation is implemented but not activated: see
-[Live billing launch](docs/live-billing-launch.md). Production requires explicit
-`VATA_BILLING_MODE=live` before it accepts live-mode billing, and new checkout
-stays closed until a signed live catalog webhook arrives. The separate first-
-launch switch `VATA_PREPARE_LIVE_BILLING=1` runs scoped setup after HTTP readiness
-using the production connector; it never creates customers or charges.
-Startup requires no payment credentials or Stripe schema while billing is
-disabled. Scans, full history, API tokens, schedules and teams then remain
+requirement; removing application code alone cannot remove that project connection.
+Startup requires no payment credentials or Stripe schema.
+Scans, full history, API tokens, schedules and teams remain
 unrestricted by subscriptions; sign-in, organization ownership, owner-only
 controls and five-seat capacity remain.
 Historical account records are retained. Existing external Stripe subscriptions,
-if any, are not canceled or changed by this feature.
+if any, are not canceled or changed. Findings storage and backup settings are unchanged.
 
-The following billing tools are retained for future use, not current startup.
+## Historical payment notes — superseded
+
+The tools and features described below were removed. These notes document the
+previous implementation, not current setup instructions.
 After restoring the sandbox connector, prepare its catalog with `npm run checkout:prepare`. This validates
 test-only credentials, creates a $99/month test price through Stripe, and syncs it
 into the SDK-managed Stripe schema. It never runs as a startup migration.

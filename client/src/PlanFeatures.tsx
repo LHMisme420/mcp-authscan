@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'wouter';
 import { api } from './api';
-import BillingPanel from './BillingPanel';
 
 type PortalAccount = {
   actorUserId: string;
@@ -33,7 +32,7 @@ function Alert({ children, success = false }: { children: string; success?: bool
   return <div className={`feature-alert${success ? ' success' : ''}`} role={success ? 'status' : 'alert'}>{children}</div>;
 }
 function LockedFeature() {
-  return <div className="feature-lock"><p><strong>Included with Pro</strong> This workspace is on Free. Upgrade for API access, automated scheduling, and team seats.</p><a className="button secondary small" href="#billing-panel">View billing</a></div>;
+  return <div className="feature-lock"><p>This feature is not available for this account. Ask your workspace owner to review your access.</p></div>;
 }
 function ApiExamples({ scan, schedule }: { scan: string; schedule: string }) {
   return <>
@@ -45,17 +44,6 @@ function ApiExamples({ scan, schedule }: { scan: string; schedule: string }) {
 export function PlanAndUsage({ account }: { account: PortalAccount }) {
   const usage = account.usage;
   const used = usage?.used ?? 0;
-  async function refreshAccount() {
-    try {
-      await api.getAccount();
-    } catch {
-      // Reload below still lets the workspace recover its latest account state.
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.delete('billing');
-    window.history.replaceState({}, '', url);
-    window.location.reload();
-  }
   return (
     <>
       <section className="plan-summary" aria-label="Workspace and scan usage">
@@ -63,11 +51,7 @@ export function PlanAndUsage({ account }: { account: PortalAccount }) {
           <span className={`plan-dot${account.capabilities?.programmaticApi ? ' pro' : ''}`} aria-hidden="true" />
           <div>
             <h2>VATA workspace</h2>
-            <p>{account.billing?.mode === 'live'
-              ? 'Unlimited manual scans and full history are free. Pro is $99 USD/month for API access, scheduling, and up to five seats.'
-              : account.billing?.mode === 'test'
-                ? 'Preview experiment: unlimited manual scans and full history. Test Pro adds API access, scheduling, and up to five seats.'
-                : 'Scanning, full history, API access, scheduling, and up to 5 team members. No subscription required.'}</p>
+            <p>Scanning, full history, API access, scheduling, and up to 5 team members. No subscription required.</p>
           </div>
         </div>
         <div>
@@ -75,8 +59,6 @@ export function PlanAndUsage({ account }: { account: PortalAccount }) {
           <span className="quota-caption">SCANS THIS UTC MONTH</span>
         </div>
       </section>
-      {account.billing?.mode && account.billing.mode !== 'disabled' &&
-        <BillingPanel isOwner={account.role === 'owner'} onRefresh={refreshAccount} />}
     </>
   );
 }

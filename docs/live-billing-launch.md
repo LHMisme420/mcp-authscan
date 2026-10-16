@@ -1,5 +1,8 @@
 # VATA live billing launch
 
+> Historical reference only: live billing and its setup scripts have been
+> removed at the owner's request. This is not a current launch checklist.
+
 ## Approved scope
 
 Pro is **$99 USD per month**, renewing until cancelled. It enables programmatic

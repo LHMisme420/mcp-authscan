@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["client/src", "server", "scripts", "tests/billing.test.ts", "tests/live-billing.test.ts", "tests/billing-panel.test.tsx", "vite.config.ts"]
+  "include": ["client/src", "server", "scripts", "tests/billing.test.ts", "tests/billing-panel.test.tsx", "vite.config.ts"]
 }

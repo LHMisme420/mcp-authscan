@@ -12,11 +12,6 @@ async function request<T = any>(path: string, init: RequestInit = {}): Promise<T
 }
 
 export const api = {
-  getTestCheckout: () => request('/api/test-checkout'),
-  createTestCheckout: (requestId: string) => request('/api/test-checkout', {
-    method: 'POST', body: JSON.stringify({ requestId }),
-  }),
-  verifyTestCheckout: (sessionId: string) => request(`/api/test-checkout/${encodeURIComponent(sessionId)}`),
   getAccount: () => request('/api/account'),
   getFindings: () => request('/api/findings'),
   getThreatIntelligence: () => request('/api/threat-intelligence'),
@@ -40,8 +35,4 @@ export const api = {
   getApiTokens: () => request('/api/api-tokens'),
   createApiToken: (name: string) => request('/api/api-tokens', { method: 'POST', body: JSON.stringify({ name }) }),
   revokeApiToken: (id: number) => request(`/api/api-tokens/${id}`, { method: 'DELETE' }),
-  getBillingStatus: () => request('/api/billing/status'),
-  createCheckout: () => request('/api/checkout', { method: 'POST', body: '{}' }),
-  createBillingPortal: () => request('/api/billing/portal', { method: 'POST', body: '{}' }),
-  refreshBilling: () => request('/api/billing/refresh', { method: 'POST', body: '{}' }),
 };

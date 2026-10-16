@@ -1,5 +1,8 @@
 # Stripe test billing
 
+> Historical reference only: Stripe code, SDKs, payment UI and all setup scripts
+> described below have been removed. Environment flags cannot restore payments.
+
 Payments are currently disabled by default in Preview and production. This
 implementation is retained for future use. Reconnect the sandbox connector and
 explicitly set development `VATA_BILLING_MODE=test` before using these tools.

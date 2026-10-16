@@ -9,7 +9,7 @@
 - [CORS finding policy](cors-policy.md) — reflection requires unauthenticated sensitive-data access; 401/403 are protected; wildcard alone is not a vulnerability.
 - [Workspace capacity](subscription-tier-rules.md) — five seats include owner and pending invites; UTC usage; user-selected Reserved VM for unattended scheduling.
 - [Billing ownership](billing-ownership.md) — verified accounts must not inherit old name-only organizations automatically.
-- [Stripe billing scope](stripe-connector-generations.md) — $99/month live preparation approved; Preview stays test-only, and live activation/publication need separate approval.
+- [Stripe billing scope](stripe-connector-generations.md) — owner requested complete Stripe removal; prior billing approvals are superseded.
 - [Stripe proxy compatibility](stripe-proxy-compatibility.md) — current connector is proxy-authenticated; full backfill must not enumerate historical accounts' customers.
 - [Webhook reconciliation](stripe-webhook-reconciliation.md) — refetch canonical subscription state; scope signing secrets and registration to the exact callback.
 - [Auth readiness](auth-readiness.md) — brief snapshots can precede Clerk rendering; verify form readiness before diagnosing an authentication failure.

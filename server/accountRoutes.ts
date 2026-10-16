@@ -5,7 +5,7 @@ import { advancedBillingEnabled, billingStatus } from './billing';
 export const accountRoutes = Router();
 accountRoutes.get('/account', async (req: any, res) => {
   const billing = await billingStatus(req.account);
-  const pro = !advancedBillingEnabled() || billing.plan === 'pro';
+  const pro = !advancedBillingEnabled();
   res.json({
     organization: { id: -req.account.id, name: req.account.display_name },
     actorUserId: req.userId,

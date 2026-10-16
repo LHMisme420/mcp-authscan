@@ -1,7 +1,23 @@
 ---
 name: Stripe billing scope
-description: Approved test experiment and live preparation; activation and publication need separate approvals.
+description: Current owner-approved Stripe removal and superseded billing approvals.
 ---
+
+## Current owner instruction
+
+The owner asked: “please update this as i am tryign to publish deactivate and remove stripe”.
+Earlier approvals for billing preparation below are superseded. Do not restore
+Stripe automatically or use historical billing tasks as authorization to reconnect it.
+
+**Why:** Repeated live-authorization requirements blocked the owner's payments-free release.
+
+**How to apply:** Keep the project payment-free unless the owner explicitly asks
+to restore payments. Removing app code is not the same as disconnecting the native
+project connector; do not claim that Publishing's authorization blocker is cleared
+until that connection is actually detached. Preserve historical ownership records
+and do not cancel external subscriptions without separate authorization.
+
+## Superseded historical approvals
 
 The owner previously said: “remove the billing and stripe from it period. its creating issues”.
 They have now explicitly asked: “lets work on stripe”.

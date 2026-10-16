@@ -92,15 +92,13 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
     }
     assert.fail(`npm start did not exit on startup failure:\n${run.output()}`);
   }
-  async function healthy(run: Awaited<ReturnType<typeof launch>>, live = false) {
+  async function healthy(run: Awaited<ReturnType<typeof launch>>) {
     for (let i = 0; i < 250; i++) {
       assert.equal(run.child.exitCode, null, run.output());
       try {
         const response = await fetch(`http://127.0.0.1:${run.port}/health`, { signal: AbortSignal.timeout(500) });
         if (response.status === 200) {
-          for (const paymentPath of (live
-            ? ['/api/test-checkout', '/api/test-checkout/webhook']
-            : ['/api/checkout', '/api/test-checkout', '/api/test-checkout/webhook', '/api/billing/status', '/api/stripe/webhook'])) {
+          for (const paymentPath of ['/api/checkout', '/api/test-checkout', '/api/test-checkout/webhook', '/api/billing/status', '/api/stripe/webhook']) {
             const blocked = await fetch(`http://127.0.0.1:${run.port}${paymentPath}`, { method: 'POST' });
             assert.equal(blocked.status, 410, 'Production must reject test checkout without consulting Stripe.');
           }
@@ -116,18 +114,19 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
     assert.match(await exited(run), /DATABASE_URL is missing.*Publish/);
     await assert.rejects(fetch(`http://127.0.0.1:${run.port}/health`));
   });
-  await t.test('explicit live mode exposes only the signed callback and setup failures cannot block HTTP readiness', async () => {
+  await t.test('stale live setup flags cannot reactivate payment routes or block HTTP readiness', async () => {
     const run = await launch({ VATA_BILLING_MODE: 'live', VATA_PREPARE_LIVE_BILLING: '1' });
     try {
-      await healthy(run, true);
+      await healthy(run);
       const response = await fetch(`http://127.0.0.1:${run.port}/api/stripe/webhook`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
       });
-      assert.equal(response.status, 400);
-      assert.equal((await response.json()).error, 'Missing webhook signature.');
+      assert.equal(response.status, 410);
+      assert.equal((await response.json()).error, 'Payments are not enabled.');
       assert.equal((await fetch(`http://127.0.0.1:${run.port}/api/findings`)).status, 401);
       assert.equal((await fetch(`http://127.0.0.1:${run.port}/health`)).status, 200);
       assert.doesNotMatch(run.output(), /sk_live_|rk_live_|whsec_|postgresql:/);
+      assert.doesNotMatch(run.output(), /Stripe .*synchronization|Optional live billing setup|billing unavailable/);
     } finally { await cleanup(run.child); }
   });
   await t.test('malformed URL is rejected without logging its contents', async () => {

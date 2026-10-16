@@ -2,7 +2,6 @@ import express from 'express';
 import { clerkMiddleware, getAuth } from '@clerk/express';
 import { publishableKeyFromHost } from '@clerk/shared/keys';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from './middlewares/clerkProxyMiddleware';
 import { accountRoutes } from './accountRoutes';
 import { appOrigin } from './appOrigin';
@@ -11,12 +10,7 @@ import { accountFor } from './db';
 import { tierRoutes, tokenAuthentication } from './tierRoutes';
 import { TierError } from './tiers';
 import { startApplication } from './startup';
-import { billingRoutes } from './billingRoutes';
-import { initializeBilling, requirePro } from './billing';
-import { WebhookHandlers } from './webhookHandlers';
-import { createTestCheckoutRoutes } from './testCheckoutRoutes';
-import { createTestWebhookHandler } from './testWebhook';
-import { billingMode } from './billingMode';
+import { requirePro } from './billing';
 
 if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
   throw new Error('Secure sign-in is not configured.');
@@ -25,30 +19,11 @@ const app = express();
 app.set('trust proxy', 1);
 const start = await startApplication(app);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(['/api/test-checkout'], (_req, res, next) => {
-  if (process.env.NODE_ENV === 'production' || billingMode() !== 'test') {
-    return res.status(410).json({ error: 'Payments are not enabled.' });
-  }
-  next();
-});
-app.use(['/api/checkout', '/api/billing', '/api/stripe'], (_req, res, next) => {
-  if (billingMode() === 'disabled') return res.status(410).json({ error: 'Payments are not enabled.' });
-  next();
-});
-// Both signed callbacks must receive original bytes before JSON parsing or Clerk.
-app.post('/api/test-checkout/webhook',
-  express.raw({ type: 'application/json', limit: '256kb' }), createTestWebhookHandler());
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
+// Retired payment URLs remain explicit tombstones, including old webhook URLs.
+// No environment variable can reactivate payments in this release.
+app.use(['/api/test-checkout', '/api/checkout', '/api/billing', '/api/stripe'], (_req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  const signature = req.get('stripe-signature');
-  if (!signature) return res.status(400).json({ error: 'Missing webhook signature.' });
-  try {
-    await WebhookHandlers.processWebhook(req.body, signature);
-    res.json({ received: true });
-  } catch (error: any) {
-    const invalid = error?.type === 'StripeSignatureVerificationError';
-    res.status(invalid ? 400 : 503).json({ error: invalid ? 'Invalid webhook signature.' : 'Webhook processing is temporarily unavailable.' });
-  }
+  res.status(410).json({ error: 'Payments are not enabled.' });
 });
 app.use(express.json({ limit: '32kb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -84,8 +59,6 @@ app.use('/api', async (req: any, _res, next) => {
   }
   next();
 });
-app.use('/api', billingRoutes);
-app.use('/api', createTestCheckoutRoutes());
 app.use('/api', accountRoutes);
 app.use('/api', tierRoutes);
 app.post('/api/scan', async (req: any, res) => {
@@ -117,26 +90,3 @@ if (process.env.NODE_ENV === 'production') {
   app.use(vite.middlewares);
 }
 await start();
-// Explicit operator opt-in permits setup inside the published environment,
-// using its own live connector identity. Never run live setup in Preview.
-// It runs after HTTP readiness; Stripe can deliver to the callback while setup
-// waits for its signed catalog event. Failures never stop free scanning.
-if (billingMode() === 'live' && process.env.VATA_PREPARE_LIVE_BILLING === '1') {
-  const preparation = spawn(process.execPath,
-    [path.resolve('build/server/prepare-live-billing.js'), '--confirm-live-catalog'],
-    { stdio: 'inherit' });
-  const stopPreparation = () => { preparation.kill('SIGTERM'); };
-  process.once('exit', stopPreparation);
-  let finalized = false;
-  const finishPreparation = (success: boolean) => {
-    if (finalized) return;
-    finalized = true;
-    process.off('exit', stopPreparation);
-    if (!success) console.warn('Optional live billing setup did not finish. Review Stripe authorization and delivery; basic scans remain available.');
-    void initializeBilling();
-  };
-  preparation.once('error', () => finishPreparation(false));
-  preparation.once('exit', code => finishPreparation(code === 0));
-} else {
-  void initializeBilling();
-}
