@@ -110,38 +110,44 @@ a **fresh, empty** schema instead of a live export. Findings recorded by the
 local-only deployment are not carried over. Accounts live in PostgreSQL and
 their scanner workspaces are re-provisioned on first use.
 
-For this explicitly approved fresh start on Replit-managed PostgreSQL:
+For this explicitly approved fresh start on Replit-managed PostgreSQL, seed once
+as an operator, never during build or application startup:
 
 1. Apply `migrations/findings-backups.sql` and
    `migrations/findings-fresh-start.sql` in **development**. Replit Publish applies
    the resulting schema diff to production. Never run production DDL in the
    build command or application startup.
-2. Set the production-only approval
-   `VATA_FINDINGS_INITIALIZE_EMPTY=production-findings`, matching the production
-   namespace exactly. Preview does not accept this approval.
-3. Publish after reviewing the schema diff. In the **production runtime**, after
-   acquiring the namespace's exclusive writer lock, the app checks for a snapshot.
-   If none exists, it creates a private, throwaway empty SQLite schema and commits
-   its snapshot and a permanent initialization receipt in one transaction.
-   The normal checksum validation and restore then run before HTTP readiness.
-   Existing snapshots are restored, not overwritten. Existing local files or
-   sidecars prevent initialization. A receipt without snapshots also prevents
-   initialization: subsequent snapshot loss requires recovery, not an empty reset.
+2. In an operator environment connected to the **actual production database**,
+   create and seed the approved empty SQLite schema:
+
+   ```sh
+   DB_FILE=/tmp/seed-findings.sqlite python3 -c "import app"
+   DB_FILE=/tmp/seed-findings.sqlite VATA_FINDINGS_NAMESPACE=production-findings \
+     npm run findings:seed -- --approve-live-snapshot
+   rm /tmp/seed-findings.sqlite
+   ```
+
+   Workspace `DATABASE_URL` targets development, not production. Do not run the
+   seed there expecting it to initialize production. Never paste connection
+   strings into chat or source files. Confirm the seed succeeded against the
+   intended target and a production read-only query sees its snapshot.
+3. Publish only after that snapshot exists. Startup checks the exclusive writer
+   lock, checksum and schema, then restores the existing snapshot before opening
+   traffic. It never seeds a missing namespace, regardless of leftover
+   `VATA_FINDINGS_INITIALIZE_EMPTY` settings. Missing snapshots require an operator
+   seed or recovery, not an automatic empty reset.
 4. Limit the deployment to **one instance** (Autoscale max instances = 1, or a
    Reserved VM). A second instance cannot take the writer lock and fails startup.
 
-The approval may be removed after successful initialization. Leaving it configured
-does not allow a namespace with a receipt to be initialized again. Missing schema,
-invalid approval, corrupt snapshots and permission failures still fail startup.
-Workspace `DATABASE_URL` is not a substitute for production. The manual
-`findings:seed -- --approve-live-snapshot` command remains for verified live
-exports, not this explicitly empty bootstrap.
+Missing schema, missing snapshots, corrupt snapshots and permission failures
+still fail startup. The manual seed refuses an existing namespace and does not
+modify source SQLite rows or PostgreSQL ownership records. Existing receipt
+tables are left intact; removing automatic initialization does not delete data.
 
 ## What happens at runtime
 
 - Startup acquires the writer lock and retrieves the newest snapshot for the
-  configured namespace. Except for the explicitly approved first empty
-  initialization above, a missing snapshot, unavailable schema/storage, checksum
+  configured namespace. A missing snapshot, unavailable schema/storage, checksum
   mismatch, invalid SQLite file, orphan WAL files, or conflicting local copy
   stops startup. It never silently creates an empty findings database.
 - The SHA-256 of the stored bytes and SQLite integrity/schema checks are verified

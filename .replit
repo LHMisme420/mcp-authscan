@@ -82,7 +82,6 @@ PUBLIC_APP_URL = "https://mcp-authscan.replit.app"
 VATA_BILLING_MODE = "disabled"
 VATA_PREPARE_LIVE_BILLING = "0"
 VATA_FINDINGS_NAMESPACE = "production-findings"
-VATA_FINDINGS_INITIALIZE_EMPTY = "production-findings"
 
 [postMerge]
 path = "scripts/post-merge.sh"

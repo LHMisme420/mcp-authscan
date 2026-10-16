@@ -16,11 +16,18 @@ rather than bypassing the startup check with temporary local-only storage.
 **How to apply:** Keep PostgreSQL durability. A fresh initial findings snapshot is
 authorized, but must target the actual intended production database and must not
 overwrite an existing namespace, delete unrelated records, or reassign ownership.
-Do not treat workspace DATABASE_URL as production. The owner explicitly approved
-**"Prepare the fresh-start Publish flow (recommended)"**, authorizing the empty
-initialization in the production runtime after Publish applies the prepared
-development schema. This approval is not permission for startup-time PostgreSQL
-DDL or reinitializing a namespace whose snapshots are lost.
+Do not treat workspace DATABASE_URL as production. The owner subsequently said
+**"Remove the automatic fresh-initialization at startup. Don't create the schema
+during deploy"** and requires a one-time operator seed before publishing. This
+supersedes the earlier approval for automatic production initialization.
+
+**Why:** The publishing attempt crash-looped in the automatic SQLite initializer;
+the owner explicitly chose manual seeding instead.
+
+**How to apply:** Startup may only validate and restore an existing snapshot.
+Keep PostgreSQL durability, confirm production signing-secret availability
+without displaying values, and do not publish until the actual production
+namespace is seeded. Never seed development and describe it as production.
 
 ## Earlier release investigation constraint
 

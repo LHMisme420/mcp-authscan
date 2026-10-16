@@ -22,8 +22,8 @@ const tools = {
   PATH: process.env.PATH!, HOME: process.env.HOME!, LANG: 'C.UTF-8',
   PYTHONPATH: path.join(root, '.pythonlibs/lib/python3.11/site-packages'),
 };
-function tool(command: string, args: string[]) {
-  return execFileSync(command, args, { env: tools, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+function tool(command: string, args: string[], env: NodeJS.ProcessEnv = tools) {
+  return execFileSync(command, args, { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 // Leave headroom for the complete multi-process suite on a shared host.
@@ -203,44 +203,46 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
     GRANT SELECT,INSERT ON public.vata_findings_initializations TO startup_findings_writer;
     GRANT USAGE ON SEQUENCE public.vata_findings_backups_generation_seq TO startup_findings_writer`);
 
-  await t.test('missing snapshots still fail without exact fresh-start approval', async () => {
+  await t.test('missing snapshots fail even with stale fresh-initialization flags', async () => {
     const absent = await launch({ ...fresh(), VATA_FINDINGS_INITIALIZE_EMPTY: undefined });
     assert.match(await exited(absent), /No approved findings backup exists/);
     const mismatched = await launch({ ...fresh(), VATA_FINDINGS_INITIALIZE_EMPTY: 'different-namespace' });
-    assert.match(await exited(mismatched), /must explicitly name the intended production namespace/);
+    assert.match(await exited(mismatched), /No approved findings backup exists/);
     assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups')).rows[0].count, '0');
   });
 
-  await t.test('fresh initialization refuses existing local data and SQLite sidecars', async () => {
+  await t.test('missing remote snapshot never overwrites existing local data or sidecars', async () => {
     for (const suffix of ['', '-wal', '-shm', '-journal']) {
       const file = path.join(temp, `existing-${suffix || 'main'}.sqlite`);
       await writeFile(file + suffix, 'synthetic-do-not-replace');
       const run = await launch({ ...fresh(), DB_FILE: file });
-      assert.match(await exited(run), /refuses an existing SQLite file or sidecar/);
+      assert.match(await exited(run), /No approved findings backup exists/);
       assert.equal(await readFile(file + suffix, 'utf8'), 'synthetic-do-not-replace');
     }
     assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups')).rows[0].count, '0');
   });
 
-  await t.test('snapshot and durable initialization receipt commit atomically', async () => {
-    await admin!.query('REVOKE INSERT ON public.vata_findings_initializations FROM startup_findings_writer');
-    try {
-      const run = await launch(fresh());
-      assert.match(await exited(run), /initialization transaction failed \(database code 42501\)/);
-      assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups')).rows[0].count, '0');
-      assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations')).rows[0].count, '0');
-    } finally {
-      await admin!.query('GRANT INSERT ON public.vata_findings_initializations TO startup_findings_writer');
-    }
+  await t.test('operator seed command commits once and refuses to overwrite the namespace', async () => {
+    const source = path.join(temp, 'operator-seed.sqlite');
+    tool('python3', ['-c', `import os,sys
+os.environ['DB_FILE']=sys.argv[1]
+os.environ['JWT_SECRET']='synthetic-schema-fixture-signing-key'
+import app`, source]);
+    const env = { ...tools, DATABASE_URL: fresh().DATABASE_URL, DB_FILE: source, VATA_FINDINGS_NAMESPACE: freshNamespace };
+    const output = tool('npm', ['run', 'findings:seed', '--', '--approve-live-snapshot'], env);
+    assert.match(output, /Initial private findings snapshot committed/);
+    assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups')).rows[0].count, '1');
+    assert.throws(() => tool('npm', ['run', 'findings:seed', '--', '--approve-live-snapshot'], env));
+    assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups')).rows[0].count, '1');
   });
 
-  await t.test('fresh production start, writer exclusion and replacement restore succeed', async () => {
+  await t.test('manually seeded production start, writer exclusion and replacement restore succeed', async () => {
     const file = path.join(temp, 'fresh-working.sqlite');
     const first = await launch({ ...fresh(), DB_FILE: file });
     let originalSha = '';
     try {
       await healthy(first);
-      assert.match(first.output(), /initialized with an empty snapshot/);
+      assert.doesNotMatch(first.output(), /initialized with an empty snapshot/);
       assert.doesNotMatch(first.output(), /LOCAL-ONLY/);
       const count = tool('python3', ['-c',
         'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); print([c.execute("SELECT COUNT(*) FROM "+t).fetchone()[0] for t in ("organizations","findings","scan_runs")])', file]);
@@ -248,7 +250,7 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
       const snapshot = await admin!.query('SELECT sha256 FROM public.vata_findings_backups WHERE namespace=$1', [freshNamespace]);
       assert.equal(snapshot.rowCount, 1);
       originalSha = snapshot.rows[0].sha256;
-      assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations WHERE namespace=$1', [freshNamespace])).rows[0].count, '1');
+      assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations WHERE namespace=$1', [freshNamespace])).rows[0].count, '0');
       const competing = await launch(fresh());
       assert.match(await exited(competing), /Another findings writer is active/);
     } finally { await cleanup(first.child); }
@@ -297,9 +299,9 @@ with sqlite3.connect(app.DB_FILE) as c:
   await t.test('lost snapshots cannot be silently reinitialized after first bootstrap', async () => {
     await admin!.query('DELETE FROM public.vata_findings_backups WHERE namespace=$1', [freshNamespace]);
     const run = await launch(fresh());
-    assert.match(await exited(run), /already initialized.*Missing snapshots require recovery/);
+    assert.match(await exited(run), /No approved findings backup exists/);
     assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups WHERE namespace=$1', [freshNamespace])).rows[0].count, '0');
-    assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations WHERE namespace=$1', [freshNamespace])).rows[0].count, '1');
+    assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations WHERE namespace=$1', [freshNamespace])).rows[0].count, '0');
   });
   await t.test('missing Gunicorn and failed Python boot exit nonzero without a healthy public port', async () => {
     const bin = path.join(temp, 'bin');

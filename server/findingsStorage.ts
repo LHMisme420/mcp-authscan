@@ -5,7 +5,6 @@ import { promisify } from 'node:util';
 import { chmod, link, mkdtemp, readFile, rm, stat, statfs, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { createEmptyFindingsFile, initializeEmptyFindings } from './freshFindings';
 import {
   DEFAULT_FINDINGS_CAPACITY_THRESHOLDS, FindingsCapacityAlerts, findingsAlerts,
   readFindingsCapacityThresholds, type FindingsAlerts,
@@ -96,59 +95,13 @@ export class FindingsStorage {
     await this.client.query('SELECT namespace,generation,sha256,payload FROM public.vata_findings_backups LIMIT 0');
   }
 
-  private async createInitialEmptySnapshot() {
-    for (const suffix of ['', '-wal', '-shm', '-journal']) {
-      if (await exists(this.dbFile + suffix)) {
-        throw new Error('Fresh findings initialization refuses an existing SQLite file or sidecar. Preserve it and use a new working path.');
-      }
-    }
-    const receipt = await this.client.query(
-      'SELECT 1 FROM public.vata_findings_initializations WHERE namespace=$1', [this.namespace],
-    );
-    if (receipt.rowCount) {
-      throw new Error('Fresh findings namespace was already initialized. Missing snapshots require recovery, not another empty initialization.');
-    }
-    const temporary = await mkdtemp(path.join(path.dirname(path.resolve(this.dbFile)), '.vata-initialize-'));
-    try {
-      const file = path.join(temporary, 'empty.sqlite');
-      try { await createEmptyFindingsFile(file); }
-      catch { throw new Error('Fresh findings initialization could not create the empty SQLite schema. Check Python dependencies and signing configuration.'); }
-      await sqlite('check', file);
-      const bytes = await readFile(file);
-      await this.client.query('BEGIN');
-      try {
-        const inserted = await this.client.query(
-          `INSERT INTO public.vata_findings_backups(namespace,sha256,payload)
-           SELECT $1,$2,$3 WHERE NOT EXISTS
-             (SELECT 1 FROM public.vata_findings_backups WHERE namespace=$1)
-           RETURNING sha256,payload`, [this.namespace, digest(bytes), bytes],
-        );
-        if (inserted.rowCount !== 1) throw new Error('Fresh findings initialization found an existing snapshot and refused to replace it.');
-        await this.client.query(
-          'INSERT INTO public.vata_findings_initializations(namespace,sha256) VALUES($1,$2)',
-          [this.namespace, digest(bytes)],
-        );
-        await this.client.query('COMMIT');
-        console.info('Fresh findings namespace initialized with an empty snapshot; no historical findings were imported.');
-        return inserted.rows[0];
-      } catch (error) {
-        await this.client.query('ROLLBACK').catch(() => {});
-        const code = (error as { code?: unknown })?.code;
-        if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) {
-          throw new Error(`Fresh findings initialization transaction failed (database code ${code}). No snapshot or receipt was committed.`);
-        }
-        throw error;
-      }
-    } finally { await rm(temporary, { recursive: true, force: true }); }
-  }
-
-  async open(options: { initializeEmpty?: boolean } = {}) {
+  async open() {
     try {
       await this.connect();
       const result = await this.client.query(
         'SELECT sha256,payload FROM public.vata_findings_backups WHERE namespace=$1 ORDER BY generation DESC LIMIT 1', [this.namespace],
       );
-      const snapshot = result.rows[0] ?? (options.initializeEmpty ? await this.createInitialEmptySnapshot() : undefined);
+      const snapshot = result.rows[0];
       if (!snapshot) throw new Error('No approved findings backup exists for this namespace. Seed from the LIVE SQLite database before replacing the deployment; see docs/findings-storage.md.');
       const temporary = await mkdtemp(path.join(path.dirname(path.resolve(this.dbFile)), '.vata-restore-'));
       try {
@@ -312,9 +265,7 @@ export async function prepareFindingsStorage() {
     }
     storage = new FindingsStorage(process.env.DATABASE_URL, process.env.VATA_FINDINGS_NAMESPACE,
       process.env.DB_FILE, findingsAlerts, capacityAlerts);
-    await storage.open({
-      initializeEmpty: initializeEmptyFindings(process.env.VATA_FINDINGS_NAMESPACE),
-    });
+    await storage.open();
     return storage;
   } catch (error) {
     findingsAlerts.fail('startup_failed');
