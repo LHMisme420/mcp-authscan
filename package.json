@@ -21,7 +21,8 @@
     "billing:setup": "tsx scripts/seed-stripe.ts",
     "billing:prepare-live": "tsx scripts/prepare-live-billing.ts",
     "billing:verify-sandbox": "tsx scripts/verify-stripe.ts",
-    "test:billing": "tsx --test tests/billing.test.ts tests/live-billing.test.ts tests/billing-panel.test.tsx"
+    "test:billing": "tsx --test tests/billing.test.ts tests/live-billing.test.ts tests/billing-panel.test.tsx",
+    "test:dependencies": "tsx --test tests/dependency-security.test.ts tests/clerk-proxy.test.ts tests/recovery-gcs.test.ts && python3 -m unittest discover -s tests -p test_dependency_security.py"
   },
   "dependencies": {
     "@clerk/express": "^2.1.78",
@@ -42,7 +43,7 @@
     "cors": "^2.8.6",
     "esbuild": "^0.28.2",
     "express": "^5.3.0",
-    "http-proxy-middleware": "^3.0.7",
+    "httpxy": "^0.5.5",
     "jsdom": "^29.1.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
@@ -54,5 +55,10 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "wouter": "^3.13.0"
+  },
+  "overrides": {
+    "@google-cloud/storage": {
+      "uuid": "^11.1.1"
+    }
   }
 }

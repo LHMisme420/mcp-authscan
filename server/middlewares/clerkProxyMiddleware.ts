@@ -21,7 +21,7 @@
 
 import type { IncomingHttpHeaders } from 'http';
 import type { RequestHandler } from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createProxyServer } from 'httpxy';
 
 const CLERK_FAPI = 'https://frontend-api.clerk.dev';
 export const CLERK_PROXY_PATH = '/api/__clerk';
@@ -52,7 +52,7 @@ export function getClerkProxyHost(req: {
   return firstHop || req.headers.host?.trim() || undefined;
 }
 
-export function clerkProxyMiddleware(): RequestHandler {
+export function clerkProxyMiddleware(target = CLERK_FAPI): RequestHandler {
   // Only run proxy in production — Clerk proxying doesn't work for dev instances
   if (process.env.NODE_ENV !== 'production') {
     return (_req, _res, next) => next();
@@ -63,16 +63,14 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  return createProxyMiddleware({
-    target: CLERK_FAPI,
+  const proxy = createProxyServer({
+    target,
     changeOrigin: true,
     // Take over the response so it can be re-sent with a Content-Length (see
     // proxyRes); the deployment edge rejects chunked proxied responses.
     selfHandleResponse: true,
-    pathRewrite: (path: string) =>
-      path.replace(new RegExp(`^${CLERK_PROXY_PATH}`), ''),
-    on: {
-      proxyReq: (proxyReq, req) => {
+  });
+  proxy.on('proxyReq', (proxyReq, req) => {
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = getClerkProxyHost(req) || '';
         const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
@@ -88,7 +86,7 @@ export function clerkProxyMiddleware(): RequestHandler {
         if (clientIp) {
           proxyReq.setHeader('X-Forwarded-For', clientIp);
         }
-      },
+  });
       // Clerk's dynamic Frontend API responses (/v1/environment, /v1/client,
       // JWKS, ...) arrive without a Content-Length, so relaying them would use
       // Transfer-Encoding: chunked — which the deployment edge (Cloud Run)
@@ -96,7 +94,7 @@ export function clerkProxyMiddleware(): RequestHandler {
       // be re-sent with a Content-Length; the body is forwarded untouched so
       // Content-Encoding is preserved. Length-known responses (e.g. /npm/*
       // assets) and body-less responses stream through without buffering.
-      proxyRes: (proxyRes, req, res) => {
+  proxy.on('proxyRes', (proxyRes, req, res) => {
         const headers = { ...proxyRes.headers };
         // Transfer-Encoding/Connection are hop-by-hop (RFC 7230 §6.1).
         delete headers['transfer-encoding'];
@@ -140,7 +138,14 @@ export function clerkProxyMiddleware(): RequestHandler {
           }
           res.end();
         });
-      },
-    },
-  }) as RequestHandler;
+  });
+  return (req, res) => {
+    req.url = req.url.replace(new RegExp(`^${CLERK_PROXY_PATH}`), '');
+    // httpxy forwards the raw request without loading a glob-pattern parser.
+    // Never expose upstream errors, which can contain request credentials.
+    void proxy.web(req, res).catch(() => {
+      if (res.headersSent) res.destroy();
+      else res.writeHead(502, { 'content-length': '0' }).end();
+    });
+  };
 }
