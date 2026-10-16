@@ -33,6 +33,7 @@ export async function getCompliancePdf(): Promise<Blob> {
 }
 
 export const api = {
+  getCompliancePdf,
   getAccount: () => request('/api/account'),
   getFindings: () => request('/api/findings'),
   getThreatIntelligence: () => request('/api/threat-intelligence'),
