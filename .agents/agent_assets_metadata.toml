@@ -14,3 +14,17 @@ mtime_ms = 1792018869024
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/9c6bbfb0-e5b4-44d5-bd1e-bd76a27fde49/bf434cb6-4e3c-4867-bb4a-5bf9c9c2086b"
 storage_version_token = "1792018877302671"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "jSr7KsoTZZUljnXzzmTSg"
+uri = "file://generated-artifacts/production-findings-seed-guide.html"
+type = "html"
+title = "VATA — one-time production seed guide"
+description = "Copy or download the tested empty-snapshot import, run it in the Production database SQL runner, then verify the snapshot before publishing. Opening this guide does not execute SQL."
+logical_id = "c1c825f1-3e7c-4e66-9cb9-5e14d1859904"
+content_hash = "sha256:dd28ccdb98acded7e43a169ff79335ceb8133397ccf4b38af3bdca0c9d14eb53"
+size = 44546
+mtime_ms = 1792158921438
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/c1c825f1-3e7c-4e66-9cb9-5e14d1859904/1f7910d8-e383-4b11-9de8-4e2ac984d232"
+storage_version_token = "1792159001480774"
+content_type = "text/html"

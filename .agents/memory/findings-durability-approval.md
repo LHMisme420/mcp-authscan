@@ -28,6 +28,9 @@ the owner explicitly chose manual seeding instead.
 Keep PostgreSQL durability, confirm production signing-secret availability
 without displaying values, and do not publish until the actual production
 namespace is seeded. Never seed development and describe it as production.
+The owner chose **"Prepare a production SQL import for me to run"** for this
+one-time empty seed; execution is an operator action in the production Database
+tool, followed by read-only verification before publishing.
 
 ## Earlier release investigation constraint
 
