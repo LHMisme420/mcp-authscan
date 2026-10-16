@@ -372,7 +372,7 @@ CRED_CONTEXT = re.compile(r"(admin|account|identity|password|credential|passwd|s
 # A2 noise filters: placeholder/example values and doctest/example lines are not real creds.
 CRED_PLACEHOLDER = re.compile(
     r"(\.\.\.|<[^>]+>|\$\{|your[-_ ]?|example|redacted|changeme|xxx+|placeholder|"
-    r"dummy|sample|test|fake|mock|stub|doctest|foo|bar|jwt\.token\.here|token\.here|"
+    r"dummy|sample|test|fake|mock|stub|doctest|foo|bar|oauth|jwt\.token\.here|token\.here|"
     r"^[A-Z][A-Z0-9_]+$|-\d+\.\d+$)", re.I)
 
 def _cred_value(evidence):
@@ -412,6 +412,17 @@ def rule_default_creds(path, text, F):
         # skip obvious placeholders/examples and doctest/comment lines
         if val and CRED_PLACEHOLDER.search(val):
             continue
+        # URL routes and slash-separated key paths are not secrets
+        # (token: "/api/auth/token", Password: "admin/identity/account"). Base64 with
+        # +/= is unaffected: those chars are not in the class, so fullmatch fails.
+        if val and (val.startswith("/") or re.fullmatch(r"[\w.-]+(?:/[\w.-]+)+", val)):
+            continue
+        # bare shell/env variable reference, e.g. TOKEN="$GHCP_TOKEN"
+        if val and re.fullmatch(r"\$\{?\w+\}?", val):
+            continue
+        # wrapped placeholder marker, e.g. __add-token__
+        if val and re.fullmatch(r"__.*__", val):
+            continue
         if re.match(r"\s*(>>>|\.\.\.|#|//|\*)", line):
             continue
         if "pragma: allowlist secret" in line.lower():
@@ -426,7 +437,8 @@ def rule_default_creds(path, text, F):
             continue
         if val and val.lower().startswith("urn:"):
             continue
-        if any(seg in str(path).lower() for seg in ("/demo", "demo_", "/example", "example_", "/sample", "sample_")):
+        if any(seg in str(path).lower() for seg in ("/demo", "demo_", "/example", "example_", "/sample", "sample_",
+                "/e2e", "e2e-", "e2e_", "/benchmark", "benchmark")):
             continue
         pl = str(path).lower()
         if "@" not in ev and any(seg in pl for seg in (".config.", "/scripts/", "tsdown", "vite.config", "webpack", "rollup", "/config/", ".env.example")):
