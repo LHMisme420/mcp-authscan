@@ -48,3 +48,4 @@ venv/
 .vata-recovery-*/
 *.vata-dr
 *.dump
+attached_assets/
