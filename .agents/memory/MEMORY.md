@@ -2,7 +2,7 @@
 - [Configuration and toolchains](configuration-toolchain-validity.md) — invalid Replit configuration can temporarily remove toolchain commands from the shell environment.
 - [Published startup evidence](published-startup-evidence.md) — use actual production bind logs, not preview success or the saved run command, to verify port fixes.
 - [Finding data environments](finding-data-environments.md) — a stale preview SQLite file does not prove published scan findings are missing.
-- [Findings durability approval](findings-durability-approval.md) — owner approved SQLite with PostgreSQL backups, not a migration; first cutover needs a verified live export.
+- [Findings durability approval](findings-durability-approval.md) — preserve findings and wait for verified recovery; no local-only publishing shortcut or empty seed.
 - [Independent recovery approval](independent-recovery-approval.md) — encrypted off-project retention policy and synthetic rehearsal approved; live exports and storage/key custody still need approval.
 - [Findings alert policy](findings-alert-policy.md) — owner approved server logs only for backup-health notifications, not external delivery.
 - [GitHub push authentication](github-push-auth.md) — healthy OAuth metadata can coexist with rejected Git credentials; verify the push and use secure reauthorization.
