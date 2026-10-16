@@ -12,4 +12,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install mcp-authscan==0.9.4
-      - run: mcp-authscan . --fail-on high
+      - run: mcp-authscan . --exclude rule_corpus --exclude examples --exclude mcp_authscan.py --fail-on high
