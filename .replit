@@ -71,7 +71,7 @@ externalPort = 3001
 
 [deployment]
 deploymentTarget = "cloudrun"
-run = ["env", "VATA_SQLITE_DURABILITY=local", "DB_FILE=/tmp/vata.db", "npm", "run", "start"]
+run = ["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=/tmp/vata-findings.sqlite", "npm", "run", "start"]
 build = ["npm", "run", "build"]
 
 [userenv]
@@ -79,6 +79,7 @@ build = ["npm", "run", "build"]
 [userenv.production]
 VATA_PORT = "5000"
 PUBLIC_APP_URL = "https://mcp-authscan--lhmisme2011.replit.app"
+VATA_FINDINGS_NAMESPACE = "production-findings"
 
 [postMerge]
 path = "scripts/post-merge.sh"

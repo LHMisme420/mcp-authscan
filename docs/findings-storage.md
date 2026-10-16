@@ -96,23 +96,39 @@ durability**. It is not a production recovery mechanism.
 Development defaults to local mode, so it neither restores nor uploads live data.
 If testing durable mode in development, use a separate database and namespace.
 
-### Owner-approved temporary local-only startup
+### Leaving the temporary local-only startup
 
-The owner chose the fastest startup option after being told that existing
-findings may not carry over and future findings may be lost when a deployment
-is replaced. Production configuration explicitly selects
-`VATA_SQLITE_DURABILITY=local`; the application's production default remains
-`postgres`.
+Production previously ran with `VATA_SQLITE_DURABILITY=local`, an accepted
+data-loss risk: every replacement deployment started with an empty findings
+database. The deployment now selects `VATA_SQLITE_DURABILITY=postgres` with
+`DB_FILE=/tmp/vata-findings.sqlite` and `VATA_FINDINGS_NAMESPACE=production-findings`
+(`.replit`).
 
-This is an accepted data-loss risk, not a verified migration or recovery.
-No live findings export, seed, restore, independent archive upload, or recurring
-backup schedule is enabled by this setting. It does not publish or replace the
-running site, and it does not disable authentication or the gateway's other
-startup checks.
+The local-only deployment's findings were never backed up and its Autoscale
+filesystem cannot be exported, so the owner approved seeding the namespace from
+a **fresh, empty** schema instead of a live export. Findings recorded by the
+local-only deployment are not carried over. Accounts live in PostgreSQL and
+their scanner workspaces are re-provisioned on first use.
 
-To restore durability later, first establish the intended production account
-database and a verified findings snapshot under an approved namespace. Only
-then remove the local-only override and follow the normal restore checks.
+Before publishing this configuration, in the Replit workspace:
+
+1. Apply `migrations/findings-backups.sql` to the production PostgreSQL database.
+2. Create an empty schema file and seed it (the seed refuses to overwrite an
+   existing namespace):
+
+   ```sh
+   DB_FILE=/tmp/seed-findings.sqlite python3 -c "import app"
+   DB_FILE=/tmp/seed-findings.sqlite VATA_FINDINGS_NAMESPACE=production-findings \
+     npm run findings:seed -- --approve-live-snapshot
+   rm /tmp/seed-findings.sqlite
+   ```
+
+   `DATABASE_URL` must point at the production database used by the deployment.
+3. Limit the deployment to **one instance** (Autoscale max instances = 1, or a
+   Reserved VM). A second instance cannot take the writer lock and fails startup.
+
+Publishing before step 2 fails startup ("missing snapshot"); it never serves an
+empty database silently.
 
 ## What happens at runtime
 
