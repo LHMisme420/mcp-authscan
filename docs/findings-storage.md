@@ -104,36 +104,44 @@ database. The deployment now selects `VATA_SQLITE_DURABILITY=postgres` with
 `DB_FILE=/tmp/vata-findings.sqlite` and `VATA_FINDINGS_NAMESPACE=production-findings`
 (`.replit`).
 
-The local-only deployment's findings were never backed up and its Autoscale
-filesystem cannot be exported, so the owner approved seeding the namespace from
+No verified export from the local-only deployment was obtained, so the owner
+approved seeding the namespace from
 a **fresh, empty** schema instead of a live export. Findings recorded by the
 local-only deployment are not carried over. Accounts live in PostgreSQL and
 their scanner workspaces are re-provisioned on first use.
 
-Before publishing this configuration, in the Replit workspace:
+For this explicitly approved fresh start on Replit-managed PostgreSQL:
 
-1. Apply `migrations/findings-backups.sql` to the production PostgreSQL database.
-2. Create an empty schema file and seed it (the seed refuses to overwrite an
-   existing namespace):
-
-   ```sh
-   DB_FILE=/tmp/seed-findings.sqlite python3 -c "import app"
-   DB_FILE=/tmp/seed-findings.sqlite VATA_FINDINGS_NAMESPACE=production-findings \
-     npm run findings:seed -- --approve-live-snapshot
-   rm /tmp/seed-findings.sqlite
-   ```
-
-   `DATABASE_URL` must point at the production database used by the deployment.
-3. Limit the deployment to **one instance** (Autoscale max instances = 1, or a
+1. Apply `migrations/findings-backups.sql` and
+   `migrations/findings-fresh-start.sql` in **development**. Replit Publish applies
+   the resulting schema diff to production. Never run production DDL in the
+   build command or application startup.
+2. Set the production-only approval
+   `VATA_FINDINGS_INITIALIZE_EMPTY=production-findings`, matching the production
+   namespace exactly. Preview does not accept this approval.
+3. Publish after reviewing the schema diff. In the **production runtime**, after
+   acquiring the namespace's exclusive writer lock, the app checks for a snapshot.
+   If none exists, it creates a private, throwaway empty SQLite schema and commits
+   its snapshot and a permanent initialization receipt in one transaction.
+   The normal checksum validation and restore then run before HTTP readiness.
+   Existing snapshots are restored, not overwritten. Existing local files or
+   sidecars prevent initialization. A receipt without snapshots also prevents
+   initialization: subsequent snapshot loss requires recovery, not an empty reset.
+4. Limit the deployment to **one instance** (Autoscale max instances = 1, or a
    Reserved VM). A second instance cannot take the writer lock and fails startup.
 
-Publishing before step 2 fails startup ("missing snapshot"); it never serves an
-empty database silently.
+The approval may be removed after successful initialization. Leaving it configured
+does not allow a namespace with a receipt to be initialized again. Missing schema,
+invalid approval, corrupt snapshots and permission failures still fail startup.
+Workspace `DATABASE_URL` is not a substitute for production. The manual
+`findings:seed -- --approve-live-snapshot` command remains for verified live
+exports, not this explicitly empty bootstrap.
 
 ## What happens at runtime
 
 - Startup acquires the writer lock and retrieves the newest snapshot for the
-  configured namespace. A missing snapshot, unavailable schema/storage, checksum
+  configured namespace. Except for the explicitly approved first empty
+  initialization above, a missing snapshot, unavailable schema/storage, checksum
   mismatch, invalid SQLite file, orphan WAL files, or conflicting local copy
   stops startup. It never silently creates an empty findings database.
 - The SHA-256 of the stored bytes and SQLite integrity/schema checks are verified

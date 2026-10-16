@@ -16,8 +16,11 @@ rather than bypassing the startup check with temporary local-only storage.
 **How to apply:** Keep PostgreSQL durability. A fresh initial findings snapshot is
 authorized, but must target the actual intended production database and must not
 overwrite an existing namespace, delete unrelated records, or reassign ownership.
-Do not treat workspace DATABASE_URL as production. Follow the managed PostgreSQL
-schema process and verify initialization before suggesting publication.
+Do not treat workspace DATABASE_URL as production. The owner explicitly approved
+**"Prepare the fresh-start Publish flow (recommended)"**, authorizing the empty
+initialization in the production runtime after Publish applies the prepared
+development schema. This approval is not permission for startup-time PostgreSQL
+DDL or reinitializing a namespace whose snapshots are lost.
 
 ## Earlier release investigation constraint
 

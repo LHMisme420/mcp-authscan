@@ -85,6 +85,16 @@ The Node gateway serves the React dashboard and Clerk-authenticated API on `0.0.
 
 Production uses `npm run build` followed by `npm start`. Run `npm run test:startup` to verify that exact startup path with isolated database fixtures. See [production startup verification](docs/production-startup.md) for prerequisites, coverage and limits. Managed PostgreSQL provisioning/schema changes belong to Publish, never application startup.
 
+The owner approved a fresh PostgreSQL-backed findings start rather than preserving
+old local-only findings. Production's namespace-specific
+`VATA_FINDINGS_INITIALIZE_EMPTY` approval permits a first empty snapshot only after
+Publish applies both findings schema migrations. A permanent initialization
+receipt prevents silent reinitialization if snapshots are later lost. Existing
+snapshots are not overwritten, and PostgreSQL account ownership is untouched.
+See [findings storage](docs/findings-storage.md#leaving-the-temporary-local-only-startup).
+`npm run test:fresh-findings` verifies this production startup flow with isolated
+fixtures. This does not enable Stripe or external recovery exports.
+
 Configuration:
 - `SESSION_SECRET`: existing Replit secret used for JWT signing, unless `JWT_SECRET` is supplied. Startup fails if neither exists.
 - `VATA_PORT`: public gateway port, defaults to `5000`. The Node gateway ignores `PORT` to avoid conflicting imported secrets.
