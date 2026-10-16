@@ -23,3 +23,25 @@ wheels/
 venv/
 *.log
 .DS_Store
+.pythonlibs/
+
+# Local findings exports must not be committed.
+/vata_findings_backup.json
+/node_modules/
+
+# Private findings databases/snapshots and generated verification output.
+*.db
+/vata.db
+*.db-*
+/register_and_capture.py
+/attached_assets/Pasted--Scanning-source-code-directory-skipped-215-test-fixtur_1792089019951.txt
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+/runtime-data/
+/generated-artifacts/
+.vata-restore-*/
+.vata-recovery-*/
+*.vata-dr
+*.dump

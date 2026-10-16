@@ -1,5 +1,6 @@
 """MCP Server Security Scanner - VATA Methodology"""
 import requests
+from mcp_authscan.cors import probe_cors_requests
 import json
 from typing import List, Dict
 
@@ -90,15 +91,15 @@ class MCPScanner:
             pass
     
     def check_cors(self):
-        """CHECK: CORS wildcard (HIGH - enables cross-origin attacks)"""
+        """Assess wildcard/reflected CORS using response and auth evidence."""
         try:
-            resp = requests.options(f"{self.url}/message", timeout=5)
-            cors_origin = resp.headers.get("Access-Control-Allow-Origin", "")
-            if cors_origin == "*":
+            assessment = probe_cors_requests(f"{self.url}/message", method="POST", timeout=5)
+            if assessment.is_finding:
                 self.findings.append({
                     "endpoint": "CORS",
-                    "severity": "HIGH",
-                    "issue": "CORS wildcard allows any origin"
+                    "severity": assessment.severity,
+                    "issue": assessment.summary,
+                    "details": assessment.details,
                 })
         except:
             pass

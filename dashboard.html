@@ -20,83 +20,235 @@
         .card .value { font-size: 32px; font-weight: bold; color: #fff; }
         .card.critical { border-left: 4px solid #ff4444; }
         .card.high { border-left: 4px solid #ffaa00; }
+        .card.compliance { border-left: 4px solid #44bb88; }
         .findings { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
         .finding-row { padding: 15px 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         .finding-row:last-child { border-bottom: none; }
         .finding-server { font-weight: bold; }
         .finding-severity { font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .scan-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+        .scan-form label { display: block; font-size: 13px; color: #bbb; margin-bottom: 7px; }
+        .scan-form input { width: min(600px, 100%); padding: 10px; border: 1px solid #555; border-radius: 4px; background: #111; color: #fff; }
+        .scan-status { margin-top: 14px; }
+        .scan-row { padding: 15px 20px; border-bottom: 1px solid #333; }
+        .scan-row:last-child { border-bottom: none; }
+        .status-failed, .critical-warning { color: #ff7777; }
+        .status-completed { color: #79d99b; }
+        .status-running { color: #ffcc66; }
         .severity-critical { background: #ff4444; color: #fff; }
         .severity-high { background: #ffaa00; color: #000; }
         .severity-medium { background: #ffdd00; color: #000; }
         .severity-low { background: #44ff44; color: #000; }
-        .empty { text-align: center; padding: 40px 20px; color: #999; }
+        .button { background: #0066ff; color: #fff; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .button:hover { background: #0052cc; }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    <script>
+        function trackEvent(name, data) {
+            try {
+                const result = window.umami?.track(name, data);
+                if (result && typeof result.catch === 'function') result.catch(() => {});
+            } catch {
+                // Analytics must never interrupt dashboard use.
+            }
+        }
+
+        function formatSeverity(value) {
+            return typeof value === 'string' && value.trim()
+                ? value.trim().toUpperCase() : 'MEDIUM';
+        }
+    </script>
     <script type="text/babel">
         const API_URL = window.location.origin;
         let token = localStorage.getItem('token');
         
         function Dashboard() {
-            const [stats, setStats] = React.useState({critical: 0, high: 0, total_findings: 0, trend_direction: 'flat'});
-            const [findings, setFindings] = React.useState([]);
-            const [loading, setLoading] = React.useState(!token);
+            const [stats, setStats] = React.useState(null);
+            const [findings, setFindings] = React.useState(null);
+            const [compliance, setCompliance] = React.useState(null);
+            const [scans, setScans] = React.useState(null);
+            const [organization, setOrganization] = React.useState('');
+            const [targetUrl, setTargetUrl] = React.useState('');
+            const [signedIn, setSignedIn] = React.useState(Boolean(token));
+            const [error, setError] = React.useState('');
+            const [scanMessage, setScanMessage] = React.useState(null);
+            const [busy, setBusy] = React.useState(false);
+            const [scanBusy, setScanBusy] = React.useState(false);
+            const hasTrackedDashboard = React.useRef(false);
+            const lastLoadError = React.useRef(null);
             
             React.useEffect(() => {
-                if (!token) {
-                    const email = prompt('Email:') || 'user@example.com';
-                    const password = prompt('Password:') || 'password123';
-                    loginUser(email, password);
-                } else {
-                    loadData();
-                    setInterval(loadData, 5000);
-                }
-            }, []);
+                if (!signedIn) return;
+                hasTrackedDashboard.current = false;
+                lastLoadError.current = null;
+                loadData();
+                const interval = setInterval(loadData, 5000);
+                return () => clearInterval(interval);
+            }, [signedIn]);
             
-            async function loginUser(email, password) {
+            async function loginUser(org) {
+                trackEvent('organization_access_started');
+                let responseStatus = 0;
+                setBusy(true);
+                setError('');
                 try {
-                    const resp = await fetch(`${API_URL}/auth/register`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-                    const data = await resp.json();
-                    if (data.access_token) {
-                        localStorage.setItem('token', data.access_token);
-                        token = data.access_token;
-                        loadData();
-                    }
-                } catch(e) {
-                    console.error('Login error:', e);
-                    setLoading(false);
+                const resp = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ org_name: org })
+                });
+                responseStatus = resp.status;
+                const data = await resp.json();
+                if (!resp.ok || !data.access_token) throw new Error(data.error || 'Unable to open dashboard.');
+                localStorage.setItem('token', data.access_token);
+                token = data.access_token;
+                setSignedIn(true);
+                trackEvent('organization_access_completed');
+                } catch (err) {
+                    trackEvent('organization_access_failed', { status: responseStatus });
+                    setError(err.message);
+                } finally {
+                    setBusy(false);
                 }
             }
             
             async function loadData() {
+                const requestToken = token;
+                if (!requestToken) return;
+                const headers = { Authorization: `Bearer ${requestToken}` };
+
+                async function readEndpoint(stage, label, path, applyData) {
+                    let status = 0;
+                    try {
+                        const response = await fetch(`${API_URL}${path}`, { headers });
+                        status = response.status;
+                        if (token !== requestToken) return null;
+                        if (status === 401 || status === 422) {
+                            if (lastLoadError.current !== 'session_expired') trackEvent('session_expired');
+                            lastLoadError.current = 'session_expired';
+                            localStorage.removeItem('token');
+                            token = null;
+                            setStats(null);
+                            setFindings(null);
+                            setCompliance(null);
+                            setScans(null);
+                            setSignedIn(false);
+                            setError('Your session expired. Enter your organization name again.');
+                            return null;
+                        }
+                        if (!response.ok) throw new Error(`HTTP ${status}`);
+                        const data = await response.json();
+                        if (token === requestToken) applyData(data);
+                        return null;
+                    } catch (err) {
+                        if (token !== requestToken) return null;
+                        if (stage === 'threat_intelligence') {
+                            setStats({
+                                critical: 0, high: 0, medium: 0, low: 0,
+                                total_findings: 0, week_trend: 0, month_trend: 0,
+                                trend_direction: null
+                            });
+                        }
+                        return { stage, status, message: `Unable to load ${label}: ${err.message}` };
+                    }
+                }
+
+                const results = await Promise.all([
+                    readEndpoint('threat_intelligence', 'threat intelligence', '/api/threat-intelligence', data => {
+                        if (!data || !Number.isFinite(data.total_findings)) throw new Error('invalid totals response');
+                        setStats(data);
+                    }),
+                    readEndpoint('findings', 'findings', '/api/findings', data => {
+                        if (!data || !Array.isArray(data.findings) ||
+                            data.findings.some(finding => !finding || typeof finding !== 'object' || Array.isArray(finding))) {
+                            throw new Error('expected a findings array of objects');
+                        }
+                        setFindings(data.findings);
+                        if (!hasTrackedDashboard.current) {
+                            trackEvent('dashboard_loaded', { has_findings: data.findings.length > 0 });
+                            hasTrackedDashboard.current = true;
+                        }
+                    }),
+                    readEndpoint('compliance', 'compliance results', '/api/reports/compliance', data => {
+                        if (!data || !Number.isFinite(data.compliance_score)) throw new Error('invalid compliance response');
+                        setCompliance(data);
+                    }),
+                    readEndpoint('scan_history', 'scan history', '/api/scans/mcp', data => {
+                        if (!data || !Array.isArray(data.scans)) throw new Error('expected a scans array');
+                        setScans(data.scans);
+                    })
+                ]);
+                if (token !== requestToken) return;
+                const failures = results.filter(Boolean);
+                if (failures.length) {
+                    const errorKey = failures.map(failure => `${failure.stage}:${failure.status}`).join('|');
+                    if (lastLoadError.current !== errorKey) {
+                        const { stage, status } = failures[0];
+                        trackEvent('dashboard_load_failed', { stage, status });
+                        console.error('Dashboard API load failed', failures.map(({ stage, status }) => ({ stage, status })));
+                        lastLoadError.current = errorKey;
+                    }
+                    setError(failures.map(failure => failure.message).join(' · '));
+                } else {
+                    lastLoadError.current = null;
+                    setError('');
+                }
+            }
+
+            async function submitScan(event) {
+                event.preventDefault();
+                trackEvent('mcp_scan_started');
+                let responseStatus = 0;
+                setScanBusy(true);
+                setError('');
+                setScanMessage(null);
                 try {
-                    const stats_resp = await fetch(`${API_URL}/api/threat-intelligence`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                    const response = await fetch(`${API_URL}/api/scans/mcp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ target_url: targetUrl.trim() })
                     });
-                    if (stats_resp.ok) {
-                        const stats_data = await stats_resp.json();
-                        setStats(stats_data);
+                    responseStatus = response.status;
+                    const data = await response.json();
+                    if (response.status === 401 || response.status === 422) {
+                        if (lastLoadError.current !== 'session_expired') trackEvent('session_expired');
+                        lastLoadError.current = 'session_expired';
+                        localStorage.removeItem('token');
+                        token = null;
+                        setSignedIn(false);
+                        throw new Error('Your session expired. Enter your organization name again.');
                     }
-                    
-                    const findings_resp = await fetch(`${API_URL}/api/findings`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                    if (!response.ok) throw new Error(data.error || 'The scan could not be completed.');
+                    trackEvent('mcp_scan_completed', {
+                        findings: data.scan && data.scan.findings_count,
+                        critical_findings: data.scan && data.scan.critical_count
                     });
-                    if (findings_resp.ok) {
-                        const findings_data = await findings_resp.json();
-                        setFindings(findings_data.findings || []);
-                    }
-                    setLoading(false);
-                } catch(e) {
-                    console.error('Load error:', e);
+                    setScanMessage({
+                        text: data.message,
+                        critical: Boolean(data.scan && data.scan.has_critical)
+                    });
+                    await loadData();
+                } catch (err) {
+                    trackEvent('mcp_scan_failed', { status: responseStatus });
+                    setError(err.message);
+                } finally {
+                    setScanBusy(false);
                 }
             }
             
-            if (loading) return <div className="container"><p>Loading...</p></div>;
+            if (!signedIn) return (
+                <div className="container">
+                    <div className="header"><h1>VATA Security Platform</h1><p>Real-time threat intelligence & compliance scoring</p></div>
+                    <form className="card" onSubmit={event => { event.preventDefault(); loginUser(organization.trim()); }}>
+                        <label htmlFor="organization">Organization name</label>
+                        <input id="organization" required value={organization} onChange={event => setOrganization(event.target.value)} style={{display: 'block', padding: '10px', margin: '15px 0', width: '100%', maxWidth: '400px'}} />
+                        <button className="button" disabled={busy || !organization.trim()}>{busy ? 'Opening...' : 'Open dashboard'}</button>
+                        {error && <p role="alert" style={{marginTop: '15px', color: '#ff7777'}}>{error}</p>}
+                    </form>
+                </div>
+            );
             
             return (
                 <div className="container">
@@ -104,47 +256,88 @@
                         <h1>VATA Security Platform</h1>
                         <p>Real-time threat intelligence & compliance scoring</p>
                     </div>
+                    {error && <p role="alert">{error}</p>}
                     
                     <div className="grid">
                         <div className="card critical">
                             <h3>Critical Findings</h3>
-                            <div className="value">{stats.critical || 0}</div>
+                            <div className="value">{stats?.critical ?? '—'}</div>
                         </div>
                         <div className="card high">
                             <h3>High Severity</h3>
-                            <div className="value">{stats.high || 0}</div>
+                            <div className="value">{stats?.high ?? '—'}</div>
                         </div>
                         <div className="card">
                             <h3>Total Findings</h3>
-                            <div className="value">{stats.total_findings || 0}</div>
+                            <div className="value">{stats?.total_findings ?? '—'}</div>
                         </div>
                         <div className="card">
                             <h3>30-Day Trend</h3>
-                            <div className="value">{stats.trend_direction === 'increasing' ? '📈' : '📉'}</div>
+                            <div className="value">{stats?.trend_direction === 'increasing' ? '📈' : stats?.trend_direction === 'decreasing' ? '📉' : '—'}</div>
+                        </div>
+                        <div className="card compliance">
+                            <h3>Compliance Score</h3>
+                            <div className="value">{compliance ? `${compliance.compliance_score}%` : '—'}</div>
+                            {compliance && <small>{compliance.total_findings} finding(s) included</small>}
                         </div>
                     </div>
-                    
+
+                    <section className="card" style={{marginBottom: '30px'}}>
+                        <h2 style={{fontSize: '18px', marginBottom: '15px'}}>Scan an MCP server</h2>
+                        <form className="scan-form" onSubmit={submitScan}>
+                            <div style={{flex: '1 1 360px'}}>
+                                <label htmlFor="target-url">MCP server URL (only scan systems you’re authorized to test)</label>
+                                <input id="target-url" type="url" required placeholder="https://mcp.example.com" value={targetUrl} onChange={event => setTargetUrl(event.target.value)} />
+                            </div>
+                            <button className="button" disabled={scanBusy || !targetUrl.trim()}>{scanBusy ? 'Scanning…' : 'Run scan'}</button>
+                        </form>
+                        {scanMessage && <p className={`scan-status ${scanMessage.critical ? 'critical-warning' : 'status-completed'}`} role="status">{scanMessage.critical ? `Critical findings detected. ${scanMessage.text}` : scanMessage.text}</p>}
+                    </section>
+
+                    <h2 style={{marginBottom: '15px'}}>Recent scans</h2>
+                    <div className="findings" style={{marginBottom: '30px'}}>
+                        {scans === null && <p style={{padding: '20px'}}>Scan history has not loaded.</p>}
+                        {scans?.length === 0 && <p style={{padding: '20px'}}>No scans have been run yet.</p>}
+                        {(scans || []).map(scan => (
+                            <div className="scan-row" key={scan.id}>
+                                <div style={{display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap'}}>
+                                    <strong>{scan.target}</strong>
+                                    <strong className={`status-${scan.status || 'unknown'}`}>{String(scan.status || 'unknown').toUpperCase()}</strong>
+                                </div>
+                                {scan.status === 'failed'
+                                    ? <p className="critical-warning" style={{marginTop: '7px'}}>{scan.error || 'The scan failed.'}</p>
+                                    : <React.Fragment>
+                                        {scan.critical_count > 0 && <p className="critical-warning" role="alert" style={{marginTop: '7px'}}>Critical findings detected in this scan.</p>}
+                                        <p style={{fontSize: '13px', color: '#aaa', marginTop: '7px'}}>
+                                            {scan.findings_count} finding(s) · {scan.critical_count} critical · {scan.high_count} high
+                                            {scan.compliance_score !== null && ` · compliance ${scan.compliance_score}%`}
+                                        </p>
+                                      </React.Fragment>}
+                                <small style={{color: '#777'}}>{scan.completed_at || scan.started_at}</small>
+                            </div>
+                        ))}
+                    </div>
+
                     <h2 style={{marginBottom: '15px'}}>Recent Findings</h2>
                     <div className="findings">
-                        {findings.length === 0 ? (
-                            <div className="empty">No findings yet. Submit scanner findings through the API to see them here.</div>
-                        ) : (
-                            findings.slice(0, 20).map(f => (
-                                <div key={f.id} className="finding-row">
-                                    <div>
-                                        <div className="finding-server">{f.server}</div>
-                                        <div style={{fontSize: '12px', color: '#999', marginTop: '5px'}}>{f.rule || 'Unknown Rule'}: {f.description}</div>
-                                    </div>
-                                    <div className={`finding-severity severity-${(f.severity || 'medium').toLowerCase()}`}>{f.severity}</div>
+                        {findings === null && <p style={{padding: '20px'}}>Findings have not loaded. Any request error will appear above.</p>}
+                        {findings?.length === 0 && <p style={{padding: '20px'}}>No findings returned for this signed-in organization. Findings from another organization or environment will not appear here.</p>}
+                        {(findings || []).slice(0, 20).map(f => (
+                            <div key={f.id} className="finding-row">
+                                <div>
+                                    <div className="finding-server">{f.server || f.server_name || f.vector_type}</div>
+                                    <div style={{fontSize: '12px', color: '#999', marginTop: '5px'}}>{f.rule || f.vector_type}: {f.description}</div>
+                                    {f.remediation && <div style={{fontSize: '12px', color: '#79d99b', marginTop: '5px'}}>Recommended fix: {f.remediation}</div>}
                                 </div>
-                            ))
-                        )}
+                                <div className={`finding-severity severity-${formatSeverity(f.severity).toLowerCase()}`}>{formatSeverity(f.severity)}</div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             );
         }
         
-        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+        ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
     </script>
 </body>
 </html>

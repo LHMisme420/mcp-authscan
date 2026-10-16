@@ -1,5 +1,6 @@
 """MCP Security Scanner v2 - Comprehensive Testing"""
 import requests
+from mcp_authscan.cors import probe_cors_requests
 import json
 import ssl
 from typing import List, Dict
@@ -49,9 +50,10 @@ class MCPScannerV2:
     
     def check_cors(self):
         try:
-            resp = requests.options(f"{self.url}/message", timeout=5)
-            if resp.headers.get("Access-Control-Allow-Origin") == "*":
-                self.findings.append({"endpoint":"CORS","severity":"HIGH","issue":"CORS wildcard allows cross-origin attacks"})
+            assessment = probe_cors_requests(f"{self.url}/message", method="POST", timeout=5)
+            if assessment.is_finding:
+                self.findings.append({"endpoint":"CORS","severity":assessment.severity,
+                                     "issue":assessment.summary,"details":assessment.details})
         except: pass
     
     # NEW CHECKS

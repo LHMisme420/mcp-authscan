@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "_jHFs17U38jwgsddeThKA"
+uri = "file://vata_findings_backup.json"
+type = "unspecified"
+title = "Workspace findings backup"
+description = "Verified JSON export of 39 findings from the workspace vata.db. This does not include the separate published app’s database."
+logical_id = "9c6bbfb0-e5b4-44d5-bd1e-bd76a27fde49"
+content_hash = "sha256:eb08a59aa442b50c9ddc24838b91185661dafb7fdd0f76d0046b159b6724112a"
+size = 15762
+mtime_ms = 1792018869024
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/9c6bbfb0-e5b4-44d5-bd1e-bd76a27fde49/bf434cb6-4e3c-4867-bb4a-5bf9c9c2086b"
+storage_version_token = "1792018877302671"
+content_type = "application/octet-stream"

@@ -1,4 +1,4 @@
-import argparse, sys
+import argparse, json, sys
 from .scanner import MCPScanner
 from .report import SecurityReport
 
@@ -33,6 +33,9 @@ def main():
             if summary['critical'] > 0:
                 sys.exit(1)
         except Exception as e:
+            if args.format == "json" and not args.output:
+                print(json.dumps({"status": "failed", "error": str(e)}))
+                sys.exit(1)
             print(f"[!] Error: {str(e)}", file=sys.stderr)
             sys.exit(1)
 

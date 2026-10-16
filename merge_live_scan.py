@@ -24,6 +24,7 @@ import socket
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
+from mcp_authscan.cors import probe_cors_urllib
 
 LIVE_ENDPOINTS = {
     "/sse": "GET",
@@ -68,19 +69,13 @@ def scan_live_server(target_url):
                     url, "", 0, f"HTTP {e.code} without auth", "D1-zero-auth", "HIGH")
         except (URLError, socket.timeout): pass
         
-        # Test 2: CORS wildcard
+        # Test 2: Evidence-based CORS policy
         try:
-            req = Request(url, method=method)
-            req.add_header("Origin", "https://attacker.test")
-            if method == "POST":
-                req.data = '{"jsonrpc":"2.0"}'.encode()
-                req.add_header("Content-Type", "application/json")
-            
-            with urlopen(req, timeout=5) as resp:
-                acao = resp.headers.get("Access-Control-Allow-Origin", "")
-                if acao == "*":
-                    add(findings, "D2", "CRITICAL", f"CORS wildcard on {path}",
-                        url, "", 0, "Access-Control-Allow-Origin: *", "D2-cors-wildcard", "HIGH")
+            assessment = probe_cors_urllib(url, method, timeout=5, opener=urlopen)
+            if assessment.is_finding:
+                add(findings, "D2", assessment.severity, f"{assessment.summary} on {path}",
+                    url, "", 0, assessment.details,
+                    "D2-cors-origin-reflection" if assessment.reflected else "D2-cors-wildcard", "MEDIUM")
         except (HTTPError, URLError, socket.timeout): pass
         
         # Test 3: Invalid token accepted

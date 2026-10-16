@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["client/src", "server", "scripts", "tests/billing.test.ts", "tests/live-billing.test.ts", "tests/billing-panel.test.tsx", "vite.config.ts"]
+}

@@ -116,22 +116,16 @@ class BountyTester:
         """Test for CORS misconfiguration"""
         print(f"\n[*] Testing CORS on {endpoint}...")
         
-        headers = self.session.headers.copy()
-        headers['Origin'] = 'https://attacker.com'
-        
         try:
-            res = requests.get(f"{self.target_url}{endpoint}", headers=headers, timeout=5)
-            
-            if 'access-control-allow-origin' in str(res.headers).lower():
-                allow_origin = res.headers.get('Access-Control-Allow-Origin', '')
-                if allow_origin == '*' or 'attacker' in allow_origin:
-                    self.log_finding(
-                        'CORS',
-                        'HIGH',
-                        endpoint,
-                        {'allow_origin': allow_origin},
-                        'CORS allows requests from unauthorized origins'
-                    )
+            from mcp_authscan.cors import probe_cors_requests
+            assessment = probe_cors_requests(
+                f"{self.target_url}{endpoint}", timeout=5, session=self.session
+            )
+            if assessment.is_finding:
+                self.log_finding(
+                    'CORS', assessment.severity, endpoint,
+                    {'cors_assessment': assessment.details}, assessment.summary
+                )
         except:
             pass
     

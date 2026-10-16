@@ -1,0 +1,17 @@
+- [Imported Python setup](imported-python-setup.md) — Nix dependency constraints and merge verification; importing or compiling Flask code does not verify server startup.
+- [Published startup evidence](published-startup-evidence.md) — use actual production bind logs, not preview success or the saved run command, to verify port fixes.
+- [Finding data environments](finding-data-environments.md) — a stale preview SQLite file does not prove published scan findings are missing.
+- [Findings durability approval](findings-durability-approval.md) — owner approved SQLite with PostgreSQL backups, not a migration; first cutover needs a verified live export.
+- [Independent recovery approval](independent-recovery-approval.md) — encrypted off-project retention policy and synthetic rehearsal approved; live exports and storage/key custody still need approval.
+- [Findings alert policy](findings-alert-policy.md) — owner approved server logs only for backup-health notifications, not external delivery.
+- [GitHub push authentication](github-push-auth.md) — healthy OAuth metadata can coexist with rejected Git credentials; verify the push and use secure reauthorization.
+- [GitHub changes](github-changes.md) — user asks not to block GitHub changes in this project.
+- [CORS finding policy](cors-policy.md) — reflection requires unauthenticated sensitive-data access; 401/403 are protected; wildcard alone is not a vulnerability.
+- [Workspace capacity](subscription-tier-rules.md) — five seats include owner and pending invites; UTC usage; user-selected Reserved VM for unattended scheduling.
+- [Billing ownership](billing-ownership.md) — verified accounts must not inherit old name-only organizations automatically.
+- [Stripe billing scope](stripe-connector-generations.md) — $99/month live preparation approved; Preview stays test-only, and live activation/publication need separate approval.
+- [Stripe proxy compatibility](stripe-proxy-compatibility.md) — current connector is proxy-authenticated; full backfill must not enumerate historical accounts' customers.
+- [Webhook reconciliation](stripe-webhook-reconciliation.md) — refetch canonical subscription state; scope signing secrets and registration to the exact callback.
+- [Auth readiness](auth-readiness.md) — brief snapshots can precede Clerk rendering; verify form readiness before diagnosing an authentication failure.
+- [Interrupted validation](interrupted-validation.md) — completion results after a user interruption can describe an earlier code snapshot; compare timestamps before changing code.
+- [Recovery validation resources](recovery-validation-resources.md) — avoid concurrent scaled recovery runs; temporary disk quotas can fail writes even when df reports free space.

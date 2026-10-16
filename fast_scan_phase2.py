@@ -1,5 +1,6 @@
 import json
 import requests
+from mcp_authscan.cors import probe_cors_requests
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,6 +19,7 @@ results = {
     "critical": 0,
     "high": 0,
     "medium": 0,
+    "low": 0,
     "findings": {}
 }
 
@@ -40,9 +42,11 @@ def scan_server(server, idx):
             findings.append({"severity": "LOW", "issue": f"X-Powered-By: {headers['X-Powered-By']}"})
         
         # Check CORS
-        if headers.get("Access-Control-Allow-Origin") == "*":
-            findings.append({"severity": "HIGH", "issue": "CORS wildcard (*)"})
-            results["high"] += 1
+        cors = probe_cors_requests(url, timeout=5)
+        if cors.is_finding:
+            findings.append({"severity": cors.severity, "issue": cors.summary,
+                             "details": cors.details})
+            results[cors.severity.lower()] += 1
         
         # Rate limiting check
         if not headers.get("X-RateLimit-Limit"):

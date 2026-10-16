@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from datetime import datetime, timezone
 import requests
+from mcp_authscan.cors import probe_cors_requests
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -93,21 +94,15 @@ class MCPScannerV3:
         """Test CORS configuration"""
         findings = []
         try:
-            resp = self.session.options(
-                f"{url}/initialize",
-                headers={"Origin": "https://attacker.com"},
-                timeout=self.timeout
+            assessment = probe_cors_requests(
+                f"{url}/initialize", timeout=self.timeout, session=self.session
             )
-            
-            cors_header = resp.headers.get("Access-Control-Allow-Origin", "")
-            
-            if cors_header == "*":
+            if assessment.is_finding:
                 findings.append({
                     "endpoint": "CORS",
-                    "severity": "HIGH",
-                    "issue": "CORS wildcard allows cross-origin attacks",
-                    "header_value": cors_header,
-                    "response_headers": dict(resp.headers)
+                    "severity": assessment.severity,
+                    "issue": assessment.summary,
+                    "details": assessment.details,
                 })
         except Exception as e:
             pass

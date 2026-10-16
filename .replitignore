@@ -1,0 +1,30 @@
+# Local findings exports must not be included in published builds.
+vata_findings_backup.json
+
+# Do not ship private workspace findings to the public application.
+vata.db
+vata.db-*
+
+# Exclude all local recovery fixtures and private snapshots, not just vata.db.
+*.db
+*.db-*
+**/*.db
+**/*.db-*
+*.sqlite
+*.sqlite-*
+**/*.sqlite
+**/*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+**/*.sqlite3
+**/*.sqlite3-*
+runtime-data/
+generated-artifacts/
+**/.vata-restore-*/
+**/.vata-recovery-*/
+**/*.vata-dr
+**/*.dump
+
+# Standalone workspace scan exports are not application fixtures.
+/*findings*.json
+/*scan_results*.json
