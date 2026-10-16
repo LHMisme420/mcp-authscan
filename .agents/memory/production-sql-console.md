@@ -11,7 +11,9 @@ did not execute the rest of the pasted batch. This message is a console hint,
 not a PostgreSQL failure.
 
 **How to apply:** Prefer a single SQL statement with explicit result/status
-columns. Verify committed production state using read-only queries afterward;
+columns. Have the operator select the SQL text inside the editor before clicking
+the main Run button if it appears idle, even for a single-statement import.
+Verify committed production state using read-only queries afterward;
 opening an instruction asset or seeing zero result rows is not proof of a seed.
 The operator, not Agent's read-only production connection, executes the import.
 
