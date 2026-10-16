@@ -79,6 +79,8 @@ build = ["npm", "run", "build"]
 [userenv.production]
 VATA_PORT = "5000"
 PUBLIC_APP_URL = "https://mcp-authscan--lhmisme2011.replit.app"
+VATA_BILLING_MODE = "disabled"
+VATA_PREPARE_LIVE_BILLING = "0"
 
 [postMerge]
 path = "scripts/post-merge.sh"

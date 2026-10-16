@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import type { AddressInfo } from 'node:net';
@@ -14,6 +14,18 @@ const subscription = {
   metadata: customer.metadata,
   items: { data: [{ price: { id: 'price_fixture' }, current_period_end: 2000000000 }] },
 };
+
+function enableTestBilling(t: TestContext) {
+  const previous = { NODE_ENV: process.env.NODE_ENV, VATA_BILLING_MODE: process.env.VATA_BILLING_MODE };
+  process.env.NODE_ENV = 'test';
+  process.env.VATA_BILLING_MODE = 'test';
+  t.after(() => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+}
 
 test('only verified, unexpired, correct-owner test subscriptions grant Pro', () => {
   const now = 1800000000000;
@@ -64,29 +76,36 @@ test('SDK subscription state distinguishes recovery, cancellation and new Free w
   assert.equal(subscriptionBillingState([{ ...subscription, livemode: true }], 'price_fixture', account, true).plan, 'pro');
 });
 
-test('billing outage fails paid access closed without blocking account summary', async () => {
+test('billing outage fails paid access closed without blocking account summary', async t => {
+  enableTestBilling(t);
   const status = await billingStatus(account);
   assert.equal(status.available, false);
   assert.equal(status.plan, 'free');
   await assert.rejects(requirePro(account), (e: any) => e.status === 503);
 });
 
-test('production skips Stripe initialization and retains subscription-free access', async () => {
-  const previous = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'production';
+test('Preview and production default to subscription-free access without Stripe initialization', async () => {
+  const previous = { NODE_ENV: process.env.NODE_ENV, VATA_BILLING_MODE: process.env.VATA_BILLING_MODE };
+  delete process.env.VATA_BILLING_MODE;
   try {
-    await initializeBilling();
-    await assert.doesNotReject(requirePro(account));
-    const status = await billingStatus(account);
-    assert.equal(status.status, 'disabled');
-    assert.equal(status.available, false);
+    for (const environment of ['development', 'production']) {
+      process.env.NODE_ENV = environment;
+      await initializeBilling();
+      await assert.doesNotReject(requirePro(account));
+      const status = await billingStatus(account);
+      assert.equal(status.status, 'disabled');
+      assert.equal(status.available, false);
+    }
   } finally {
-    if (previous === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previous;
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   }
 });
 
 test('checkout, refresh and portal enforce owner, fixed price, ownership and safe returns', async t => {
+  enableTestBilling(t);
   let unavailable = false, paid = false, providerCalls = 0, sessionCreated = 0, linked = false;
   let openSession: any = null;
   let subscriptions: any[] = [];

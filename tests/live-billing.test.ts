@@ -35,8 +35,11 @@ function price(livemode = true) {
   };
 }
 
-test('live billing is production-only, explicit and disabled by default in production', () => {
-  assert.equal(billingMode({}), 'test');
+test('payments are disabled by default everywhere and live billing requires production opt-in', () => {
+  assert.equal(billingMode({}), 'disabled');
+  assert.equal(billingMode({ NODE_ENV: 'development' }), 'disabled');
+  assert.equal(billingMode({ NODE_ENV: 'test' }), 'disabled');
+  assert.equal(billingMode({ NODE_ENV: 'development', VATA_BILLING_MODE: 'test' }), 'test');
   assert.equal(billingMode({ NODE_ENV: 'production' }), 'disabled');
   assert.equal(billingMode({ NODE_ENV: 'production', VATA_BILLING_MODE: 'test' }), 'disabled');
   assert.equal(billingMode({ NODE_ENV: 'production', VATA_BILLING_MODE: 'live' }), 'live');

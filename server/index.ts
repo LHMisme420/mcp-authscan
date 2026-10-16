@@ -26,8 +26,8 @@ app.set('trust proxy', 1);
 const start = await startApplication(app);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(['/api/test-checkout'], (_req, res, next) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(410).json({ error: 'Live payments are disabled. Test checkout is available in Preview only.' });
+  if (process.env.NODE_ENV === 'production' || billingMode() !== 'test') {
+    return res.status(410).json({ error: 'Payments are not enabled.' });
   }
   next();
 });

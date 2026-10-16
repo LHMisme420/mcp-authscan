@@ -78,7 +78,7 @@ export default function Landing() {
             <div><span className="eyebrow">Your security workspace</span></div>
             <div>
               <blockquote>Scan, review, and collaborate.</blockquote>
-              <p>{import.meta.env.DEV ? 'Preview experiment: start with unlimited manual scans and full history at no cost. Test Pro for API access, scheduling, and teams.' : 'Create an account to scan authorized MCP servers, review your findings, and work with your team. No payment setup is needed.'}</p>
+              <p>Create an account to scan authorized MCP servers, review your findings, and work with your team. No payment setup is needed.</p>
               <div className="hero-ctas">
                 <Link href="/sign-up" className="button">Create your account</Link>
                 <Link href="/sign-in" className="button secondary">Already have an account?</Link>
@@ -91,11 +91,11 @@ export default function Landing() {
           <div className="wrap">
             <div className="section-head">
               <div><span className="eyebrow">Workspace features</span><h2>Review findings and automate your scans.</h2></div>
-              <p>{import.meta.env.DEV ? 'Preview-only: manual reviews stay free. Test Pro adds repeatable, programmatic, and shared workflows.' : 'All workspace features are available after sign-in, with organization-scoped access.'}</p>
+              <p>All workspace features are available after sign-in, with organization-scoped access.</p>
             </div>
             <div className="plan-table">
               <div className="plan-column free-plan">
-                <div className="plan-column-head"><span className="eyebrow">{import.meta.env.DEV ? 'Free · $0' : 'Scan and review'}</span><strong>Investigate</strong><span>For individual review</span></div>
+                <div className="plan-column-head"><span className="eyebrow">Scan and review</span><strong>Investigate</strong><span>For individual review</span></div>
                 <ul>
                   <li>Unlimited manual MCP scans</li>
                   <li>Full scan and finding history</li>
@@ -104,16 +104,16 @@ export default function Landing() {
                 </ul>
               </div>
               <div className="plan-column pro-plan">
-                <div className="plan-column-head"><span className="eyebrow">{import.meta.env.DEV ? 'Test Pro · $99 USD / month' : 'Collaborate and automate'}</span><strong>Coordinate</strong><span>For team workflows</span></div>
+                <div className="plan-column-head"><span className="eyebrow">Collaborate and automate</span><strong>Coordinate</strong><span>For team workflows</span></div>
                 <ul>
-                  <li>{import.meta.env.DEV ? 'Everything in Free, including unlimited scans and full history' : 'Unlimited scans and history'}</li>
+                  <li>Unlimited scans and history</li>
                   <li>Programmatic scan API access</li>
                   <li>Automated scan scheduling</li>
                   <li>Up to 5 seats, including the owner</li>
                 </ul>
               </div>
             </div>
-             <p className="plan-footnote">Only the workspace owner manages billing, invitations, and API tokens. Free workspace scans and history remain available without payment details.</p>
+             <p className="plan-footnote">Only the workspace owner manages invitations and API tokens. No subscription or payment details are required.</p>
           </div>
         </section>
       </main>

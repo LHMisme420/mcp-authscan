@@ -1,10 +1,10 @@
 export type BillingMode = 'disabled' | 'test' | 'live';
 
-/** Live charging requires an explicit production-only opt-in. */
+/** Payments require explicit opt-in; live charging is production-only. */
 export function billingMode(env: NodeJS.ProcessEnv = process.env): BillingMode {
   const configured = env.VATA_BILLING_MODE;
   if (env.NODE_ENV === 'production') return configured === 'live' ? 'live' : 'disabled';
-  return configured === undefined || configured === 'test' ? 'test' : 'disabled';
+  return configured === 'test' ? 'test' : 'disabled';
 }
 
 export function billingLivemode() {

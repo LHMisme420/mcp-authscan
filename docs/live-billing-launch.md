@@ -9,8 +9,11 @@ organization ownership must not be moved, deleted, or reassigned.
 
 ## Defaults and safety
 
-- Preview uses the existing Stripe test connector.
-- Production billing is **disabled by default**.
+- Payments are **disabled by default in Preview and production** for the
+  payments-free release. Stripe can be detached without removing the retained
+  billing implementation or changing external subscriptions.
+- Restoring Preview test billing requires a sandbox connector and explicit
+  development `VATA_BILLING_MODE=test`.
 - Production only enters live mode with `VATA_BILLING_MODE=live`.
 - A live-mode connection in Preview, or a test-mode connection in live
   production, fails closed for paid actions; sign-in and free scans remain available.
@@ -25,8 +28,9 @@ organization ownership must not be moved, deleted, or reassigned.
 1. Verify the hosted test checkout and subscription lifecycle before accepting
    real customers. Unit tests alone do not prove Stripe-origin delivery.
 2. Connect/authorize the **live Stripe account through Replit Publishing**.
-   Keep Preview on the sandbox connection. Do not disconnect a healthy test
-   connector or mix connector authentication with manually entered API keys.
+   Restore Preview's sandbox connection if it was detached for the payments-free
+   release. Keep test and live authorization separate, and do not mix connector
+   authentication with manually entered API keys.
 3. Review the additive `migrations/live-billing.sql` and apply it to the billing
    database used by production. It creates only customer-ID mappings and signed
    event receipts. Subscription state remains owned by `stripe-replit-sync`.

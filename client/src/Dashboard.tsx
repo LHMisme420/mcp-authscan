@@ -8,6 +8,7 @@ type Account = {
   organization: { id: number | string; name: string };
   actorUserId: string;
   role?: 'owner' | 'member';
+  billing?: { mode?: 'disabled' | 'test' | 'live' };
   usage?: { used: number; limit: 5 | null; remaining: number | null; month: string; resetsAt: string };
   capabilities?: { programmaticApi: boolean; scheduling: boolean; teamSeats: number; historyDays: 7 | null };
 };
@@ -312,7 +313,7 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
             : <div className="panel-body"><div className="skeleton" /><div className="skeleton" /></div>}
         </section>}
         {account && <PlanAndUsage account={account} />}
-        {import.meta.env.DEV && account?.role === 'owner' && <TestCheckoutPanel />}
+        {import.meta.env.DEV && account?.billing?.mode === 'test' && account.role === 'owner' && <TestCheckoutPanel />}
         {scanError && <div className="scan-status error" role="alert">{scanError}</div>}
         {account && <AcceptTeamInvite onDone={() => { void loadAll(); setLocation('/user-portal'); }} />}
 

@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import BillingPanel from '../client/src/BillingPanel';
+import { PlanAndUsage } from '../client/src/PlanFeatures';
 import { api } from '../client/src/api';
 
 const originalApi = { ...api };
@@ -14,6 +15,18 @@ let portalCalls: number;
 let checkoutCalls: number;
 let refreshCalls: number;
 const globals = globalThis as any;
+
+test('payments-disabled workspace hides billing controls and does not request Stripe status', async () => {
+  let billingRequests = 0;
+  api.getBillingStatus = async () => { billingRequests++; return { ...status }; };
+  await act(async () => root.render(
+    <PlanAndUsage account={{ actorUserId: 'synthetic-owner', role: 'owner', billing: { mode: 'disabled' } }} />
+  ));
+  assert.match(document.body.textContent ?? '', /No subscription required/);
+  assert.doesNotMatch(document.body.textContent ?? '', /Stripe|checkout|upgrade|\$99/i);
+  assert.equal(billingRequests, 0);
+  assert.equal(checkoutCalls, 0);
+});
 
 beforeEach(() => {
   dom = new JSDOM('<div id="root"></div>', { url: 'https://vata.example.test/user-portal' });

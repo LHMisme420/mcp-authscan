@@ -2,8 +2,13 @@
 
 This imported project contains the `mcp-authscan` Python command-line scanner and a hybrid Node/Flask VATA dashboard. Scanner findings remain in SQLite; accounts and scheduling use PostgreSQL.
 
-Production billing is disabled **by default**. Preview has owner-only Stripe test
-checkout. Live billing preparation is implemented but not activated: see
+Payments are disabled **by default in Preview and production** for the current
+payments-free release. The project's Stripe connector must also be disconnected
+in Replit's Integrations UI to remove Publishing's live-account authorization
+requirement; disabling application billing alone does not remove that check.
+Billing code is retained for future use. Restoring Preview test checkout later
+requires a sandbox connector and explicit development `VATA_BILLING_MODE=test`.
+Live billing preparation is implemented but not activated: see
 [Live billing launch](docs/live-billing-launch.md). Production requires explicit
 `VATA_BILLING_MODE=live` before it accepts live-mode billing, and new checkout
 stays closed until a signed live catalog webhook arrives. The separate first-
@@ -16,11 +21,12 @@ controls and five-seat capacity remain.
 Historical account records are retained. Existing external Stripe subscriptions,
 if any, are not canceled or changed by this feature.
 
-Prepare the sandbox catalog with `npm run checkout:prepare`. This validates
+The following billing tools are retained for future use, not current startup.
+After restoring the sandbox connector, prepare its catalog with `npm run checkout:prepare`. This validates
 test-only credentials, creates a $99/month test price through Stripe, and syncs it
 into the SDK-managed Stripe schema. It never runs as a startup migration.
 `npm run checkout:verify` creates, checks and expires a synthetic test session.
-In Preview, owners see **Stripe sandbox · test only** in their dashboard.
+When Preview test billing is explicitly enabled, owners see **Stripe sandbox · test only** in their dashboard.
 Payment confirmation and subscription status are retrieved directly from Stripe,
 never trusted from a return URL. This standalone checkout does not grant paid
 status or entitlements.

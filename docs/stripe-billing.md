@@ -1,5 +1,9 @@
 # Stripe test billing
 
+Payments are currently disabled by default in Preview and production. This
+implementation is retained for future use. Reconnect the sandbox connector and
+explicitly set development `VATA_BILLING_MODE=test` before using these tools.
+
 ## Approved plans
 
 These plan and entitlement experiments are **Preview-only**. Production keeps

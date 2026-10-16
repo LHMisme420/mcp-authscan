@@ -12,7 +12,19 @@ being told this would charge for API access, scheduling, and team features while
 basic scans and full history remain free. This authorizes live billing preparation,
 not immediate activation, publication, or an agent-made real purchase. Live
 authorization, verified Stripe-origin delivery, and publish approval remain
-separate launch steps. Preview must continue using test payments.
+separate launch steps. If Preview payments are enabled, they must remain test-only.
+
+The owner subsequently chose **"Prepare the website to publish without Stripe
+payments"** after live connection installation failed. For this release, disable
+payments in Preview and production and detach the project's Stripe connection,
+while retaining the billing code and external Stripe records.
+
+**Why:** The owner approved a payments-free release to stop the live-installation
+failure from blocking publication.
+
+**How to apply:** Do not reactivate payments automatically or cancel external
+subscriptions. Restoring test or live billing requires separate approval and
+appropriate connector authorization.
 
 **Why:** Repeated live-authorization publishing failures led the owner to
 remove billing; they subsequently explicitly requested renewed Stripe work.
@@ -34,7 +46,8 @@ separately, even when production billing is disabled in the application.
 publishing” despite a healthy workspace test connection and disabled production
 billing. This pre-build check did not create a failed build-history entry.
 
-**How to apply:** Keep the working test connection intact. A test-mode API response
+**How to apply:** Keep a working test connection intact unless the owner explicitly
+approves detaching it, as they did for the payments-free release. A test-mode API response
 does not establish whether production authorization exists. Inspect the actual
 Publishing authorization state before asking the owner to repeat installation or
 changing application code.
