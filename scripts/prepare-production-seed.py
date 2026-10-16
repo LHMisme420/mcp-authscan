@@ -35,23 +35,34 @@ def main():
        max(created_at) AS latest_snapshot_at
 FROM public.vata_findings_backups
 WHERE namespace = 'production-findings';"""
-    sql = f"""-- VATA: explicitly approved EMPTY findings seed.
--- Run this entire file in the PRODUCTION Database SQL runner, not a workspace shell.
+    sql = f"""-- VATA: single-statement EMPTY findings seed for the PRODUCTION SQL runner.
 -- No account/ownership changes, schema creation, deletes or snapshot overwrites.
--- An existing writer causes a lock timeout; the transaction must not commit.
--- Re-running is a no-op if the namespace already has a snapshot.
-BEGIN;
-SET LOCAL lock_timeout = '5s';
-SET LOCAL statement_timeout = '30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vata-findings:production-findings', 0));
-INSERT INTO public.vata_findings_backups(namespace, sha256, payload)
-SELECT 'production-findings', '{checksum}', decode('{encoded}', 'base64')
-WHERE NOT EXISTS (
-    SELECT 1 FROM public.vata_findings_backups
-    WHERE namespace = 'production-findings'
-);
-COMMIT;
-{verification}
+-- Generation 0 is reserved for this seed. Normal identity generations start at 1,
+-- so even a concurrently committed snapshot cannot be superseded by an empty seed.
+WITH writer AS MATERIALIZED (
+    SELECT pg_try_advisory_xact_lock(
+        hashtextextended('vata-findings:production-findings', 0)
+    ) AS acquired
+), seeded AS (
+    INSERT INTO public.vata_findings_backups(namespace, generation, sha256, payload)
+    OVERRIDING SYSTEM VALUE
+    SELECT 'production-findings', 0, '{checksum}', decode('{encoded}', 'base64')
+    FROM writer
+    WHERE writer.acquired AND NOT EXISTS (
+        SELECT 1 FROM public.vata_findings_backups
+        WHERE namespace = 'production-findings'
+    )
+    ON CONFLICT (namespace, generation) DO NOTHING
+    RETURNING namespace
+)
+SELECT CASE
+    WHEN NOT (SELECT acquired FROM writer) THEN 'BLOCKED_WRITER_ACTIVE'
+    WHEN EXISTS (SELECT 1 FROM seeded) THEN 'SEEDED'
+    ELSE 'ALREADY_EXISTS'
+END AS result,
+'production-findings' AS namespace,
+(SELECT count(*) FROM public.vata_findings_backups
+ WHERE namespace = 'production-findings') + (SELECT count(*) FROM seeded) AS snapshot_count;
 """
     (output / "production-findings-seed.sql").write_text(sql)
     (output / "production-findings-verify.sql").write_text(verification + "\n")
@@ -70,7 +81,9 @@ textarea{{box-sizing:border-box;width:100%;height:160px;padding:12px;border:1px 
 #status{{min-height:24px;color:#185b49}}li{{margin:10px 0}}small{{color:#4f6258}}
 </style></head><body><main>
 <small>VATA · OPERATOR INSTRUCTIONS · NOT YET RUN IN PRODUCTION</small>
-<h1>Initialize the production findings snapshot once</h1>
+<h1>Single-statement production import</h1>
+<p class="notice"><strong>This replaces the old BEGIN/COMMIT script.</strong>
+There is now only one SQL statement. Replace all old editor text with this version.</p>
 <p>This import contains an empty SQLite snapshot. It does not contain credentials,
 findings, scan history, or account records.</p>
 <div class="meta"><strong>Namespace:</strong> <code>production-findings</code><br>
@@ -82,11 +95,14 @@ Do not publish until the production verification query reports a snapshot.</p>
 <h2>1. Run the import in Production</h2>
 <ol><li>In Replit, open <strong>Database</strong>, select the <strong>Production</strong>
 database, then open its SQL runner.</li>
-<li>Use <strong>Copy import SQL</strong> below. Paste the entire script into the SQL
-runner and run it as one script, not as separate statements.
+<li>Use <strong>Copy import SQL</strong> below. Replace all text in the SQL
+editor with the copied statement, then click the main green Run button.
+Do not add <code>BEGIN;</code> or <code>COMMIT;</code>.
 The download is an alternative if copying is unavailable.</li>
-<li>If it succeeds, run the separate verification query below. For a new namespace,
-expect <code>snapshot_count = 1</code>. Existing snapshots remain unchanged if the script is rerun.</li></ol>
+<li>For a new namespace, expect one result row with <code>result = SEEDED</code>
+and <code>snapshot_count = 1</code>.
+<code>ALREADY_EXISTS</code> means an existing snapshot was left untouched.
+Return either result to Agent for a production read-only check before publishing.</li></ol>
 <button id="copy">Copy import SQL</button><button id="download">Download SQL file</button>
 <p id="status" role="status" aria-live="polite"></p>
 <details><summary>Show import SQL / manual copy fallback</summary>
@@ -101,7 +117,8 @@ Startup restores an existing snapshot; it does not create a missing one.
 The empty snapshot deliberately does not carry over old local-only findings.
 PostgreSQL account ownership remains untouched.</p>
 <h2>If the import fails</h2>
-<ul><li><strong>Lock timeout:</strong> an existing instance may hold the findings writer lock.
+<ul><li><strong>BLOCKED_WRITER_ACTIVE:</strong> an existing instance holds the findings writer lock.
+No seed is inserted.
 Do not kill database sessions or disable the lock. Return the error to Agent.</li>
 <li><strong>Missing table or permission denied:</strong> stop and return the error.
 Do not add runtime schema creation or paste credentials into chat.</li>

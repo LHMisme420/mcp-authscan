@@ -19,14 +19,14 @@ content_type = "application/octet-stream"
 id = "jSr7KsoTZZUljnXzzmTSg"
 uri = "file://generated-artifacts/production-findings-seed-guide.html"
 type = "html"
-title = "Open this guide to copy the production import"
-description = "Click Copy import SQL, paste the complete script into your Production SQL editor, then click the green Run button. Opening the guide does not execute the import."
+title = "NEW — Single-statement production import"
+description = "Replaces the old BEGIN/COMMIT script. Copy import SQL, replace all text in the Production SQL editor, then click Run. Expect SEEDED and snapshot_count 1 for the fresh namespace."
 logical_id = "c1c825f1-3e7c-4e66-9cb9-5e14d1859904"
-content_hash = "sha256:51f1c6a0b0e154c0f624417fe29e372564c746759966036fa009c79595271343"
-size = 44547
-mtime_ms = 1792159383152
-storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/c1c825f1-3e7c-4e66-9cb9-5e14d1859904/ba417bf2-2741-46ef-9f27-cf4f013242ec"
-storage_version_token = "1792159444081614"
+content_hash = "sha256:10783f5544658952965d72869a1a553c51963382364ce7b34bfbe13872476f6d"
+size = 45137
+mtime_ms = 1792160213656
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/c1c825f1-3e7c-4e66-9cb9-5e14d1859904/e6d64084-48f8-49e5-9d09-f90803d0add3"
+storage_version_token = "1792160281155962"
 content_type = "text/html"
 
 [[outputs]]

@@ -17,3 +17,4 @@
 - [Interrupted validation](interrupted-validation.md) — completion results after a user interruption can describe an earlier code snapshot; compare timestamps before changing code.
 - [Recovery validation resources](recovery-validation-resources.md) — avoid concurrent scaled recovery runs; temporary disk quotas can fail writes even when df reports free space.
 - [Dependency runtime compatibility](dependency-runtime-compatibility.md) — preserve runtime and CommonJS compatibility when patching transitive dependencies.
+- [Production SQL console](production-sql-console.md) — use a single atomic operator import; never let an empty bootstrap outrank normal snapshots.
