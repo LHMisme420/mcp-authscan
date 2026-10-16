@@ -33,3 +33,9 @@ session or lock metadata. Zero replica locks are not evidence that stopping or
 pausing the published writer succeeded; require primary-side or runtime shutdown
 evidence instead. The Publishing UI exposes distinct Pause and Unpublish actions;
 do not assume Pause terminates compute merely because it blocks public access.
+
+The operator-confirmed Pause followed by another publish was tried and the
+replacement still failed on the existing writer lock. Do not repeat that
+sequence as a fix. Inspect the full stop/unpublish confirmation and its data
+and URL consequences before asking the operator to proceed; brief-downtime
+approval is not approval to delete the project or production database.
