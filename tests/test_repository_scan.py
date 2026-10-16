@@ -37,10 +37,10 @@ class RepositoryScanTests(unittest.TestCase):
             self.headers = {'Authorization': f'Bearer {create_access_token(identity="1")}'}
             self.other = {'Authorization': f'Bearer {create_access_token(identity="2")}'}
 
-    def process(self, findings=None, returncode=0, stdout=None):
+    def process(self, findings=None, returncode=0, stdout=None, stderr=''):
         findings = [] if findings is None else findings
         return subprocess.CompletedProcess([], returncode,
-            json.dumps({'count': len(findings), 'findings': findings}) if stdout is None else stdout, '')
+            json.dumps({'count': len(findings), 'findings': findings}) if stdout is None else stdout, stderr)
 
     def submit(self):
         return self.client.post('/api/scan', headers=self.headers, json={'target_url': TARGET})
@@ -91,6 +91,17 @@ class RepositoryScanTests(unittest.TestCase):
             self.assertFalse(Path(run.call_args.args[0][-1]).exists())
         self.assertEqual(self.client.get('/api/scans/mcp', headers=self.headers).json['scans'][0]['status'], 'failed')
         self.assertEqual(self.client.get('/api/findings', headers=self.headers).json['findings'], [])
+
+    def test_clone_failure_logs_exit_and_only_last_500_stderr_characters(self):
+        stderr = '  ' + ('prefix-not-in-log-' * 45) + ' fatal: synthetic network failure \n'
+        failed = self.process(returncode=128, stderr=stderr)
+        with patch('mcp_authscan.repository_scan.subprocess.run', return_value=failed), \
+                self.assertLogs('mcp_authscan.repository_scan', level='WARNING') as logs:
+            response = self.submit()
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(logs.records[0].getMessage(),
+                         f'git clone failed (exit 128): {stderr.strip()[-500:]}')
+        self.assertNotIn('synthetic network failure', response.get_data(as_text=True))
 
     def test_execution_failures_and_bad_results_are_not_clean(self):
         for result in (self.process(returncode=2), self.process(stdout='not-json'),

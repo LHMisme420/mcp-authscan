@@ -54,6 +54,9 @@ class RepositoryScanner:
                     capture_output=True, text=True, timeout=35, env=env,
                 )
                 if clone.returncode:
+                    logging.getLogger(__name__).warning(
+                        'git clone failed (exit %s): %s',
+                        clone.returncode, clone.stderr.strip()[-500:])
                     raise ScanError('Unable to clone the GitHub repository. Check that it is public and accessible.')
                 # The static scanner follows file symlinks, so remove symlinks
                 # supplied by the target before scanning a repository we do not trust.
