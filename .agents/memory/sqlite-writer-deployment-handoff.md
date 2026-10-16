@@ -22,3 +22,14 @@ that the previous revision has stopped. Never steal the lock, terminate database
 sessions, reseed, change namespaces, or revert to local-only storage to bypass
 the failure. An automatic handoff or direct PostgreSQL findings migration is a
 separate architecture change, not an implicit publishing fix.
+
+Do not use the production SQL runner's `pg_locks` count to certify writer release.
+
+**Why:** This runner connects to a read replica (`pg_is_in_recovery()` is true).
+Its advisory-lock view does not describe the live primary's writer sessions.
+
+**How to apply:** Check the connection's recovery status before interpreting
+session or lock metadata. Zero replica locks are not evidence that stopping or
+pausing the published writer succeeded; require primary-side or runtime shutdown
+evidence instead. The Publishing UI exposes distinct Pause and Unpublish actions;
+do not assume Pause terminates compute merely because it blocks public access.
