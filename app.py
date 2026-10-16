@@ -4,6 +4,7 @@ import sqlite3, os, uuid
 from pathlib import Path
 from contextlib import closing
 from datetime import timedelta
+from functools import wraps
 from mcp_authscan.scanner import MCPScanner, ScanError
 from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, scanner_path
 from mcp_authscan.tiers import reserve_scan
@@ -26,6 +27,30 @@ def init_db():
 
 
 init_db()
+
+
+def require_tier(*allowed_tiers):
+    """Verify the JWT and check the authenticated organization's stored tier."""
+    def decorator(view):
+        @wraps(view)
+        @jwt_required()
+        def decorated(*args, **kwargs):
+            try:
+                with closing(sqlite3.connect(
+                    Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=2,
+                )) as conn:
+                    organization = conn.execute(
+                        'SELECT subscription_tier FROM organizations WHERE id=?',
+                        (get_jwt_identity(),),
+                    ).fetchone()
+            except sqlite3.Error:
+                app.logger.exception('Unable to check workspace subscription tier.')
+                return jsonify(error='Workspace access could not be verified. Try again later.'), 503
+            if not organization or organization[0] not in allowed_tiers:
+                return jsonify(error=f"Feature requires one of these tiers: {', '.join(allowed_tiers)}"), 403
+            return view(*args, **kwargs)
+        return decorated
+    return decorator
 
 
 def database_ready():
@@ -113,7 +138,7 @@ def rows_for_org(query):
 
 
 @app.get('/api/findings')
-@jwt_required()
+@require_tier('free', 'pro', 'enterprise')
 def get_findings():
     return jsonify(findings=rows_for_org('''SELECT id,vector_type,severity,description,
         remediation,created_at,server_name AS server,rule,scan_id FROM findings
@@ -121,7 +146,7 @@ def get_findings():
 
 
 @app.post('/api/findings')
-@jwt_required()
+@require_tier('free', 'pro', 'enterprise')
 def post_findings():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -150,7 +175,7 @@ def compliance_report():
 
 
 @app.get('/api/threat-intelligence')
-@jwt_required()
+@require_tier('free', 'pro', 'enterprise')
 def threat_intelligence():
     with sqlite3.connect(DB_FILE) as conn:
         counts = dict(conn.execute('''SELECT UPPER(TRIM(severity)),COUNT(*) FROM findings
