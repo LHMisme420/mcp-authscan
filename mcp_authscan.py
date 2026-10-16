@@ -372,7 +372,7 @@ CRED_CONTEXT = re.compile(r"(admin|account|identity|password|credential|passwd|s
 # A2 noise filters: placeholder/example values and doctest/example lines are not real creds.
 CRED_PLACEHOLDER = re.compile(
     r"(\.\.\.|<[^>]+>|\$\{|your[-_ ]?|example|redacted|changeme|xxx+|placeholder|"
-    r"dummy|sample|test|doctest|foo|bar|jwt\.token\.here|token\.here|"
+    r"dummy|sample|test|fake|mock|stub|doctest|foo|bar|jwt\.token\.here|token\.here|"
     r"^[A-Z][A-Z0-9_]+$|-\d+\.\d+$)", re.I)
 
 def _cred_value(evidence):
@@ -384,11 +384,31 @@ def _cred_value(evidence):
 # (idempotent, first-boot) is not a finding. Require a startup trigger nearby.
 RESEED_TRIGGER = re.compile(r"on_?start|startup|on_?boot|every restart|on_event|lifespan|if __name__|OnInitialize", re.I)
 
+# Production Go code never imports "testing"; a non-_test.go file that does is a test helper.
+GO_TESTING_IMPORT = re.compile(r'^\s*(?:import\s+)?"testing"\s*$', re.M)
+
+def _cred_key(text, start):
+    """Full identifier the matched keyword ends, e.g. FlagPageToken for a 'Token =' match."""
+    i = start
+    while i > 0 and (text[i - 1].isalnum() or text[i - 1] == "_"):
+        i -= 1
+    return re.match(r"\w+", text[i:]).group(0)
+
 def rule_default_creds(path, text, F):
+    if str(path).endswith(".go") and GO_TESTING_IMPORT.search(text):
+        return
     for m in DEFAULT_CRED.finditer(text):
         ev = m.group(0)
         val = _cred_value(ev)
         line = linetext(text, m.start())
+        key = _cred_key(text, m.start())
+        # CLI flag / config-key names: FlagPageToken = "page-token" names a setting, it is not one.
+        # Separator required so a weak default like adminPassword = "password" still fires.
+        norm = re.sub(r"[-_.]", "", val).lower()
+        if val and re.search(r"[-_.]", val) and (
+                key.lower().startswith("flag")
+                or (len(key) > len(norm) and key.lower().endswith(norm))):
+            continue
         # skip obvious placeholders/examples and doctest/comment lines
         if val and CRED_PLACEHOLDER.search(val):
             continue
@@ -402,7 +422,7 @@ def rule_default_creds(path, text, F):
             continue
         if re.search(r"(#|//)\s*nosec\b", line, re.I):
             continue
-        if "nolint:gosec" in line.lower() or "not a credential" in line.lower():
+        if re.search(r"nolint:\s*gosec", line, re.I) or "not a credential" in line.lower():
             continue
         if val and val.lower().startswith("urn:"):
             continue

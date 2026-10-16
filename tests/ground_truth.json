@@ -284,6 +284,30 @@
                     "note": "benign tool text must not FP"
                 }
             ]
+        },
+        {
+            "name": "fixture-default-creds-not-secrets",
+            "path": "rule_corpus/default_creds_not_secrets",
+            "note": "A2 must stay silent on CLI flag names, Go test helpers (import \"testing\"), and fake/stub values",
+            "must_detect": [],
+            "must_not_detect": [
+                {
+                    "rule": "A2",
+                    "note": "FlagPageToken / test helper / FakePassword shapes seen in ory/hydra"
+                }
+            ]
+        },
+        {
+            "name": "fixture-default-creds-weak",
+            "path": "rule_corpus/default_creds_weak",
+            "note": "A2 must still fire on a real hardcoded secret after the false-positive filters",
+            "must_detect": [
+                {
+                    "rule": "A2",
+                    "match": "default_creds_weak/config.go:4",
+                    "note": "serviceSecret hardcoded"
+                }
+            ]
         }
     ]
 }
