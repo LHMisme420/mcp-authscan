@@ -205,7 +205,7 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
     const errorKey = failures.map(({ stage, status }) => `${stage}:${status}`).join('|');
     if (lastLoadError.current !== errorKey && lastLoadError.current !== 'session_expired') {
       trackEvent('dashboard_load_failed', { stage: failures[0].stage, status: failures[0].status });
-      console.error('Dashboard API load failed', failures.map(({ stage }) => ({ stage })));
+      console.error('Dashboard API load failed', failures.map(({ stage, status }) => ({ stage, status })));
       lastLoadError.current = errorKey;
     }
   }, [loadOne]);
@@ -338,6 +338,21 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
           {account && <div className="account-chip">Workspace · {account.role || 'owner'}</div>}
         </div>
 
+        <section className="panel report-export" aria-labelledby="compliance-export-title">
+          <div className="report-copy">
+            <span className="eyebrow">Printable report</span>
+            <h2 className="panel-title" id="compliance-export-title">Compliance summary</h2>
+            <p>Download this organization’s VATA score, severity counts, and recent findings.</p>
+            <p className="field-note">The VATA score is an indicator—not a SOC 2 certification or audit opinion.</p>
+          </div>
+          <div className="report-actions">
+            <button className="button secondary" type="button" onClick={() => void downloadComplianceReport()} disabled={reportBusy}>
+              {reportBusy ? 'Preparing PDF…' : 'Download PDF'}
+            </button>
+            {reportMessage && <p className={`report-status${reportError ? ' error' : ''}`} role={reportError ? 'alert' : 'status'}>{reportMessage}</p>}
+          </div>
+        </section>
+
         {!account && <section className="panel" aria-label="Account loading">
           {accountResource.error
             ? <ResourceError message={accountResource.error} onRetry={() => void loadAll()} />
@@ -360,21 +375,6 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
             ? <MetricLoading label="Compliance score" />
             : <Metric label="Compliance score" value={compliance.value ? `${compliance.value.compliance_score}%` : '—'} caption={compliance.value ? `${compliance.value.total_findings} findings included` : 'Not available'} tone="compliance" />}
         </section>
-
-        {account && <section className="panel report-export" aria-labelledby="compliance-export-title">
-          <div className="report-copy">
-            <span className="eyebrow">Printable report</span>
-            <h2 className="panel-title" id="compliance-export-title">Compliance summary</h2>
-            <p>Download this organization’s VATA score, severity counts, and recent findings.</p>
-            <p className="field-note">The VATA score is an indicator—not a SOC 2 certification or audit opinion.</p>
-          </div>
-          <div className="report-actions">
-            <button className="button secondary" type="button" onClick={() => void downloadComplianceReport()} disabled={reportBusy}>
-              {reportBusy ? 'Preparing PDF…' : 'Download PDF'}
-            </button>
-            {reportMessage && <p className={`report-status${reportError ? ' error' : ''}`} role={reportError ? 'alert' : 'status'}>{reportMessage}</p>}
-          </div>
-        </section>}
 
         <div className="dashboard-grid">
           <section className="panel">
