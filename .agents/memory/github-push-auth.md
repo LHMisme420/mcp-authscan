@@ -36,6 +36,14 @@ added.
 alternately treated the same source-control connection as active and unattached.
 
 **How to apply:** If the reconnect card cannot open, stop retrying connector
-attachment. Replit's documented recovery is **Account Settings → Git Providers
-→ GitHub → disconnect/reconnect**, not the generic Connected Services page.
-Then retry the Git push once. Never request a token in chat.
+attachment. Check the user's actual settings screen rather than repeating
+the documented Git Providers path when that entry is absent. The current
+account UI exposed GitHub through **Account Settings → Integrations**.
+The user successfully reconnected there, but the Git CLI still rejected
+credentials; a new authorization does not by itself establish Git transport
+access. Retry the push once after reconnecting, then report the unresolved
+failure rather than asking for repeated reconnects. Never request a token in chat.
+
+**Why:** The account settings screenshot had Integrations but no Git Providers.
+Reauthorization produced a new connection, while both old and new connection
+metadata reported active despite the rejected Git operation.
