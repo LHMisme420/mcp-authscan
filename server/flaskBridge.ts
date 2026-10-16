@@ -81,9 +81,6 @@ async function callScannerUnprotected(account: any, usage: any, scanning: boolea
     ...(method === 'POST' ? { body: JSON.stringify(body) } : {}),
     signal: AbortSignal.timeout(120000), redirect: 'error',
   });
-  if (response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() === 'application/pdf') {
-    return { status: response.status, pdf: Buffer.from(await response.arrayBuffer()) };
-  }
   return decodeScannerResponse(response);
 }
 

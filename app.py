@@ -181,7 +181,9 @@ def compliance_report():
 def compliance_pdf_report():
     org_id = get_jwt_identity()
     try:
-        with closing(sqlite3.connect(DB_FILE, timeout=15)) as conn:
+        with closing(sqlite3.connect(
+            Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=15,
+        )) as conn:
             conn.row_factory = sqlite3.Row
             organization = conn.execute(
                 'SELECT id,name FROM organizations WHERE id=?', (org_id,),
@@ -204,7 +206,11 @@ def compliance_pdf_report():
         app.logger.exception('Unable to load organization data for the compliance report.')
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
 
-    pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings)
+    try:
+        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings)
+    except Exception:
+        app.logger.exception('Unable to create the organization compliance report.')
+        return jsonify(error='The compliance report is temporarily unavailable.'), 503
     return send_file(
         BytesIO(pdf), mimetype='application/pdf', as_attachment=True,
         download_name='vata-compliance-summary.pdf', max_age=0,
