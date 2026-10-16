@@ -1,4 +1,5 @@
 - [Imported Python setup](imported-python-setup.md) — Nix dependency constraints and merge verification; importing or compiling Flask code does not verify server startup.
+- [Configuration and toolchains](configuration-toolchain-validity.md) — invalid Replit configuration can temporarily remove toolchain commands from the shell environment.
 - [Published startup evidence](published-startup-evidence.md) — use actual production bind logs, not preview success or the saved run command, to verify port fixes.
 - [Finding data environments](finding-data-environments.md) — a stale preview SQLite file does not prove published scan findings are missing.
 - [Findings durability approval](findings-durability-approval.md) — owner approved SQLite with PostgreSQL backups, not a migration; first cutover needs a verified live export.
