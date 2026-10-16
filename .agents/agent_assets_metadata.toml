@@ -28,3 +28,17 @@ mtime_ms = 1792159383152
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/c1c825f1-3e7c-4e66-9cb9-5e14d1859904/ba417bf2-2741-46ef-9f27-cf4f013242ec"
 storage_version_token = "1792159444081614"
 content_type = "text/html"
+
+[[outputs]]
+id = "Wvj9j3GOV-iVKQ3LBv2DR"
+uri = "file://generated-artifacts/open-seed-guide-help.png"
+type = "image"
+title = "Click the highlighted VATA guide"
+description = "The yellow outline marks the HTML guide in your right-hand Library. Open that document first; it contains Copy import SQL."
+logical_id = "a8c35b1e-00ff-42e0-800b-0e61d6fe85df"
+content_hash = "sha256:3a387ebcef4ff09f4ccf019af3009831d7682eea431c3a2c95d590d865be1639"
+size = 115822
+mtime_ms = 1792159510496
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/a8c35b1e-00ff-42e0-800b-0e61d6fe85df/441aa978-bd11-4121-9741-e258125857f1"
+storage_version_token = "1792159515280751"
+content_type = "image/png"
