@@ -1,0 +1,69 @@
+# mcp-authscan taint engine -- server-side template injection (CWE-1336 / CWE-94)
+#
+# Untrusted input used AS the template (not as template data). The sink focus is the
+# template-string argument, so render_template("page.html", name=user) -- user as
+# DATA, template fixed -- is correctly not flagged. Intra-function; HIGH, gates CI.
+rules:
+  - id: mcp-ssti-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Server-side template injection: untrusted input is used as the template
+      itself, not as template data (CWE-1336). Taint engine traced the path.
+    metadata:
+      rule: T5-SSTI
+      category: security
+      cwe: ["CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: request.get_json(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $TPL
+          - pattern-either:
+              - pattern: render_template_string($TPL, ...)
+              - pattern: flask.render_template_string($TPL, ...)
+              - pattern: jinja2.Template($TPL)
+              - pattern: Template($TPL)
+              - pattern: $ENV.from_string($TPL, ...)
+
+  - id: mcp-ssti-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Server-side template injection: untrusted input is used as the template
+      itself, not as template data (CWE-1336). Taint engine traced the path.
+    metadata:
+      rule: T5-SSTI
+      category: security
+      cwe: ["CWE-1336: Improper Neutralization of Special Elements Used in a Template Engine"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $TPL
+          - pattern-either:
+              - pattern: ejs.render($TPL, ...)
+              - pattern: pug.render($TPL, ...)
+              - pattern: pug.compile($TPL, ...)
+              - pattern: Handlebars.compile($TPL, ...)
+              - pattern: handlebars.compile($TPL, ...)
+              - pattern: nunjucks.renderString($TPL, ...)

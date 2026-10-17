@@ -70,6 +70,28 @@ class TaintEngineTest(unittest.TestCase):
         # string -- the focus-metavariable must leave this untouched.
         self.assertEqual(self._rules("sqli_safe.py"), set())
 
+    def test_ssti_fires(self):
+        self.assertIn("T5-SSTI", self._rules("ssti_vuln.py"))
+        self.assertIn("T5-SSTI", self._rules("ssti_vuln.ts"))
+
+    def test_template_as_data_is_silent(self):
+        # render_template("page.html", name=user): template fixed, user is data.
+        self.assertEqual(self._rules("ssti_safe.py"), set())
+
+    def test_eval_fires(self):
+        self.assertIn("T6-EVAL", self._rules("eval_vuln.py"))
+        self.assertIn("T6-EVAL", self._rules("eval_vuln.ts"))
+
+    def test_eval_of_literal_is_silent(self):
+        self.assertEqual(self._rules("eval_safe.py"), set())
+
+    def test_deserialization_fires(self):
+        self.assertIn("T7-DESER", self._rules("deser_vuln.py"))
+
+    def test_safe_loader_is_silent(self):
+        # yaml.safe_load is a distinct call from yaml.load -- must not be flagged.
+        self.assertEqual(self._rules("deser_safe.py"), set())
+
     def test_taint_findings_are_gating_detectors(self):
         # Every taint finding is a HIGH-confidence detector, not a review-list item.
         for f in self.findings:

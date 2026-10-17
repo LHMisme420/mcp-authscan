@@ -1,0 +1,73 @@
+# mcp-authscan taint engine -- unsafe deserialization (CWE-502)
+#
+# Untrusted input fed to a deserializer that can construct arbitrary objects / run
+# code (pickle, yaml.load without SafeLoader, marshal, node-serialize). The safe
+# variants (yaml.safe_load, JSON) are distinct calls and are not matched. Intra-
+# function; HIGH-confidence detectors that gate CI.
+rules:
+  - id: mcp-deser-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Unsafe deserialization: untrusted input is deserialized by a loader that can
+      instantiate arbitrary objects or run code (CWE-502). Use a safe loader
+      (yaml.safe_load, json). Taint engine traced the dataflow path.
+    metadata:
+      rule: T7-DESER
+      category: security
+      cwe: ["CWE-502: Deserialization of Untrusted Data"]
+      owasp: ["A08:2021 - Software and Data Integrity Failures"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+              - pattern: request.form.get(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: pickle.loads($X)
+              - pattern: pickle.load($X)
+              - pattern: cPickle.loads($X)
+              - pattern: _pickle.loads($X)
+              - pattern: marshal.loads($X)
+              - pattern: jsonpickle.decode($X, ...)
+              # Single-arg yaml.load defaults to the unsafe Full/Loader; the safe
+              # idiom is yaml.safe_load (a different call) or load(x, Loader=Safe...)
+              # with a Loader kwarg, so the bare one-arg form is what we flag.
+              - pattern: yaml.load($X)
+
+  - id: mcp-deser-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Unsafe deserialization: untrusted input is deserialized by a loader that can
+      instantiate arbitrary objects or run code (CWE-502). Taint engine traced the
+      dataflow path.
+    metadata:
+      rule: T7-DESER
+      category: security
+      cwe: ["CWE-502: Deserialization of Untrusted Data"]
+      owasp: ["A08:2021 - Software and Data Integrity Failures"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: unserialize($X)
+              - pattern: serialize.unserialize($X)
+              - pattern: nodeSerialize.unserialize($X)

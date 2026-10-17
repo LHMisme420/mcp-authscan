@@ -1,0 +1,69 @@
+# mcp-authscan taint engine -- code evaluation / dynamic execution (CWE-95)
+#
+# Untrusted input reaching a construct that executes it as code (eval, new Function,
+# vm, exec). There is no safe way to eval attacker input, so the detection is simply
+# a traced source->sink path. Intra-function; HIGH-confidence detectors that gate CI.
+rules:
+  - id: mcp-eval-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Code injection: untrusted input is executed as code (eval / Function / vm)
+      (CWE-95). Taint engine traced the dataflow path.
+    metadata:
+      rule: T6-EVAL
+      category: security
+      cwe: ["CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $C
+          - pattern-either:
+              - pattern: eval($C)
+              - pattern: Function($C)
+              - pattern: new Function($C)
+              - pattern: vm.runInNewContext($C, ...)
+              - pattern: vm.runInContext($C, ...)
+              - pattern: vm.runInThisContext($C, ...)
+              - pattern: vm.compileFunction($C, ...)
+
+  - id: mcp-eval-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Code injection: untrusted input is executed as code (eval / exec) (CWE-95).
+      Taint engine traced the dataflow path.
+    metadata:
+      rule: T6-EVAL
+      category: security
+      cwe: ["CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: request.get_json(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $C
+          - pattern-either:
+              - pattern: eval($C)
+              - pattern: eval($C, ...)
+              - pattern: exec($C)
+              - pattern: exec($C, ...)

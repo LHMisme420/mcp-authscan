@@ -10,11 +10,14 @@ aims to follow [Semantic Versioning](https://semver.org/).
 - **Taint-analysis engine (`--taint`)**: an optional dataflow tier built on
   Semgrep that reports a finding only when untrusted input provably reaches a
   dangerous sink with no sanitizer on the path — the determination the regex
-  rules can't make. Ships four detector classes for TypeScript/JavaScript,
+  rules can't make. Ships seven detector classes for TypeScript/JavaScript,
   Python, and Go: SSRF (`T1-SSRF`, CWE-918), OS command injection (`T2-CMDI`,
-  CWE-78), path traversal (`T3-PATH`, CWE-22), and SQL injection (`T4-SQLI`,
-  CWE-89; flags input built into the query string, leaves parameterized queries
-  alone). These are HIGH-confidence detectors and gate `--fail-on`. Install with
+  CWE-78), path traversal (`T3-PATH`, CWE-22), SQL injection (`T4-SQLI`, CWE-89),
+  server-side template injection (`T5-SSTI`, CWE-1336), code evaluation /
+  `eval` (`T6-EVAL`, CWE-95), and unsafe deserialization (`T7-DESER`, CWE-502).
+  Each leaves the safe idiom alone (parameterized queries, template data vs. a
+  user-controlled template, `yaml.safe_load`). These are HIGH-confidence
+  detectors and gate `--fail-on`. Install with
   `pip install 'mcp-authscan[taint]'`; `--taint` degrades to a clean skip when
   Semgrep is absent. Scope: OSS Semgrep taint is intra-function (cross-function
   and cross-file flows are the paid Semgrep Pro engine). The command-injection
