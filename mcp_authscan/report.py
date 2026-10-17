@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from .scanner import Check, RiskLevel
@@ -81,7 +81,7 @@ class SecurityReport:
     def __init__(self, checks: List[Check], target_url: str):
         self.checks = checks
         self.target_url = target_url
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def summary(self) -> dict:
         critical = len([c for c in self.checks if c.risk_level == RiskLevel.CRITICAL])
