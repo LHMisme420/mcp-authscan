@@ -18,10 +18,23 @@ published instance before starting its replacement. Obtain approval for a brief
 maintenance outage and use the documented publishing shutdown flow, then verify
 the replacement's readiness in production logs. Check the latest durable
 snapshot's checksum before the handoff. A maximum-machine setting is not proof
-that the previous revision has stopped. Never steal the lock, terminate database
-sessions, reseed, change namespaces, or revert to local-only storage to bypass
+ that the previous revision has stopped. Never steal the lock, reseed, change
+ namespaces, or revert to local-only storage to bypass
 the failure. An automatic handoff or direct PostgreSQL findings migration is a
 separate architecture change, not an implicit publishing fix.
+
+Require a single deployment instance and preserve the SQLite database and its
+WAL/journal files during recovery. A machine cap does not replace stopping the
+previous revision.
+
+**Why:** The owner explicitly requires single-writer recovery without local-only
+startup, deleted database files, reseeding, or namespace changes.
+
+**How to apply:** Configure the single-instance limit before the replacement.
+Only if the writer lock persists after a confirmed full stop, the owner authorizes
+terminating the lingering old gateway's backend on the production primary.
+Identify that exact lock-holding session first; never terminate unrelated
+sessions or infer primary lock ownership from the read replica.
 
 Do not use the production SQL runner's `pg_locks` count to certify writer release.
 
