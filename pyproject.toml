@@ -14,3 +14,11 @@ dependencies = ["requests>=2.28.0"]
 
 [project.urls]
 Homepage = "https://github.com/LHMisme420/mcp-authscan"
+
+[project.scripts]
+mcp-authscan = "mcp_authscan.cli:main"
+
+[tool.setuptools]
+# Ship only the scanner package; the repo root holds many unrelated dirs that
+# would otherwise break setuptools' flat-layout auto-discovery.
+packages = ["mcp_authscan"]

@@ -65,8 +65,8 @@ class SecurityReport:
         lines.extend(["=" * 80, "END REPORT", "=" * 80])
         return "\n".join(lines)
     
-    def json(self) -> str:
-        data = {
+    def to_dict(self) -> dict:
+        return {
             "summary": self.summary(),
             "checks": [{
                 "name": c.name,
@@ -77,4 +77,6 @@ class SecurityReport:
                 "remediation": c.remediation
             } for c in self.checks]
         }
-        return json.dumps(data, indent=2)
+
+    def json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)

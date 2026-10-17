@@ -66,6 +66,37 @@ python3 -m mcp_authscan.cli scan http://target:port --output report.json
 python3 -m mcp_authscan.cli scan http://target:port -H "X-Research: your-tag"
 ```
 
+After `pip install`, the `mcp-authscan` command is also on your PATH:
+
+```bash
+mcp-authscan scan http://target:port
+```
+
+### Fleet scanning (your own inventory)
+
+Scan many targets at once — pass several URLs, or a file (one URL per line,
+`#` comments allowed). Scans run concurrently and a single aggregated report is
+produced.
+
+```bash
+mcp-authscan scan https://a.internal https://b.internal --format json
+mcp-authscan scan --targets inventory.txt --concurrency 16 --format json -o fleet.json
+```
+
+### CI gating
+
+`--fail-on <severity>` sets the exit code so a scan can gate a pipeline. The
+process exits `1` if any finding is at or above the threshold, `2` if a target
+could not be scanned, else `0`.
+
+```bash
+# Fail the build only on CRITICAL (the default)
+mcp-authscan scan --targets inventory.txt --fail-on critical
+
+# Stricter: fail on HIGH or above; disable gating with --fail-on none
+mcp-authscan scan --targets inventory.txt --fail-on high
+```
+
 ## Checks
 
 1. **Endpoint Reachability** — Verify MCP endpoints respond
