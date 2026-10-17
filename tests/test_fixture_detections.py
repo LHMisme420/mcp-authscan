@@ -17,11 +17,16 @@ from mcp_authscan.cli import parse_headers
 from mcp_authscan.scanner import MCPScanner, RiskLevel
 
 
-# access_token is a SECRET_FIELD in cors.py, so this body reads as sensitive
-# user data -- the condition the CORS check needs alongside Origin reflection.
-SECRET_BODY = json.dumps(
-    {"user": {"email": "alice@example.com", "access_token": "sk-live-abc123xyz"}}
-).encode()
+# A JSON-RPC/MCP reply whose result carries sensitive data: the body is both
+# "looks like an MCP endpoint" (has "jsonrpc") AND sensitive (access_token is a
+# SECRET_FIELD in cors.py), so it drives the auth checks and the CORS check.
+JSONRPC_BODY = json.dumps({
+    "jsonrpc": "2.0", "id": 1,
+    "result": {"tools": [], "account": {
+        "email": "alice@example.com", "access_token": "sk-live-abc123xyz"}},
+}).encode()
+SSE_BODY = b"data: {\"jsonrpc\":\"2.0\"}\n\n"
+HTML_BODY = b"<!doctype html><html><head><title>App</title></head><body>app</body></html>"
 UNAUTH_BODY = b'{"error":"unauthorized"}'
 
 
@@ -37,32 +42,43 @@ def _make_handler(mode):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             if self.command != "HEAD":
-                self.wfile.write(body)
+                try:
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # client (e.g. the streamed SSE probe) closed early
 
         def _dispatch(self):
             origin = self.headers.get("Origin")
+            path = self.path.split("?", 1)[0]
+
             if mode == "secure":
                 # Everything requires auth -> 401. Negative control.
-                self._send(401, UNAUTH_BODY, {
-                    "Content-Type": "application/json",
-                    "WWW-Authenticate": "Bearer",
-                })
-            elif mode == "vuln-auth":
-                # Zero auth: 200 to anyone, including a bogus bearer token.
-                self._send(200, SECRET_BODY, {"Content-Type": "application/json"})
-            elif mode == "vuln-cors":
+                return self._send(401, UNAUTH_BODY, {
+                    "Content-Type": "application/json", "WWW-Authenticate": "Bearer"})
+
+            if mode == "spa-html":
+                # SPA/docs catch-all: 200 text/html for every path & method.
+                # This is NOT an MCP endpoint and must raise no findings.
+                return self._send(200, HTML_BODY, {"Content-Type": "text/html; charset=utf-8"})
+
+            if mode == "vuln-auth":
+                # Zero-auth MCP server: real SSE stream + JSON-RPC replies to all.
+                if path == "/sse":
+                    return self._send(200, SSE_BODY, {"Content-Type": "text/event-stream"})
+                return self._send(200, JSONRPC_BODY, {"Content-Type": "application/json"})
+
+            if mode == "vuln-cors":
                 # Only misbehave for the CORS probe (Origin present); plain auth
                 # probes (no Origin) get 401 so those checks stay clean.
                 if origin:
-                    self._send(200, SECRET_BODY, {
+                    return self._send(200, JSONRPC_BODY, {
                         "Content-Type": "application/json",
                         "Access-Control-Allow-Origin": origin,       # reflects any origin
                         "Access-Control-Allow-Credentials": "true",  # -> HIGH severity
                     })
-                else:
-                    self._send(401, UNAUTH_BODY, {"Content-Type": "application/json"})
-            else:  # pragma: no cover - guard against typos
-                self._send(404)
+                return self._send(401, UNAUTH_BODY, {"Content-Type": "application/json"})
+
+            return self._send(404)  # pragma: no cover
 
         do_GET = do_POST = do_HEAD = do_OPTIONS = _dispatch
 
@@ -197,6 +213,16 @@ class FixtureDetectionTests(unittest.TestCase):
             any(c.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH) for c in checks),
             "negative control must not raise CRITICAL/HIGH",
         )
+
+    def test_html_catch_all_is_not_a_finding(self):
+        # Regression: an SPA/docs server that returns 200 text/html for every
+        # path must NOT be flagged as a zero-auth MCP endpoint (previously the
+        # status-only heuristic raised a false CRITICAL on /sse here).
+        checks = self.scan("spa-html")
+        failed = [c for c in checks if not c.passed]
+        self.assertEqual(failed, [], f"HTML catch-all produced false findings: {failed}")
+        sse = _one(checks, "SSE Endpoint Authentication")
+        self.assertTrue(sse.passed, "200 text/html on /sse must not be a finding")
 
 
 if __name__ == "__main__":

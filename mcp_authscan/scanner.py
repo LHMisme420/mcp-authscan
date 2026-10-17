@@ -10,6 +10,31 @@ from .cors import probe_cors_requests
 class ScanError(Exception):
     """Raised when the scanner cannot perform a meaningful scan."""
 
+
+def _is_sse_endpoint(resp):
+    """A real SSE endpoint advertises text/event-stream, not HTML."""
+    return "text/event-stream" in resp.headers.get("Content-Type", "").lower()
+
+
+def _is_jsonrpc_endpoint(resp):
+    """Does the response look like a JSON-RPC / MCP reply rather than a web page?
+
+    A 200 that returns an HTML app shell (common for SPA dev servers and docs
+    sites that serve index.html for every path) is NOT an exposed MCP endpoint
+    and must not be flagged as a zero-auth finding.
+    """
+    ctype = resp.headers.get("Content-Type", "").lower()
+    if "text/html" in ctype:
+        return False
+    body = (resp.text or "")[:8192]
+    if "jsonrpc" in body.lower():
+        return True
+    try:
+        data = resp.json()
+    except ValueError:
+        return False
+    return isinstance(data, dict) and ("result" in data or "error" in data)
+
 class RiskLevel(Enum):
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
@@ -79,9 +104,17 @@ class MCPScanner:
     def _check_sse_auth(self):
         try:
             url = f"{self.target_url}/sse"
-            resp = self.session.get(url, timeout=self.timeout, headers={"Accept": "text/event-stream"})
-            passed = resp.status_code != 200
-            self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=f"Status: {resp.status_code}", remediation="Add authentication middleware to SSE endpoint"))
+            resp = self.session.get(url, timeout=self.timeout, headers={"Accept": "text/event-stream"}, stream=True)
+            is_sse = _is_sse_endpoint(resp)
+            resp.close()
+            # Only a finding if an actual SSE stream is served without auth.
+            # A 200 HTML page (SPA/docs catch-all) is not an MCP endpoint.
+            unauth = resp.status_code == 200 and is_sse
+            passed = not unauth
+            details = f"Status: {resp.status_code}"
+            if resp.status_code == 200 and not is_sse:
+                details += " (not an SSE stream; no event-stream content-type)"
+            self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication middleware to SSE endpoint"))
         except Exception as e:
             self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.INFO, passed=True, details=f"Endpoint unavailable", remediation="N/A"))
     
@@ -90,8 +123,13 @@ class MCPScanner:
             url = f"{self.target_url}/message"
             payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 1}
             resp = self.session.post(url, json=payload, timeout=self.timeout)
-            passed = resp.status_code != 200
-            self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=f"Status: {resp.status_code}", remediation="Add authentication to message endpoint"))
+            # A 200 only counts if the server actually answered as JSON-RPC/MCP.
+            unauth = resp.status_code == 200 and _is_jsonrpc_endpoint(resp)
+            passed = not unauth
+            details = f"Status: {resp.status_code}"
+            if resp.status_code == 200 and not unauth:
+                details += " (not a JSON-RPC/MCP response)"
+            self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to message endpoint"))
         except:
             self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
     
@@ -100,8 +138,12 @@ class MCPScanner:
             url = f"{self.target_url}/mcp"
             payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 1}
             resp = self.session.post(url, json=payload, timeout=self.timeout)
-            passed = resp.status_code != 200
-            self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=f"Status: {resp.status_code}", remediation="Add authentication to MCP endpoint"))
+            unauth = resp.status_code == 200 and _is_jsonrpc_endpoint(resp)
+            passed = not unauth
+            details = f"Status: {resp.status_code}"
+            if resp.status_code == 200 and not unauth:
+                details += " (not a JSON-RPC/MCP response)"
+            self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to MCP endpoint"))
         except:
             self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
     
@@ -132,7 +174,13 @@ class MCPScanner:
             url = f"{self.target_url}/message"
             payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 1}
             resp = self.session.post(url, json=payload, timeout=self.timeout, headers={"Authorization": "Bearer fake-token-12345"})
-            passed = resp.status_code != 200
-            self.checks.append(Check(name="Authorization Header Validation", description="Checks if fake tokens rejected", endpoint="/message", method="POST", risk_level=RiskLevel.HIGH if not passed else RiskLevel.INFO, passed=passed, details=f"Fake token status: {resp.status_code}", remediation="Validate auth token values"))
+            # The fake token is only "accepted" if the server actually served an
+            # MCP/JSON-RPC response to it, not merely returned some 200 page.
+            accepted = resp.status_code == 200 and _is_jsonrpc_endpoint(resp)
+            passed = not accepted
+            details = f"Fake token status: {resp.status_code}"
+            if resp.status_code == 200 and not accepted:
+                details += " (not a JSON-RPC/MCP response)"
+            self.checks.append(Check(name="Authorization Header Validation", description="Checks if fake tokens rejected", endpoint="/message", method="POST", risk_level=RiskLevel.HIGH if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Validate auth token values"))
         except:
             self.checks.append(Check(name="Authorization Header Validation", description="Checks if fake tokens rejected", endpoint="/message", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Could not test", remediation="N/A"))
