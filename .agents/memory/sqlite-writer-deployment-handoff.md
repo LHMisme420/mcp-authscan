@@ -18,8 +18,8 @@ published instance before starting its replacement. Obtain approval for a brief
 maintenance outage and use the documented publishing shutdown flow, then verify
 the replacement's readiness in production logs. Check the latest durable
 snapshot's checksum before the handoff. A maximum-machine setting is not proof
- that the previous revision has stopped. Never steal the lock, reseed, change
- namespaces, or revert to local-only storage to bypass
+that the previous revision has stopped. Never steal the lock, reseed, change
+namespaces, or revert to local-only storage to bypass
 the failure. An automatic handoff or direct PostgreSQL findings migration is a
 separate architecture change, not an implicit publishing fix.
 
@@ -46,6 +46,17 @@ session or lock metadata. Zero replica locks are not evidence that stopping or
 pausing the published writer succeeded; require primary-side or runtime shutdown
 evidence instead. The Publishing UI exposes distinct Pause and Unpublish actions;
 do not assume Pause terminates compute merely because it blocks public access.
+
+`getDeploymentInfo().isDeployed === true` also applies when Publishing shows
+Paused and Resume, with the saved domain retained. It does not establish that
+the old gateway is running or owns the current lock.
+
+**Why:** The owner showed an already-paused deployment whose pause predated the
+failed replacements, while the deployment-info callback still reported deployed.
+
+**How to apply:** Read the actual UI state instead of asking the owner to pause
+again. Identify the actual primary-side lock holder and seek runtime termination
+evidence; do not infer lock ownership from deployment-record existence.
 
 The operator-confirmed Pause followed by another publish was tried and the
 replacement still failed on the existing writer lock. Do not repeat that
