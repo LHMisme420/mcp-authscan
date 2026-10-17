@@ -11,7 +11,29 @@ async function request<T = any>(path: string, init: RequestInit = {}): Promise<T
   return data;
 }
 
+export async function getCompliancePdf(): Promise<Blob> {
+  const response = await fetch('/api/reports/pdf', {
+    credentials: 'include',
+    headers: { Accept: 'application/pdf' },
+  });
+  if (!response.ok) {
+    let message = `Unable to prepare the PDF report (${response.status}).`;
+    try {
+      const data = await response.json();
+      if (typeof data?.error === 'string') message = data.error;
+    } catch {
+      // Keep the safe status-based error if the service returns non-JSON data.
+    }
+    throw new Error(message);
+  }
+  if (response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/pdf') {
+    throw new Error('The server returned an invalid PDF report.');
+  }
+  return response.blob();
+}
+
 export const api = {
+  getCompliancePdf,
   getAccount: () => request('/api/account'),
   getFindings: () => request('/api/findings'),
   getThreatIntelligence: () => request('/api/threat-intelligence'),

@@ -158,6 +158,9 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
   const [scanBusy, setScanBusy] = useState(false);
   const [scanNotice, setScanNotice] = useState<{ text: string; critical: boolean } | null>(null);
   const [scanError, setScanError] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
+  const [reportError, setReportError] = useState(false);
   const hasTrackedDashboard = useRef(false);
   const lastLoadError = useRef<string | null>(null);
   const scanInFlight = useRef(false);
@@ -202,7 +205,7 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
     const errorKey = failures.map(({ stage, status }) => `${stage}:${status}`).join('|');
     if (lastLoadError.current !== errorKey && lastLoadError.current !== 'session_expired') {
       trackEvent('dashboard_load_failed', { stage: failures[0].stage, status: failures[0].status });
-      console.error('Dashboard API load failed', failures.map(({ stage }) => ({ stage })));
+      console.error('Dashboard API load failed', failures.map(({ stage, status }) => ({ stage, status })));
       lastLoadError.current = errorKey;
     }
   }, [loadOne]);
@@ -268,6 +271,35 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
     }
   }
 
+  async function downloadComplianceReport() {
+    if (reportBusy) return;
+    setReportBusy(true);
+    setReportMessage('');
+    setReportError(false);
+    trackEvent('compliance_pdf_download_started');
+    try {
+      const blob = await api.getCompliancePdf();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'vata-compliance-summary.pdf';
+      link.hidden = true;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setReportMessage('Your compliance PDF is ready.');
+      trackEvent('compliance_pdf_download_completed');
+    } catch (error) {
+      const message = getErrorMessage(error);
+      setReportError(true);
+      setReportMessage(message);
+      trackEvent('compliance_pdf_download_failed', { status: getHttpStatus(message) });
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
   const trend = stats.value?.trend_direction === 'increasing' || stats.value?.trend_direction === 'decreasing'
     ? stats.value.trend_direction : undefined;
   const historyDays = account?.capabilities?.historyDays ?? null;
@@ -305,6 +337,21 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
           </div>
           {account && <div className="account-chip">Workspace · {account.role || 'owner'}</div>}
         </div>
+
+        <section className="panel report-export" aria-labelledby="compliance-export-title">
+          <div className="report-copy">
+            <span className="eyebrow">Printable report</span>
+            <h2 className="panel-title" id="compliance-export-title">Compliance summary</h2>
+            <p>Download this organization’s VATA score, severity counts, and recent findings.</p>
+            <p className="field-note">The VATA score is an indicator—not a SOC 2 certification or audit opinion.</p>
+          </div>
+          <div className="report-actions">
+            <button className="button secondary" type="button" onClick={() => void downloadComplianceReport()} disabled={reportBusy}>
+              {reportBusy ? 'Preparing PDF…' : 'Download PDF'}
+            </button>
+            {reportMessage && <p className={`report-status${reportError ? ' error' : ''}`} role={reportError ? 'alert' : 'status'}>{reportMessage}</p>}
+          </div>
+        </section>
 
         {!account && <section className="panel" aria-label="Account loading">
           {accountResource.error

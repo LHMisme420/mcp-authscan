@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 import { accountFor } from './db';
 import { reserveScan, scanUsage, validateTarget } from './tiers';
@@ -51,6 +52,12 @@ export async function proxyScanner(req: any, res: any) {
   const usage = scanning ? await reserveScan(account.id) : await scanUsage(account.id);
   const result = await callScanner(account, usage, scanning,
     scanning ? '/api/scans/mcp' : req.originalUrl, req.method, req.body);
+  if (result.pdf) {
+    res.status(result.status).setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="vata-compliance-summary.pdf"');
+    res.send(result.pdf);
+    return;
+  }
   res.status(result.status).json(result.data);
 }
 
@@ -74,5 +81,14 @@ async function callScannerUnprotected(account: any, usage: any, scanning: boolea
     ...(method === 'POST' ? { body: JSON.stringify(body) } : {}),
     signal: AbortSignal.timeout(120000), redirect: 'error',
   });
+  return decodeScannerResponse(response);
+}
+
+export async function decodeScannerResponse(response: Response): Promise<
+  { status: number; data: unknown; pdf?: never } | { status: number; pdf: Buffer; data?: never }
+> {
+  if (response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() === 'application/pdf') {
+    return { status: response.status, pdf: Buffer.from(await response.arrayBuffer()) };
+  }
   return { status: response.status, data: await response.json() };
 }

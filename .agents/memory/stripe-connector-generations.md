@@ -17,6 +17,18 @@ project connector; do not claim that Publishing's authorization blocker is clear
 until that connection is actually detached. Preserve historical ownership records
 and do not cancel external subscriptions without separate authorization.
 
+## Tier checks are separate from payment authorization
+
+The owner approved correcting and applying tier-based access checks to existing
+endpoints. This does not authorize reconnecting Stripe or activating payments,
+adding missing premium features, scan quotas, or history restrictions.
+
+**Why:** The approval was specifically for adapting the attached tier-check
+script to the existing app, after being told it would not reconnect Stripe.
+
+**How to apply:** Treat tier labels and endpoint access separately from billing.
+Keep payments disconnected unless the owner explicitly approves restoring them.
+
 ## Superseded historical approvals
 
 The owner previously said: “remove the billing and stripe from it period. its creating issues”.

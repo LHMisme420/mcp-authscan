@@ -13,6 +13,7 @@
 - [Stripe billing scope](stripe-connector-generations.md) — owner requested complete Stripe removal; prior billing approvals are superseded.
 - [Stripe proxy compatibility](stripe-proxy-compatibility.md) — current connector is proxy-authenticated; full backfill must not enumerate historical accounts' customers.
 - [Webhook reconciliation](stripe-webhook-reconciliation.md) — refetch canonical subscription state; scope signing secrets and registration to the exact callback.
+- [Compliance report claims](compliance-report-policy.md) — describe the VATA severity score as an indicator, never as a SOC 2 certification or audit opinion.
 - [Auth readiness](auth-readiness.md) — brief snapshots can precede Clerk rendering; verify form readiness before diagnosing an authentication failure.
 - [Interrupted validation](interrupted-validation.md) — completion results after a user interruption can describe an earlier code snapshot; compare timestamps before changing code.
 - [Recovery validation resources](recovery-validation-resources.md) — avoid concurrent scaled recovery runs; temporary disk quotas can fail writes even when df reports free space.

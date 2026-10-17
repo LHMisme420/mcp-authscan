@@ -64,7 +64,7 @@ app.use('/api', tierRoutes);
 app.post('/api/scan', async (req: any, res) => {
   await proxyScanner(req, res);
 });
-for (const route of ['/api/test', '/api/findings', '/api/threat-intelligence', '/api/reports/compliance', '/api/scans/mcp']) {
+for (const route of ['/api/test', '/api/findings', '/api/threat-intelligence', '/api/reports/compliance', '/api/reports/pdf', '/api/scans/mcp']) {
   app.get(route, proxyScanner);
 }
 app.post('/api/scans/mcp', proxyScanner);

@@ -1,13 +1,16 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_jwt, verify_jwt_in_request
 import sqlite3, os, uuid
+from io import BytesIO
 from pathlib import Path
 from contextlib import closing
 from datetime import timedelta
+from functools import wraps
 from mcp_authscan.scanner import MCPScanner, ScanError
 from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, scanner_path
 from mcp_authscan.tiers import reserve_scan
 from mcp_authscan.findings_schema import initialize_database
+from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET') or os.getenv('SESSION_SECRET')
@@ -26,6 +29,30 @@ def init_db():
 
 
 init_db()
+
+
+def require_tier(*allowed_tiers):
+    """Verify the JWT and check the authenticated organization's stored tier."""
+    def decorator(view):
+        @wraps(view)
+        @jwt_required()
+        def decorated(*args, **kwargs):
+            try:
+                with closing(sqlite3.connect(
+                    Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=2,
+                )) as conn:
+                    organization = conn.execute(
+                        'SELECT subscription_tier FROM organizations WHERE id=?',
+                        (get_jwt_identity(),),
+                    ).fetchone()
+            except sqlite3.Error:
+                app.logger.exception('Unable to check workspace subscription tier.')
+                return jsonify(error='Workspace access could not be verified. Try again later.'), 503
+            if not organization or organization[0] not in allowed_tiers:
+                return jsonify(error=f"Feature requires one of these tiers: {', '.join(allowed_tiers)}"), 403
+            return view(*args, **kwargs)
+        return decorated
+    return decorator
 
 
 def database_ready():
@@ -113,7 +140,7 @@ def rows_for_org(query):
 
 
 @app.get('/api/findings')
-@jwt_required()
+@require_tier('free', 'pro', 'enterprise')
 def get_findings():
     return jsonify(findings=rows_for_org('''SELECT id,vector_type,severity,description,
         remediation,created_at,server_name AS server,rule,scan_id FROM findings
@@ -121,7 +148,7 @@ def get_findings():
 
 
 @app.post('/api/findings')
-@jwt_required()
+@require_tier('free', 'pro', 'enterprise')
 def post_findings():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -149,8 +176,49 @@ def compliance_report():
         return jsonify(organization_summary(conn, get_jwt_identity()))
 
 
-@app.get('/api/threat-intelligence')
+@app.get('/api/reports/pdf')
 @jwt_required()
+def compliance_pdf_report():
+    org_id = get_jwt_identity()
+    try:
+        with closing(sqlite3.connect(
+            Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=15,
+        )) as conn:
+            conn.row_factory = sqlite3.Row
+            organization = conn.execute(
+                'SELECT id,name FROM organizations WHERE id=?', (org_id,),
+            ).fetchone()
+            if not organization:
+                return jsonify(error='Workspace not found.'), 404
+            summary = organization_summary(conn, org_id)
+            severity_counts = dict(conn.execute(
+                '''SELECT UPPER(TRIM(COALESCE(severity,''))),COUNT(*) FROM findings
+                   WHERE org_id=? GROUP BY UPPER(TRIM(COALESCE(severity,'')))''',
+                (org_id,),
+            ))
+            findings = [dict(row) for row in conn.execute(
+                '''SELECT server_name,rule,vector_type,severity,description,remediation,created_at
+                   FROM findings WHERE org_id=?
+                   ORDER BY created_at DESC,id DESC LIMIT ?''',
+                (org_id, MAX_REPORTED_FINDINGS),
+            )]
+    except sqlite3.Error:
+        app.logger.exception('Unable to load organization data for the compliance report.')
+        return jsonify(error='The compliance report is temporarily unavailable.'), 503
+
+    try:
+        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings)
+    except Exception:
+        app.logger.exception('Unable to create the organization compliance report.')
+        return jsonify(error='The compliance report is temporarily unavailable.'), 503
+    return send_file(
+        BytesIO(pdf), mimetype='application/pdf', as_attachment=True,
+        download_name='vata-compliance-summary.pdf', max_age=0,
+    )
+
+
+@app.get('/api/threat-intelligence')
+@require_tier('free', 'pro', 'enterprise')
 def threat_intelligence():
     with sqlite3.connect(DB_FILE) as conn:
         counts = dict(conn.execute('''SELECT UPPER(TRIM(severity)),COUNT(*) FROM findings
