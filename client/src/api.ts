@@ -39,8 +39,8 @@ export const api = {
   getThreatIntelligence: () => request('/api/threat-intelligence'),
   getCompliance: () => request('/api/reports/compliance'),
   getScans: () => request('/api/scans/mcp'),
-  scanTarget: (target_url: string) => request('/api/scans/mcp', {
-    method: 'POST', body: JSON.stringify({ target_url }),
+  scanTarget: (target_url: string, authorized: boolean) => request('/api/scans/mcp', {
+    method: 'POST', body: JSON.stringify({ target_url, authorized }),
   }),
   getSchedules: () => request('/api/schedule-scan'),
   createSchedule: (data: { target_url: string; frequency: string; run_at?: string }) =>

@@ -37,7 +37,7 @@ class WorkspaceAccessTests(unittest.TestCase):
 
     def scan(self):
         return self.client.post('/api/scans/mcp', headers=self.headers,
-                                json={'target_url': 'https://fixture.example.test'})
+                                json={'target_url': 'https://fixture.example.test', 'authorized': True})
 
     def test_more_than_five_scans_without_a_subscription(self):
         for _ in range(8):

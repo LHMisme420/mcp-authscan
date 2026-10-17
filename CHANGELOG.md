@@ -7,6 +7,11 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Hosted app: a per-scan **authorization attestation**. The `/api/scan(s/mcp)`
+  endpoint now requires `authorized: true` and records the attestation to a
+  `scan_authorizations` audit table; the dashboard adds a required "I'm
+  authorized to test this target" checkbox. Prevents the hosted scanner from
+  being used against systems the user doesn't own.
 - Opt-in RCE-precondition checks (`--checks all`): unauthenticated MCP config
   endpoint (CRITICAL) and missing Host/Origin validation / DNS-rebinding (HIGH).
 - Fleet scanning: multiple target URLs or `--targets FILE`, scanned concurrently

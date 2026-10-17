@@ -43,7 +43,7 @@ class RepositoryScanTests(unittest.TestCase):
             json.dumps({'count': len(findings), 'findings': findings}) if stdout is None else stdout, stderr)
 
     def submit(self):
-        return self.client.post('/api/scan', headers=self.headers, json={'target_url': TARGET})
+        return self.client.post('/api/scan', headers=self.headers, json={'target_url': TARGET, 'authorized': True})
 
     def test_json_findings_are_saved_with_real_severities_and_tenant_scope(self):
         findings = [dict(rule=f'Rule-{severity}', title=f'{severity} fixture', severity=severity,
@@ -168,7 +168,7 @@ class RepositoryScanTests(unittest.TestCase):
 
     def test_unauthenticated_requests_cannot_scan_or_discover_paths(self):
         with patch('mcp_authscan.repository_scan.subprocess.run') as run:
-            self.assertEqual(self.client.post('/api/scan', json={'target_url': TARGET}).status_code, 401)
+            self.assertEqual(self.client.post('/api/scan', json={'target_url': TARGET, 'authorized': True}).status_code, 401)
             self.assertEqual(self.client.get('/api/test').status_code, 401)
             run.assert_not_called()
         diagnostics = self.client.get('/api/test', headers=self.headers)

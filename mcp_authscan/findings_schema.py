@@ -35,3 +35,8 @@ def initialize_database(db_file):
             findings_count INTEGER NOT NULL DEFAULT 0, critical_count INTEGER NOT NULL DEFAULT 0,
             high_count INTEGER NOT NULL DEFAULT 0, compliance_score INTEGER, error TEXT,
             started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMP)''')
+        # Audit trail: each row records a user's attestation that they are
+        # authorized to scan a given target (see the /api/scans/mcp gate).
+        conn.execute('''CREATE TABLE IF NOT EXISTS scan_authorizations (
+            id INTEGER PRIMARY KEY, org_id TEXT, target TEXT,
+            attested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
