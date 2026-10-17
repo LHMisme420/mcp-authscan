@@ -85,6 +85,32 @@ def _make_handler(mode):
     return Handler
 
 
+class _MCPRealHandler(BaseHTTPRequestHandler):
+    """Responds to any POST with a valid MCP initialize result."""
+
+    def log_message(self, *args):
+        pass
+
+    def _dispatch(self):
+        body = json.dumps({
+            "jsonrpc": "2.0", "id": 1,
+            "result": {"protocolVersion": "2025-06-18",
+                       "serverInfo": {"name": "fixture-mcp", "version": "9.9"},
+                       "capabilities": {}},
+        }).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+    do_GET = do_POST = do_HEAD = _dispatch
+
+
 class FixtureServer:
     """Threaded loopback server bound to an ephemeral port."""
 
@@ -213,6 +239,28 @@ class FixtureDetectionTests(unittest.TestCase):
             any(c.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH) for c in checks),
             "negative control must not raise CRITICAL/HIGH",
         )
+
+    def test_mcp_handshake_confirms_real_server(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), _MCPRealHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            host, port = server.server_address[:2]
+            checks = MCPScanner(f"http://{host}:{port}", timeout=5).scan()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+        handshake = _one(checks, "MCP Protocol Handshake")
+        self.assertTrue(handshake.passed)
+        self.assertIn("Confirmed MCP server: fixture-mcp 9.9", handshake.details)
+
+    def test_mcp_handshake_not_confirmed_on_non_mcp(self):
+        # The locked/secure fixture answers 401, so the handshake cannot confirm.
+        checks = self.scan("secure")
+        handshake = _one(checks, "MCP Protocol Handshake")
+        self.assertTrue(handshake.passed)  # informational, never a finding
+        self.assertIn("not confirmed", handshake.details)
 
     def test_html_catch_all_is_not_a_finding(self):
         # Regression: an SPA/docs server that returns 200 text/html for every

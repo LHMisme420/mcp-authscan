@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import List
@@ -35,6 +36,29 @@ def _is_jsonrpc_endpoint(resp):
     except ValueError:
         return False
     return isinstance(data, dict) and ("result" in data or "error" in data)
+
+
+def _parse_initialize_result(resp):
+    """Return an MCP `initialize` result dict if the response is a valid
+    initialize reply, else None. Handles plain JSON and SSE-framed JSON.
+    """
+    if resp.status_code != 200:
+        return None
+    text = (resp.text or "")[:16384]
+    candidates = [text]
+    if "text/event-stream" in resp.headers.get("Content-Type", "").lower():
+        candidates += [ln[5:].strip() for ln in text.splitlines() if ln.startswith("data:")]
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except ValueError:
+            continue
+        result = data.get("result") if isinstance(data, dict) else None
+        if isinstance(result, dict) and (
+            "protocolVersion" in result or "serverInfo" in result or "capabilities" in result
+        ):
+            return result
+    return None
 
 class RiskLevel(Enum):
     CRITICAL = "CRITICAL"
@@ -78,6 +102,7 @@ class MCPScanner:
         self.checks = []
         if not self._check_endpoint_reachability():
             raise ScanError(f"Unable to reach any MCP endpoint at {self.target_url}.")
+        self._check_mcp_handshake()
         self._check_sse_auth()
         self._check_message_auth()
         self._check_mcp_endpoint_auth()
@@ -86,6 +111,43 @@ class MCPScanner:
         if self.checks_profile == "all":
             self._check_rce_preconditions()
         return self.checks
+
+    def _check_mcp_handshake(self):
+        # Non-gating INFO check: confirm the target actually speaks MCP via an
+        # `initialize` handshake, and surface its serverInfo/protocol. This adds
+        # context for interpreting the other findings; it never flips pass/fail.
+        payload = {
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                       "clientInfo": {"name": "mcp-authscan", "version": "1.0"}},
+        }
+        for endpoint in ("/mcp", "/message"):
+            try:
+                resp = self.session.post(
+                    f"{self.target_url}{endpoint}", json=payload, timeout=self.timeout,
+                    headers={"Accept": "application/json, text/event-stream"})
+            except requests.RequestException:
+                continue
+            result = _parse_initialize_result(resp)
+            if result is not None:
+                server = result.get("serverInfo") or {}
+                details = (f"Confirmed MCP server: {server.get('name', 'unknown')} "
+                           f"{server.get('version', '?')} "
+                           f"(protocol {result.get('protocolVersion', '?')})")
+                self.checks.append(Check(
+                    name="MCP Protocol Handshake",
+                    description="Confirms the target speaks MCP via an initialize handshake",
+                    endpoint=endpoint, method="POST", risk_level=RiskLevel.INFO,
+                    passed=True, details=details, remediation="N/A"))
+                return True
+        self.checks.append(Check(
+            name="MCP Protocol Handshake",
+            description="Confirms the target speaks MCP via an initialize handshake",
+            endpoint="/mcp", method="POST", risk_level=RiskLevel.INFO, passed=True,
+            details="MCP initialize handshake not confirmed (target may not be an MCP "
+                    "server, or the endpoint requires authentication)",
+            remediation="Confirm the endpoint speaks MCP before interpreting other findings"))
+        return False
 
     def _check_rce_preconditions(self):
         # Opt-in RCE-precondition checks (unauth config endpoint, DNS rebinding).
