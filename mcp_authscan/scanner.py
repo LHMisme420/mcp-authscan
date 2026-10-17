@@ -54,8 +54,9 @@ class Check:
     remediation: str
 
 class MCPScanner:
-    def __init__(self, target_url: str, timeout: int = 5, headers=None):
+    def __init__(self, target_url: str, timeout: int = 5, headers=None, checks: str = "default"):
         self.target_url = target_url.rstrip('/')
+        self.checks_profile = checks
         parsed_url = urlparse(self.target_url)
         if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname:
             raise ValueError("Target must be an absolute HTTP or HTTPS URL.")
@@ -81,7 +82,16 @@ class MCPScanner:
         self._check_mcp_endpoint_auth()
         self._check_cors()
         self._check_auth_validation()
+        if self.checks_profile == "all":
+            self._check_rce_preconditions()
         return self.checks
+
+    def _check_rce_preconditions(self):
+        # Opt-in RCE-precondition checks (unauth config endpoint, DNS rebinding).
+        # Imported lazily to avoid a circular import with rce_checks.
+        from .rce_checks import check_unauth_mcp_config, check_dns_rebinding
+        self.checks.append(check_unauth_mcp_config(self.target_url, self.timeout, self.session))
+        self.checks.append(check_dns_rebinding(self.target_url, self.timeout, self.session))
     
     def _check_endpoint_reachability(self):
         endpoints = ['/sse', '/message', '/mcp', '/tools/list']

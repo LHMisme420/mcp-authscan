@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Safe detector for an UNAUTHENTICATED MCP config / registration endpoint.
+"""Standalone CLI for the MCP RCE-precondition detectors.
 
-Flags the OX Security "unauthenticated config interface" precondition WITHOUT
-exploiting it. It never registers a server and never submits a command to run:
+The detection logic lives in the installed package (``mcp_authscan.rce_checks``)
+so the main scanner can reuse it via ``--checks all``; this script is the
+local-research CLI around the same functions, printing findings as JSON.
 
-  * Signal A -- it GETs common config/registry listing paths and flags one that
-    returns an MCP server registry without authentication.
-  * Signal B -- it POSTs an empty/malformed body to common registration paths;
-    a *validation* error (HTTP 400) means the endpoint processed an
-    unauthenticated request (auth not enforced), whereas 401/403 means it did
-    not. The empty body guarantees nothing is registered or executed.
+It runs two safe checks and never exploits anything: it does not register an MCP
+server, submit a command to run, or make tool calls.
 
 AUTHORIZATION: run this only against a server you operate or are explicitly
 authorized to test (your own instance, or an in-scope bug-bounty asset whose
@@ -18,110 +15,10 @@ policy permits automated testing). Reachability is not permission.
 import argparse
 import json
 
-import requests
-
-LISTING_PATHS = ("/mcp/servers", "/config/mcp", "/api/mcp/servers", "/v1/mcp/servers")
-REGISTER_PATHS = ("/mcp/servers", "/api/mcp/servers", "/v1/mcp/servers")
-REGISTRY_MARKERS = ("servers", "mcpservers", "command", "stdio")
-
-
-def _looks_like_registry(text):
-    low = text[:8192].lower()
-    if not any(marker in low for marker in REGISTRY_MARKERS):
-        return False
-    try:
-        return isinstance(json.loads(text), (dict, list))
-    except ValueError:
-        return False
-
-
-def detect_unauth_mcp_config(base_url, timeout=5, session=None):
-    """Return a finding dict if an unauthenticated config endpoint is found, else None."""
-    http = session or requests
-    base = base_url.rstrip("/")
-    evidence = []
-
-    for path in LISTING_PATHS:
-        try:
-            resp = http.get(f"{base}{path}", timeout=timeout)
-        except requests.RequestException:
-            continue
-        if resp.status_code == 200 and _looks_like_registry(resp.text or ""):
-            evidence.append(f"GET {path} -> 200 exposes MCP registry without auth")
-
-    for path in REGISTER_PATHS:
-        try:
-            resp = http.post(f"{base}{path}", json={}, timeout=timeout)
-        except requests.RequestException:
-            continue
-        # Empty body: a real auth gate answers 401/403 BEFORE validating input.
-        if resp.status_code == 400:
-            evidence.append(f"POST {path} -> 400 (processed unauthenticated request; auth not enforced)")
-
-    if not evidence:
-        return None
-    return {
-        "severity": "CRITICAL",
-        "issue": "Unauthenticated MCP configuration/registration endpoint",
-        "impact": "Class of OX Security config->STDIO-spawn RCE "
-                  "(e.g. LiteLLM CVE-2026-30623). An unauthenticated registration "
-                  "endpoint can spawn an attacker-supplied STDIO command.",
-        "evidence": evidence,
-        "remediation": "Require authentication on all MCP-config endpoints and "
-                       "restrict registrable launchers to an allowlist.",
-        "note": "Detection only -- no server was registered and no command was executed.",
-    }
-
-
-REBIND_PATHS = ("/mcp", "/sse", "/mcp/servers", "/")
-
-
-def detect_dns_rebinding_precondition(base_url, timeout=5, session=None):
-    """Detect missing Host/Origin validation -- the DNS-rebinding precondition
-    (e.g. MCP Java SDK CVE-2026-35568) -- WITHOUT exploiting it.
-
-    A browser can be tricked into resolving an attacker domain to 127.0.0.1 (DNS
-    rebinding) and reaching a local/private MCP server. The server's defense is
-    to pin Host/Origin to known values. This probe sends a foreign Host + Origin
-    to endpoints that already respond on the real Host; if the server still
-    processes the request (instead of rejecting with 400/403/421), it does not
-    pin them. It makes no tool calls and changes no state.
-    """
-    http = session or requests
-    base = base_url.rstrip("/")
-    foreign_host, foreign_origin = "attacker.example", "https://evil.example"
-    evidence = []
-    for path in REBIND_PATHS:
-        url = f"{base}{path}"
-        try:
-            baseline = http.get(url, timeout=timeout)
-            probe = http.get(url, timeout=timeout,
-                             headers={"Host": foreign_host, "Origin": foreign_origin})
-        except requests.RequestException:
-            continue
-        if baseline.status_code >= 400:
-            continue  # only consider endpoints that actually serve on the real Host
-        if probe.status_code in (400, 403, 421):
-            continue  # server pinned Host/Origin here -> not vulnerable
-        if probe.status_code == baseline.status_code:
-            note = f"{path}: foreign Host accepted (HTTP {probe.status_code})"
-            if probe.headers.get("Access-Control-Allow-Origin") in ("*", foreign_origin):
-                note += "; foreign Origin reflected in Access-Control-Allow-Origin"
-            evidence.append(note)
-    if not evidence:
-        return None
-    return {
-        "severity": "HIGH",
-        "issue": "Missing Host/Origin validation (DNS-rebinding precondition)",
-        "impact": "DNS-rebinding family (e.g. MCP Java SDK CVE-2026-35568): a "
-                  "rebound browser can reach this local/private MCP server and "
-                  "make tool calls because Host/Origin are not pinned.",
-        "evidence": evidence,
-        "remediation": "Validate Host and Origin against an explicit allowlist "
-                       "(127.0.0.1/localhost and known hostnames); reject others "
-                       "with 403. Bind to loopback where external access is not needed.",
-        "note": "Detection only -- no tool calls were made and no state changed.",
-    }
+from mcp_authscan.rce_checks import (
+    detect_dns_rebinding_precondition,
+    detect_unauth_mcp_config,
+)
 
 
 def main():

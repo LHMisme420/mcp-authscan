@@ -72,10 +72,11 @@ def compute_exit_code(results, fail_on):
     return EXIT_OK
 
 
-def scan_one(url, timeout, headers):
+def scan_one(url, timeout, headers, checks_profile="default"):
     """Scan a single target; never raises -- returns a result dict."""
     try:
-        checks = MCPScanner(url, timeout=timeout, headers=headers).scan()
+        checks = MCPScanner(url, timeout=timeout, headers=headers,
+                            checks=checks_profile).scan()
         return {"target": url, "status": "ok", "checks": checks,
                 "report": SecurityReport(checks, url)}
     except Exception as exc:  # noqa: BLE001 - one bad target must not abort the fleet
@@ -140,6 +141,9 @@ def main():
     scan_parser.add_argument("--output", "-o")
     scan_parser.add_argument("--fail-on", choices=list(SEVERITY_ORDER), default="critical",
                              help="exit non-zero if a finding at/above this severity is found")
+    scan_parser.add_argument("--checks", choices=["default", "all"], default="default",
+                             help="'all' adds opt-in RCE-precondition checks "
+                                  "(unauthenticated MCP config endpoint, DNS rebinding)")
     scan_parser.add_argument(
         "--header", "-H", action="append", metavar="NAME: VALUE", default=[],
         help="Extra header sent on every request; repeatable. Use to attach a "
@@ -166,7 +170,8 @@ def main():
         if len(targets) == 1:
             url = targets[0]
             try:
-                scanner = MCPScanner(url, timeout=args.timeout, headers=headers)
+                scanner = MCPScanner(url, timeout=args.timeout, headers=headers,
+                                     checks=args.checks)
                 print(f"[*] Scanning {url}...", file=sys.stderr)
                 checks = scanner.scan()
                 report = SecurityReport(checks, url)
@@ -196,7 +201,8 @@ def main():
               file=sys.stderr)
         workers = max(1, min(args.concurrency, len(targets)))
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            results = list(pool.map(lambda u: scan_one(u, args.timeout, headers), targets))
+            results = list(pool.map(
+                lambda u: scan_one(u, args.timeout, headers, args.checks), targets))
 
         if args.format == "sarif":
             per_target = [(r["target"], r["checks"]) for r in results if r["status"] == "ok"]

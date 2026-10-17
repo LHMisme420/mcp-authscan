@@ -17,6 +17,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import requests
 
+from mcp_authscan.rce_checks import check_dns_rebinding, check_unauth_mcp_config
+from mcp_authscan.scanner import MCPScanner, RiskLevel
+
 _SERVED = ("/mcp", "/sse", "/mcp/servers", "/")
 
 
@@ -181,6 +184,51 @@ class StdioRceResearchTests(unittest.TestCase):
                     time.sleep(0.1)
             self.assertTrue(os.path.exists(marker),
                             "command should have executed at registration time")
+        # Reap the benign demo child so it doesn't surface as a ResourceWarning.
+        try:
+            while os.waitpid(-1, os.WNOHANG)[0] != 0:
+                pass
+        except (ChildProcessError, OSError):
+            pass
+
+
+class CheckWrapperTests(unittest.TestCase):
+    """The Check-object wrappers used by the scanner's --checks all path."""
+
+    def setUp(self):
+        vulnerable_router.VulnerableRouter.registry = {}
+        hardened_router.HardenedRouter.registry = {}
+
+    def test_unauth_config_check_flags_and_clears(self):
+        with _Server(vulnerable_router.VulnerableRouter) as srv:
+            bad = check_unauth_mcp_config(srv.url, timeout=5)
+        self.assertFalse(bad.passed)
+        self.assertEqual(bad.risk_level, RiskLevel.CRITICAL)
+        with _Server(hardened_router.HardenedRouter) as srv:
+            good = check_unauth_mcp_config(srv.url, timeout=5)
+        self.assertTrue(good.passed)
+        self.assertEqual(good.risk_level, RiskLevel.INFO)
+
+    def test_dns_rebinding_check_flags_and_clears(self):
+        with _Server(_DnsVulnerable) as srv:
+            bad = check_dns_rebinding(srv.url, timeout=5)
+        self.assertFalse(bad.passed)
+        self.assertEqual(bad.risk_level, RiskLevel.HIGH)
+        with _Server(_DnsHardened) as srv:
+            good = check_dns_rebinding(srv.url, timeout=5)
+        self.assertTrue(good.passed)
+
+    def test_scanner_checks_all_includes_rce_preconditions(self):
+        with _Server(vulnerable_router.VulnerableRouter) as srv:
+            default_checks = MCPScanner(srv.url, timeout=5, checks="default").scan()
+            all_checks = MCPScanner(srv.url, timeout=5, checks="all").scan()
+        names_default = {c.name for c in default_checks}
+        names_all = {c.name for c in all_checks}
+        self.assertNotIn("Unauthenticated MCP Config Endpoint", names_default)
+        self.assertIn("Unauthenticated MCP Config Endpoint", names_all)
+        config_check = next(c for c in all_checks
+                            if c.name == "Unauthenticated MCP Config Endpoint")
+        self.assertFalse(config_check.passed, "vulnerable mock must trip the config check")
 
 
 if __name__ == "__main__":

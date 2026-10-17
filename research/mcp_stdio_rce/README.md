@@ -36,7 +36,7 @@ protocol behavior itself.
 |---|---|
 | `vulnerable_router.py` | Minimal mock of the antipattern: unauth registry listing + unauth registration that spawns the command at register time. |
 | `hardened_router.py` | The mitigated counterpart: auth on all config endpoints + a launcher allowlist and metacharacter rejection. |
-| `detector.py` | **Safe** detectors for two preconditions — (a) the unauthenticated-config endpoint (never registers a server or submits a command), and (b) missing Host/Origin validation, the DNS-rebinding precondition (sends only foreign `Host`/`Origin` headers, makes no tool calls). |
+| `detector.py` | Standalone CLI around the **safe** detectors (JSON output). The detection logic itself lives in the installed package at `mcp_authscan/rce_checks.py`, so the main scanner reuses it via `mcp-authscan scan <url> --checks all`. Two checks: (a) the unauthenticated-config endpoint (never registers a server or submits a command), and (b) missing Host/Origin validation, the DNS-rebinding precondition (sends only foreign `Host`/`Origin` headers, makes no tool calls). |
 
 Tests: `../../tests/test_stdio_rce_research.py` (detector fires on the
 vulnerable mock, stays clean on the hardened one, and a benign demo proves

@@ -108,6 +108,23 @@ mcp-authscan scan --targets inventory.txt --format sarif -o results.sarif
 # then upload results.sarif via github/codeql-action/upload-sarif in CI
 ```
 
+### Extended checks (RCE preconditions)
+
+`--checks all` adds two opt-in, non-exploitative checks for the MCP RCE classes
+documented by OX Security (April 2026), on top of the default auth/CORS checks:
+
+- **Unauthenticated MCP config endpoint** (config → STDIO-spawn RCE class, e.g.
+  LiteLLM CVE-2026-30623) — never registers a server or runs a command.
+- **Missing Host/Origin validation** (DNS-rebinding precondition, e.g. MCP Java
+  SDK CVE-2026-35568) — sends only a foreign `Host`/`Origin`; makes no tool calls.
+
+```bash
+mcp-authscan scan http://your-server --checks all
+```
+
+See `research/mcp_stdio_rce/` for the mocks, a standalone detector CLI, and a
+lab guide for these classes.
+
 ## Checks
 
 1. **Endpoint Reachability** — Verify MCP endpoints respond
