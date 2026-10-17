@@ -53,10 +53,14 @@ the old gateway is running or owns the current lock.
 
 **Why:** The owner showed an already-paused deployment whose pause predated the
 failed replacements, while the deployment-info callback still reported deployed.
+A direct uncached public request also returned VATA frontend HTML with an Express
+header rather than a paused placeholder. The UI badge and public serving behavior
+therefore did not establish the same runtime state.
 
 **How to apply:** Read the actual UI state instead of asking the owner to pause
-again. Identify the actual primary-side lock holder and seek runtime termination
-evidence; do not infer lock ownership from deployment-record existence.
+again, and check the public response before assuming a complete stop. Identify
+the actual primary-side lock holder and seek runtime termination evidence;
+do not infer lock ownership from deployment-record existence or public traffic.
 
 The operator-confirmed Pause followed by another publish was tried and the
 replacement still failed on the existing writer lock. Do not repeat that
