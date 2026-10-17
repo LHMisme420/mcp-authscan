@@ -4,19 +4,18 @@ No registry discovery, authenticated requests, tool execution, database writes,
 or automatic uploads. See docs/authorized-scans.md.
 """
 import argparse
+import json
+import sys
+import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from http.client import HTTPException
-import json
 from pathlib import Path
-import sys
-import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .cors import MAX_BODY, CorsResponse, assess_cors, sensitive_user_data
-
 
 ORIGINS = ("https://vata-probe-one.invalid", "https://vata-probe-two.invalid")
 MAX_TARGETS = 100

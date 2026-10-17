@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from mcp_authscan.cli import (
     EXIT_FINDINGS, EXIT_OK, EXIT_SCAN_ERROR,
-    build_batch_dict, compute_exit_code, load_targets, scan_one,
+    build_batch_dict, build_batch_text, compute_exit_code, load_targets, scan_one,
 )
 from mcp_authscan.report import SecurityReport, build_sarif
 from mcp_authscan.scanner import Check, RiskLevel
@@ -125,6 +125,26 @@ class SarifTests(unittest.TestCase):
         self.assertEqual(len(run["tool"]["driver"]["rules"]), 1)  # same rule, deduped
         self.assertIn("security-severity",
                       run["tool"]["driver"]["rules"][0]["properties"])
+
+
+class ReportRenderingTests(unittest.TestCase):
+    def test_text_report_renders_sections_and_findings(self):
+        checks = [_check(RiskLevel.CRITICAL, False), _check(RiskLevel.INFO, True)]
+        text = SecurityReport(checks, "http://t").text()
+        self.assertIn("MCP SECURITY SCAN REPORT", text)
+        self.assertIn("CRITICAL: 1", text)
+        self.assertIn("✗ FAILED", text)
+        self.assertIn("✓ PASSED", text)
+
+    def test_batch_text_lists_targets_and_errors(self):
+        results = [
+            _ok_result("http://t1", [_check(RiskLevel.CRITICAL, False)]),
+            {"target": "http://t2", "status": "error", "error": "unreachable"},
+        ]
+        text = build_batch_text(results)
+        self.assertIn("http://t1", text)
+        self.assertIn("ERROR - unreachable", text)
+        self.assertIn("Total CRITICAL: 1", text)
 
 
 class ScanOneIntegrationTests(unittest.TestCase):

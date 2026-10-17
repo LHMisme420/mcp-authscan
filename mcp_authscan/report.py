@@ -1,7 +1,8 @@
 import json
 import re
-from typing import List
 from datetime import datetime
+from typing import List
+
 from .scanner import Check, RiskLevel
 
 # SARIF severity mappings. `level` is the SARIF result level; `security-severity`
@@ -81,7 +82,7 @@ class SecurityReport:
         self.checks = checks
         self.target_url = target_url
         self.timestamp = datetime.utcnow().isoformat()
-    
+
     def summary(self) -> dict:
         critical = len([c for c in self.checks if c.risk_level == RiskLevel.CRITICAL])
         high = len([c for c in self.checks if c.risk_level == RiskLevel.HIGH])
@@ -95,7 +96,7 @@ class SecurityReport:
             "critical": critical,
             "high": high
         }
-    
+
     def text(self) -> str:
         lines = [
             "=" * 80,
@@ -103,7 +104,7 @@ class SecurityReport:
             "=" * 80,
             f"\nTarget: {self.target_url}",
             f"Scan Time: {self.timestamp}",
-            f"\nSummary:",
+            "\nSummary:",
         ]
         summary = self.summary()
         lines.extend([
@@ -112,17 +113,17 @@ class SecurityReport:
             f"  Failed: {summary['failed']}",
             f"  CRITICAL: {summary['critical']}",
             f"  HIGH: {summary['high']}",
-            f"",
+            "",
             "-" * 80,
             "FINDINGS:",
             "-" * 80,
         ])
-        by_risk = {}
+        by_risk: dict = {}
         for check in self.checks:
             if check.risk_level not in by_risk:
                 by_risk[check.risk_level] = []
             by_risk[check.risk_level].append(check)
-        
+
         for risk_level in [RiskLevel.CRITICAL, RiskLevel.HIGH, RiskLevel.MEDIUM, RiskLevel.LOW, RiskLevel.INFO]:
             if risk_level in by_risk:
                 lines.append(f"\n[{risk_level.value}]")
@@ -137,7 +138,7 @@ class SecurityReport:
                     ])
         lines.extend(["=" * 80, "END REPORT", "=" * 80])
         return "\n".join(lines)
-    
+
     def to_dict(self) -> dict:
         return {
             "summary": self.summary(),

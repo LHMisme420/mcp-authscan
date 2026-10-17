@@ -1,6 +1,7 @@
 """History and scan accounting without subscription restrictions."""
 import sqlite3
 from datetime import datetime, timezone
+
 from flask_jwt_extended import get_jwt
 
 

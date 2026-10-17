@@ -1,8 +1,11 @@
-import argparse, json, sys
+import argparse
+import json
+import sys
 from concurrent.futures import ThreadPoolExecutor
+
 from . import __version__
-from .scanner import MCPScanner, RiskLevel
 from .report import SecurityReport, build_sarif
+from .scanner import MCPScanner, RiskLevel
 
 # Severity threshold ordering for --fail-on and exit-code decisions.
 SEVERITY_ORDER = {"none": 0, "info": 1, "low": 2, "medium": 3, "high": 4, "critical": 5}

@@ -3,15 +3,14 @@
 Payload heuristics are conservative evidence, not proof that an API is public.
 Response values and cookie values are never included in reported details.
 """
-from dataclasses import dataclass
 import json
 import re
+from dataclasses import dataclass
 from typing import Mapping
-from uuid import uuid4
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 from urllib.parse import parse_qsl, urlparse
-
+from urllib.request import Request, urlopen
+from uuid import uuid4
 
 MAX_BODY = 65536
 SECRET_FIELDS = {

@@ -1,9 +1,10 @@
-import requests
-import json
-from typing import List
 from dataclasses import dataclass
 from enum import Enum
+from typing import List
 from urllib.parse import urlparse
+
+import requests
+
 from .cors import probe_cors_requests
 
 
@@ -72,7 +73,7 @@ class MCPScanner:
         # CORS probe, which reuses this session -- carries them.
         if headers:
             self.session.headers.update(headers)
-    
+
     def scan(self) -> List[Check]:
         self.checks = []
         if not self._check_endpoint_reachability():
@@ -89,10 +90,10 @@ class MCPScanner:
     def _check_rce_preconditions(self):
         # Opt-in RCE-precondition checks (unauth config endpoint, DNS rebinding).
         # Imported lazily to avoid a circular import with rce_checks.
-        from .rce_checks import check_unauth_mcp_config, check_dns_rebinding
+        from .rce_checks import check_dns_rebinding, check_unauth_mcp_config
         self.checks.append(check_unauth_mcp_config(self.target_url, self.timeout, self.session))
         self.checks.append(check_dns_rebinding(self.target_url, self.timeout, self.session))
-    
+
     def _check_endpoint_reachability(self):
         endpoints = ['/sse', '/message', '/mcp', '/tools/list']
         reachable = False
@@ -106,11 +107,11 @@ class MCPScanner:
                     details += f"✓ {endpoint} (HTTP {resp.status_code})\n"
                 else:
                     details += f"✗ {endpoint} (HTTP {resp.status_code})\n"
-            except Exception as e:
+            except Exception:
                 details += f"✗ {endpoint} (unreachable)\n"
         self.checks.append(Check(name="Endpoint Reachability", description="Checks if MCP endpoints respond", endpoint="*", method="HEAD/GET", risk_level=RiskLevel.INFO, passed=reachable, details=details.strip(), remediation="Ensure endpoints are only accessible from trusted networks"))
         return reachable
-    
+
     def _check_sse_auth(self):
         try:
             url = f"{self.target_url}/sse"
@@ -125,9 +126,9 @@ class MCPScanner:
             if resp.status_code == 200 and not is_sse:
                 details += " (not an SSE stream; no event-stream content-type)"
             self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication middleware to SSE endpoint"))
-        except Exception as e:
-            self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.INFO, passed=True, details=f"Endpoint unavailable", remediation="N/A"))
-    
+        except Exception:
+            self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
+
     def _check_message_auth(self):
         try:
             url = f"{self.target_url}/message"
@@ -140,9 +141,9 @@ class MCPScanner:
             if resp.status_code == 200 and not unauth:
                 details += " (not a JSON-RPC/MCP response)"
             self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to message endpoint"))
-        except:
+        except Exception:
             self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
-    
+
     def _check_mcp_endpoint_auth(self):
         try:
             url = f"{self.target_url}/mcp"
@@ -154,9 +155,9 @@ class MCPScanner:
             if resp.status_code == 200 and not unauth:
                 details += " (not a JSON-RPC/MCP response)"
             self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to MCP endpoint"))
-        except:
+        except Exception:
             self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
-    
+
     def _check_cors(self):
         for endpoint, method in (
             ("/sse", "GET"), ("/message", "POST"), ("/mcp", "POST"), ("/tools/list", "GET")
@@ -178,7 +179,7 @@ class MCPScanner:
                     details="Request failed; CORS safety could not be established.",
                     remediation="Retry the endpoint or review its data and authentication context.",
                 ))
-    
+
     def _check_auth_validation(self):
         try:
             url = f"{self.target_url}/message"
@@ -192,5 +193,5 @@ class MCPScanner:
             if resp.status_code == 200 and not accepted:
                 details += " (not a JSON-RPC/MCP response)"
             self.checks.append(Check(name="Authorization Header Validation", description="Checks if fake tokens rejected", endpoint="/message", method="POST", risk_level=RiskLevel.HIGH if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Validate auth token values"))
-        except:
+        except Exception:
             self.checks.append(Check(name="Authorization Header Validation", description="Checks if fake tokens rejected", endpoint="/message", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Could not test", remediation="N/A"))

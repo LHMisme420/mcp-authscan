@@ -22,3 +22,35 @@ mcp-authscan = "mcp_authscan.cli:main"
 # Ship only the scanner package; the repo root holds many unrelated dirs that
 # would otherwise break setuptools' flat-layout auto-discovery.
 packages = ["mcp_authscan"]
+
+[tool.ruff]
+line-length = 120
+# Gate the maintained code; legacy root scripts/corpus are out of scope.
+extend-exclude = ["rule_corpus", "examples", "scripts", "client", "server"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["E501"]  # long lines are tolerated; style not enforced on wrapping
+
+[tool.mypy]
+python_version = "3.10"   # mypy's checking target; runtime still supports 3.8+
+ignore_missing_imports = true   # requests and others ship without stubs here
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[tool.coverage.run]
+source = ["mcp_authscan"]
+branch = true
+
+[tool.coverage.report]
+# The scanner-unit-tests job exercises the core scanner; the flask-backed
+# modules are covered by the web-app test suites instead, so omit them here.
+omit = [
+    "mcp_authscan/authorized_scan.py",
+    "mcp_authscan/compliance_pdf.py",
+    "mcp_authscan/repository_scan.py",
+    "mcp_authscan/findings_schema.py",
+    "mcp_authscan/tiers.py",
+]
+fail_under = 80
+show_missing = true

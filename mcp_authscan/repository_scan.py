@@ -2,11 +2,11 @@
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from .scanner import Check, RiskLevel, ScanError
