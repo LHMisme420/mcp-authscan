@@ -53,7 +53,8 @@ sequence as a fix. Inspect the full stop/unpublish confirmation and its data
 and URL consequences before asking the operator to proceed; brief-downtime
 approval is not approval to delete the project or production database.
 
-Full Unpublish followed by Publish is an owner-confirmed working handoff.
+Full Unpublish followed by Publish restored service in an owner-confirmed
+handoff; this is not evidence that it preserves the published URL.
 Verify that the deployment service reports no active deployment between those
 steps; do not treat this as permission for future outages without approval.
 
@@ -62,3 +63,16 @@ the earlier Pause-based attempt.
 
 **How to apply:** Use the full stop-before-start sequence for approved releases
 while this exclusive-writer architecture remains in place.
+
+The project's Unpublish confirmation is titled "Delete Published App" and
+explicitly deletes the saved replit.app domain, published history, and associated
+published app tiers. Do not describe that action as a URL-preserving stop.
+
+**Why:** The owner supplied the exact confirmation while checking how to keep
+the existing app link.
+
+**How to apply:** When URL retention is required, cancel this deletion flow.
+Require a verified non-deleting stop before replacement; if the available
+controls cannot provide one, report that limitation and seek platform assistance.
+Do not substitute Pause, unverified compute restarts, or killing a still-running
+writer's database session.
