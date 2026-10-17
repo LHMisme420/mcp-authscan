@@ -73,14 +73,68 @@ def detect_unauth_mcp_config(base_url, timeout=5, session=None):
     }
 
 
+REBIND_PATHS = ("/mcp", "/sse", "/mcp/servers", "/")
+
+
+def detect_dns_rebinding_precondition(base_url, timeout=5, session=None):
+    """Detect missing Host/Origin validation -- the DNS-rebinding precondition
+    (e.g. MCP Java SDK CVE-2026-35568) -- WITHOUT exploiting it.
+
+    A browser can be tricked into resolving an attacker domain to 127.0.0.1 (DNS
+    rebinding) and reaching a local/private MCP server. The server's defense is
+    to pin Host/Origin to known values. This probe sends a foreign Host + Origin
+    to endpoints that already respond on the real Host; if the server still
+    processes the request (instead of rejecting with 400/403/421), it does not
+    pin them. It makes no tool calls and changes no state.
+    """
+    http = session or requests
+    base = base_url.rstrip("/")
+    foreign_host, foreign_origin = "attacker.example", "https://evil.example"
+    evidence = []
+    for path in REBIND_PATHS:
+        url = f"{base}{path}"
+        try:
+            baseline = http.get(url, timeout=timeout)
+            probe = http.get(url, timeout=timeout,
+                             headers={"Host": foreign_host, "Origin": foreign_origin})
+        except requests.RequestException:
+            continue
+        if baseline.status_code >= 400:
+            continue  # only consider endpoints that actually serve on the real Host
+        if probe.status_code in (400, 403, 421):
+            continue  # server pinned Host/Origin here -> not vulnerable
+        if probe.status_code == baseline.status_code:
+            note = f"{path}: foreign Host accepted (HTTP {probe.status_code})"
+            if probe.headers.get("Access-Control-Allow-Origin") in ("*", foreign_origin):
+                note += "; foreign Origin reflected in Access-Control-Allow-Origin"
+            evidence.append(note)
+    if not evidence:
+        return None
+    return {
+        "severity": "HIGH",
+        "issue": "Missing Host/Origin validation (DNS-rebinding precondition)",
+        "impact": "DNS-rebinding family (e.g. MCP Java SDK CVE-2026-35568): a "
+                  "rebound browser can reach this local/private MCP server and "
+                  "make tool calls because Host/Origin are not pinned.",
+        "evidence": evidence,
+        "remediation": "Validate Host and Origin against an explicit allowlist "
+                       "(127.0.0.1/localhost and known hostnames); reject others "
+                       "with 403. Bind to loopback where external access is not needed.",
+        "note": "Detection only -- no tool calls were made and no state changed.",
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Detect an unauthenticated MCP config endpoint (authorized/local targets only).")
+        description="Detect MCP config/DNS-rebinding preconditions (authorized/local targets only).")
     parser.add_argument("url", help="base URL of a server you own or are authorized to test")
     parser.add_argument("--timeout", type=int, default=5)
     args = parser.parse_args()
-    finding = detect_unauth_mcp_config(args.url, timeout=args.timeout)
-    print(json.dumps(finding or {"status": "clean", "issue": None}, indent=2))
+    findings = [f for f in (
+        detect_unauth_mcp_config(args.url, timeout=args.timeout),
+        detect_dns_rebinding_precondition(args.url, timeout=args.timeout),
+    ) if f]
+    print(json.dumps(findings or {"status": "clean", "findings": []}, indent=2))
 
 
 if __name__ == "__main__":

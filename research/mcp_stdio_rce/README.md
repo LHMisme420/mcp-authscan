@@ -36,7 +36,7 @@ protocol behavior itself.
 |---|---|
 | `vulnerable_router.py` | Minimal mock of the antipattern: unauth registry listing + unauth registration that spawns the command at register time. |
 | `hardened_router.py` | The mitigated counterpart: auth on all config endpoints + a launcher allowlist and metacharacter rejection. |
-| `detector.py` | **Safe** detector for the unauthenticated-config precondition — never registers a server, never submits a command to run. |
+| `detector.py` | **Safe** detectors for two preconditions — (a) the unauthenticated-config endpoint (never registers a server or submits a command), and (b) missing Host/Origin validation, the DNS-rebinding precondition (sends only foreign `Host`/`Origin` headers, makes no tool calls). |
 
 Tests: `../../tests/test_stdio_rce_research.py` (detector fires on the
 vulnerable mock, stays clean on the hardened one, and a benign demo proves
@@ -55,6 +55,17 @@ python3 research/mcp_stdio_rce/detector.py http://127.0.0.1:9201
 ROUTER_TOKEN=secret python3 research/mcp_stdio_rce/hardened_router.py --port 9202 &
 python3 research/mcp_stdio_rce/detector.py http://127.0.0.1:9202   # -> clean
 ```
+
+`detector.py` runs two safe checks and prints any findings as JSON:
+
+- **Unauthenticated config endpoint** — a config/registry listing served without
+  auth, or a registration endpoint that processes an unauthenticated request.
+- **Missing Host/Origin validation (DNS-rebinding precondition, CVE-2026-35568
+  family)** — sends a foreign `Host` + `Origin` to endpoints that already answer
+  on the real host; if the server still processes them instead of rejecting
+  (400/403/421), it does not pin Host/Origin and a rebound browser could reach
+  it. The probe makes no tool calls and changes no state. The fix is to validate
+  `Host`/`Origin` against an allowlist (loopback + known hostnames).
 
 ## Reproducing against real LiteLLM (isolated lab)
 

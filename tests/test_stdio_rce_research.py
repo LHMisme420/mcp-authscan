@@ -13,9 +13,67 @@ import tempfile
 import threading
 import time
 import unittest
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import requests
+
+_SERVED = ("/mcp", "/sse", "/mcp/servers", "/")
+
+
+class _DnsVulnerable(BaseHTTPRequestHandler):
+    """Ignores Host/Origin entirely: serves every known path regardless."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        if self.path.split("?", 1)[0] in _SERVED:
+            body = b'{"ok":true}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")  # also reflects any origin
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+        else:
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    do_HEAD = do_GET
+
+
+class _DnsHardened(BaseHTTPRequestHandler):
+    """Pins Host/Origin to loopback; foreign Host -> 421, foreign Origin -> 403."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        hostname = self.headers.get("Host", "").split(":", 1)[0]
+        if hostname not in ("127.0.0.1", "localhost"):
+            return self._status(421, "Misdirected Request")
+        origin = self.headers.get("Origin")
+        if origin and origin not in ("http://localhost", "http://127.0.0.1"):
+            return self._status(403, "Forbidden")
+        if self.path.split("?", 1)[0] in _SERVED:
+            return self._status(200, "OK", b'{"ok":true}')
+        return self._status(404, "Not Found")
+
+    def _status(self, code, reason, body=b""):
+        self.send_response(code, reason)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body and self.command != "HEAD":
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+    do_HEAD = do_GET
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _RESEARCH = os.path.join(os.path.dirname(_HERE), "research", "mcp_stdio_rce")
@@ -87,6 +145,20 @@ class StdioRceResearchTests(unittest.TestCase):
                               json={"name": "ok", "command": ["npx", "server-filesystem"]}, timeout=5)
             self.assertEqual(r.status_code, 200)
             self.assertFalse(r.json()["spawned"], "hardened mock must not execute input")
+
+    def test_detector_flags_missing_host_origin_validation(self):
+        with _Server(_DnsVulnerable) as srv:
+            finding = detector.detect_dns_rebinding_precondition(srv.url, timeout=5)
+        self.assertIsNotNone(finding, "should flag a server that ignores Host/Origin")
+        self.assertEqual(finding["severity"], "HIGH")
+        self.assertTrue(finding["evidence"])
+        self.assertTrue(any("Origin reflected" in e for e in finding["evidence"]),
+                        "wildcard ACAO should be noted as Origin reflection")
+
+    def test_detector_clean_on_host_origin_pinned_server(self):
+        with _Server(_DnsHardened) as srv:
+            finding = detector.detect_dns_rebinding_precondition(srv.url, timeout=5)
+        self.assertIsNone(finding, "a Host/Origin-pinned server must not be flagged")
 
     def test_vulnerable_router_executes_at_registration(self):
         # Benign demonstration of "execution at spawn time": register a command
