@@ -120,6 +120,20 @@ class TaintEngineTest(unittest.TestCase):
     def test_literal_merge_is_silent(self):
         self.assertEqual(self._rules("proto_safe.ts"), set())
 
+    def test_nosql_injection_fires(self):
+        self.assertIn("T12-NOSQLI", self._rules("nosqli_vuln.ts"))
+
+    def test_cast_nosql_query_is_silent(self):
+        # The value is coerced to a primitive (String()), removing the operator-
+        # injection vector -- must not be flagged.
+        self.assertEqual(self._rules("nosqli_safe.ts"), set())
+
+    def test_response_body_is_not_a_source(self):
+        # Regression: an over-broad $R.body source matched a RESPONSE's .body and
+        # fired on even literal-URL fetches. Request sources are now pinned to
+        # req/request/ctx, so this must stay silent.
+        self.assertEqual(self._rules("respbody_safe.ts"), set())
+
     def test_taint_findings_are_gating_detectors(self):
         # Every taint finding is a HIGH-confidence detector, not a review-list item.
         for f in self.findings:

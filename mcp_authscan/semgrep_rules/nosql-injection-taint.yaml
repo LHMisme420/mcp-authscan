@@ -1,0 +1,65 @@
+# mcp-authscan taint engine -- NoSQL (MongoDB) injection (CWE-943)
+#
+# An untrusted request value used in a Mongo query WITHOUT being cast to a primitive
+# or sanitized. The vector: a query param like ?user[$ne]= arrives as an OBJECT, so
+# {user: req.query.user} becomes an operator-injection ({$ne: ...}) unless the value
+# is coerced (String/Number/ObjectId) or run through a sanitizer (express-mongo-
+# sanitize). Those coercions are the pattern-sanitizers, so safe code stays silent.
+# Intra-function; HIGH-confidence detector that gates CI.
+rules:
+  - id: mcp-nosqli-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      NoSQL injection: an untrusted value reaches a MongoDB query without being cast
+      to a primitive or sanitized, allowing operator injection (e.g. {$ne: null})
+      (CWE-943). Cast with String()/ObjectId() or use a sanitizer. Taint engine
+      traced the dataflow path.
+    metadata:
+      rule: T12-NOSQLI
+      category: security
+      cwe: ["CWE-943: Improper Neutralization of Special Elements in Data Query Logic"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query
+              - pattern: req.body
+              - pattern: req.params
+              - pattern: request.query
+              - pattern: request.body
+              - pattern: request.params
+              - pattern: ctx.query
+              - pattern: ctx.request.body
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    # Coercing the value to a primitive, or running it through a Mongo sanitizer,
+    # removes the operator-injection vector.
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: String(...)
+          - pattern: Number(...)
+          - pattern: parseInt(...)
+          - pattern: parseFloat(...)
+          - pattern: $X.toString()
+          - pattern: ObjectId(...)
+          - pattern: new ObjectId(...)
+          - pattern: mongoSanitize(...)
+          - pattern: $S.sanitize(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $Q
+          - pattern-either:
+              - pattern: $C.find($Q, ...)
+              - pattern: $C.findOne($Q, ...)
+              - pattern: $C.findOneAndUpdate($Q, ...)
+              - pattern: $C.findOneAndDelete($Q, ...)
+              - pattern: $C.updateOne($Q, ...)
+              - pattern: $C.updateMany($Q, ...)
+              - pattern: $C.deleteOne($Q, ...)
+              - pattern: $C.deleteMany($Q, ...)
+              - pattern: $C.count($Q, ...)
+              - pattern: $C.countDocuments($Q, ...)
+              - pattern: $C.aggregate($Q, ...)

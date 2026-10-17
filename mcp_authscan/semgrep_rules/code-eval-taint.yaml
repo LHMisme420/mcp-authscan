@@ -20,9 +20,14 @@ rules:
     pattern-sources:
       - patterns:
           - pattern-either:
-              - pattern: $R.query
-              - pattern: $R.body
-              - pattern: $R.params
+              - pattern: req.query
+              - pattern: req.body
+              - pattern: req.params
+              - pattern: request.query
+              - pattern: request.body
+              - pattern: request.params
+              - pattern: ctx.query
+              - pattern: ctx.request.body
               - pattern: $C.req.query(...)
               - pattern: $C.req.param(...)
     pattern-sinks:

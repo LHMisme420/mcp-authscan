@@ -134,14 +134,15 @@ pip install "mcp-authscan[taint]"          # one-time: pulls the Semgrep engine
 mcp-authscan scan ./path/to/repo --taint   # or: python3 mcp_authscan.py <dir> --taint
 ```
 
-It ships eleven detector classes today, across TypeScript/JavaScript, Python, and
+It ships twelve detector classes today, across TypeScript/JavaScript, Python, and
 Go: **SSRF** (`T1-SSRF`, CWE-918), **OS command injection** (`T2-CMDI`, CWE-78),
 **path traversal** (`T3-PATH`, CWE-22), **SQL injection** (`T4-SQLI`, CWE-89),
 **server-side template injection** (`T5-SSTI`, CWE-1336), **code evaluation /
 `eval`** (`T6-EVAL`, CWE-95), **unsafe deserialization** (`T7-DESER`, CWE-502),
 **cross-site scripting** (`T8-XSS`, CWE-79), **open redirect** (`T9-REDIR`,
-CWE-601), **XXE** (`T10-XXE`, CWE-611, Python), and **prototype pollution**
-(`T11-PROTO`, CWE-1321, JS/TS). Each is tuned to leave the safe idiom alone —
+CWE-601), **XXE** (`T10-XXE`, CWE-611, Python), **prototype pollution**
+(`T11-PROTO`, CWE-1321, JS/TS), and **NoSQL injection** (`T12-NOSQLI`, CWE-943,
+JS/TS). Each is tuned to leave the safe idiom alone —
 parameterized queries, template *data* (vs. a user-controlled template),
 `yaml.safe_load`, escaped HTML, allowlisted redirects, `defusedxml`, literal
 merges. (XSS is scoped to raw-HTML sinks like `innerHTML` and `Markup`, not

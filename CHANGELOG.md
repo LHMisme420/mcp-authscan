@@ -10,16 +10,19 @@ aims to follow [Semantic Versioning](https://semver.org/).
 - **Taint-analysis engine (`--taint`)**: an optional dataflow tier built on
   Semgrep that reports a finding only when untrusted input provably reaches a
   dangerous sink with no sanitizer on the path — the determination the regex
-  rules can't make. Ships seven detector classes for TypeScript/JavaScript,
+  rules can't make. Ships twelve detector classes for TypeScript/JavaScript,
   Python, and Go: SSRF (`T1-SSRF`, CWE-918), OS command injection (`T2-CMDI`,
   CWE-78), path traversal (`T3-PATH`, CWE-22), SQL injection (`T4-SQLI`, CWE-89),
   server-side template injection (`T5-SSTI`, CWE-1336), code evaluation /
   `eval` (`T6-EVAL`, CWE-95), unsafe deserialization (`T7-DESER`, CWE-502),
   cross-site scripting (`T8-XSS`, CWE-79; scoped to raw-HTML sinks like
   `innerHTML`/`Markup`, not `res.send`), open redirect (`T9-REDIR`, CWE-601),
-  XXE (`T10-XXE`, CWE-611, Python), and prototype pollution (`T11-PROTO`,
+  XXE (`T10-XXE`, CWE-611, Python), prototype pollution (`T11-PROTO`,
   CWE-1321, JS/TS — scoped to recursive deep-merge sinks, not shallow
-  `Object.assign`). Each leaves the safe idiom alone (parameterized queries,
+  `Object.assign`), and NoSQL injection (`T12-NOSQLI`, CWE-943, JS/TS — fires on
+  an untrusted value reaching a Mongo query uncast, where `?x[$ne]=` injects an
+  operator; a primitive cast like `String()`/`ObjectId()` or a sanitizer clears
+  it). Each leaves the safe idiom alone (parameterized queries,
   template data vs. a user-controlled template, `yaml.safe_load`, escaped HTML,
   allowlisted redirects, `defusedxml`, literal merges). These are HIGH-confidence
   detectors and gate `--fail-on`. Install with
@@ -32,6 +35,9 @@ aims to follow [Semantic Versioning](https://semver.org/).
   not `shlex.split`). Covered by `tests/test_taint_engine.py`, including the
   `research/mcp_stdio_rce` routers (the vulnerable one fires `T2-CMDI`, the
   allowlist-hardened one stays silent); the suite skips when Semgrep is absent.
+  JS request sources are pinned to `req`/`request`/`ctx` receivers (not any
+  `$R.body`-shaped access) after an over-broad source matched a *response* `.body`
+  and flagged even literal-URL fetches; a regression fixture guards it.
 - **`--pro` cross-function/cross-file taint**: `--taint --pro` switches the
   dataflow engine to Semgrep Pro, which traces flows across functions and files
   (the intra-function OSS engine cannot). Requires `SEMGREP_APP_TOKEN` and

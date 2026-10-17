@@ -33,9 +33,14 @@ rules:
               # target URL. Headers are deliberately excluded -- a `.headers` source
               # taints whole-Request forwarding (new Request(req, ...)) and produces
               # phantom flows where the URL host is fixed/validated elsewhere.
-              - pattern: $R.query
-              - pattern: $R.body
-              - pattern: $R.params
+              - pattern: req.query
+              - pattern: req.body
+              - pattern: req.params
+              - pattern: request.query
+              - pattern: request.body
+              - pattern: request.params
+              - pattern: ctx.query
+              - pattern: ctx.request.body
               - pattern: $C.req.query(...)
               - pattern: $C.req.param(...)
               - pattern: $REQ.nextUrl.searchParams.get(...)
