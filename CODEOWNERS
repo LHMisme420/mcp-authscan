@@ -1,0 +1,8 @@
+# Code owners for mcp-authscan
+# Default owner for everything in the repo.
+*       @LHMisme420
+
+# The scanner package and its tests.
+/mcp_authscan/   @LHMisme420
+/tests/          @LHMisme420
+/research/       @LHMisme420

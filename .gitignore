@@ -49,3 +49,17 @@ venv/
 *.vata-dr
 *.dump
 attached_assets/
+
+# test/lint/type artifacts
+.coverage
+.coverage.*
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# editor/OS backup cruft
+*.bak
+*.orig
+*.clean
+*.py.bak.*
