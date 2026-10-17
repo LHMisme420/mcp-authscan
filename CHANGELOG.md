@@ -23,8 +23,12 @@ aims to follow [Semantic Versioning](https://semver.org/).
   section in the README.
 
 ### Fixed
-- False-positive auth findings: a non-MCP `200` (e.g. an SPA/docs HTML page) no
-  longer trips the SSE/message/MCP auth checks.
+- Auth-finding accuracy: a `200` on an MCP path is now a zero-auth finding
+  unless it is a human-facing HTML web page (SPA/docs catch-all). This fixes
+  both a false positive (HTML pages flagged) and a false negative (an empty
+  unauthenticated `200` no longer suppressed).
+- Declared the web-app Python dependencies (`requirements-web.txt`) and added a
+  CI `web-tests` job; the 52 flask-backed tests now run in CI.
 - Packaging: `pip install` no longer fails on flat-layout auto-discovery; added
   the `mcp-authscan` console entry point.
 - Removed a broken `keycloak` submodule gitlink that aborted CI checkout.

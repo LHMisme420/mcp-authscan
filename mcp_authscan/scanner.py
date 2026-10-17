@@ -13,29 +13,19 @@ class ScanError(Exception):
     """Raised when the scanner cannot perform a meaningful scan."""
 
 
-def _is_sse_endpoint(resp):
-    """A real SSE endpoint advertises text/event-stream, not HTML."""
-    return "text/event-stream" in resp.headers.get("Content-Type", "").lower()
+def _looks_like_web_page(resp):
+    """True if the response is a human-facing web page rather than an MCP/API
+    endpoint.
 
-
-def _is_jsonrpc_endpoint(resp):
-    """Does the response look like a JSON-RPC / MCP reply rather than a web page?
-
-    A 200 that returns an HTML app shell (common for SPA dev servers and docs
-    sites that serve index.html for every path) is NOT an exposed MCP endpoint
-    and must not be flagged as a zero-auth finding.
+    The false positive this guards against is an SPA dev server or docs site
+    that serves an HTML app shell with 200 for every path. Such a page must not
+    be read as a zero-auth MCP endpoint. An empty or JSON/SSE 200, by contrast,
+    is still treated as a zero-auth signal on an MCP path.
     """
-    ctype = resp.headers.get("Content-Type", "").lower()
-    if "text/html" in ctype:
-        return False
-    body = (resp.text or "")[:8192]
-    if "jsonrpc" in body.lower():
+    if "text/html" in resp.headers.get("Content-Type", "").lower():
         return True
-    try:
-        data = resp.json()
-    except ValueError:
-        return False
-    return isinstance(data, dict) and ("result" in data or "error" in data)
+    body = (resp.text or "")[:512].lstrip().lower()
+    return body.startswith(("<!doctype html", "<html"))
 
 
 def _parse_initialize_result(resp):
@@ -178,15 +168,16 @@ class MCPScanner:
         try:
             url = f"{self.target_url}/sse"
             resp = self.session.get(url, timeout=self.timeout, headers={"Accept": "text/event-stream"}, stream=True)
-            is_sse = _is_sse_endpoint(resp)
+            # Content-type only: a real SSE stream never ends, so never read its body.
+            web_page = "text/html" in resp.headers.get("Content-Type", "").lower()
             resp.close()
-            # Only a finding if an actual SSE stream is served without auth.
-            # A 200 HTML page (SPA/docs catch-all) is not an MCP endpoint.
-            unauth = resp.status_code == 200 and is_sse
+            # A zero-auth 200 is a finding unless it is a human-facing web page
+            # (an SPA/docs catch-all serving HTML is not an MCP endpoint).
+            unauth = resp.status_code == 200 and not web_page
             passed = not unauth
             details = f"Status: {resp.status_code}"
-            if resp.status_code == 200 and not is_sse:
-                details += " (not an SSE stream; no event-stream content-type)"
+            if resp.status_code == 200 and web_page:
+                details += " (HTML web page, not an MCP endpoint)"
             self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication middleware to SSE endpoint"))
         except Exception:
             self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
@@ -197,11 +188,11 @@ class MCPScanner:
             payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 1}
             resp = self.session.post(url, json=payload, timeout=self.timeout)
             # A 200 only counts if the server actually answered as JSON-RPC/MCP.
-            unauth = resp.status_code == 200 and _is_jsonrpc_endpoint(resp)
+            unauth = resp.status_code == 200 and not _looks_like_web_page(resp)
             passed = not unauth
             details = f"Status: {resp.status_code}"
             if resp.status_code == 200 and not unauth:
-                details += " (not a JSON-RPC/MCP response)"
+                details += " (HTML web page, not an MCP endpoint)"
             self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to message endpoint"))
         except Exception:
             self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
@@ -211,11 +202,11 @@ class MCPScanner:
             url = f"{self.target_url}/mcp"
             payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 1}
             resp = self.session.post(url, json=payload, timeout=self.timeout)
-            unauth = resp.status_code == 200 and _is_jsonrpc_endpoint(resp)
+            unauth = resp.status_code == 200 and not _looks_like_web_page(resp)
             passed = not unauth
             details = f"Status: {resp.status_code}"
             if resp.status_code == 200 and not unauth:
-                details += " (not a JSON-RPC/MCP response)"
+                details += " (HTML web page, not an MCP endpoint)"
             self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to MCP endpoint"))
         except Exception:
             self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
@@ -249,7 +240,7 @@ class MCPScanner:
             resp = self.session.post(url, json=payload, timeout=self.timeout, headers={"Authorization": "Bearer fake-token-12345"})
             # The fake token is only "accepted" if the server actually served an
             # MCP/JSON-RPC response to it, not merely returned some 200 page.
-            accepted = resp.status_code == 200 and _is_jsonrpc_endpoint(resp)
+            accepted = resp.status_code == 200 and not _looks_like_web_page(resp)
             passed = not accepted
             details = f"Fake token status: {resp.status_code}"
             if resp.status_code == 200 and not accepted:
