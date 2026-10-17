@@ -38,6 +38,20 @@ def semgrep_available():
     return shutil.which("semgrep") is not None
 
 
+def semgrep_pro_available():
+    """True when the proprietary Semgrep Pro engine (cross-function/cross-file taint)
+    is installed. Pro requires a Semgrep account token and `semgrep install-semgrep-pro`
+    -- it is not bundled and cannot be provisioned from this tool."""
+    if not semgrep_available():
+        return False
+    try:
+        out = subprocess.run(["semgrep", "--version", "--pro"], capture_output=True,
+                             text=True, timeout=30)
+        return out.returncode == 0 and "semgrep-core-proprietary" not in (out.stderr or "")
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def _snippet(lines_text, line_no):
     """A 3-line context window around line_no, matching the regex scanner's format."""
     if not lines_text:
@@ -47,11 +61,16 @@ def _snippet(lines_text, line_no):
     return "\n".join(f"  {i + 1}: {lines[i]}" for i in range(lo, hi))
 
 
-def run_taint_scan(target, timeout=120, strict=False):
+def run_taint_scan(target, timeout=120, strict=False, pro=False):
     """Run the bundled taint rules over ``target`` and return finding dicts shaped
     like the regex scanner's (rule/severity/confidence/title/file/line/evidence/
     snippet/ref). Returns [] when Semgrep is absent unless ``strict`` is set, in
-    which case it raises TaintEngineUnavailable."""
+    which case it raises TaintEngineUnavailable.
+
+    ``pro=True`` adds Semgrep's proprietary cross-function / cross-file engine, which
+    traces flows the default intra-function analysis cannot. It requires a Semgrep
+    account token (SEMGREP_APP_TOKEN) and the Pro binary (``semgrep install-semgrep-pro``);
+    when those are missing the run is skipped with guidance rather than failing."""
     if not semgrep_available():
         if strict:
             raise TaintEngineUnavailable(
@@ -60,13 +79,20 @@ def run_taint_scan(target, timeout=120, strict=False):
         print("[taint] Semgrep not installed; skipping taint analysis "
               "(pip install 'mcp-authscan[taint]').", file=sys.stderr)
         return []
+    if pro and not semgrep_pro_available():
+        print("[taint] --pro requested but the Semgrep Pro engine is not available. "
+              "Set SEMGREP_APP_TOKEN and run `semgrep install-semgrep-pro`, then retry. "
+              "Falling back to the default intra-function engine.", file=sys.stderr)
+        pro = False
     if not RULES_DIR.is_dir():
         logger.error("Taint rules directory missing at %s", RULES_DIR)
         return []
-    cmd = [
-        "semgrep", "--json", "--quiet", "--metrics=off", "--disable-version-check",
-        "--timeout", str(timeout), "--config", str(RULES_DIR), str(target),
-    ]
+    cmd = ["semgrep", "--json", "--quiet", "--metrics=off", "--disable-version-check",
+           "--timeout", str(timeout)]
+    if pro:
+        # Cross-function + cross-file dataflow (proprietary engine).
+        cmd += ["--pro"]
+    cmd += ["--config", str(RULES_DIR), str(target)]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 60)
     except subprocess.TimeoutExpired:

@@ -148,8 +148,25 @@ installed, `--taint` prints a note and skips rather than failing.
 **Scope (be precise about this):** the OSS Semgrep taint engine is
 **intra-function** — it follows a tainted value through one function body and
 recognizes a sanitizer on that path, which is already beyond regex. Following a
-value *across functions or files* requires the paid Semgrep Pro engine; those
-flows stay heuristic review items here, not silent misses.
+value *across functions or files* requires the Semgrep Pro engine.
+
+#### Going cross-function / cross-file — `--pro`
+
+`--taint --pro` switches the dataflow to Semgrep's proprietary engine, which
+traces flows **across functions and files** (e.g. a request handler in one file
+that calls a fetch/exec helper in another). One-time setup, because Pro is a
+separate account-gated binary:
+
+```bash
+export SEMGREP_APP_TOKEN=...        # from your Semgrep account
+semgrep install-semgrep-pro         # downloads the Pro engine
+mcp-authscan scan ./repo --taint --pro
+```
+
+If the token or Pro binary isn't present, `--pro` prints guidance and falls back
+to the intra-function engine rather than failing. The cross-function regression
+tests in `tests/test_taint_engine.py` are skipped unless Pro is installed, so
+they verify this path in a Pro-enabled CI without affecting the default suite.
 
 ### SARIF output (code-scanning dashboards)
 

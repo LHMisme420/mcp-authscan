@@ -15,7 +15,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mcp_authscan.taint_scan import run_taint_scan, semgrep_available
+from mcp_authscan.taint_scan import run_taint_scan, semgrep_available, semgrep_pro_available
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "taint"
 
@@ -26,7 +26,8 @@ class TaintEngineTest(unittest.TestCase):
     def setUpClass(cls):
         cls._tmp = tempfile.mkdtemp(prefix="authscan-taint-")
         for f in FIXTURES.glob("*"):
-            shutil.copy(f, Path(cls._tmp) / f.name)
+            if f.is_file():  # skip the crossfn/ subdir (Pro-only fixtures)
+                shutil.copy(f, Path(cls._tmp) / f.name)
         cls.findings = run_taint_scan(cls._tmp, strict=True)
         cls.by_file = {}
         for fnd in cls.findings:
@@ -127,6 +128,37 @@ class TaintEngineRealCodeTest(unittest.TestCase):
 
     def test_hardened_router_is_silent(self):
         self.assertEqual(self.by_file.get("hardened_router.py", []), [])
+
+
+@unittest.skipUnless(semgrep_pro_available(),
+                     "Semgrep Pro engine not installed (SEMGREP_APP_TOKEN + "
+                     "`semgrep install-semgrep-pro`); cross-function taint is Pro-only")
+class TaintProCrossFunctionTest(unittest.TestCase):
+    """Cross-function taint: the source and sink live in different functions, which
+    the OSS intra-function engine cannot connect. These assert the Pro engine does.
+    Skipped unless Pro is installed, so they verify in a Pro-enabled environment
+    without affecting the default suite."""
+
+    CROSSFN = Path(__file__).resolve().parent / "fixtures" / "taint" / "crossfn"
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.mkdtemp(prefix="authscan-pro-")
+        for f in cls.CROSSFN.glob("*"):
+            shutil.copy(f, Path(cls._tmp) / f.name)
+        cls.by_file = {}
+        for fnd in run_taint_scan(cls._tmp, strict=True, pro=True):
+            cls.by_file.setdefault(Path(fnd["file"]).name, []).append(fnd["rule"])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls._tmp, ignore_errors=True)
+
+    def test_cross_function_ssrf_fires_under_pro(self):
+        self.assertIn("T1-SSRF", self.by_file.get("xfunc_ssrf.ts", []))
+
+    def test_cross_function_cmdi_fires_under_pro(self):
+        self.assertIn("T2-CMDI", self.by_file.get("xfunc_cmdi.py", []))
 
 
 if __name__ == "__main__":

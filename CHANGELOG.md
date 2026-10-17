@@ -27,6 +27,13 @@ aims to follow [Semantic Versioning](https://semver.org/).
   not `shlex.split`). Covered by `tests/test_taint_engine.py`, including the
   `research/mcp_stdio_rce` routers (the vulnerable one fires `T2-CMDI`, the
   allowlist-hardened one stays silent); the suite skips when Semgrep is absent.
+- **`--pro` cross-function/cross-file taint**: `--taint --pro` switches the
+  dataflow engine to Semgrep Pro, which traces flows across functions and files
+  (the intra-function OSS engine cannot). Requires `SEMGREP_APP_TOKEN` and
+  `semgrep install-semgrep-pro`; falls back to the intra-function engine with
+  guidance when either is absent. Cross-function fixtures and Pro-gated tests
+  (`tests/fixtures/taint/crossfn/`, skipped unless Pro is installed) verify the
+  flow in a Pro-enabled environment.
 - Source-scan suppressions for known-good patterns: an inline
   `# authscan:ignore [RULE ...]` directive (on the finding line or the line
   above; bare form suppresses all rules there) and a repo-level
