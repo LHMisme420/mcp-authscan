@@ -1,0 +1,26 @@
+name: release
+permissions:
+  contents: write   # needed to create the GitHub release
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+      - name: Create GitHub release with artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "Automated release for ${GITHUB_REF_NAME}. See CHANGELOG.md."
