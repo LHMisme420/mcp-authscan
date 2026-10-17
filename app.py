@@ -4,7 +4,7 @@ import sqlite3, os, uuid
 from io import BytesIO
 from pathlib import Path
 from contextlib import closing
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 from mcp_authscan.scanner import MCPScanner, ScanError
 from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, scanner_path
@@ -259,6 +259,14 @@ def run_scan():
     except (TypeError, ValueError) as error:
         return jsonify(error=str(error)), 400
     org_id = get_jwt_identity()
+    # Require an explicit authorization attestation for the target, and record it
+    # for audit. Reachability is not permission: a hosted scanner must not let a
+    # user scan systems they do not own or are not authorized to test.
+    if data.get('authorized') is not True:
+        return jsonify(error='You must confirm you are authorized to test this target before scanning.'), 403
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute('INSERT INTO scan_authorizations (org_id,target,attested_at) VALUES (?,?,?)',
+                     (org_id, scanner.target_url, datetime.now(timezone.utc).isoformat()))
     if not reserve_scan(DB_FILE, org_id):
         return jsonify(error='Scan authorization denied.'), 403
     with sqlite3.connect(DB_FILE) as conn:

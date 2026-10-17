@@ -47,6 +47,19 @@ class DashboardScanTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 401)
 
+    def test_scan_requires_authorization_attestation(self):
+        # Authenticated, valid target, but no `authorized: true` -> rejected,
+        # and nothing is scanned.
+        for payload in (
+            {"target_url": "https://mcp.example.test"},
+            {"target_url": "https://mcp.example.test", "authorized": False},
+            {"target_url": "https://mcp.example.test", "authorized": "yes"},
+        ):
+            response = self.client.post(
+                "/api/scans/mcp", json=payload, headers=self.headers)
+            self.assertEqual(response.status_code, 403)
+            self.assertIn("authorized", response.get_json()["error"].lower())
+
     def test_scan_results_are_stored_and_scoped_to_the_token_organization(self):
         checks = [
             Check(
@@ -73,7 +86,7 @@ class DashboardScanTests(unittest.TestCase):
         with patch.object(app_module.MCPScanner, "scan", return_value=checks):
             response = self.client.post(
                 "/api/scans/mcp",
-                json={"target_url": "https://mcp.example.test"},
+                json={"target_url": "https://mcp.example.test", "authorized": True},
                 headers=self.headers,
             )
 
@@ -118,7 +131,7 @@ class DashboardScanTests(unittest.TestCase):
         ):
             response = self.client.post(
                 "/api/scans/mcp",
-                json={"target_url": "https://unreachable.example.test"},
+                json={"target_url": "https://unreachable.example.test", "authorized": True},
                 headers=self.headers,
             )
 
@@ -159,7 +172,7 @@ class DashboardScanTests(unittest.TestCase):
         try:
             response = self.client.post(
                 "/api/scans/mcp",
-                json={"target_url": f"http://127.0.0.1:{server.server_port}", "timeout": 1},
+                json={"target_url": f"http://127.0.0.1:{server.server_port}", "timeout": 1, "authorized": True},
                 headers=self.headers,
             )
         finally:
@@ -225,7 +238,7 @@ class ActiveWorkflowScanTests(unittest.TestCase):
         with patch.object(full_app_module.MCPScanner, "scan", return_value=[check]):
             response = self.client.post(
                 "/api/scans/mcp",
-                json={"target_url": "https://active.example.test"},
+                json={"target_url": "https://active.example.test", "authorized": True},
                 headers=self.headers,
             )
 

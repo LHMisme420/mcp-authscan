@@ -155,6 +155,7 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
   const [compliance, setCompliance] = useState<Resource<Compliance>>({ value: null, loading: true, error: '' });
   const [scans, setScans] = useState<Resource<Scan[]>>({ value: null, loading: true, error: '' });
   const [targetUrl, setTargetUrl] = useState('');
+  const [authorized, setAuthorized] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
   const [scanNotice, setScanNotice] = useState<{ text: string; critical: boolean } | null>(null);
   const [scanError, setScanError] = useState('');
@@ -243,19 +244,24 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
   async function submitScan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!targetUrl.trim() || scanInFlight.current) return;
+    if (!authorized) {
+      setScanError('Please confirm you are authorized to test this target.');
+      return;
+    }
     scanInFlight.current = true;
     trackEvent('mcp_scan_started');
     setScanBusy(true);
     setScanError('');
     setScanNotice(null);
     try {
-      const data = await api.scanTarget(targetUrl.trim());
+      const data = await api.scanTarget(targetUrl.trim(), authorized);
       trackEvent('mcp_scan_completed', {
         findings: data.scan?.findings_count,
         critical_findings: data.scan?.critical_count,
       });
       setScanNotice({ text: data.message || 'Scan completed.', critical: Boolean(data.scan?.has_critical) });
       setTargetUrl('');
+      setAuthorized(false);  // require a fresh attestation for each scan
       await loadAll();
     } catch (error) {
       const message = getErrorMessage(error);
@@ -387,7 +393,11 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
                   <label htmlFor="target-url">MCP server or GitHub repository URL</label>
                   <input id="target-url" type="url" required maxLength={2048} placeholder="https://github.com/owner/repository" value={targetUrl} onChange={event => setTargetUrl(event.target.value)} disabled={scanBusy} />
                 </div>
-                <button className="button" type="submit" disabled={scanBusy || !targetUrl.trim()}>{scanBusy ? 'Scanning…' : 'Run scan'}</button>
+                <label className="scan-attest">
+                  <input type="checkbox" checked={authorized} onChange={event => setAuthorized(event.target.checked)} disabled={scanBusy} />
+                  <span>I confirm I own this target or am explicitly authorized to test it.</span>
+                </label>
+                <button className="button" type="submit" disabled={scanBusy || !targetUrl.trim() || !authorized}>{scanBusy ? 'Scanning…' : 'Run scan'}</button>
               </form>
               <p className="field-note">Only scan systems you are authorized to test. A scan may take a short time to complete.</p>
               {scanNotice && <p className={`scan-status ${scanNotice.critical ? 'warning' : 'success'}`} role="status">{scanNotice.critical ? `Critical findings detected. ${scanNotice.text}` : scanNotice.text}</p>}
