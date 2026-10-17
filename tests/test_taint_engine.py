@@ -93,6 +93,21 @@ class TaintEngineTest(unittest.TestCase):
         # yaml.safe_load is a distinct call from yaml.load -- must not be flagged.
         self.assertEqual(self._rules("deser_safe.py"), set())
 
+    def test_xss_fires(self):
+        self.assertIn("T8-XSS", self._rules("xss_vuln.ts"))
+        self.assertIn("T8-XSS", self._rules("xss_vuln.py"))
+
+    def test_sanitized_xss_is_silent(self):
+        self.assertEqual(self._rules("xss_safe.ts"), set())
+
+    def test_open_redirect_fires(self):
+        self.assertIn("T9-REDIR", self._rules("redir_vuln.ts"))
+        self.assertIn("T9-REDIR", self._rules("redir_vuln.py"))
+        self.assertIn("T9-REDIR", self._rules("redir_vuln.go"))
+
+    def test_sanitized_redirect_is_silent(self):
+        self.assertEqual(self._rules("redir_safe.ts"), set())
+
     def test_taint_findings_are_gating_detectors(self):
         # Every taint finding is a HIGH-confidence detector, not a review-list item.
         for f in self.findings:

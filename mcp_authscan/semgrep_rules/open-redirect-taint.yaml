@@ -1,0 +1,98 @@
+# mcp-authscan taint engine -- open redirect (CWE-601)
+#
+# Untrusted input used as the target of an HTTP redirect with no allowlist / relative-
+# path check, letting an attacker bounce victims to an arbitrary site. The sink focus
+# is the redirect-location argument. Intra-function; HIGH-confidence, gates CI.
+rules:
+  - id: mcp-redirect-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Open redirect: untrusted input is used as a redirect target with no allowlist
+      or relative-path check (CWE-601). Taint engine traced the dataflow path.
+    metadata:
+      rule: T9-REDIR
+      category: security
+      cwe: ["CWE-601: URL Redirection to Untrusted Site (Open Redirect)"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: isSafeRedirect(...)
+          - pattern: isLocalUrl(...)
+          - pattern: isRelativeUrl(...)
+          - pattern: safeRedirect(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $URL
+          - pattern-either:
+              - pattern: $RES.redirect($URL)
+              - pattern: $RES.redirect($CODE, $URL)
+              - pattern: $RES.location($URL)
+              - pattern: $CTX.redirect($URL)
+
+  - id: mcp-redirect-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Open redirect: untrusted input is used as a redirect target with no allowlist
+      or relative-path check (CWE-601). Taint engine traced the dataflow path.
+    metadata:
+      rule: T9-REDIR
+      category: security
+      cwe: ["CWE-601: URL Redirection to Untrusted Site (Open Redirect)"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: is_safe_url(...)
+          - pattern: is_local_url(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $URL
+          - pattern-either:
+              - pattern: redirect($URL)
+              - pattern: flask.redirect($URL)
+              - pattern: HttpResponseRedirect($URL)
+              - pattern: django.shortcuts.redirect($URL)
+
+  - id: mcp-redirect-taint-go
+    mode: taint
+    languages: [go]
+    severity: ERROR
+    message: >
+      Open redirect: untrusted input is used as a redirect target with no allowlist
+      or relative-path check (CWE-601). Taint engine traced the dataflow path.
+    metadata:
+      rule: T9-REDIR
+      category: security
+      cwe: ["CWE-601: URL Redirection to Untrusted Site (Open Redirect)"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.URL.Query().Get(...)
+              - pattern: $R.FormValue(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $URL
+          - pattern-either:
+              - pattern: http.Redirect($W, $R, $URL, ...)

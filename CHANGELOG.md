@@ -14,10 +14,13 @@ aims to follow [Semantic Versioning](https://semver.org/).
   Python, and Go: SSRF (`T1-SSRF`, CWE-918), OS command injection (`T2-CMDI`,
   CWE-78), path traversal (`T3-PATH`, CWE-22), SQL injection (`T4-SQLI`, CWE-89),
   server-side template injection (`T5-SSTI`, CWE-1336), code evaluation /
-  `eval` (`T6-EVAL`, CWE-95), and unsafe deserialization (`T7-DESER`, CWE-502).
+  `eval` (`T6-EVAL`, CWE-95), unsafe deserialization (`T7-DESER`, CWE-502),
+  cross-site scripting (`T8-XSS`, CWE-79; scoped to raw-HTML sinks like
+  `innerHTML`/`Markup`, not `res.send`), and open redirect (`T9-REDIR`, CWE-601).
   Each leaves the safe idiom alone (parameterized queries, template data vs. a
-  user-controlled template, `yaml.safe_load`). These are HIGH-confidence
-  detectors and gate `--fail-on`. Install with
+  user-controlled template, `yaml.safe_load`, escaped HTML, allowlisted
+  redirects). These are HIGH-confidence detectors and gate `--fail-on`.
+  Install with
   `pip install 'mcp-authscan[taint]'`; `--taint` degrades to a clean skip when
   Semgrep is absent. Scope: OSS Semgrep taint is intra-function (cross-function
   and cross-file flows are the paid Semgrep Pro engine). The command-injection

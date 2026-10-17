@@ -1,0 +1,78 @@
+# mcp-authscan taint engine -- reflected / DOM XSS (CWE-79)
+#
+# Untrusted input reaching a sink that treats a string as raw HTML, with no escaping.
+# Deliberately scoped to UNAMBIGUOUS raw-HTML sinks (innerHTML, document.write,
+# dangerouslySetInnerHTML, Markup) -- NOT res.send(...), which usually ships JSON
+# safely and would be a false-positive factory. Intra-function; HIGH, gates CI.
+rules:
+  - id: mcp-xss-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Cross-site scripting: untrusted input is written as raw HTML with no escaping
+      (CWE-79). Taint engine traced the dataflow path.
+    metadata:
+      rule: T8-XSS
+      category: security
+      cwe: ["CWE-79: Improper Neutralization of Input During Web Page Generation"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: DOMPurify.sanitize(...)
+          - pattern: $D.sanitize(...)
+          - pattern: escapeHtml(...)
+          - pattern: escape(...)
+          - pattern: he.encode(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: $EL.innerHTML = $X
+              - pattern: $EL.outerHTML = $X
+              - pattern: document.write($X)
+              - pattern: document.writeln($X)
+              - pattern: $EL.insertAdjacentHTML($POS, $X)
+              - pattern: $J.html($X)
+
+  - id: mcp-xss-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Cross-site scripting: untrusted input is marked as safe HTML without escaping
+      (CWE-79). Taint engine traced the dataflow path.
+    metadata:
+      rule: T8-XSS
+      category: security
+      cwe: ["CWE-79: Improper Neutralization of Input During Web Page Generation"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: escape(...)
+          - pattern: markupsafe.escape(...)
+          - pattern: bleach.clean(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: Markup($X)
+              - pattern: markupsafe.Markup($X)
+              - pattern: flask.Markup($X)

@@ -134,15 +134,18 @@ pip install "mcp-authscan[taint]"          # one-time: pulls the Semgrep engine
 mcp-authscan scan ./path/to/repo --taint   # or: python3 mcp_authscan.py <dir> --taint
 ```
 
-It ships seven detector classes today, across TypeScript/JavaScript, Python, and
+It ships nine detector classes today, across TypeScript/JavaScript, Python, and
 Go: **SSRF** (`T1-SSRF`, CWE-918), **OS command injection** (`T2-CMDI`, CWE-78),
 **path traversal** (`T3-PATH`, CWE-22), **SQL injection** (`T4-SQLI`, CWE-89),
 **server-side template injection** (`T5-SSTI`, CWE-1336), **code evaluation /
-`eval`** (`T6-EVAL`, CWE-95), and **unsafe deserialization** (`T7-DESER`,
-CWE-502). Each is tuned to leave the safe idiom alone — parameterized queries,
-template *data* (vs. a user-controlled template), `yaml.safe_load`. Because a
-real path is traced, these are HIGH-confidence detectors: they **gate**
-`--fail-on`, unlike the heuristic surface rules. If Semgrep isn't
+`eval`** (`T6-EVAL`, CWE-95), **unsafe deserialization** (`T7-DESER`, CWE-502),
+**cross-site scripting** (`T8-XSS`, CWE-79), and **open redirect** (`T9-REDIR`,
+CWE-601). Each is tuned to leave the safe idiom alone — parameterized queries,
+template *data* (vs. a user-controlled template), `yaml.safe_load`, escaped HTML,
+allowlisted redirects. (XSS is scoped to raw-HTML sinks like `innerHTML` and
+`Markup`, not `res.send`, to avoid flagging safe JSON responses.) Because a real
+path is traced, these are HIGH-confidence detectors: they **gate** `--fail-on`,
+unlike the heuristic surface rules. If Semgrep isn't
 installed, `--taint` prints a note and skips rather than failing.
 
 **Scope (be precise about this):** the OSS Semgrep taint engine is
