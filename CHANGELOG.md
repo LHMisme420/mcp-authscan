@@ -29,6 +29,11 @@ aims to follow [Semantic Versioning](https://semver.org/).
   unauthenticated `200` no longer suppressed).
 - Declared the web-app Python dependencies (`requirements-web.txt`) and added a
   CI `web-tests` job; the 52 flask-backed tests now run in CI.
+- Portability: rewrote 336 `package-lock.json` `resolved` URLs that pointed at a
+  Replit-internal mirror (`package-firewall.replit.internal`) back to the public
+  npm registry, so `npm ci` works outside Replit. Added a CI `node-build` job
+  (install, build client+server, run the self-contained TS suites); service-
+  backed TS suites remain deploy-environment integration tests.
 - Packaging: `pip install` no longer fails on flat-layout auto-discovery; added
   the `mcp-authscan` console entry point.
 - Removed a broken `keycloak` submodule gitlink that aborted CI checkout.

@@ -42,6 +42,27 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit -r requirements.txt
+  node-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Node version (runner-provided)
+        run: node --version
+      - name: Install dependencies
+        run: npm ci
+      - name: Build client + server bundle
+        run: npm run build
+      - name: Run self-contained TS test suites
+        # Service-backed suites (GCS/Stripe/Clerk/Postgres) run in the deploy
+        # environment, not here; this covers the suites with no external deps.
+        run: >-
+          npx tsx --test
+          tests/billing.test.ts
+          tests/billing-panel.test.tsx
+          tests/compliance-report-download.test.ts
+          tests/dashboard-pdf-visibility.test.tsx
+          tests/flask-pdf-bridge.test.ts
+          tests/fresh-findings.test.ts
   web-tests:
     runs-on: ubuntu-latest
     steps:
