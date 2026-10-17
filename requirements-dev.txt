@@ -3,5 +3,5 @@
 -r requirements.txt
 ruff==0.16.8
 mypy==2.3.1
-coverage==7.16.2
+coverage[toml]==7.16.2
 hypothesis>=6.0
