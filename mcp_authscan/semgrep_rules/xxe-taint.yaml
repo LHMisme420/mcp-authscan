@@ -1,0 +1,40 @@
+# mcp-authscan taint engine -- XML external entity (XXE) injection (CWE-611)
+#
+# Untrusted XML reaching an entity-resolving parser (lxml, minidom, sax). The safe
+# path -- defusedxml -- is a different module/call, so it is not matched. Intra-
+# function; HIGH-confidence detector that gates CI. Python-only: JS/Go XXE depends on
+# per-call parser options that this intra-function pass can't read reliably.
+rules:
+  - id: mcp-xxe-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      XXE: untrusted XML is parsed by an entity-resolving parser (CWE-611). Use
+      defusedxml. Taint engine traced the dataflow path.
+    metadata:
+      rule: T10-XXE
+      category: security
+      cwe: ["CWE-611: Improper Restriction of XML External Entity Reference"]
+      owasp: ["A05:2021 - Security Misconfiguration"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: lxml.etree.fromstring($X, ...)
+              - pattern: lxml.etree.parse($X, ...)
+              - pattern: etree.fromstring($X)
+              - pattern: etree.parse($X)
+              - pattern: xml.dom.minidom.parseString($X, ...)
+              - pattern: minidom.parseString($X, ...)
+              - pattern: xml.sax.parseString($X, ...)
+              - pattern: xml.sax.parse($X, ...)

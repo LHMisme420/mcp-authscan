@@ -16,11 +16,13 @@ aims to follow [Semantic Versioning](https://semver.org/).
   server-side template injection (`T5-SSTI`, CWE-1336), code evaluation /
   `eval` (`T6-EVAL`, CWE-95), unsafe deserialization (`T7-DESER`, CWE-502),
   cross-site scripting (`T8-XSS`, CWE-79; scoped to raw-HTML sinks like
-  `innerHTML`/`Markup`, not `res.send`), and open redirect (`T9-REDIR`, CWE-601).
-  Each leaves the safe idiom alone (parameterized queries, template data vs. a
-  user-controlled template, `yaml.safe_load`, escaped HTML, allowlisted
-  redirects). These are HIGH-confidence detectors and gate `--fail-on`.
-  Install with
+  `innerHTML`/`Markup`, not `res.send`), open redirect (`T9-REDIR`, CWE-601),
+  XXE (`T10-XXE`, CWE-611, Python), and prototype pollution (`T11-PROTO`,
+  CWE-1321, JS/TS — scoped to recursive deep-merge sinks, not shallow
+  `Object.assign`). Each leaves the safe idiom alone (parameterized queries,
+  template data vs. a user-controlled template, `yaml.safe_load`, escaped HTML,
+  allowlisted redirects, `defusedxml`, literal merges). These are HIGH-confidence
+  detectors and gate `--fail-on`. Install with
   `pip install 'mcp-authscan[taint]'`; `--taint` degrades to a clean skip when
   Semgrep is absent. Scope: OSS Semgrep taint is intra-function (cross-function
   and cross-file flows are the paid Semgrep Pro engine). The command-injection

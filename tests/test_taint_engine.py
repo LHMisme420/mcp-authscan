@@ -108,6 +108,18 @@ class TaintEngineTest(unittest.TestCase):
     def test_sanitized_redirect_is_silent(self):
         self.assertEqual(self._rules("redir_safe.ts"), set())
 
+    def test_xxe_fires(self):
+        self.assertIn("T10-XXE", self._rules("xxe_vuln.py"))
+
+    def test_defused_xml_is_silent(self):
+        self.assertEqual(self._rules("xxe_safe.py"), set())
+
+    def test_prototype_pollution_fires(self):
+        self.assertIn("T11-PROTO", self._rules("proto_vuln.ts"))
+
+    def test_literal_merge_is_silent(self):
+        self.assertEqual(self._rules("proto_safe.ts"), set())
+
     def test_taint_findings_are_gating_detectors(self):
         # Every taint finding is a HIGH-confidence detector, not a review-list item.
         for f in self.findings:

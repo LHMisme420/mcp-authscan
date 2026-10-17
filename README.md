@@ -134,18 +134,20 @@ pip install "mcp-authscan[taint]"          # one-time: pulls the Semgrep engine
 mcp-authscan scan ./path/to/repo --taint   # or: python3 mcp_authscan.py <dir> --taint
 ```
 
-It ships nine detector classes today, across TypeScript/JavaScript, Python, and
+It ships eleven detector classes today, across TypeScript/JavaScript, Python, and
 Go: **SSRF** (`T1-SSRF`, CWE-918), **OS command injection** (`T2-CMDI`, CWE-78),
 **path traversal** (`T3-PATH`, CWE-22), **SQL injection** (`T4-SQLI`, CWE-89),
 **server-side template injection** (`T5-SSTI`, CWE-1336), **code evaluation /
 `eval`** (`T6-EVAL`, CWE-95), **unsafe deserialization** (`T7-DESER`, CWE-502),
-**cross-site scripting** (`T8-XSS`, CWE-79), and **open redirect** (`T9-REDIR`,
-CWE-601). Each is tuned to leave the safe idiom alone — parameterized queries,
-template *data* (vs. a user-controlled template), `yaml.safe_load`, escaped HTML,
-allowlisted redirects. (XSS is scoped to raw-HTML sinks like `innerHTML` and
-`Markup`, not `res.send`, to avoid flagging safe JSON responses.) Because a real
-path is traced, these are HIGH-confidence detectors: they **gate** `--fail-on`,
-unlike the heuristic surface rules. If Semgrep isn't
+**cross-site scripting** (`T8-XSS`, CWE-79), **open redirect** (`T9-REDIR`,
+CWE-601), **XXE** (`T10-XXE`, CWE-611, Python), and **prototype pollution**
+(`T11-PROTO`, CWE-1321, JS/TS). Each is tuned to leave the safe idiom alone —
+parameterized queries, template *data* (vs. a user-controlled template),
+`yaml.safe_load`, escaped HTML, allowlisted redirects, `defusedxml`, literal
+merges. (XSS is scoped to raw-HTML sinks like `innerHTML` and `Markup`, not
+`res.send`, to avoid flagging safe JSON responses.) Because a real path is
+traced, these are HIGH-confidence detectors: they **gate** `--fail-on`, unlike
+the heuristic surface rules. If Semgrep isn't
 installed, `--taint` prints a note and skips rather than failing.
 
 **Scope (be precise about this):** the OSS Semgrep taint engine is

@@ -1,0 +1,40 @@
+# mcp-authscan taint engine -- prototype pollution (CWE-1321)
+#
+# An untrusted object merged into another via a RECURSIVE merge -- the vector that
+# lets `__proto__`/`constructor` keys in attacker JSON corrupt Object.prototype.
+# Scoped to known deep-merge sinks (lodash merge/mergeWith/defaultsDeep, jQuery
+# $.extend(true, ...), deepmerge); shallow Object.assign is intentionally excluded
+# (lower risk and a false-positive factory). Intra-function; HIGH, gates CI.
+rules:
+  - id: mcp-proto-pollution-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Prototype pollution: an untrusted object is deep-merged into another, letting
+      __proto__/constructor keys corrupt Object.prototype (CWE-1321). Taint engine
+      traced the dataflow path.
+    metadata:
+      rule: T11-PROTO
+      category: security
+      cwe: ["CWE-1321: Improperly Controlled Modification of Object Prototype Attributes"]
+      owasp: ["A08:2021 - Software and Data Integrity Failures"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.body
+              - pattern: $R.query
+              - pattern: $R.params
+              - pattern: $C.req.json(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $SRC
+          - pattern-either:
+              - pattern: _.merge($DST, $SRC)
+              - pattern: _.mergeWith($DST, $SRC, ...)
+              - pattern: _.defaultsDeep($DST, $SRC)
+              - pattern: lodash.merge($DST, $SRC)
+              - pattern: deepmerge($DST, $SRC)
+              - pattern: $.extend(true, $DST, $SRC)
+              - pattern: jQuery.extend(true, $DST, $SRC)
