@@ -1,0 +1,111 @@
+# mcp-authscan taint engine -- path traversal (CWE-22)
+#
+# Untrusted input reaching a filesystem read/write path with no basename/containment
+# sanitizer. Intra-function dataflow; HIGH-confidence detectors that gate CI.
+rules:
+  - id: mcp-path-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Path traversal: untrusted input reaches a filesystem path with no
+      basename/containment check (CWE-22). Taint engine traced the dataflow path.
+    metadata:
+      rule: T3-PATH
+      category: security
+      cwe: ["CWE-22: Improper Limitation of a Pathname to a Restricted Directory"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: path.basename(...)
+          - pattern: $P.basename(...)
+          - pattern: safeJoin(...)
+          - pattern: resolveWithin(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $P
+          - pattern-either:
+              - pattern: fs.readFile($P, ...)
+              - pattern: fs.readFileSync($P, ...)
+              - pattern: fs.writeFile($P, ...)
+              - pattern: fs.writeFileSync($P, ...)
+              - pattern: fs.createReadStream($P, ...)
+              - pattern: fs.promises.readFile($P, ...)
+              - pattern: fs.promises.writeFile($P, ...)
+
+  - id: mcp-path-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Path traversal: untrusted input reaches a filesystem path with no
+      basename/containment check (CWE-22). Taint engine traced the dataflow path.
+    metadata:
+      rule: T3-PATH
+      category: security
+      cwe: ["CWE-22: Improper Limitation of a Pathname to a Restricted Directory"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: request.get_json(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: os.path.basename(...)
+          - pattern: secure_filename(...)
+          - pattern: werkzeug.utils.secure_filename(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $P
+          - pattern-either:
+              - pattern: open($P, ...)
+              - pattern: open($P)
+              - pattern: io.open($P, ...)
+              - pattern: os.open($P, ...)
+              - pattern: codecs.open($P, ...)
+
+  - id: mcp-path-taint-go
+    mode: taint
+    languages: [go]
+    severity: ERROR
+    message: >
+      Path traversal: untrusted input reaches a filesystem path with no
+      basename/containment check (CWE-22). Taint engine traced the dataflow path.
+    metadata:
+      rule: T3-PATH
+      category: security
+      cwe: ["CWE-22: Improper Limitation of a Pathname to a Restricted Directory"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.URL.Query().Get(...)
+              - pattern: $R.FormValue(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: filepath.Base(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $P
+          - pattern-either:
+              - pattern: os.Open($P)
+              - pattern: os.ReadFile($P)
+              - pattern: os.Create($P)
+              - pattern: ioutil.ReadFile($P)
+              - pattern: os.OpenFile($P, ...)

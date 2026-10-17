@@ -1,0 +1,101 @@
+# mcp-authscan taint engine -- SQL injection (CWE-89)
+#
+# Untrusted input reaching the QUERY-STRING argument of a database call (i.e. built
+# into the SQL text via concatenation/interpolation). Parameterized queries pass the
+# value as a SEPARATE argument, which the focus-metavariable deliberately does not
+# cover -- so `execute(sql, params)` with a tainted param is correctly NOT flagged.
+# Intra-function dataflow; HIGH-confidence detectors that gate CI.
+rules:
+  - id: mcp-sqli-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      SQL injection: untrusted input is built into the SQL query string instead of
+      bound as a parameter (CWE-89). Taint engine traced the dataflow path.
+    metadata:
+      rule: T4-SQLI
+      category: security
+      cwe: ["CWE-89: Improper Neutralization of Special Elements used in an SQL Command"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $SQL
+          - pattern-either:
+              - pattern: db.query($SQL, ...)
+              - pattern: db.execute($SQL, ...)
+              - pattern: pool.query($SQL, ...)
+              - pattern: conn.query($SQL, ...)
+              - pattern: connection.query($SQL, ...)
+              - pattern: client.query($SQL, ...)
+              - pattern: sequelize.query($SQL, ...)
+              - pattern: knex.raw($SQL, ...)
+
+  - id: mcp-sqli-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      SQL injection: untrusted input is built into the SQL query string instead of
+      bound as a parameter (CWE-89). Taint engine traced the dataflow path.
+    metadata:
+      rule: T4-SQLI
+      category: security
+      cwe: ["CWE-89: Improper Neutralization of Special Elements used in an SQL Command"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: request.get_json(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $SQL
+          - pattern-either:
+              - pattern: $CUR.execute($SQL, ...)
+              - pattern: $CUR.execute($SQL)
+              - pattern: $CUR.executemany($SQL, ...)
+              - pattern: $DB.execute($SQL, ...)
+              - pattern: sqlalchemy.text($SQL)
+
+  - id: mcp-sqli-taint-go
+    mode: taint
+    languages: [go]
+    severity: ERROR
+    message: >
+      SQL injection: untrusted input is built into the SQL query string instead of
+      bound as a parameter (CWE-89). Taint engine traced the dataflow path.
+    metadata:
+      rule: T4-SQLI
+      category: security
+      cwe: ["CWE-89: Improper Neutralization of Special Elements used in an SQL Command"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.URL.Query().Get(...)
+              - pattern: $R.FormValue(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $SQL
+          - pattern-either:
+              - pattern: $DB.Query($SQL, ...)
+              - pattern: $DB.QueryContext($CTX, $SQL, ...)
+              - pattern: $DB.Exec($SQL, ...)
+              - pattern: $DB.ExecContext($CTX, $SQL, ...)
+              - pattern: $DB.QueryRow($SQL, ...)

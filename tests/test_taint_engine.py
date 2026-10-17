@@ -54,6 +54,22 @@ class TaintEngineTest(unittest.TestCase):
     def test_sanitized_cmdi_is_silent(self):
         self.assertEqual(self._rules("cmdi_safe.py"), set())
 
+    def test_path_traversal_fires(self):
+        self.assertIn("T3-PATH", self._rules("path_vuln.py"))
+        self.assertIn("T3-PATH", self._rules("path_vuln.ts"))
+
+    def test_sanitized_path_is_silent(self):
+        self.assertEqual(self._rules("path_safe.py"), set())
+
+    def test_sqli_fires(self):
+        self.assertIn("T4-SQLI", self._rules("sqli_vuln.py"))
+        self.assertIn("T4-SQLI", self._rules("sqli_vuln.ts"))
+
+    def test_parameterized_sql_is_silent(self):
+        # The value is bound as a parameter (separate arg), not built into the SQL
+        # string -- the focus-metavariable must leave this untouched.
+        self.assertEqual(self._rules("sqli_safe.py"), set())
+
     def test_taint_findings_are_gating_detectors(self):
         # Every taint finding is a HIGH-confidence detector, not a review-list item.
         for f in self.findings:

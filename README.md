@@ -134,10 +134,13 @@ pip install "mcp-authscan[taint]"          # one-time: pulls the Semgrep engine
 mcp-authscan scan ./path/to/repo --taint   # or: python3 mcp_authscan.py <dir> --taint
 ```
 
-It ships two detector classes today — **SSRF** (`T1-SSRF`, CWE-918) and **OS
-command injection** (`T2-CMDI`, CWE-78) — across TypeScript/JavaScript, Python,
-and Go. Because a real path is traced, these are HIGH-confidence detectors: they
-**gate** `--fail-on`, unlike the heuristic surface rules. If Semgrep isn't
+It ships four detector classes today, across TypeScript/JavaScript, Python, and
+Go: **SSRF** (`T1-SSRF`, CWE-918), **OS command injection** (`T2-CMDI`, CWE-78),
+**path traversal** (`T3-PATH`, CWE-22), and **SQL injection** (`T4-SQLI`,
+CWE-89). The SQLi rule flags input built into the query *string* but leaves
+parameterized queries alone (the bound value is a separate argument). Because a
+real path is traced, these are HIGH-confidence detectors: they **gate**
+`--fail-on`, unlike the heuristic surface rules. If Semgrep isn't
 installed, `--taint` prints a note and skips rather than failing.
 
 **Scope (be precise about this):** the OSS Semgrep taint engine is
