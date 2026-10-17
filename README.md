@@ -97,6 +97,30 @@ mcp-authscan scan --targets inventory.txt --fail-on critical
 mcp-authscan scan --targets inventory.txt --fail-on high
 ```
 
+Heuristic "surface" rules (SSRF surface, PKCE-on-a-proxy, and similar) are
+emitted at **INFO / needs-review**, not as confirmed vulnerabilities, so they
+never trip `--fail-on`. They enumerate things worth a human's eye; confirmed
+detectors keep their severity and gate the build.
+
+### Suppressing known-good findings (source scans)
+
+When a source finding is a reviewed false positive, silence it two ways:
+
+```python
+# authscan:ignore A4   <- on the finding line, or the line directly above it
+response = requests.get(config.UPSTREAM_URL)   # bare `authscan:ignore` = all rules
+```
+
+Or list patterns in a `.authscan-ignore` file at the scan root — one
+`path-glob[:RULE,RULE]` per line (`#` comments allowed; no rule suffix ignores
+every rule under the glob):
+
+```
+# vendored SDK makes config-driven calls we've reviewed
+src/vendor/**:A4
+scripts/*.ts
+```
+
 ### SARIF output (code-scanning dashboards)
 
 `--format sarif` emits SARIF 2.1.0 — one run, one result per finding (passed

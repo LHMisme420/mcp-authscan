@@ -136,6 +136,12 @@
       "name": "ms-azure-devops",
       "commit": "2ffa682e2394e961e804a2739d0de62651213365",
       "note": "PAT fetch interceptor host allowlist; org is CLI arg not per-call; retracted FP guard - no detector should fire"
+    },
+    {
+      "repo": "https://github.com/cloudflare/mcp",
+      "name": "cloudflare-mcp",
+      "commit": "e85737947299bbb9b5858fc9ae6bc6d1e6f9a3ba",
+      "note": "Official Cloudflare MCP server: OAuth PROXY (finishUpstream forwards the PKCE verifier to Cloudflare's AS), config/env-derived fetch URLs, a guarded callback fetch (CallbackUrl.parse + redirect:manual), and a generated worker-configuration.d.ts. No detector should fire; A4 surface limited to the by-design HTTP-executing tool."
     }
   ],
   "latent": [

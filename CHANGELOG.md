@@ -7,6 +7,10 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Source-scan suppressions for known-good patterns: an inline
+  `# authscan:ignore [RULE ...]` directive (on the finding line or the line
+  above; bare form suppresses all rules there) and a repo-level
+  `.authscan-ignore` file of `path-glob[:RULE,...]` entries.
 - Hosted app: a per-scan **authorization attestation**. The `/api/scan(s/mcp)`
   endpoint now requires `authorized: true` and records the attestation to a
   `scan_authorizations` audit table; the dashboard adds a required "I'm
@@ -26,6 +30,27 @@ aims to follow [Semantic Versioning](https://semver.org/).
   into CI (lint, types, tests+coverage on a 3.8/3.12 matrix).
 - `CONTRIBUTING.md`, `CODEOWNERS`, and an "Authorization — read before you scan"
   section in the README.
+
+### Changed
+- Source scanner precision: the heuristic "surface" rules (A4 SSRF, A5, B3, and
+  medium-confidence B1) now emit at **INFO / needs-review** instead of
+  MEDIUM, so a pattern match never reads as a confirmed vulnerability and never
+  trips `--fail-on`. Definitive detectors (A1–A3, explicit-skip and
+  plain-downgrade B1, …) keep their severity and still gate.
+- A4 SSRF is now sink-first with far less noise: skips generated `.d.ts`
+  declaration files and `scripts/` tooling; suppresses URLs built from env
+  bindings (`env.X`, `process.env`, `getenv`/`os.environ`), named config vars,
+  or ALL-CAPS constants; recognizes OAuth-client token requests (PKCE verifier /
+  singular `grant_type` / form-urlencoded body) as non-SSRF; and the guard check
+  now understands URL-schema validation (`SomeUrl.parse(...)`), manual-redirect,
+  and named validators — including guards inside arrow-function consts. A
+  DCR-registration POST (`grant_types` plural, JSON body) still fires.
+- B1 PKCE: the "verifier received but never validated" finding is suppressed for
+  OAuth proxies/clients that forward the verifier upstream
+  (`finishUpstream`/`beginUpstream`/outbound token request) rather than acting as
+  the authorization server. Verified against cloudflare/mcp (15 findings → 1
+  by-design INFO) with the detector benchmark holding precision/recall and the
+  repo pinned as a negative fixture.
 
 ### Fixed
 - Auth-finding accuracy: a `200` on an MCP path is now a zero-auth finding
