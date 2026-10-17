@@ -15,6 +15,26 @@ const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex
 const helper = path.resolve('scripts/sqlite-snapshot.py');
 const failure = () => new Error('Findings backup unavailable. Writes are paused; preserve DB_FILE and follow docs/findings-storage.md.');
 
+export class FindingsWriterBusyError extends Error {
+  constructor() {
+    super('Another findings writer is active. Stop the previous instance before replacement; never run two SQLite writers.');
+    this.name = 'FindingsWriterBusyError';
+  }
+}
+
+export function validateFindingsConfiguration() {
+  const mode = process.env.VATA_SQLITE_DURABILITY ?? (process.env.NODE_ENV === 'production' ? 'postgres' : 'local');
+  if (mode !== 'postgres' && mode !== 'local') throw new Error('VATA_SQLITE_DURABILITY must be postgres or local.');
+  if (mode === 'postgres' && (!process.env.VATA_FINDINGS_NAMESPACE || !process.env.DATABASE_URL || !process.env.DB_FILE)) {
+    throw new Error('Durable findings require DATABASE_URL, an explicit DB_FILE and VATA_FINDINGS_NAMESPACE; see docs/findings-storage.md.');
+  }
+  if (mode === 'postgres' && !/^[a-z][a-z0-9_-]{2,63}$/.test(process.env.VATA_FINDINGS_NAMESPACE!)) {
+    throw new Error('Set an explicit, environment-specific VATA_FINDINGS_NAMESPACE (3-64 lowercase characters).');
+  }
+  readFindingsCapacityThresholds();
+  return mode;
+}
+
 async function exists(file: string) {
   try { await stat(file); return true; }
   catch (error: any) { if (error.code === 'ENOENT') return false; throw error; }
@@ -91,7 +111,7 @@ export class FindingsStorage {
     const lock = await this.client.query(
       "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1, 0)) AS acquired", [this.namespace],
     );
-    if (!lock.rows[0].acquired) throw new Error('Another findings writer is active. Stop the previous instance before replacement; never run two SQLite writers.');
+    if (!lock.rows[0].acquired) throw new FindingsWriterBusyError();
     await this.client.query('SELECT namespace,generation,sha256,payload FROM public.vata_findings_backups LIMIT 0');
   }
 
@@ -129,7 +149,7 @@ export class FindingsStorage {
       await this.checkSnapshotCapacity();
       await checkWorkingDisk(this.dbFile, this.capacityAlerts);
     } catch (error) {
-      this.alerts.fail('startup_failed');
+      if (!(error instanceof FindingsWriterBusyError)) this.alerts.fail('startup_failed');
       await this.close();
       // Never expose pg errors or Python stderr, which may contain private paths.
       if (error instanceof Error && /^(Another findings|No approved|Stored findings|Local SQLite|SQLite sidecar|Fresh findings)/.test(error.message)) throw error;
@@ -238,13 +258,16 @@ export class FindingsStorage {
 }
 
 let storage: FindingsStorage | undefined;
+let localReady = false;
 let capacityAlerts = new FindingsCapacityAlerts();
 export const findingsReady = () => {
   if (storage && !storage.ready) findingsAlerts.remind();
-  return !storage || storage.ready;
+  return storage ? storage.ready : localReady;
 };
 export async function withFindingsStorage<T>(operation: () => Promise<T>) {
   if (storage) return storage.run(operation);
+  // An unopened coordinator is not permission to fall back to local SQLite.
+  if (!localReady) throw failure();
   const dbFile = process.env.DB_FILE || '/tmp/vata.db';
   await checkWorkingDisk(dbFile, capacityAlerts);
   try { return await operation(); }
@@ -252,23 +275,21 @@ export async function withFindingsStorage<T>(operation: () => Promise<T>) {
 }
 export async function prepareFindingsStorage() {
   try {
+    localReady = false;
     capacityAlerts = new FindingsCapacityAlerts(readFindingsCapacityThresholds());
-    const mode = process.env.VATA_SQLITE_DURABILITY ?? (process.env.NODE_ENV === 'production' ? 'postgres' : 'local');
+    const mode = validateFindingsConfiguration();
     if (mode === 'local') {
       console.warn('Findings use LOCAL-ONLY SQLite: data will not survive a replacement deployment.');
       await checkWorkingDisk(process.env.DB_FILE || '/tmp/vata.db', capacityAlerts);
+      localReady = true;
       return undefined;
     }
-    if (mode !== 'postgres') throw new Error('VATA_SQLITE_DURABILITY must be postgres or local.');
-    if (!process.env.VATA_FINDINGS_NAMESPACE || !process.env.DATABASE_URL || !process.env.DB_FILE) {
-      throw new Error('Durable findings require DATABASE_URL, an explicit DB_FILE and VATA_FINDINGS_NAMESPACE; see docs/findings-storage.md.');
-    }
-    storage = new FindingsStorage(process.env.DATABASE_URL, process.env.VATA_FINDINGS_NAMESPACE,
-      process.env.DB_FILE, findingsAlerts, capacityAlerts);
+    storage = new FindingsStorage(process.env.DATABASE_URL!, process.env.VATA_FINDINGS_NAMESPACE!,
+      process.env.DB_FILE!, findingsAlerts, capacityAlerts);
     await storage.open();
     return storage;
   } catch (error) {
-    findingsAlerts.fail('startup_failed');
+    if (!(error instanceof FindingsWriterBusyError)) findingsAlerts.fail('startup_failed');
     throw error;
   }
 }

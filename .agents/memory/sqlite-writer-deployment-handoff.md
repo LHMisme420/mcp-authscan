@@ -1,27 +1,32 @@
 ---
 name: SQLite writer deployment handoff
-description: Production revision overlap blocks republishing with the exclusive findings writer.
+description: Approved frontend-first writer handoff and safeguards for manual recovery.
 ---
 
-Verify a stop-before-start handoff before republishing the PostgreSQL-backed
-SQLite writer. A seeded namespace and passing workspace startup tests do not
-establish that a replacement production revision can acquire the writer lock.
+The owner explicitly approved frontend-liveness-first startup to break the
+publishing dependency between a new healthy root page and the old writer's
+shutdown. A candidate may serve the frontend while boundedly retrying the writer
+lock, but health readiness and all scanner-dependent APIs must remain 503 until
+ownership, restored data, scanner initialization and snapshot verification succeed.
 
-**Why:** After the first durable release succeeded, the next Autoscale publish
-built its image successfully but crash-looped because the existing release kept
-the namespace's PostgreSQL advisory writer lock. Production snapshots continued
-to advance while the replacement reported “Another findings writer is active.”
-The earlier publish-readiness advice missed this revision overlap.
+**Why:** Deployment probes targeted the root page. Requiring writer ownership
+before listening prevented promotion from triggering old-revision drain. The
+owner chose a brief honest API-unavailable interval over a startup deadlock,
+without accepting concurrent SQLite writers or losing findings durability.
 
-**How to apply:** Explain that the current design requires stopping the old
-published instance before starting its replacement. Obtain approval for a brief
-maintenance outage and use the documented publishing shutdown flow, then verify
-the replacement's readiness in production logs. Check the latest durable
-snapshot's checksum before the handoff. A maximum-machine setting is not proof
-that the previous revision has stopped. Never steal the lock, reseed, change
-namespaces, or revert to local-only storage to bypass
-the failure. An automatic handoff or direct PostgreSQL findings migration is a
-separate architecture change, not an implicit publishing fix.
+**How to apply:** Permit overlapping non-writing frontend startup, not overlapping
+writers. Initialize SQLite and start schedules only after ownership and restore.
+Never retry into readiness after an acquired lock is lost: that remains
+fail-closed. Frontend 200 is deliberately not proof of writer readiness.
+Verify the new release's ready event and health response after a real publish;
+isolated handoff tests cannot guarantee platform shutdown timing. Persistent
+contention must time out, not trigger lock theft, local-only fallback, reseeding,
+namespace changes or deletion. Migrating findings to PostgreSQL remains separate
+scope; this approval changes the startup contract, not the storage model.
+
+Legacy startup that gates listening on the writer lock still requires
+stop-before-start recovery. A seeded namespace and passing workspace tests alone
+do not establish that a production replacement can acquire the lock.
 
 Require a single deployment instance and preserve the SQLite database and its
 WAL/journal files during recovery. A machine cap does not replace stopping the
@@ -76,8 +81,8 @@ steps; do not treat this as permission for future outages without approval.
 **Why:** The owner confirmed the live feature worked after this handoff, unlike
 the earlier Pause-based attempt.
 
-**How to apply:** Use the full stop-before-start sequence for approved releases
-while this exclusive-writer architecture remains in place.
+**How to apply:** Treat this as historical evidence for legacy startup recovery,
+not a requirement to delete the deployment for frontend-first handoff.
 
 The project's Unpublish confirmation is titled "Delete Published App" and
 explicitly deletes the saved replit.app domain, published history, and associated
@@ -87,7 +92,7 @@ published app tiers. Do not describe that action as a URL-preserving stop.
 the existing app link.
 
 **How to apply:** When URL retention is required, cancel this deletion flow.
-Require a verified non-deleting stop before replacement; if the available
-controls cannot provide one, report that limitation and seek platform assistance.
+If manual full-stop recovery is needed, require a verified non-deleting stop;
+if the available controls cannot provide one, report that limitation.
 Do not substitute Pause, unverified compute restarts, or killing a still-running
 writer's database session.

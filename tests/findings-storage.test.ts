@@ -21,7 +21,6 @@ function tool(command: string, args: string[], env: NodeJS.ProcessEnv = tools) {
   return execFileSync(command, args, { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
-  let now = 0;
 async function freePort() {
   const socket = net.createServer();
   await new Promise<void>(resolve => socket.listen(0, '127.0.0.1', resolve));
@@ -121,16 +120,50 @@ c.commit()
   await seed.seed();
   await t.test('capacity monitor measures isolated snapshot growth and returns to normal', async () => {
     const events: any[] = [];
-    const thresholds = { snapshotBytes: 1, diskFreePercent: 0 };
+    const thresholds = { snapshotBytes: Number.MAX_SAFE_INTEGER, diskFreePercent: 0 };
     const capacity = new FindingsCapacityAlerts(
-      { snapshotBytes: Number.MAX_SAFE_INTEGER, diskFreePercent: 0 },
+      thresholds,
       line => events.push(JSON.parse(line)),
     );
-
-  const unavailable = (async () => { throw new Error('/private/path and fixture credentials'); }) as typeof statfs;
     const monitored = store(source, 'fixture-live', undefined, capacity);
-
+    await monitored.open();
     const client = (monitored as any).client as pg.Client;
+    const originalQuery = client.query.bind(client);
+    let failCapacityProbe = false;
+    (client as any).query = (query: any, values?: any) => {
+      const text = typeof query === 'string' ? query : query?.text;
+      if (failCapacityProbe && text.includes('SUM(octet_length(payload)')) {
+        return Promise.reject(new Error('/private/path and fixture credentials'));
+      }
+      return originalQuery(query, values);
+    };
+    try {
+      thresholds.snapshotBytes = 1;
+      await monitored.run(async () => {});
+      await monitored.run(async () => {});
+      assert.equal(events.filter(event => event.event === 'findings_capacity_warning' && event.metric === 'snapshot_bytes').length, 1);
+      thresholds.snapshotBytes = Number.MAX_SAFE_INTEGER;
+      await monitored.run(async () => {});
+      assert.ok(events.some(event => event.event === 'findings_capacity_recovered' && event.metric === 'snapshot_bytes'));
+
+      failCapacityProbe = true;
+      await monitored.run(async () => {});
+      assert.equal(monitored.ready, true, 'A telemetry failure must not disable durable storage');
+      assert.ok(events.some(event => event.event === 'findings_capacity_probe_failed' && event.probe === 'postgresql'));
+      failCapacityProbe = false;
+      await monitored.run(async () => {});
+      assert.ok(events.some(event => event.event === 'findings_capacity_probe_recovered' && event.probe === 'postgresql'));
+
+      const unavailable = (async () => { throw new Error('/private/path and fixture credentials'); }) as typeof statfs;
+      const available = (async () => ({ bavail: 50n, bsize: 1n, blocks: 100n })) as typeof statfs;
+      await checkWorkingDisk(source, capacity, unavailable);
+      await checkWorkingDisk(source, capacity, available);
+      assert.ok(events.some(event => event.event === 'findings_capacity_probe_failed' && event.probe === 'filesystem'));
+      assert.ok(events.some(event => event.event === 'findings_capacity_probe_recovered' && event.probe === 'filesystem'));
+      assert.doesNotMatch(JSON.stringify(events), /private.path|fixture credentials|fixture-live|postgresql:\/\//);
+    } finally { await monitored.close(); }
+  });
+  await t.test('snapshots include committed data still held in an active SQLite WAL', async () => {
     const walSource = path.join(temp, 'active-wal.sqlite');
     await writeFile(walSource, await readFile(source), { mode: 0o600 });
     const writer = spawn('python3', ['-u', '-c', `
@@ -153,7 +186,7 @@ time.sleep(60)
       assert.ok((await readFile(walSource + '-wal')).length > 0);
       await store(walSource, 'fixture-wal').seed();
       const restored = path.join(temp, 'restored-wal.sqlite');
-    const recovered = store(path.join(temp, 'approved-recovery.sqlite'), 'fixture-live', monitor);
+      const recovered = store(restored, 'fixture-wal');
       await recovered.open();
       assert.match(tool('python3', ['-c', `import sqlite3,sys
 print(sqlite3.connect(sys.argv[1]).execute("SELECT description FROM findings WHERE description='committed-in-active-wal'").fetchone()[0])
@@ -194,9 +227,11 @@ print(sqlite3.connect(sys.argv[1]).execute("SELECT description FROM findings WHE
   await t.test('real gateway bridge persists findings and completed/failed scans before returning', async () => {
     assert.equal((await call(1, '/api/findings', 'POST',
       { vector_type: 'manual', severity: 'CRITICAL', description: 'new-private-finding' })).status, 201);
-    const success = await call(1, '/api/scans/mcp', 'POST', { target_url: 'https://fixture.invalid/mcp' }, true);
+    const denied = await call(1, '/api/scans/mcp', 'POST', { target_url: 'https://fixture.invalid/mcp' }, true);
+    assert.equal(denied.status, 403, 'Missing target authorization must not run a scan');
+    const success = await call(1, '/api/scans/mcp', 'POST', { target_url: 'https://fixture.invalid/mcp', authorized: true }, true);
     assert.equal(success.status, 200);
-    const failed = await call(1, '/api/scans/mcp', 'POST', { target_url: 'https://fixture.invalid/failed' }, true);
+    const failed = await call(1, '/api/scans/mcp', 'POST', { target_url: 'https://fixture.invalid/failed', authorized: true }, true);
     assert.equal(failed.status, 502);
     const findings = await call(1, '/api/findings');
     assert.equal(findings.data.findings.length, 3);
@@ -249,13 +284,11 @@ print('ownership and complete history preserved')
             'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
             ['vata-findings:fixture-live'],
           );
-    for (let i = 0; i < 30 && lost.ready; i++) await delay(50);
+          for (let i = 0; i < 30 && !run.output().includes('"reason":"writer_lock_lost"'); i++) await delay(50);
           assert.match(run.output(), /"reason":"writer_lock_lost"/);
-    for (let i = 0; i < 30 && lost.ready; i++) await delay(50);
-            const health = await fetch(`http://127.0.0.1:${run.gatewayPort}/health`);
-            assert.equal(health.status, 503);
-            assert.equal((await health.json()).dependencies.scanner, 'unavailable');
-          }
+          const health = await fetch(`http://127.0.0.1:${run.gatewayPort}/health`);
+          assert.equal(health.status, 503);
+          assert.equal((await health.json()).dependencies.scanner, 'unavailable');
           assert.equal(run.output().match(/"event":"findings_storage_unavailable"/g)?.length, 1);
           assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
         }
@@ -350,13 +383,3 @@ print(sqlite3.connect(sys.argv[1]).execute("SELECT description FROM findings WHE
     assert.equal(alerts.get(lost)!.length, 1);
   });
 });
-
-    let failCapacityProbe = true;
-
-      const text = typeof query === 'string' ? query : query?.text;
-
-      let scans = 0;
-
-  const available = (async () => ({ bavail: 50n, bsize: 1n, blocks: 100n })) as typeof statfs;
-
-    const originalQuery = client.query.bind(client);

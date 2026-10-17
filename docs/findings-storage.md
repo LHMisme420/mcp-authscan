@@ -12,11 +12,12 @@ including Reserved VM storage, is not a durable backup across replacement
 deployments. The workspace `vata.db` is **not** a copy of production and must
 never be used to seed production merely because it is available.
 
-Supported operation is **one gateway/scanner instance per database namespace**.
+Supported operation is **one findings writer per database namespace**.
 The dedicated PostgreSQL connection holds a session advisory lock for the
-instance's lifetime. An overlapping replacement fails rather than serve or
-overwrite a divergent SQLite copy. A replacement must stop the previous writer
-before starting the new one. Do not scale this configuration to multiple VMs or
+writer's lifetime. During a replacement, a second gateway may serve frontend
+liveness while waiting for that lock, but it cannot start its scanner, restore
+SQLite, provision workspaces, run schedules, or accept API traffic until it owns
+the lock. Do not scale this configuration to multiple steady-state VMs or
 run standalone scripts that modify the same SQLite file while it is serving.
 CLI scanners and legacy `app_full.py` are not covered by the gateway's backup
 contract.
@@ -132,12 +133,14 @@ as an operator, never during build or application startup:
    strings into chat or source files. Confirm the seed succeeded against the
    intended target and a production read-only query sees its snapshot.
 3. Publish only after that snapshot exists. Startup checks the exclusive writer
-   lock, checksum and schema, then restores the existing snapshot before opening
-   traffic. It never seeds a missing namespace, regardless of leftover
+    lock, checksum and schema, then restores the existing snapshot before opening
+    scanner/API traffic. Frontend liveness may be available earlier. It never
+    seeds a missing namespace, regardless of leftover
    `VATA_FINDINGS_INITIALIZE_EMPTY` settings. Missing snapshots require an operator
    seed or recovery, not an automatic empty reset.
 4. Limit the deployment to **one instance** (Autoscale max instances = 1, or a
-   Reserved VM). A second instance cannot take the writer lock and fails startup.
+    Reserved VM). A second instance cannot take the writer lock; it serves frontend
+    liveness only during a bounded startup wait, then exits if contention persists.
 
 Missing schema, missing snapshots, corrupt snapshots and permission failures
 still fail startup. The manual seed refuses an existing namespace and does not
@@ -145,6 +148,44 @@ modify source SQLite rows or PostgreSQL ownership records. Existing receipt
 tables are left intact; removing automatic initialization does not delete data.
 
 ## What happens at runtime
+
+### Frontend liveness versus writer readiness during a publish
+
+The platform's observed deployment checks target `/`. After validating startup
+configuration and PostgreSQL account schema/connectivity, the gateway listens
+and serves frontend HTML there without waiting for the previous writer. This
+lets a platform promote the frontend and drain the old revision without the old
+"new writer must be ready before old writer can stop" deadlock.
+
+`/` is **liveness, not scanner readiness**. `/health` remains HTTP 503 until the
+writer lock, verified snapshot restore, private scanner readiness and initial
+snapshot commit all succeed. All `/api` routes return HTTP 503 with
+`code: WRITER_NOT_READY`, `Retry-After: 2` and `Cache-Control: no-store` during
+handoff, before authentication/account provisioning/quota reservations run.
+Once ready, normal authentication and authorization apply unchanged.
+
+Only lock contention is retried: once per second for up to 120 seconds by
+default. Optional `VATA_FINDINGS_LOCK_TIMEOUT_MS` (1–300000) and
+`VATA_FINDINGS_LOCK_RETRY_MS` (1–5000) tune these positive integer millisecond
+bounds. A waiting candidate logs `findings_writer_waiting`, not
+`findings_storage_ready`. Timeout exits nonzero without starting its scanner,
+creating SQLite or acknowledging writes. Schema, permission, checksum and
+snapshot failures are fatal immediately, not retried.
+
+Importing the Flask app initializes SQLite, so its process is intentionally not
+started until lock acquisition and snapshot restoration finish. The scheduler
+also starts only after readiness. SIGTERM cancels the retry wait and closes any
+acquired session. A lock lost **after** acquisition remains fail-closed; this
+startup retry path never reacquires a lock over potentially divergent local data.
+
+Actual old-revision shutdown timing is platform-controlled. A frontend 200 is
+not proof the platform has drained the old writer, or that writes have resumed.
+Verify `findings_storage_ready` and `/health` HTTP 200 on the **new** revision.
+If the platform keeps the old session alive beyond the configured wait, use the
+operator recovery procedure below; never force startup or terminate an
+unidentified connection to make a publish appear healthy.
+
+### Snapshot and write contract
 
 - Startup acquires the writer lock and retrieves the newest snapshot for the
   configured namespace. A missing snapshot, unavailable schema/storage, checksum
@@ -292,6 +333,10 @@ retrieval after a process restart and a clean replacement runtime with no local
 database, full ownership/history preservation, failed/completed scans, lock
 conflicts, missing/corrupt backups, divergent local data, and commit failures.
 It never uses workspace or production credentials/data.
+The startup suite also simulates frontend-first promotion while an old writer
+holds the lock, then drains that writer and checks replacement readiness,
+preserved ownership/findings, bounded contention timeout, cancellation on
+shutdown, and fail-closed APIs after a lock-session loss.
 
 This is a **replacement-publish simulation**, not proof of a real production
 publish. After the approved live snapshot is seeded and the code is merged,

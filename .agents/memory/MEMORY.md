@@ -20,4 +20,4 @@
 - [Dependency runtime compatibility](dependency-runtime-compatibility.md) — preserve runtime and CommonJS compatibility when patching transitive dependencies.
 - [Dependency audit evidence](dependency-audit-evidence.md) — distinguish patched packages, independent audit results, failed platform scans, and published releases.
 - [Production SQL console](production-sql-console.md) — use a single atomic operator import; never let an empty bootstrap outrank normal snapshots.
-- [SQLite writer handoff](sqlite-writer-deployment-handoff.md) — Autoscale revision overlap can block republishing; verify stop-before-start, never bypass the writer lock.
+- [SQLite writer handoff](sqlite-writer-deployment-handoff.md) — frontend may precede writer readiness; keep APIs closed until ownership; never bypass the lock.

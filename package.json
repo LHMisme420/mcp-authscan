@@ -6,7 +6,7 @@
     "dev": "tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --bundle --packages=external --platform=node --format=esm --outfile=build/server/index.js",
     "start": "NODE_ENV=production node server/entry.mjs",
-    "test:startup": "npm run build && tsx --test tests/startup.test.ts",
+    "test:startup": "npm run build && tsx --test tests/findings-startup.test.ts tests/startup.test.ts",
     "test:fresh-findings": "npm run build && tsx --test tests/fresh-findings.test.ts tests/startup.test.ts",
     "test:findings-storage": "npm run build && tsx --test tests/findings-alerts.test.ts tests/findings-storage.test.ts",
     "test:independent-recovery": "npm run build && tsx --test tests/independent-recovery.test.ts tests/recovery-gcs.test.ts",

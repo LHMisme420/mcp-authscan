@@ -110,6 +110,41 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
     }
     assert.fail(`npm start did not become ready:\n${run.output()}`);
   }
+  async function warming(run: Awaited<ReturnType<typeof launch>>) {
+    for (let i = 0; i < 120; i++) {
+      assert.equal(run.child.exitCode, null, run.output());
+      try {
+        const response = await fetch(`http://127.0.0.1:${run.port}/`, { signal: AbortSignal.timeout(500) });
+        if (response.status === 200) {
+          assert.match(await response.text(), /<div id="root"><\/div>/);
+          const health = await fetch(`http://127.0.0.1:${run.port}/health`);
+          assert.equal(health.status, 503);
+          assert.equal((await health.json()).dependencies.scanner, 'unavailable');
+          return;
+        }
+      } catch {}
+      await delay(100);
+    }
+    assert.fail(`Frontend did not become live while waiting for the writer:\n${run.output()}`);
+  }
+  async function blockedApis(run: Awaited<ReturnType<typeof launch>>) {
+    for (const [method, endpoint] of [
+      ['GET', '/api/findings'], ['GET', '/api/reports/pdf'],
+      ['POST', '/api/findings'], ['POST', '/api/scans/mcp'],
+      ['POST', '/api/scan'], ['POST', '/api/schedule-scan'],
+    ]) {
+      const response = await fetch(`http://127.0.0.1:${run.port}${endpoint}`, {
+        method, ...(method === 'POST' ? {
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ target_url: 'https://fixture.invalid', authorized: true }),
+        } : {}),
+      });
+      assert.equal(response.status, 503, `${method} ${endpoint}`);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.equal(response.headers.get('retry-after'), '2');
+      assert.equal((await response.json()).code, 'WRITER_NOT_READY');
+    }
+  }
   await t.test('missing URL fails without local PostgreSQL fallback or credential output', async () => {
     const run = await launch({ DATABASE_URL: undefined });
     assert.match(await exited(run), /DATABASE_URL is missing.*Publish/);
@@ -251,8 +286,17 @@ import app`, source]);
       assert.equal(snapshot.rowCount, 1);
       originalSha = snapshot.rows[0].sha256;
       assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations WHERE namespace=$1', [freshNamespace])).rows[0].count, '0');
-      const competing = await launch(fresh());
-      assert.match(await exited(competing), /Another findings writer is active/);
+      const competing = await launch({
+        ...fresh(), VATA_FINDINGS_LOCK_TIMEOUT_MS: '2500', VATA_FINDINGS_LOCK_RETRY_MS: '100',
+      });
+      await warming(competing);
+      await blockedApis(competing);
+      await assert.rejects(fetch(`http://127.0.0.1:${competing.scannerPort}/health`));
+      const output = await exited(competing);
+      assert.match(output, /writer lock acquisition timed out.*Another findings writer is active/);
+      assert.match(output, /"event":"findings_writer_waiting"/);
+      assert.doesNotMatch(output, /"event":"findings_storage_ready"|"event":"findings_storage_recovered"|Starting gunicorn/);
+      assert.equal((await fetch(`http://127.0.0.1:${first.port}/health`)).status, 200);
     } finally { await cleanup(first.child); }
     const replacement = await launch({ ...fresh(), DB_FILE: path.join(temp, 'replacement-working.sqlite') });
     try {
@@ -293,6 +337,82 @@ with sqlite3.connect(app.DB_FILE) as c:
         assert.equal(unchanged.rows[0].sha256, sha256);
         assert.deepEqual(unchanged.rows[0].payload, payload);
       } finally { await cleanup(run.child); }
+    }
+  });
+
+  await t.test('overlapping frontend promotion hands off one writer, preserves rows, and fails closed after session loss', async () => {
+    const namespace = 'fixture-existing';
+    const old = await launch({ ...fresh(namespace), DB_FILE: path.join(temp, 'handoff-old.sqlite') });
+    let replacement: Awaited<ReturnType<typeof launch>> | undefined;
+    try {
+      await healthy(old);
+      const file = path.join(temp, 'handoff-new.sqlite');
+      replacement = await launch({
+        ...fresh(namespace), DB_FILE: file,
+        VATA_FINDINGS_LOCK_TIMEOUT_MS: '20000', VATA_FINDINGS_LOCK_RETRY_MS: '100',
+      });
+      await warming(replacement);
+      await blockedApis(replacement);
+      await assert.rejects(readFile(file), { code: 'ENOENT' });
+      await assert.rejects(fetch(`http://127.0.0.1:${replacement.scannerPort}/health`));
+      assert.doesNotMatch(replacement.output(), /"event":"findings_storage_ready"|Starting gunicorn/);
+      assert.equal((await admin!.query('SELECT count(*) FROM public.vata_accounts')).rows[0].count, '1');
+      const locks = await admin!.query(`SELECT count(*) FROM pg_locks l
+        WHERE l.locktype='advisory' AND l.granted AND l.objsubid=1
+        AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())
+        AND l.classid=((hashtextextended('vata-findings:' || $1,0)>>32)&4294967295)::oid
+        AND l.objid=(hashtextextended('vata-findings:' || $1,0)&4294967295)::oid`, [namespace]);
+      assert.equal(locks.rows[0].count, '1');
+
+      // Emulate the platform draining the old revision only after new / is live.
+      await cleanup(old.child);
+      await healthy(replacement);
+      assert.match(replacement.output(), /"event":"findings_writer_waiting"/);
+      assert.equal(replacement.output().match(/"event":"findings_storage_ready"/g)?.length, 1);
+      const preserved = tool('python3', ['-c', `import sqlite3,sys,json
+c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True)
+print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(),c.execute("SELECT description FROM findings").fetchall()]))
+`, file]);
+      assert.deepEqual(JSON.parse(preserved), [[['synthetic-owner']], [['Synthetic existing finding']]]);
+      assert.equal((await fetch(`http://127.0.0.1:${replacement.port}/api/findings`)).status, 401);
+
+      // Terminate only this isolated fixture's lock session, never a live DB.
+      const ended = await admin!.query(
+        'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
+        [`vata-findings:${namespace}`],
+      );
+      assert.equal(ended.rowCount, 1);
+      for (let i = 0; i < 30 && !replacement.output().includes('"reason":"writer_lock_lost"'); i++) await delay(50);
+      const unavailable = await fetch(`http://127.0.0.1:${replacement.port}/health`);
+      assert.equal(unavailable.status, 503);
+      await blockedApis(replacement);
+      assert.equal((await fetch(`http://127.0.0.1:${replacement.port}/`)).status, 200);
+      assert.match(replacement.output(), /"reason":"writer_lock_lost"/);
+      assert.equal(replacement.output().match(/"event":"findings_storage_ready"/g)?.length, 1);
+      assert.doesNotMatch(replacement.output(), /LOCAL-ONLY|"event":"findings_storage_recovered"/);
+    } finally {
+      await cleanup(old.child);
+      if (replacement) await cleanup(replacement.child);
+    }
+  });
+
+  await t.test('SIGTERM cancels a waiting replacement without starting its scanner or stealing the lock', async () => {
+    const namespace = 'fixture-existing';
+    await admin!.query("SELECT pg_advisory_lock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+    const file = path.join(temp, 'cancelled-wait.sqlite');
+    const run = await launch({ ...fresh(namespace), DB_FILE: file });
+    try {
+      await warming(run);
+      await blockedApis(run);
+      await cleanup(run.child);
+      await assert.rejects(fetch(`http://127.0.0.1:${run.port}/health`));
+      await assert.rejects(readFile(file), { code: 'ENOENT' });
+      assert.doesNotMatch(run.output(), /Starting gunicorn|findings_storage_ready|findings_storage_unavailable/);
+      const sessions = await admin!.query('SELECT count(*) FROM pg_stat_activity WHERE application_name=$1', [`vata-findings:${namespace}`]);
+      assert.equal(sessions.rows[0].count, '0');
+    } finally {
+      await cleanup(run.child);
+      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
     }
   });
 
