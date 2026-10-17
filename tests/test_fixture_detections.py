@@ -13,6 +13,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from mcp_authscan.cli import parse_headers
 from mcp_authscan.scanner import MCPScanner, RiskLevel
 
 
@@ -95,6 +96,54 @@ def _one(checks, name):
     matches = _by_name(checks, name)
     assert len(matches) == 1, f"expected exactly one {name!r}, got {len(matches)}"
     return matches[0]
+
+
+class _HeaderRecorder(BaseHTTPRequestHandler):
+    seen = []  # class-level sink for headers observed across requests
+
+    def log_message(self, *args):
+        pass
+
+    def _dispatch(self):
+        _HeaderRecorder.seen.append({k.lower(): v for k, v in self.headers.items()})
+        self.send_response(401)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    do_GET = do_POST = do_HEAD = do_OPTIONS = _dispatch
+
+
+class HeaderOptionTests(unittest.TestCase):
+    def test_parse_headers_valid_and_invalid(self):
+        self.assertEqual(
+            parse_headers(["X-Research: tag-123", "X-Foo:  bar "]),
+            {"X-Research": "tag-123", "X-Foo": "bar"},
+        )
+        self.assertEqual(parse_headers([]), {})
+        for bad in ["no-colon", ": empty-name"]:
+            with self.assertRaises(ValueError):
+                parse_headers([bad])
+
+    def test_identifying_header_sent_on_every_request(self):
+        _HeaderRecorder.seen = []
+        server = ThreadingHTTPServer(("127.0.0.1", 0), _HeaderRecorder)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            host, port = server.server_address[:2]
+            MCPScanner(f"http://{host}:{port}", timeout=5,
+                       headers={"X-HackerOne-Research": "researcher-42"}).scan()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+        self.assertTrue(_HeaderRecorder.seen, "expected the scanner to send requests")
+        self.assertTrue(
+            all(h.get("x-hackerone-research") == "researcher-42"
+                for h in _HeaderRecorder.seen),
+            "identifying header must ride every probe, including the CORS probe",
+        )
 
 
 class FixtureDetectionTests(unittest.TestCase):

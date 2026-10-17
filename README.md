@@ -29,6 +29,11 @@ python3 -m mcp_authscan.cli scan http://target:port --format json
 
 # Save to file
 python3 -m mcp_authscan.cli scan http://target:port --output report.json
+
+# Attach an identifying header to every request (repeatable).
+# Some bug-bounty programs require a research tag tied to your account on all
+# testing traffic — add it here so your scan complies with their rules.
+python3 -m mcp_authscan.cli scan http://target:port -H "X-Research: your-tag"
 ```
 
 ## Checks

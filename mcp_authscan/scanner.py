@@ -29,7 +29,7 @@ class Check:
     remediation: str
 
 class MCPScanner:
-    def __init__(self, target_url: str, timeout: int = 5):
+    def __init__(self, target_url: str, timeout: int = 5, headers=None):
         self.target_url = target_url.rstrip('/')
         parsed_url = urlparse(self.target_url)
         if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname:
@@ -41,6 +41,11 @@ class MCPScanner:
         self.timeout = timeout
         self.checks: List[Check] = []
         self.session = requests.Session()
+        # Identifying headers (e.g. a bug-bounty program's required research
+        # header) are applied to the session so every probe -- including the
+        # CORS probe, which reuses this session -- carries them.
+        if headers:
+            self.session.headers.update(headers)
     
     def scan(self) -> List[Check]:
         self.checks = []
