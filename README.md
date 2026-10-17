@@ -4,6 +4,36 @@ Security scanner for Model Context Protocol (MCP) server deployments.
 
 Detects zero-authentication endpoints, CORS misconfigurations, weak token validation, and other authentication/authorization failures in running MCP servers.
 
+## Authorization — read before you scan
+
+**Reachability is not permission.** A server being publicly reachable does not
+authorize you to scan it, and "open source" governs the *code* (clone and run it
+yourself), not someone else's running *deployment*. This tool sends crafted
+requests to probe for weaknesses; doing that against a system you are not
+authorized to test is unauthorized access under laws like the US CFAA and the UK
+Computer Misuse Act — **regardless of intent, and even if you only report what
+you find.** Finding-and-reporting does not substitute for authorization, and
+unverified scanner output is marked as spam by most bug-bounty programs.
+
+Scan a target only if **at least one** of these is true:
+
+- [ ] **You operate it** — your own server, staging, or lab instance.
+- [ ] **You have written authorization** — a signed pentest engagement covering
+      this asset.
+- [ ] **It is an in-scope bug-bounty / VDP asset** AND the program policy
+      **explicitly permits automated scanning**. Verify, from the live program:
+  - [ ] the *specific* endpoint (not just the org) is listed in scope;
+  - [ ] automated tools are allowed (many programs forbid scanners outright);
+  - [ ] you are within the program's rate limits;
+  - [ ] you send any required identifying header (`-H "Header: value"`) tied to
+        your researcher account.
+
+If you cannot tick a box above, do not scan — run the target locally instead
+(clone the server, run it on loopback, scan your own instance). A path segment
+or product name that mentions a vendor does **not** make a third-party SaaS host
+that vendor's asset, and one program's scope never authorizes testing a
+different vendor's infrastructure.
+
 ## Quick Start
 
 ```bash
