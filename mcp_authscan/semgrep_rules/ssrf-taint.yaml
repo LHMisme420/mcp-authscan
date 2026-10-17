@@ -1,0 +1,159 @@
+# mcp-authscan taint engine -- SSRF (CWE-918)
+#
+# Fires only when a source->sink dataflow path exists, within one function, from
+# untrusted request input to an outbound HTTP call AND no host/scheme allowlist
+# clears the taint on the way. This is what the regex heuristics cannot do: decide
+# whether the value reaching the sink was actually validated first.
+#
+# Scope: OSS Semgrep taint is intra-FUNCTION. A source and sink split across
+# functions or files needs the paid Semgrep Pro engine; those stay heuristic
+# review items here. These are HIGH-confidence detectors -- a real intra-function
+# path was traced -- so they gate CI.
+rules:
+  - id: mcp-ssrf-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      SSRF: untrusted request input reaches an outbound HTTP request with no
+      host/scheme allowlist between source and sink (CWE-918). The mcp-authscan
+      taint engine traced the dataflow path.
+    metadata:
+      rule: T1-SSRF
+      category: security
+      cwe: ["CWE-918: Server-Side Request Forgery (SSRF)"]
+      owasp: ["A10:2021 - Server-Side Request Forgery"]
+      confidence: HIGH
+      references:
+        - https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              # SSRF is URL-driven: sources are the request parts that can carry a
+              # target URL. Headers are deliberately excluded -- a `.headers` source
+              # taints whole-Request forwarding (new Request(req, ...)) and produces
+              # phantom flows where the URL host is fixed/validated elsewhere.
+              - pattern: $R.query
+              - pattern: $R.body
+              - pattern: $R.params
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+              - pattern: $REQ.nextUrl.searchParams.get(...)
+              - pattern: new URL($R.url).searchParams.get(...)
+    # A host/scheme allowlist clears the taint: parsing the URL and checking its
+    # hostname/protocol, or passing it through a named validator.
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: new URL(...).hostname
+          - pattern: new URL(...).protocol
+          - pattern: $ALLOW.includes(...)
+          - pattern: $ALLOW.has(...)
+          - pattern: isAllowedHost(...)
+          - pattern: isAllowedUrl(...)
+          - pattern: assertAllowedHost(...)
+          - pattern: validateUrl(...)
+          - pattern: ssrfGuard(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $URL
+          - pattern-either:
+              - pattern: fetch($URL, ...)
+              - pattern: fetch($URL)
+              - pattern: fetchWithRetry($URL, ...)
+              - pattern: axios($URL, ...)
+              - pattern: axios.get($URL, ...)
+              - pattern: axios.post($URL, ...)
+              - pattern: "axios.request({url: $URL, ...})"
+              - pattern: got($URL, ...)
+              - pattern: http.get($URL, ...)
+              - pattern: https.get($URL, ...)
+              - pattern: http.request($URL, ...)
+              - pattern: https.request($URL, ...)
+
+  - id: mcp-ssrf-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      SSRF: untrusted request input reaches an outbound HTTP request with no
+      host/scheme allowlist between source and sink (CWE-918). The mcp-authscan
+      taint engine traced the dataflow path.
+    metadata:
+      rule: T1-SSRF
+      category: security
+      cwe: ["CWE-918: Server-Side Request Forgery (SSRF)"]
+      owasp: ["A10:2021 - Server-Side Request Forgery"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.values.get(...)
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.GET.get(...)
+              - pattern: request.POST.get(...)
+              - pattern: request.query_params.get(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: urlparse(...).hostname
+          - pattern: urlsplit(...).hostname
+          - pattern: $ALLOW.__contains__(...)
+          - pattern: is_allowed_host(...)
+          - pattern: is_allowed_url(...)
+          - pattern: validate_url(...)
+          - pattern: ssrf_guard(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $URL
+          - pattern-either:
+              - pattern: requests.get($URL, ...)
+              - pattern: requests.post($URL, ...)
+              - pattern: requests.put($URL, ...)
+              - pattern: requests.delete($URL, ...)
+              - pattern: requests.request($M, $URL, ...)
+              - pattern: requests.head($URL, ...)
+              - pattern: httpx.get($URL, ...)
+              - pattern: httpx.post($URL, ...)
+              - pattern: urllib.request.urlopen($URL, ...)
+              - pattern: urlopen($URL, ...)
+
+  - id: mcp-ssrf-taint-go
+    mode: taint
+    languages: [go]
+    severity: ERROR
+    message: >
+      SSRF: untrusted request input reaches an outbound HTTP request with no
+      host/scheme allowlist between source and sink (CWE-918). The mcp-authscan
+      taint engine traced the dataflow path.
+    metadata:
+      rule: T1-SSRF
+      category: security
+      cwe: ["CWE-918: Server-Side Request Forgery (SSRF)"]
+      owasp: ["A10:2021 - Server-Side Request Forgery"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $R.URL.Query().Get(...)
+              - pattern: $R.FormValue(...)
+              - pattern: $R.PostFormValue(...)
+              - pattern: $R.Header.Get(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: net.ParseIP(...)
+          - pattern: isAllowedHost(...)
+          - pattern: isPublicAddr(...)
+          - pattern: validateURL(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $URL
+          - pattern-either:
+              - pattern: http.Get($URL)
+              - pattern: http.Post($URL, ...)
+              - pattern: http.Head($URL)
+              - pattern: http.NewRequest($M, $URL, $B)
+              - pattern: http.NewRequestWithContext($CTX, $M, $URL, $B)

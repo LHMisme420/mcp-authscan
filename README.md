@@ -121,6 +121,31 @@ src/vendor/**:A4
 scripts/*.ts
 ```
 
+### Taint analysis (dataflow) — `--taint`
+
+The regex rules match shapes and *approximate* whether a call is guarded. The
+optional taint engine answers the question regex can't: **does untrusted input
+actually reach a dangerous sink, unsanitized?** It runs [Semgrep](https://semgrep.dev)
+taint rules and emits a finding only when it traces a source→sink path with no
+sanitizer in between.
+
+```bash
+pip install "mcp-authscan[taint]"          # one-time: pulls the Semgrep engine
+mcp-authscan scan ./path/to/repo --taint   # or: python3 mcp_authscan.py <dir> --taint
+```
+
+It ships two detector classes today — **SSRF** (`T1-SSRF`, CWE-918) and **OS
+command injection** (`T2-CMDI`, CWE-78) — across TypeScript/JavaScript, Python,
+and Go. Because a real path is traced, these are HIGH-confidence detectors: they
+**gate** `--fail-on`, unlike the heuristic surface rules. If Semgrep isn't
+installed, `--taint` prints a note and skips rather than failing.
+
+**Scope (be precise about this):** the OSS Semgrep taint engine is
+**intra-function** — it follows a tainted value through one function body and
+recognizes a sanitizer on that path, which is already beyond regex. Following a
+value *across functions or files* requires the paid Semgrep Pro engine; those
+flows stay heuristic review items here, not silent misses.
+
 ### SARIF output (code-scanning dashboards)
 
 `--format sarif` emits SARIF 2.1.0 — one run, one result per finding (passed

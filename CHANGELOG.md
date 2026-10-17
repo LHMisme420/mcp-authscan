@@ -7,6 +7,17 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Taint-analysis engine (`--taint`)**: an optional dataflow tier built on
+  Semgrep that reports a finding only when untrusted input provably reaches a
+  dangerous sink with no sanitizer on the path — the determination the regex
+  rules can't make. Ships SSRF (`T1-SSRF`, CWE-918) and OS command-injection
+  (`T2-CMDI`, CWE-78) detectors for TypeScript/JavaScript, Python, and Go. These
+  are HIGH-confidence detectors and gate `--fail-on`. Install with
+  `pip install 'mcp-authscan[taint]'`; `--taint` degrades to a clean skip when
+  Semgrep is absent. Scope: OSS Semgrep taint is intra-function (cross-function
+  and cross-file flows are the paid Semgrep Pro engine). Covered by
+  `tests/test_taint_engine.py` (vuln fires, sanitized stays silent), which skips
+  when Semgrep is not installed.
 - Source-scan suppressions for known-good patterns: an inline
   `# authscan:ignore [RULE ...]` directive (on the finding line or the line
   above; bare form suppresses all rules there) and a repo-level

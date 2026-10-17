@@ -1739,6 +1739,10 @@ def main():
     ap.add_argument("--output", "-o", metavar="FILE",
                     help="output file for HTML/JSON report")
     ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default=None)
+    ap.add_argument("--taint", action="store_true",
+                    help="add Semgrep taint analysis: dataflow SSRF/command-injection "
+                         "detectors that follow untrusted input to a sink across functions "
+                         "(requires 'mcp-authscan[taint]'; source scans only)")
     args = ap.parse_args()
 
     # Auto-detect: live server (http(s)://) or source code directory?
@@ -1748,6 +1752,10 @@ def main():
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
+        if args.taint:
+            from mcp_authscan.taint_scan import run_taint_scan
+            print("[*] Running taint analysis (Semgrep)", file=sys.stderr)
+            F.extend(run_taint_scan(args.target))
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 

@@ -11,6 +11,11 @@ license = {text = "MIT"}
 authors = [{name = "Leroy H. Mason", email = "lhmisme2011@gmail.com"}]
 requires-python = ">=3.8"
 dependencies = ["requests>=2.28.0"]
+
+[project.optional-dependencies]
+# Dataflow taint engine. Heavy (pulls the Semgrep core), so it is opt-in; the
+# --taint flag degrades gracefully to a skip when it is not installed.
+taint = ["semgrep>=1.100"]
 keywords = ["mcp", "model-context-protocol", "security", "scanner",
             "authentication", "authorization", "appsec", "devsecops", "sarif"]
 classifiers = [
@@ -43,6 +48,10 @@ mcp-authscan = "mcp_authscan.cli:main"
 # would otherwise break setuptools' flat-layout auto-discovery.
 packages = ["mcp_authscan"]
 
+[tool.setuptools.package-data]
+# Bundle the Semgrep taint rules so they ship in the wheel/sdist.
+mcp_authscan = ["semgrep_rules/*.yaml"]
+
 [tool.ruff]
 line-length = 120
 # Gate the maintained code; legacy root scripts/corpus are out of scope.
@@ -71,6 +80,10 @@ omit = [
     "mcp_authscan/repository_scan.py",
     "mcp_authscan/findings_schema.py",
     "mcp_authscan/tiers.py",
+    # Subprocess wrapper around the optional Semgrep binary; exercised by
+    # tests/test_taint_engine.py when the [taint] extra is installed, which the
+    # default coverage run does not include.
+    "mcp_authscan/taint_scan.py",
 ]
 fail_under = 80
 show_missing = true
