@@ -10,7 +10,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 - **Taint-analysis engine (`--taint`)**: an optional dataflow tier built on
   Semgrep that reports a finding only when untrusted input provably reaches a
   dangerous sink with no sanitizer on the path — the determination the regex
-  rules can't make. Ships twelve detector classes for TypeScript/JavaScript,
+  rules can't make. Ships fifteen detector classes for TypeScript/JavaScript,
   Python, and Go: SSRF (`T1-SSRF`, CWE-918), OS command injection (`T2-CMDI`,
   CWE-78), path traversal (`T3-PATH`, CWE-22), SQL injection (`T4-SQLI`, CWE-89),
   server-side template injection (`T5-SSTI`, CWE-1336), code evaluation /
@@ -22,7 +22,11 @@ aims to follow [Semantic Versioning](https://semver.org/).
   `Object.assign`), and NoSQL injection (`T12-NOSQLI`, CWE-943, JS/TS — fires on
   an untrusted value reaching a Mongo query uncast, where `?x[$ne]=` injects an
   operator; a primitive cast like `String()`/`ObjectId()` or a sanitizer clears
-  it). Each leaves the safe idiom alone (parameterized queries,
+  it), regex injection / ReDoS (`T13-REDOS`, CWE-1333 — untrusted input compiled
+  as a regex; `re.escape`/`escapeStringRegexp` clears it), LDAP injection
+  (`T14-LDAP`, CWE-90 — scoped to LDAP-specific methods and the ldap3
+  `search_filter=` kwarg, not a bare `.search()`), and XPath injection
+  (`T15-XPATH`, CWE-643). Each leaves the safe idiom alone (parameterized queries,
   template data vs. a user-controlled template, `yaml.safe_load`, escaped HTML,
   allowlisted redirects, `defusedxml`, literal merges). These are HIGH-confidence
   detectors and gate `--fail-on`. Install with

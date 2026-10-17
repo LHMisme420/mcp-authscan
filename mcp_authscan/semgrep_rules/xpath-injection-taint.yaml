@@ -1,0 +1,70 @@
+# mcp-authscan taint engine -- XPath injection (CWE-643)
+#
+# Untrusted input built into an XPath expression, letting an attacker alter the query
+# and read nodes they shouldn't. The sink focus is the XPath-expression argument.
+# Intra-function; HIGH-confidence detector that gates CI.
+rules:
+  - id: mcp-xpath-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      XPath injection: untrusted input is built into an XPath expression (CWE-643).
+      Taint engine traced the dataflow path.
+    metadata:
+      rule: T15-XPATH
+      category: security
+      cwe: ["CWE-643: Improper Neutralization of Data within XPath Expressions"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $Q
+          - pattern-either:
+              - pattern: $TREE.xpath($Q)
+              - pattern: $TREE.xpath($Q, ...)
+              - pattern: etree.XPath($Q)
+              - pattern: $DOC.find($Q)
+              - pattern: $DOC.findall($Q)
+
+  - id: mcp-xpath-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      XPath injection: untrusted input is built into an XPath expression (CWE-643).
+      Taint engine traced the dataflow path.
+    metadata:
+      rule: T15-XPATH
+      category: security
+      cwe: ["CWE-643: Improper Neutralization of Data within XPath Expressions"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query
+              - pattern: req.body
+              - pattern: req.params
+              - pattern: request.query
+              - pattern: request.body
+              - pattern: request.params
+              - pattern: ctx.query
+              - pattern: ctx.request.body
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $Q
+          - pattern-either:
+              - pattern: xpath.select($Q, ...)
+              - pattern: xpath.select1($Q, ...)
+              - pattern: $DOC.evaluate($Q, ...)

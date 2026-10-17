@@ -1,0 +1,83 @@
+# mcp-authscan taint engine -- regex injection / ReDoS (CWE-1333)
+#
+# Untrusted input compiled AS a regular-expression pattern. An attacker-chosen pattern
+# can trigger catastrophic backtracking (denial of service) or, with a tainted pattern
+# matched against other data, logic abuse. The sink focus is the PATTERN argument, so a
+# fixed pattern matched against user text is not flagged. Intra-function; HIGH, gates CI.
+rules:
+  - id: mcp-redos-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Regex injection / ReDoS: untrusted input is compiled as a regular expression,
+      enabling catastrophic-backtracking denial of service (CWE-1333). Taint engine
+      traced the dataflow path.
+    metadata:
+      rule: T13-REDOS
+      category: security
+      cwe: ["CWE-1333: Inefficient Regular Expression Complexity"]
+      owasp: ["A05:2021 - Security Misconfiguration"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query
+              - pattern: req.body
+              - pattern: req.params
+              - pattern: request.query
+              - pattern: request.body
+              - pattern: request.params
+              - pattern: ctx.query
+              - pattern: ctx.request.body
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: escapeStringRegexp(...)
+          - pattern: escapeRegExp(...)
+          - pattern: $L.escapeRegExp(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: new RegExp($X)
+              - pattern: new RegExp($X, ...)
+              - pattern: RegExp($X)
+
+  - id: mcp-redos-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      Regex injection / ReDoS: untrusted input is compiled as a regular expression,
+      enabling catastrophic-backtracking denial of service (CWE-1333). Taint engine
+      traced the dataflow path.
+    metadata:
+      rule: T13-REDOS
+      category: security
+      cwe: ["CWE-1333: Inefficient Regular Expression Complexity"]
+      owasp: ["A05:2021 - Security Misconfiguration"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sanitizers:
+      - pattern: re.escape(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $X
+          - pattern-either:
+              - pattern: re.compile($X, ...)
+              - pattern: re.compile($X)
+              - pattern: re.match($X, ...)
+              - pattern: re.search($X, ...)
+              - pattern: re.fullmatch($X, ...)
+              - pattern: re.sub($X, ...)
+              - pattern: re.findall($X, ...)
+              - pattern: re.finditer($X, ...)

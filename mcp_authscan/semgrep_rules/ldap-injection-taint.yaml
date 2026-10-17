@@ -1,0 +1,76 @@
+# mcp-authscan taint engine -- LDAP injection (CWE-90)
+#
+# Untrusted input built into an LDAP search filter with no filter-escaping, letting an
+# attacker alter the query (e.g. `*)(uid=*` to bypass auth). Sanitizers are the standard
+# filter-escapers. Intra-function; HIGH-confidence detector that gates CI.
+rules:
+  - id: mcp-ldap-taint-python
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >
+      LDAP injection: untrusted input is used in an LDAP search filter without
+      escaping (CWE-90). Use ldap.filter.escape_filter_chars. Taint engine traced
+      the dataflow path.
+    metadata:
+      rule: T14-LDAP
+      category: security
+      cwe: ["CWE-90: Improper Neutralization of Special Elements used in an LDAP Query"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.values.get(...)
+              - pattern: $SELF.rfile.read(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: ldap.filter.escape_filter_chars(...)
+          - pattern: escape_filter_chars(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $F
+          - pattern-either:
+              # python-ldap: the _s/_ext_s/_st methods are LDAP-specific (a bare
+              # `.search()` would also match re.search and other libraries).
+              - pattern: $CONN.search_s($BASE, $SCOPE, $F, ...)
+              - pattern: $CONN.search_ext_s($BASE, $SCOPE, $F, ...)
+              - pattern: $CONN.search_st($BASE, $SCOPE, $F, ...)
+              # ldap3: identified by the search_filter= keyword, not a bare .search().
+              - pattern: $CONN.search(..., search_filter=$F, ...)
+
+  - id: mcp-ldap-taint-js
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      LDAP injection: untrusted input is used in an LDAP search filter without
+      escaping (CWE-90). Taint engine traced the dataflow path.
+    metadata:
+      rule: T14-LDAP
+      category: security
+      cwe: ["CWE-90: Improper Neutralization of Special Elements used in an LDAP Query"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: HIGH
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query
+              - pattern: req.body
+              - pattern: req.params
+              - pattern: request.query
+              - pattern: request.body
+              - pattern: request.params
+              - pattern: ctx.query
+              - pattern: ctx.request.body
+              - pattern: $C.req.query(...)
+              - pattern: $C.req.param(...)
+    pattern-sinks:
+      - patterns:
+          - focus-metavariable: $F
+          - pattern-either:
+              - pattern: "$CLIENT.search($BASE, {filter: $F, ...}, ...)"
+              - pattern: "$CLIENT.search($BASE, {filter: $F})"

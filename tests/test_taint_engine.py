@@ -134,6 +134,22 @@ class TaintEngineTest(unittest.TestCase):
         # req/request/ctx, so this must stay silent.
         self.assertEqual(self._rules("respbody_safe.ts"), set())
 
+    def test_redos_fires(self):
+        self.assertIn("T13-REDOS", self._rules("redos_vuln.py"))
+        self.assertIn("T13-REDOS", self._rules("redos_vuln.ts"))
+
+    def test_escaped_regex_is_silent(self):
+        self.assertEqual(self._rules("redos_safe.py"), set())
+
+    def test_ldap_injection_fires(self):
+        self.assertIn("T14-LDAP", self._rules("ldap_vuln.py"))
+
+    def test_escaped_ldap_filter_is_silent(self):
+        self.assertEqual(self._rules("ldap_safe.py"), set())
+
+    def test_xpath_injection_fires(self):
+        self.assertIn("T15-XPATH", self._rules("xpath_vuln.py"))
+
     def test_taint_findings_are_gating_detectors(self):
         # Every taint finding is a HIGH-confidence detector, not a review-list item.
         for f in self.findings:
