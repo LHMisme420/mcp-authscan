@@ -11,9 +11,29 @@ license = {text = "MIT"}
 authors = [{name = "Leroy H. Mason", email = "lhmisme2011@gmail.com"}]
 requires-python = ">=3.8"
 dependencies = ["requests>=2.28.0"]
+keywords = ["mcp", "model-context-protocol", "security", "scanner",
+            "authentication", "authorization", "appsec", "devsecops", "sarif"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 
 [project.urls]
 Homepage = "https://github.com/LHMisme420/mcp-authscan"
+Repository = "https://github.com/LHMisme420/mcp-authscan"
+Issues = "https://github.com/LHMisme420/mcp-authscan/issues"
+Changelog = "https://github.com/LHMisme420/mcp-authscan/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mcp-authscan = "mcp_authscan.cli:main"

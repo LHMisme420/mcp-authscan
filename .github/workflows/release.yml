@@ -17,6 +17,17 @@ jobs:
         run: |
           pip install build
           python -m build
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$TWINE_PASSWORD" ]; then
+            echo "PYPI_API_TOKEN secret not set — skipping PyPI publish (GitHub release still created)."
+            exit 0
+          fi
+          pip install twine
+          twine upload --non-interactive dist/*
       - name: Create GitHub release with artifacts
         env:
           GH_TOKEN: ${{ github.token }}
