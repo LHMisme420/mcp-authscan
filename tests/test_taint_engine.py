@@ -61,5 +61,35 @@ class TaintEngineTest(unittest.TestCase):
             self.assertEqual(f["confidence"], "HIGH")
 
 
+@unittest.skipUnless(semgrep_available(), "Semgrep not installed (pip install 'mcp-authscan[taint]')")
+class TaintEngineRealCodeTest(unittest.TestCase):
+    """The taint engine against the research RCE routers: real (mock) MCP code where
+    the vulnerable and hardened versions differ only by an allowlist validator. Taint
+    must fire on one and stay silent on the other -- the distinction regex cannot make."""
+
+    RESEARCH = Path(__file__).resolve().parent.parent / "research" / "mcp_stdio_rce"
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.mkdtemp(prefix="authscan-rce-")
+        for name in ("vulnerable_router.py", "hardened_router.py", "detector.py"):
+            src = cls.RESEARCH / name
+            if src.is_file():
+                shutil.copy(src, Path(cls._tmp) / name)
+        cls.by_file = {}
+        for f in run_taint_scan(cls._tmp, strict=True):
+            cls.by_file.setdefault(Path(f["file"]).name, []).append(f["rule"])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls._tmp, ignore_errors=True)
+
+    def test_vulnerable_router_fires_cmdi(self):
+        self.assertIn("T2-CMDI", self.by_file.get("vulnerable_router.py", []))
+
+    def test_hardened_router_is_silent(self):
+        self.assertEqual(self.by_file.get("hardened_router.py", []), [])
+
+
 if __name__ == "__main__":
     unittest.main()

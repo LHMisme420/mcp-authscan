@@ -15,9 +15,13 @@ aims to follow [Semantic Versioning](https://semver.org/).
   are HIGH-confidence detectors and gate `--fail-on`. Install with
   `pip install 'mcp-authscan[taint]'`; `--taint` degrades to a clean skip when
   Semgrep is absent. Scope: OSS Semgrep taint is intra-function (cross-function
-  and cross-file flows are the paid Semgrep Pro engine). Covered by
-  `tests/test_taint_engine.py` (vuln fires, sanitized stays silent), which skips
-  when Semgrep is not installed.
+  and cross-file flows are the paid Semgrep Pro engine). The command-injection
+  rule covers non-`shell=True` process spawns (`Popen`/`run`/`call` with an
+  attacker-controlled argv is RCE) and raw stdlib `http.server` request bodies,
+  and treats only genuine sanitizers as such (`shlex.quote`/allowlist validators,
+  not `shlex.split`). Covered by `tests/test_taint_engine.py`, including the
+  `research/mcp_stdio_rce` routers (the vulnerable one fires `T2-CMDI`, the
+  allowlist-hardened one stays silent); the suite skips when Semgrep is absent.
 - Source-scan suppressions for known-good patterns: an inline
   `# authscan:ignore [RULE ...]` directive (on the finding line or the line
   above; bare form suppresses all rules there) and a repo-level
