@@ -11,7 +11,7 @@ from mcp_authscan.cli import (
     EXIT_FINDINGS, EXIT_OK, EXIT_SCAN_ERROR,
     build_batch_dict, compute_exit_code, load_targets, scan_one,
 )
-from mcp_authscan.report import SecurityReport
+from mcp_authscan.report import SecurityReport, build_sarif
 from mcp_authscan.scanner import Check, RiskLevel
 
 
@@ -93,6 +93,38 @@ class BatchDictTests(unittest.TestCase):
         self.assertEqual(batch["summary"]["findings"], 1)
         statuses = {e["target"]: e["status"] for e in batch["results"]}
         self.assertEqual(statuses, {"http://t1": "ok", "http://t2": "error"})
+
+
+class SarifTests(unittest.TestCase):
+    def test_only_failed_checks_become_results_with_mapped_levels(self):
+        checks = [
+            _check(RiskLevel.CRITICAL, False),
+            _check(RiskLevel.INFO, True),      # passed -> not emitted
+            _check(RiskLevel.MEDIUM, False),
+        ]
+        doc = build_sarif([("http://t", checks)], tool_version="1.2.3")
+        self.assertEqual(doc["version"], "2.1.0")
+        run = doc["runs"][0]
+        self.assertEqual(run["tool"]["driver"]["name"], "mcp-authscan")
+        self.assertEqual(run["tool"]["driver"]["version"], "1.2.3")
+        # Two failed checks -> two results; the passed INFO check is excluded.
+        self.assertEqual(len(run["results"]), 2)
+        levels = sorted(r["level"] for r in run["results"])
+        self.assertEqual(levels, ["error", "warning"])
+        # Every result carries an artifact-location URI and a rule id.
+        for r in run["results"]:
+            self.assertTrue(r["ruleId"].startswith("mcp-authscan/"))
+            uri = r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+            self.assertTrue(uri.startswith("http://t"))
+
+    def test_rules_deduplicated_across_targets(self):
+        checks = [_check(RiskLevel.CRITICAL, False)]
+        doc = build_sarif([("http://a", checks), ("http://b", list(checks))])
+        run = doc["runs"][0]
+        self.assertEqual(len(run["results"]), 2)            # one per target
+        self.assertEqual(len(run["tool"]["driver"]["rules"]), 1)  # same rule, deduped
+        self.assertIn("security-severity",
+                      run["tool"]["driver"]["rules"][0]["properties"])
 
 
 class ScanOneIntegrationTests(unittest.TestCase):

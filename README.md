@@ -97,6 +97,17 @@ mcp-authscan scan --targets inventory.txt --fail-on critical
 mcp-authscan scan --targets inventory.txt --fail-on high
 ```
 
+### SARIF output (code-scanning dashboards)
+
+`--format sarif` emits SARIF 2.1.0 — one run, one result per finding (passed
+checks are not emitted), with severities mapped for GitHub code scanning. Works
+for a single target or a whole fleet.
+
+```bash
+mcp-authscan scan --targets inventory.txt --format sarif -o results.sarif
+# then upload results.sarif via github/codeql-action/upload-sarif in CI
+```
+
 ## Checks
 
 1. **Endpoint Reachability** — Verify MCP endpoints respond

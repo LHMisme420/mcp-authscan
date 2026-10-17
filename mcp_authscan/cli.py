@@ -1,7 +1,8 @@
 import argparse, json, sys
 from concurrent.futures import ThreadPoolExecutor
+from . import __version__
 from .scanner import MCPScanner, RiskLevel
-from .report import SecurityReport
+from .report import SecurityReport, build_sarif
 
 # Severity threshold ordering for --fail-on and exit-code decisions.
 SEVERITY_ORDER = {"none": 0, "info": 1, "low": 2, "medium": 3, "high": 4, "critical": 5}
@@ -135,7 +136,7 @@ def main():
     scan_parser.add_argument("--timeout", type=int, default=5)
     scan_parser.add_argument("--concurrency", type=int, default=8,
                              help="max targets scanned in parallel (fleet mode)")
-    scan_parser.add_argument("--format", choices=["text", "json"], default="text")
+    scan_parser.add_argument("--format", choices=["text", "json", "sarif"], default="text")
     scan_parser.add_argument("--output", "-o")
     scan_parser.add_argument("--fail-on", choices=list(SEVERITY_ORDER), default="critical",
                              help="exit non-zero if a finding at/above this severity is found")
@@ -169,7 +170,12 @@ def main():
                 print(f"[*] Scanning {url}...", file=sys.stderr)
                 checks = scanner.scan()
                 report = SecurityReport(checks, url)
-                output = report.json() if args.format == "json" else report.text()
+                if args.format == "sarif":
+                    output = json.dumps(build_sarif([(url, checks)], __version__), indent=2)
+                elif args.format == "json":
+                    output = report.json()
+                else:
+                    output = report.text()
                 if args.output:
                     with open(args.output, 'w') as f:
                         f.write(output)
@@ -192,8 +198,13 @@ def main():
         with ThreadPoolExecutor(max_workers=workers) as pool:
             results = list(pool.map(lambda u: scan_one(u, args.timeout, headers), targets))
 
-        output = (json.dumps(build_batch_dict(results), indent=2)
-                  if args.format == "json" else build_batch_text(results))
+        if args.format == "sarif":
+            per_target = [(r["target"], r["checks"]) for r in results if r["status"] == "ok"]
+            output = json.dumps(build_sarif(per_target, __version__), indent=2)
+        elif args.format == "json":
+            output = json.dumps(build_batch_dict(results), indent=2)
+        else:
+            output = build_batch_text(results)
         if args.output:
             with open(args.output, 'w') as f:
                 f.write(output)
