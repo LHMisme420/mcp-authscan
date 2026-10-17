@@ -441,11 +441,28 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
     await writeFile(path.join(bin, 'gunicorn'),
       `#!${tool('which', ['sh']).trim()}\nexec "${process.execPath}" "${path.join(root, 'tests/fixtures/unready-scanner.cjs')}"\n`,
       { mode: 0o755 });
-    const run = await launch({ PATH: `${bin}:${tools.PATH}` });
-    const output = await exited(run, 28000);
+    const run = await launch({ PATH: `${bin}:${tools.PATH}`, VATA_SCANNER_STARTUP_TIMEOUT_MS: '800' });
+    const output = await exited(run);
     assert.match(output, /Private scanner did not become ready.*DB_FILE access/);
     await assert.rejects(fetch(`http://127.0.0.1:${run.port}/health`));
     await assert.rejects(fetch(`http://127.0.0.1:${run.scannerPort}/health`));
+  });
+  await t.test('scanner boot longer than the former 20-second deadline keeps liveness up and becomes ready', async () => {
+    const bin = path.join(temp, 'slow-scanner-bin');
+    await mkdir(bin);
+    await writeFile(path.join(bin, 'gunicorn'),
+      `#!${tool('which', ['sh']).trim()}\nexec "${process.execPath}" "${path.join(root, 'tests/fixtures/unready-scanner.cjs')}"\n`,
+      { mode: 0o755 });
+    const run = await launch({
+      PATH: `${bin}:${tools.PATH}`, VATA_FIXTURE_SCANNER_READY_AFTER_MS: '21000',
+    });
+    try {
+      await warming(run);
+      await blockedApis(run);
+      await healthy(run);
+      assert.doesNotMatch(run.output(), /Private scanner did not become ready/);
+      assert.equal((await fetch(`http://127.0.0.1:${run.port}/`)).status, 200);
+    } finally { await cleanup(run.child); }
   });
   await t.test('real root, health, private readiness, dependency loss and shutdown', async () => {
     const run = await launch();

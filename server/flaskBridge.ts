@@ -27,11 +27,15 @@ export async function scannerReady() {
   }
 }
 
-export async function waitForScanner(isStopped: () => boolean, timeoutMs = 20000) {
+export async function waitForScanner(isStopped: () => boolean, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
-  while (!isStopped() && Date.now() < deadline) {
+  while (!isStopped()) {
+    // Probe once more even if a suspended process resumes past its deadline.
+    // An already-ready scanner must not be killed merely because a timer ran late.
     if (await scannerReady()) return;
-    await new Promise(resolve => setTimeout(resolve, 100));
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await new Promise(resolve => setTimeout(resolve, Math.min(100, remaining)));
   }
   throw new Error('Private scanner did not become ready. Check Gunicorn, Python dependencies and DB_FILE access.');
 }

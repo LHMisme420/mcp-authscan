@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acquireFindingsWriter, writerStartupPolicy } from '../server/findingsStartup';
+import { acquireFindingsWriter, scannerStartupTimeout, writerStartupPolicy } from '../server/findingsStartup';
 import { findingsReady, withFindingsStorage } from '../server/findingsStorage';
 
 test('writer startup waits are bounded and settings reject invalid values without echoing input', () => {
@@ -25,6 +25,19 @@ test('uninitialized storage cannot silently become a local writer', async () => 
   let ran = false;
   await assert.rejects(withFindingsStorage(async () => { ran = true; }), /Findings backup unavailable/);
   assert.equal(ran, false);
+});
+
+test('scanner cold start has a separately bounded, generous timeout', () => {
+  assert.equal(scannerStartupTimeout({}), 120000);
+  assert.equal(scannerStartupTimeout({ VATA_SCANNER_STARTUP_TIMEOUT_MS: '800' }), 800);
+  for (const value of ['', '0', '-1', '1.5', '300001', 'fixture-private-value']) {
+    assert.throws(() => scannerStartupTimeout({ VATA_SCANNER_STARTUP_TIMEOUT_MS: value }), error => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /VATA_SCANNER_STARTUP_TIMEOUT_MS/);
+      assert.doesNotMatch(error.message, /fixture-private-value/);
+      return true;
+    });
+  }
 });
 
 test('shutdown before acquisition never opens a database connection', async () => {

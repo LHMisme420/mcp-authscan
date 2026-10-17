@@ -172,6 +172,12 @@ bounds. A waiting candidate logs `findings_writer_waiting`, not
 creating SQLite or acknowledging writes. Schema, permission, checksum and
 snapshot failures are fatal immediately, not retried.
 
+The private scanner has a separate 120-second cold-start readiness budget.
+`VATA_SCANNER_STARTUP_TIMEOUT_MS` can set a positive millisecond value up to
+300000; configuration is validated before listening. API and health readiness
+remain 503 throughout scanner boot. A successful publish/root response alone
+does not establish that this later phase completed.
+
 Importing the Flask app initializes SQLite, so its process is intentionally not
 started until lock acquisition and snapshot restoration finish. The scheduler
 also starts only after readiness. SIGTERM cancels the retry wait and closes any
@@ -184,6 +190,13 @@ Verify `findings_storage_ready` and `/health` HTTP 200 on the **new** revision.
 If the platform keeps the old session alive beyond the configured wait, use the
 operator recovery procedure below; never force startup or terminate an
 unidentified connection to make a publish appear healthy.
+
+If scanner initialization times out, a process restart can encounter a local
+SQLite/schema difference from the stored snapshot. That check remains strict:
+do not assume the difference is only schema, discard the local file, or weaken
+the comparison. Preserve it for recovery. A corrected replacement starts from
+the verified durable snapshot in its separate working filesystem; never copy a
+workspace database into that replacement.
 
 ### Snapshot and write contract
 

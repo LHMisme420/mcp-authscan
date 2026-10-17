@@ -6,7 +6,7 @@ import { startScheduler } from './scheduler';
 import type { Express } from 'express';
 import { validateFindingsConfiguration, findingsReady, type FindingsStorage } from './findingsStorage';
 import { findingsAlerts } from './findingsAlerts';
-import { acquireFindingsWriter, writerStartupPolicy } from './findingsStartup';
+import { acquireFindingsWriter, scannerStartupTimeout, writerStartupPolicy } from './findingsStartup';
 
 export async function startApplication(app: Express) {
   let scanner: ChildProcess | undefined;
@@ -83,6 +83,7 @@ export async function startApplication(app: Express) {
       }
       validateFindingsConfiguration();
       const policy = writerStartupPolicy();
+      const scannerTimeoutMs = scannerStartupTimeout();
       await verifyDatabase();
       if (stopping) return;
       // Replit probes /. Serve frontend liveness before waiting for the old
@@ -99,7 +100,8 @@ export async function startApplication(app: Express) {
       // snapshot restore, even though the public frontend is already listening.
       scannerStopped = false;
       scanner = spawn('gunicorn', [
-        '--bind', `127.0.0.1:${SCANNER_PORT}`, '--workers', '1', '--threads', '4', '--timeout', '120', 'app:app',
+        '--bind', `127.0.0.1:${SCANNER_PORT}`, '--workers', '1', '--threads', '4',
+        '--timeout', String(Math.max(120, Math.ceil(scannerTimeoutMs / 1000))), 'app:app',
       ], { stdio: 'inherit', env: { ...process.env, VATA_PORT: String(SCANNER_PORT), PORT: String(SCANNER_PORT), VATA_AUTH_BRIDGE_ENABLED: '1' } });
       scanner.once('error', () => {
         scannerStopped = true;
@@ -113,7 +115,7 @@ export async function startApplication(app: Express) {
           void stop(1);
         }
       });
-      await waitForScanner(() => scannerStopped || stopping);
+      await waitForScanner(() => scannerStopped || stopping, scannerTimeoutMs);
       // Persist any compatible SQLite schema additions before opening traffic.
       if (findings) await findings.run(async () => {});
       if (stopping) return;

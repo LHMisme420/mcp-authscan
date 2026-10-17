@@ -2,19 +2,24 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { performance } from 'node:perf_hooks';
 import { FindingsWriterBusyError, prepareFindingsStorage } from './findingsStorage';
 
-export function writerStartupPolicy(env: NodeJS.ProcessEnv = process.env) {
-  function setting(name: string, fallback: number, maximum: number) {
-    const raw = env[name];
-    if (raw === undefined) return fallback;
-    const value = Number(raw);
-    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || value > maximum) {
-      throw new Error(`${name} must be an integer from 1 to ${maximum}.`);
-    }
-    return value;
+function setting(env: NodeJS.ProcessEnv, name: string, fallback: number, maximum: number) {
+  const raw = env[name];
+  if (raw === undefined) return fallback;
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    throw new Error(`${name} must be an integer from 1 to ${maximum}.`);
   }
+  return value;
+}
+
+export function scannerStartupTimeout(env: NodeJS.ProcessEnv = process.env) {
+  return setting(env, 'VATA_SCANNER_STARTUP_TIMEOUT_MS', 120000, 300000);
+}
+
+export function writerStartupPolicy(env: NodeJS.ProcessEnv = process.env) {
   return {
-    timeoutMs: setting('VATA_FINDINGS_LOCK_TIMEOUT_MS', 120000, 300000),
-    retryMs: setting('VATA_FINDINGS_LOCK_RETRY_MS', 1000, 5000),
+    timeoutMs: setting(env, 'VATA_FINDINGS_LOCK_TIMEOUT_MS', 120000, 300000),
+    retryMs: setting(env, 'VATA_FINDINGS_LOCK_RETRY_MS', 1000, 5000),
   };
 }
 

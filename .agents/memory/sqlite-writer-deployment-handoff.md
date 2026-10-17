@@ -13,6 +13,10 @@ ownership, restored data, scanner initialization and snapshot verification succe
 before listening prevented promotion from triggering old-revision drain. The
 owner chose a brief honest API-unavailable interval over a startup deadlock,
 without accepting concurrent SQLite writers or losing findings durability.
+An actual Autoscale publish subsequently promoted the frontend-first candidate,
+progressed past writer acquisition and started Gunicorn, but then failed scanner
+readiness. This supports the handoff approach, not a claim of full service recovery:
+the platform's green publish status can precede later startup failure.
 
 **How to apply:** Permit overlapping non-writing frontend startup, not overlapping
 writers. Initialize SQLite and start schedules only after ownership and restore.
@@ -29,8 +33,8 @@ stop-before-start recovery. A seeded namespace and passing workspace tests alone
 do not establish that a production replacement can acquire the lock.
 
 Require a single deployment instance and preserve the SQLite database and its
-WAL/journal files during recovery. A machine cap does not replace stopping the
-previous revision.
+WAL/journal files during recovery. A machine cap does not itself establish that
+the previous revision released its writer lock.
 
 **Why:** The owner explicitly requires single-writer recovery without local-only
 startup, deleted database files, reseeding, or namespace changes.
