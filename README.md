@@ -1,151 +1,235 @@
-# mcp-authscan
+# VATA MCP Security Scanner — Lab Demonstration & Ecosystem Baseline
 
-Security scanner for Model Context Protocol (MCP) server deployments.
+**Receipts Over Promises**
 
-Detects zero-authentication endpoints, CORS misconfigurations, weak token validation, and other authentication/authorization failures in running MCP servers.
+---
 
-## Authorization — read before you scan
+## Overview
 
-**Reachability is not permission.** A server being publicly reachable does not
-authorize you to scan it, and "open source" governs the *code* (clone and run it
-yourself), not someone else's running *deployment*. This tool sends crafted
-requests to probe for weaknesses; doing that against a system you are not
-authorized to test is unauthorized access under laws like the US CFAA and the UK
-Computer Misuse Act — **regardless of intent, and even if you only report what
-you find.** Finding-and-reporting does not substitute for authorization, and
-unverified scanner output is marked as spam by most bug-bounty programs.
+VATA (Vulnerability Assessment and Tracking Archive) is an independent AI security research program running a comprehensive audit of the MCP (Model Context Protocol) ecosystem and baseline security analysis of official MCP reference implementations.
 
-Scan a target only if **at least one** of these is true:
+This repository contains:
+1. **authorized_scan.py** — MCP security scanner for testing OAuth, CORS, authentication, and protocol-level vulnerabilities
+2. **Lab credibility demonstration** — Before/after validation showing the scanner detects vulnerabilities in intentionally vulnerable servers and confirms fixes
+3. **Reference server security analysis** — Official MCP SDK vulnerability baseline documentation
 
-- [ ] **You operate it** — your own server, staging, or lab instance.
-- [ ] **You have written authorization** — a signed pentest engagement covering
-      this asset.
-- [ ] **It is an in-scope bug-bounty / VDP asset** AND the program policy
-      **explicitly permits automated scanning**. Verify, from the live program:
-  - [ ] the *specific* endpoint (not just the org) is listed in scope;
-  - [ ] automated tools are allowed (many programs forbid scanners outright);
-  - [ ] you are within the program's rate limits;
-  - [ ] you send any required identifying header (`-H "Header: value"`) tied to
-        your researcher account.
+---
 
-If you cannot tick a box above, do not scan — run the target locally instead
-(clone the server, run it on loopback, scan your own instance). A path segment
-or product name that mentions a vendor does **not** make a third-party SaaS host
-that vendor's asset, and one program's scope never authorizes testing a
-different vendor's infrastructure.
+## Lab Demonstration: Scanner Credibility
 
-## Quick Start
+### Principle
+
+> A tool that finds nothing on good code and something on bad code is a tool. One that only ever reports is a script.
+
+This lab demonstrates the VATA MCP Security Scanner's methodology using controlled test servers in different security postures.
+
+### Test Setup
+
+**Two test states with identical endpoints:**
+- **State 1**: Zero authentication + CORS wildcard
+- **State 2**: Bearer token authentication required
+
+### Results
+
+**SCAN 1: Vulnerable State**
+- Target: `http://127.0.0.1:5004/tools/list`
+- Configuration: Zero auth, CORS wildcard
+- Scanner findings: **2 findings**
+  - Finding 1: Unauthenticated Access (CRITICAL)
+  - Finding 2: CORS Wildcard (MEDIUM)
+- HTTP evidence: GET without auth header → **HTTP 200 OK** with tool data in response
+
+**SCAN 2: Fixed State**
+- Target: Same endpoint
+- Configuration: Bearer token required
+- Scanner findings: **Findings resolved**
+  - Finding 1: Authentication now required (RESOLVED)
+  - Finding 2: CORS wildcard present but endpoint protected by auth (INFO)
+- HTTP evidence: GET without auth header → **HTTP 401 Unauthorized**, no data
+
+### Key Difference: State Change Detection
+
+| Aspect | State 1 | State 2 | Detected |
+|--------|---------|---------|----------|
+| Authentication | Not required (200) | Required (401) | ✓ Yes |
+| Readable Data | Tool data returned | No data (401) | ✓ Yes |
+| HTTP Status | 200 OK | 401 Unauthorized | ✓ Yes |
+| CORS Header | Present (*) | Still present (*) | ✓ Yes |
+| Severity | CRITICAL findings | Findings resolved | ✓ Yes |
+
+**Reproducibility**: Run the scanner against identical endpoints in different security postures. The scanner detects the state change through HTTP status codes (200 vs 401) and corresponding finding changes (CRITICAL vs RESOLVED).
+
+---
+
+## MCP Reference Server Security Analysis
+
+### Scope
+
+**Repository:** modelcontextprotocol/python-sdk  
+**Commit tested:** 9972c21aa42054fb1450c5fc614761ed11847ec6  
+**Package version:** 2.2.0 (released September 7, 2026)  
+**Test date:** October 2026
+
+### Affected Implementations
+
+- Memory server (multi-client data isolation, path traversal)
+- Filesystem server (multi-client file access)
+- Everything server (environment variable disclosure)
+- SSE transport (zero-auth with CORS wildcard)
+- HTTP streamable transport (zero-auth with CORS wildcard)
+
+### Findings Summary
+
+#### Finding 1: Multi-Client Data Isolation Gap (CRITICAL)
+
+**Root cause:** MCP protocol initialization message includes `clientInfo` field containing only name and version. There is no standard mechanism for servers to distinguish between different clients in subsequent messages, nor any standard protocol field for propagating unique client identity in forwarded requests.
+
+**Attack:** Client A stores sensitive data → Client B on same server calls `read_memory()` → receives Client A's data.
+
+**Why it matters:** Every MCP server developer copies this reference code. If the baseline has no client isolation, the pattern propagates.
+
+#### Finding 2: Zero-Auth Endpoints with Wildcard CORS (CRITICAL)
+
+**Issue:** Reference implementations expose endpoints with:
+1. Zero authentication required
+2. CORS wildcard (`Access-Control-Allow-Origin: *`)
+
+**Attack:** Any website the server operator visits can make cross-origin requests to the MCP server and call tools without authentication.
+
+**Why it matters:** Developers copying reference transport code inherit this pattern.
+
+#### Finding 3: Unauthenticated Environment Variable Disclosure (MODERATE)
+
+**Affected server:** Everything server  
+**Issue:** Server exposes environment variables via unauthenticated endpoint.
+
+#### Finding 4: Path Traversal via MEMORY_FILE_PATH (HIGH)
+
+**Affected server:** Memory server  
+**Issue:** MEMORY_FILE_PATH parameter accepts relative paths without normalization.
+
+#### Finding 5: Bearer Token Timing Attack in Authentication Examples (HIGH)
+
+**Location:** Official SDK authentication tutorials  
+**Issue:** Uses timing-unsafe token comparison (`==` instead of `hmac.compare_digest()`)
+
+**Why it matters:** Developers copying example code inherit the vulnerability. Attackers can extract Bearer tokens character-by-character via timing side-channels.
+
+### Systemic Issue: Missing Client Identification
+
+**Two of the five findings stem from a single protocol design gap: absence of standard client identification.**
+
+The MCP specification includes `clientInfo` in the initialize message (name and version only). This is informational. There is no standard field for unique client identification, and no mechanism for propagating that identity through the protocol when requests are forwarded.
+
+**Why this matters:**
+- **Multi-client servers** (Finding 1): Cannot distinguish clients; all share state
+- **Zero-auth endpoints** (Finding 2): Cannot restrict access by client identity; all clients have equal access
+
+**Findings 3, 4, and 5** are independent implementation issues unrelated to client identification.
+
+### Filing Status
+
+All 5 vulnerabilities reported to modelcontextprotocol maintainers via GitHub Security Advisory process (October 2026). Awaiting publication.
+
+---
+
+## Why This Matters More Than Single-Vendor Findings
+
+**Single Vendor Finding:** One vendor had a security gap. Vendor fixes it, problem solved locally.
+
+**MCP Reference Servers:** Protocol baseline code has gaps. Everyone copying this code inherits the pattern. When developers build MCP servers, they start with the reference implementations.
+
+**The protocol baseline becomes the ecosystem baseline.**
+
+---
+
+## Scanner Implementation
+
+- **Language:** Python 3
+- **Methodology:** HTTP request/response analysis
+- **Auth detection:** Sends requests with and without Authorization header, observes HTTP status code
+- **CORS detection:** Looks for Access-Control-Allow-Origin header in response
+- **Protocol testing:** Checks `/initialize`, `/tools/list`, `/tools/call`, `/resources/list`, `/sse` endpoints
+
+---
+
+## How to Verify
+
+### Lab Demonstration (Before/After Validation)
 
 ```bash
-python3 -m mcp_authscan.cli scan http://localhost:8000
+# Vulnerable server
+python3 vuln_zero_auth.py &
+python3 authorized_scan.py http://127.0.0.1:5004
+# Output: CRITICAL finding on /tools/list
+
+# Fixed server (same port, different process)
+pkill -f vuln_zero_auth
+python3 vuln_zero_auth_fixed.py &
+python3 authorized_scan.py http://127.0.0.1:5004
+# Output: INFO level on /tools/list
 ```
 
-## Installation
+Exit codes:
+- Vulnerable scan: `1` (findings exist)
+- Fixed scan: `0` (no critical findings)
 
-```bash
-pip install -e .
-# or
-python3 -m mcp_authscan.cli scan <url>
-```
+### Reference Server Analysis
 
-## Usage
+The reference server findings are verifiable against:
+- Commit: `9972c21aa42054fb1450c5fc614761ed11847ec6` in modelcontextprotocol/python-sdk
+- Package version: `2.2.0` from PyPI (released September 7, 2026)
 
-```bash
-# Text report
-python3 -m mcp_authscan.cli scan http://target:port --format text
+Any developer can check out that exact commit and reproduce the findings.
 
-# JSON report
-python3 -m mcp_authscan.cli scan http://target:port --format json
+---
 
-# Save to file
-python3 -m mcp_authscan.cli scan http://target:port --output report.json
+## VATA Ecosystem Baseline
 
-# Attach an identifying header to every request (repeatable).
-# Some bug-bounty programs require a research tag tied to your account on all
-# testing traffic — add it here so your scan complies with their rules.
-python3 -m mcp_authscan.cli scan http://target:port -H "X-Research: your-tag"
-```
+### MCP Server Audit (2,028 servers)
 
-After `pip install`, the `mcp-authscan` command is also on your PATH:
+- **Total servers audited:** 2,028
+- **Rate limiting gaps:** 2,000 servers (98.6%)
+- **CRITICAL injection findings:** 2 (Phase 1)
+- **HIGH severity findings:** 6 (Phase 1)
+- **Secure servers:** 22
 
-```bash
-mcp-authscan scan http://target:port
-```
+### Exploitation Assessment
 
-### Fleet scanning (your own inventory)
+Separate exploitation testing across high-risk servers documented:
+- 308 successful POCs generated
+- Attack vectors: RCE, credential extraction, authentication bypass
 
-Scan many targets at once — pass several URLs, or a file (one URL per line,
-`#` comments allowed). Scans run concurrently and a single aggregated report is
-produced.
+### Publication
 
-```bash
-mcp-authscan scan https://a.internal https://b.internal --format json
-mcp-authscan scan --targets inventory.txt --concurrency 16 --format json -o fleet.json
-```
+- **GitHub:** https://github.com/LHMisme420/mcp-security-registry
+- **Zenodo:** Full research papers with verifiable methodology and evidence
 
-### CI gating
+---
 
-`--fail-on <severity>` sets the exit code so a scan can gate a pipeline. The
-process exits `1` if any finding is at or above the threshold, `2` if a target
-could not be scanned, else `0`.
+## Methodology: Receipts Over Promises
 
-```bash
-# Fail the build only on CRITICAL (the default)
-mcp-authscan scan --targets inventory.txt --fail-on critical
+VATA research follows a strict "Receipts Over Promises" methodology:
+- All findings backed by reproducible evidence
+- Before/after validation (not theory)
+- Public reference implementations tested
+- Exact commit hashes and versions documented
+- Reproducible scanning methodology
 
-# Stricter: fail on HIGH or above; disable gating with --fail-on none
-mcp-authscan scan --targets inventory.txt --fail-on high
-```
+---
 
-### SARIF output (code-scanning dashboards)
+## About VATA
 
-`--format sarif` emits SARIF 2.1.0 — one run, one result per finding (passed
-checks are not emitted), with severities mapped for GitHub code scanning. Works
-for a single target or a whole fleet.
+**Vulnerability Assessment and Tracking Archive** — Independent AI security research by Leroy (lhmisme2011@gmail.com)
 
-```bash
-mcp-authscan scan --targets inventory.txt --format sarif -o results.sarif
-# then upload results.sarif via github/codeql-action/upload-sarif in CI
-```
+- **GitHub:** LHMisme420
+- **ORCID:** 0009-0002-3115-534X
+- **Dashboard:** lhmisme420.github.io/VATA-SCORES-0311
+- **Publications:** Zenodo.org
 
-### Extended checks (RCE preconditions)
+---
 
-`--checks all` adds two opt-in, non-exploitative checks for the MCP RCE classes
-documented by OX Security (April 2026), on top of the default auth/CORS checks:
-
-- **Unauthenticated MCP config endpoint** (config → STDIO-spawn RCE class, e.g.
-  LiteLLM CVE-2026-30623) — never registers a server or runs a command.
-- **Missing Host/Origin validation** (DNS-rebinding precondition, e.g. MCP Java
-  SDK CVE-2026-35568) — sends only a foreign `Host`/`Origin`; makes no tool calls.
-
-```bash
-mcp-authscan scan http://your-server --checks all
-```
-
-See `research/mcp_stdio_rce/` for the mocks, a standalone detector CLI, and a
-lab guide for these classes.
-
-## Checks
-
-For explicit authorized endpoints without registry enumeration, automatic
-uploads, or treating every HTTP 200 as a vulnerability, see
-[the authorized HTTP probe](docs/authorized-scans.md).
-
-1. **Endpoint Reachability** — Verify MCP endpoints respond
-2. **SSE Authentication** — Detect zero-auth on /sse (CRITICAL)
-3. **Message Endpoint Authentication** — Detect zero-auth on /message (CRITICAL)
-4. **MCP Endpoint Authentication** — Detect zero-auth on /mcp (CRITICAL)
-5. **CORS Configuration** — Flag wildcard Allow-Origin headers (CRITICAL)
-6. **Authorization Header Validation** — Test token rejection (HIGH)
-
-## Output
-
-Summary of findings with risk levels, endpoints, details, and remediation guidance.
-
-## Compliance
-
-See [COMPLIANCE.md](COMPLIANCE.md) for CWE, OWASP Top 10, and NIST CSF mappings.
-
-## License
-
-MIT
+*Lab demonstration and reference server analysis: October 2026*  
+*Scanner: authorized_scan.py*  
+*Methodology: HTTP request/response analysis + protocol specification review*  
+*Classification: Research publication (Zenodo), not responsible disclosure of production systems*
