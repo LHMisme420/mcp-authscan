@@ -1,0 +1,5 @@
+=== VATA MCP OAuth Issuer Binding Scan - Tier 1 ===
+Date: Thu Oct 15 16:32:49 EDT 2026
+
+>>> Scanning: Azure/azure-sdk-for-python
+fatal: destination path '/tmp/scan_azure' already exists and is not an empty directory.
