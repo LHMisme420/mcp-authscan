@@ -224,6 +224,44 @@ class AuthorizedMCPScanner:
         
         return findings
     
+    def check_oauth_dcr_bypass(self, url):
+        """Test OAuth Dynamic Client Registration for unvalidated redirect_uri"""
+        findings = []
+        dangerous_uris = [
+            "javascript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "//attacker.com",
+            "http://127.0.0.1:9999"
+        ]
+        
+        try:
+            for uri in dangerous_uris:
+                payload = {"redirect_uris": [uri], "client_name": "test"}
+                resp = self.session.post(f"{url}/register", json=payload, timeout=self.timeout)
+                
+                if resp.status_code in [200, 201]:
+                    try:
+                        data = resp.json()
+                        if "client_id" in data and uri in data.get("redirect_uris", []):
+                            findings.append({"endpoint": "/register", "severity": "CRITICAL", "issue": f"Unvalidated redirect_uri: {uri}"})
+                            break
+                    except:
+                        pass
+        except:
+            pass
+        return findings
+    
+    def check_oauth_xss_sink(self, url):
+        """Test OAuth authorization endpoint for XSS"""
+        findings = []
+        try:
+            resp = self.session.get(f"{url}/authorize", params={"client_id": "test", "redirect_uri": "javascript:alert(1)"}, timeout=self.timeout, allow_redirects=False)
+            if "javascript:" in resp.text:
+                findings.append({"endpoint": "/authorize", "severity": "CRITICAL", "issue": "XSS sink in redirect"})
+        except:
+            pass
+        return findings
+    
     def scan_server(self, url, server_name):
         """Complete scan with auth-aware findings"""
         results = {
@@ -242,6 +280,8 @@ class AuthorizedMCPScanner:
         
         try:
             findings = (
+                self.check_oauth_dcr_bypass(url) +
+                self.check_oauth_xss_sink(url) +
                 self.check_cors_accurate(url) +
                 self.check_rate_limiting(url) +
                 self.check_headers(url)
@@ -289,3 +329,95 @@ if __name__ == "__main__":
         # Summary
         s = result["summary"]
         print(f"\n📊 {server_name}: C:{s['critical']} H:{s['high']} M:{s['medium']} L:{s['low']} I:{s['info']}")
+
+    def check_oauth_dcr_bypass(self, url):
+        """
+        Test OAuth Dynamic Client Registration for unvalidated redirect_uri.
+        Exploitable if: /register accepts dangerous protocols without validation.
+        """
+        findings = []
+        
+        # Payloads that should be blocked
+        dangerous_uris = [
+            "javascript:alert(1)",
+            "javascript:void(0)",
+            "data:text/html,<script>alert(1)</script>",
+            "//attacker.com",
+            "http://127.0.0.1:9999",
+            "file:///etc/passwd"
+        ]
+        
+        try:
+            # Attempt to register malicious OAuth client
+            for uri in dangerous_uris:
+                payload = {
+                    "redirect_uris": [uri],
+                    "client_name": "test-client"
+                }
+                
+                resp = self.session.post(
+                    f"{url}/register",
+                    json=payload,
+                    timeout=self.timeout
+                )
+                
+                # If 200/201 and returns client_id = unvalidated registration
+                if resp.status_code in [200, 201]:
+                    try:
+                        data = resp.json()
+                        if "client_id" in data and "redirect_uris" in data:
+                            # Check if our dangerous URI was accepted
+                            if uri in data.get("redirect_uris", []):
+                                findings.append({
+                                    "endpoint": "/register",
+                                    "severity": "CRITICAL",
+                                    "issue": f"Unvalidated redirect_uri accepted: {uri}",
+                                    "attack_vector": f"Attacker can register client with {uri}, trigger XSS via authorization endpoint",
+                                    "exploitable": True,
+                                    "payload": uri,
+                                    "response": data,
+                                    "evidence": f"POST /register with redirect_uri={uri} returned 200 with client_id"
+                                })
+                                break  # Found one, no need to test others
+                    except:
+                        pass
+        
+        except Exception as e:
+            pass
+        
+        return findings
+
+    def check_oauth_xss_sink(self, url):
+        """
+        Test if authorization endpoint uses XSS sink for redirect_uri.
+        Look for: window.location.href, location.href, redirect patterns
+        """
+        findings = []
+        
+        try:
+            # Test with XSS payload in code parameter (common in OAuth flows)
+            resp = self.session.get(
+                f"{url}/authorize",
+                params={
+                    "client_id": "test",
+                    "redirect_uri": "javascript:alert('xss')",
+                    "response_type": "code"
+                },
+                timeout=self.timeout,
+                allow_redirects=False
+            )
+            
+            # Check if our payload appears in response unescaped
+            if "javascript:" in resp.text and "alert" in resp.text:
+                findings.append({
+                    "endpoint": "/authorize",
+                    "severity": "HIGH",
+                    "issue": "XSS sink in authorization redirect",
+                    "attack_vector": "Dangerous redirect_uri reflected in response without escaping",
+                    "evidence": "XSS payload reflected in /authorize response"
+                })
+        
+        except Exception as e:
+            pass
+        
+        return findings
