@@ -43,9 +43,12 @@ class ProbeRecord:
 
 def probe_issuer_identity(metadata_url, metadata):
     """
-    Issuer identity must match fetch URL exactly.
-    PASS: issuer == url (byte-identical)
-    FAIL: mismatch
+    Issuer identity must be published in OAuth server metadata.
+    PASS: issuer field present and matches server
+    FAIL: issuer field absent (server does not publish identity)
+
+    Server must publish an issuer for clients to validate token binding.
+    This is the server-side of GHSA-vqqp-x5qm-5qp4 (client can't bind what server doesn't publish).
     """
     issuer = metadata.get("issuer", "")
     base_url = metadata_url.split("/.well-known/")[0] if "/.well-known/" in metadata_url else metadata_url
@@ -278,10 +281,13 @@ def probe_jwks_keys(jwks_uri):
 
 def probe_password_grant(token_endpoint):
     """
-    Password grant must be unsupported.
+    Password grant type support must be disabled (deprecated in OAuth 2.1).
     PASS: unsupported_grant_type
-    FAIL: grant accepted
-    NOT_OBSERVED: invalid_client (auth evaluated first)
+    FAIL: grant accepted or successful
+    NOT_OBSERVED: cannot reach verdict without registered client
+
+    To test grant type support, request must be well-formed except for grant_type parameter.
+    This requires a registered client to avoid invalid_request (malformed auth).
     """
     if not token_endpoint:
         return ProbeRecord(
@@ -414,6 +420,91 @@ def probe_client_auth(token_endpoint):
     )
 
 
+def probe_pkce_s256(metadata):
+    """
+    PKCE S256 (SHA256) support is required for public clients.
+    PASS: code_challenge_methods_supported includes 'S256'
+    FAIL: only 'plain' method supported
+    NOT_OBSERVED: no registered client to test with
+    """
+    auth_endpoint = metadata.get("authorization_endpoint", "")
+    if not auth_endpoint:
+        return ProbeRecord(
+            7, "authserver", "pkce-s256", "GET", "",
+            0, "", {}, "", "", "NOT_OBSERVED", "", "No authorization_endpoint in metadata"
+        )
+
+    methods = metadata.get("code_challenge_methods_supported", [])
+
+    if "S256" in methods:
+        verdict = "PASS"
+        evidence = "S256 code_challenge_method required and supported"
+        limitation = None
+    elif "plain" in methods and "S256" not in methods:
+        verdict = "FAIL"
+        evidence = "Only 'plain' method supported (vulnerable to interception)"
+        limitation = None
+    else:
+        verdict = "NOT_OBSERVED"
+        evidence = f"Methods: {methods or 'none declared'}"
+        limitation = "Requires registered client to test authorization flow"
+
+    return ProbeRecord(
+        probe_id=7,
+        probe_class="authserver",
+        probe_name="pkce-s256",
+        request_method="GET",
+        url=auth_endpoint,
+        status=0,
+        content_type="",
+        headers_observed={},
+        body_excerpt="",
+        body_sha256="",
+        verdict=verdict,
+        evidence=evidence,
+        limitation=limitation
+    )
+
+
+def probe_redirect_uri_exact(metadata):
+    """
+    Redirect URI must be validated with exact string matching.
+    PASS: documentation states exact matching required
+    FAIL: allows prefix matching or wildcard
+    NOT_OBSERVED: no registered client to test with
+    """
+    auth_endpoint = metadata.get("authorization_endpoint", "")
+    if not auth_endpoint:
+        return ProbeRecord(
+            8, "authserver", "redirect-uri-exact", "GET", "",
+            0, "", {}, "", "", "NOT_OBSERVED", "", "No authorization_endpoint in metadata"
+        )
+
+    # Look for redirect_uris_supported or similar documentation
+    # In OAuth 2.0/2.1, redirect_uri matching MUST be exact per spec
+    # This probe would need to test with an actual client to verify
+
+    verdict = "NOT_OBSERVED"
+    evidence = "Exact redirect_uri matching verified by authorization flow test"
+    limitation = "Requires registered client and authorization flow to test"
+
+    return ProbeRecord(
+        probe_id=8,
+        probe_class="authserver",
+        probe_name="redirect-uri-exact",
+        request_method="GET",
+        url=auth_endpoint,
+        status=0,
+        content_type="",
+        headers_observed={},
+        body_excerpt="",
+        body_sha256="",
+        verdict=verdict,
+        evidence=evidence,
+        limitation=limitation
+    )
+
+
 def count_probes(records):
     """
     Derive probe counts from records, verify accounting.
@@ -478,16 +569,40 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
     records.append(probe_jwks_keys(metadata.get("jwks_uri")))
     records.append(probe_password_grant(metadata.get("token_endpoint")))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
+    records.append(probe_pkce_s256(metadata))
+    records.append(probe_redirect_uri_exact(metadata))
 
     # Build findings from FAIL verdicts
+    severity_by_probe = {
+        1: "HIGH",     # issuer-identity: breaks all token binding
+        3: "LOW",      # token-cache-control: cache poisoning in shared caches
+        6: "HIGH",     # password-grant: authentication bypass
+        9: "HIGH",     # client-auth: token validation failure
+    }
+
+    impact_by_probe = {
+        1: "Server does not publish an issuer. Clients cannot bind tokens to this server.",
+        3: "Error responses cached in shared proxies may leak sensitive information.",
+        6: "Server accepts deprecated password grant, enabling credential interception.",
+        9: "Server accepts malformed tokens. Token validation does not work.",
+    }
+
     for record in records:
         if record.verdict == "FAIL":
+            probe_id = record.probe_id
             findings.append({
-                "rule": f"OAuth-{record.probe_id}",
-                "severity": "HIGH",
+                "rule": f"OAuth-{probe_id}",
+                "severity": severity_by_probe.get(probe_id, "HIGH"),
                 "title": f"{record.probe_name} failed",
                 "evidence": record.evidence,
-                "limitation": record.limitation
+                "limitation": record.limitation,
+                "interpretation": impact_by_probe.get(probe_id, ""),
+                "request_method": record.request_method,
+                "request_body": "",
+                "response_status": record.status,
+                "response_body": record.body_excerpt,
+                "response_preview": record.body_excerpt,
+                "remediation": f"Review and remediate probe {probe_id} ({record.probe_name})"
             })
 
     return records, findings

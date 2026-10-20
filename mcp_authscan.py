@@ -2387,6 +2387,17 @@ def main():
         report_lines.append("")
         report_lines.append(metadata.format_block())
         report_lines.append("")
+
+        # Add fixture disclaimer for localhost/test targets
+        parsed_target = urlparse(args.target) if args.target.startswith("http") else None
+        if parsed_target and parsed_target.hostname in ["127.0.0.1", "localhost", "[::1]"]:
+            report_lines.append("⚠ TEST FIXTURE DISCLAIMER")
+            report_lines.append("-" * 80)
+            report_lines.append("This scan was run against a local test fixture (not a production server).")
+            report_lines.append("Findings demonstrate probe functionality, not evidence of real-world deployment.")
+            report_lines.append("-" * 80)
+            report_lines.append("")
+
         report_lines.append("FINDINGS SUMMARY")
         report_lines.append("-" * 80)
         for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
