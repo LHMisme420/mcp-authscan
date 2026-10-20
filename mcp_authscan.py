@@ -119,26 +119,37 @@ def validate_input_path(path_str):
 
 def scan_live_server(target_url):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
-    Returns (findings, reachable) tuple."""
+    Returns (findings, reachable, probe_status) tuple.
+    probe_status = {'passed': count, 'not_observed': count, 'findings': count}
+
+    STATUS CLASSIFICATION (per probe, per endpoint):
+    - PASSED: Server responded with 401/403 (correctly rejected unauthenticated request)
+    - NOT_OBSERVED: Server returned 404/5xx (endpoint doesn't exist or error, can't test)
+    - FINDINGS: Server returned 200/201/202 (vulnerability detected)
+    """
     findings = []
+    probe_status = {'passed': 0, 'not_observed': 0, 'findings': 0}
+
     try:
         p = urlparse(target_url)
         socket.create_connection((p.hostname, p.port or 80), timeout=5)
     except Exception as e:
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings, False
+        return findings, False, probe_status
 
     print(f"[*] Scanning live MCP server: {target_url}", file=sys.stderr)
-    print(f"[*] Probe execution log:", file=sys.stderr)
-    
+
     for path, method in LIVE_ENDPOINTS.items():
         url = target_url.rstrip("/") + path
-        
-        # Test 1: Zero-auth endpoint
+
+        # Test 1: Zero-auth endpoint (D1)
+        # PASS: 401/403 (correctly rejected)
+        # FINDING: 200/201/202 (vulnerable - accepts unauthenticated)
+        # NOT_OBSERVED: 404/5xx (endpoint doesn't exist)
+        request_body = ""
         try:
             req = Request(url, method=method)
             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-            request_body = ""
             if method == "POST":
                 request_body = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
                 req.data = request_body.encode()
@@ -147,13 +158,23 @@ def scan_live_server(target_url):
             with urlopen(req, timeout=5) as resp:
                 response_data = resp.read(500)
                 response_preview = response_data.decode(errors='ignore')
+
                 if resp.status in [200, 201, 202]:
+                    # VULNERABILITY: endpoint accepts unauthenticated requests
                     add_live_finding(findings, "D1", "CRITICAL",
                         f"Zero-auth endpoint: {method} {path}",
                         url, method, request_body, resp.status, response_preview,
                         f"Endpoint responded to unauthenticated request (HTTP {resp.status})",
                         "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
                         "D1-zero-auth", "HIGH")
+                    probe_status['findings'] += 1
+                elif resp.status in [401, 403]:
+                    # GOOD: server correctly rejected unauthenticated request
+                    probe_status['passed'] += 1
+                else:
+                    # NOT_OBSERVED: unexpected status (endpoint missing, error, etc)
+                    probe_status['not_observed'] += 1
+
         except HTTPError as e:
             if e.code in [200, 201, 202]:
                 add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {path}",
@@ -161,23 +182,61 @@ def scan_live_server(target_url):
                     f"Endpoint accessible without Authorization header",
                     "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
                     "D1-zero-auth", "HIGH")
-        except (URLError, socket.timeout): pass
-        
-        # Test 2: Evidence-based CORS policy
+                probe_status['findings'] += 1
+            elif e.code in [401, 403]:
+                probe_status['passed'] += 1
+            else:
+                # 404, 5xx, etc
+                probe_status['not_observed'] += 1
+        except (URLError, socket.timeout):
+            # Connection failed: can't observe this probe
+            probe_status['not_observed'] += 1
+
+        # Test 2: Evidence-based CORS policy (D2)
+        # CORS can only be tested on endpoints that exist (2xx, 401/403)
+        # If endpoint is 404/5xx, we can't test CORS = NOT_OBSERVED
         try:
-            assessment = probe_cors_urllib(url, method, timeout=5, opener=urlopen)
-            if assessment.is_finding:
-                add(findings, "D2", assessment.severity, f"{assessment.summary} on {path}",
-                    url, "", 0, assessment.details,
-                    "D2-cors-origin-reflection" if assessment.reflected else "D2-cors-wildcard", "MEDIUM")
-        except (HTTPError, URLError, socket.timeout): pass
-        
-        # Test 3: Invalid token accepted
+            req = Request(url, method=method)
+            req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+
+            # First check: does the endpoint exist?
+            endpoint_exists = False
+            try:
+                with urlopen(req, timeout=5) as resp:
+                    if resp.status not in [404] and resp.status < 500:
+                        endpoint_exists = True
+            except HTTPError as e:
+                if e.code not in [404] and e.code < 500:
+                    endpoint_exists = True
+            except (URLError, socket.timeout):
+                pass
+
+            if not endpoint_exists:
+                # Endpoint doesn't exist or has server error - can't test
+                probe_status['not_observed'] += 1
+            else:
+                # Endpoint exists, now test CORS
+                assessment = probe_cors_urllib(url, method, timeout=5, opener=urlopen)
+                if assessment.is_finding:
+                    add(findings, "D2", assessment.severity, f"{assessment.summary} on {path}",
+                        url, "", 0, assessment.details,
+                        "D2-cors-origin-reflection" if assessment.reflected else "D2-cors-wildcard", "MEDIUM")
+                    probe_status['findings'] += 1
+                else:
+                    # CORS test ran and found no issue = passed
+                    probe_status['passed'] += 1
+        except (HTTPError, URLError, socket.timeout):
+            # Couldn't test CORS
+            probe_status['not_observed'] += 1
+
+        # Test 3: Invalid token accepted (D3)
+        # PASS: 401/403 (correctly rejected invalid token)
+        # FINDING: 200/201/202 (vulnerable - accepts invalid token)
+        # NOT_OBSERVED: 404/5xx (endpoint doesn't exist)
+        token_body = ""
         try:
             req = Request(url, method=method)
             req.add_header("Authorization", "Bearer invalid_token_xyz")
-            invalid_token = "Bearer invalid_token_xyz"
-            token_body = ""
             if method == "POST":
                 token_body = '{"jsonrpc":"2.0"}'
                 req.data = token_body.encode()
@@ -186,12 +245,22 @@ def scan_live_server(target_url):
             with urlopen(req, timeout=5) as resp:
                 response_data = resp.read(500)
                 response_preview = response_data.decode(errors='ignore')
+
                 if resp.status in [200, 201, 202]:
+                    # VULNERABILITY: endpoint accepts invalid token
                     add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
                         url, method, token_body, resp.status, response_preview,
                         f"Invalid token accepted (HTTP {resp.status})",
                         "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
                         "D3-token-validation", "HIGH")
+                    probe_status['findings'] += 1
+                elif resp.status in [401, 403]:
+                    # GOOD: server correctly rejected invalid token
+                    probe_status['passed'] += 1
+                else:
+                    # NOT_OBSERVED: unexpected status
+                    probe_status['not_observed'] += 1
+
         except HTTPError as e:
             if e.code in [200, 201, 202]:
                 add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
@@ -199,9 +268,15 @@ def scan_live_server(target_url):
                     f"Invalid token accepted",
                     "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
                     "D3-token-validation", "HIGH")
-        except (URLError, socket.timeout): pass
+                probe_status['findings'] += 1
+            elif e.code in [401, 403]:
+                probe_status['passed'] += 1
+            else:
+                probe_status['not_observed'] += 1
+        except (URLError, socket.timeout):
+            probe_status['not_observed'] += 1
 
-    return findings, True
+    return findings, True, probe_status
 
 VERSION = "0.9.4"
 PROBE_SET_VERSION = "1.0.0"  # Bumps only when checks are added/removed/modified
@@ -1712,7 +1787,7 @@ def main():
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
         print(f"[*] Detected live server URL", file=sys.stderr)
-        F, server_reachable = scan_live_server(args.target)
+        F, server_reachable, probe_status = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
         if not server_reachable:
@@ -1721,15 +1796,14 @@ def main():
             probes_passed = 0
             probes_not_observed = probes_attempted
         else:
-            # Server reachable: probes executed
-            # CRITICAL FIX: Don't assume "no findings = all passed"
-            # 404s and 5xxs mean NOT_OBSERVED, not PASSED
-            # For now: findings indicate actual vulnerabilities
-            # Non-findings could be: secure (401/403) or untestable (404/5xx)
-            # TODO: scan_live_server must return detailed status per probe
-            probes_attempted = len(LIVE_ENDPOINTS) * 3
-            probes_passed = probes_attempted - len(F)  # PLACEHOLDER: needs fixing
-            probes_not_observed = 0
+            # Server reachable: use actual probe status counts from scanner
+            # This correctly distinguishes:
+            # - PASSED: 401/403 (server correctly rejected)
+            # - NOT_OBSERVED: 404/5xx (endpoint doesn't exist or error)
+            # - FINDINGS: vulnerabilities detected
+            probes_attempted = probe_status['passed'] + probe_status['not_observed'] + probe_status['findings']
+            probes_passed = probe_status['passed']
+            probes_not_observed = probe_status['not_observed']
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
