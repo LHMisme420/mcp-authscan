@@ -291,7 +291,7 @@ def scan_live_server(target_url):
     }
 
     try:
-        req = Request(target_url if target_url.endswith('/') else target_url + '/')
+        req = Request(target_url if target_url.endswith('/') else target_url + '/', method="POST")
         req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json, text/event-stream")
@@ -323,8 +323,8 @@ def scan_live_server(target_url):
                 if 'jsonrpc' in body or '{' in body:
                     mcp_verified = True
                     print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
-    except:
-        pass
+    except Exception as e:
+        print(f"[DEBUG] Preflight exception: {type(e).__name__}: {e}", file=sys.stderr)
 
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
