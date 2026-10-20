@@ -253,7 +253,7 @@ def discover_oauth_endpoints(base_url):
 
 def scan_live_server(target_url):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
-    Returns (findings, reachable, probe_status, discovery_info) tuple.
+    Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
     probe_status = {'passed': count, 'not_observed': count, 'findings': count}
 
     STATUS CLASSIFICATION (per probe, per endpoint):
@@ -263,6 +263,7 @@ def scan_live_server(target_url):
     """
     findings = []
     probe_status = {'passed': 0, 'not_observed': 0, 'findings': 0}
+    oauth_records = []  # Initialize at function start - every return path will have this
     probe_results = []  # Track (endpoint, method, status, reason) for detailed reporting
     discovery_info = None
 
@@ -403,7 +404,7 @@ def scan_live_server(target_url):
         oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
         if not accounting_valid:
             print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
-            return findings, True, probe_status, discovery_info, (oauth_records, [])
+            return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
         
         # Update probe_status from OAuth assessment counts
         authserver_counts = oauth_counts.get("authserver", {})
@@ -416,7 +417,7 @@ def scan_live_server(target_url):
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
-        return findings, True, probe_status, discovery_info, (oauth_records, [])
+        return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
@@ -2203,9 +2204,18 @@ def main():
     commit_sha_long = None
     commit_sha_short = None
     oauth_records = []  # Initialize for all paths
+    probe_results = []
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
-        F, server_reachable, probe_status, discovery_info, (oauth_records, probe_results) = scan_live_server(args.target)
+        try:
+            F, server_reachable, probe_status, discovery_info, result = scan_live_server(args.target)
+            if isinstance(result, tuple) and len(result) == 2:
+                oauth_records, probe_results = result
+            else:
+                print(f"[!] Unexpected return from scan_live_server: {type(result)}", file=sys.stderr)
+        except Exception as e:
+            print(f"[!] scan_live_server failed: {type(e).__name__}: {e}", file=sys.stderr)
+            raise
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
         # Log discovery results (only if successful, not DISCOVERY_INCOMPLETE)
