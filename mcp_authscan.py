@@ -25,6 +25,7 @@ v0.4 changes:
  - A5 skips comments and help-text string literals (was flagging CLI help text).
 """
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -2369,6 +2370,11 @@ def main():
         report_lines.append("MCP-AUTHSCAN SECURITY REPORT")
         report_lines.append("=" * 80)
         report_lines.append("")
+        report_lines.append("Scanner: mcp-authscan v" + VERSION)
+        report_lines.append("Conducted by: Claude (Anthropic)")
+        report_lines.append(f"Scan Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
+        report_lines.append("Repository: https://github.com/LHMisme420/mcp-authscan")
+        report_lines.append("")
 
         # Add scan verdict if incomplete
         if discovery_info and discovery_info.get('status') == 'DISCOVERY_INCOMPLETE':
@@ -2510,17 +2516,21 @@ def main():
         report_lines.append("PROBE RESULTS SUMMARY")
         report_lines.append("-" * 80)
 
-        # OAuth server probing vs MCP endpoint probing use different summary language
-        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and discovery_info:
-            # OAuth server assessment
-            if probe_status['passed'] > 0:
-                report_lines.append(f"PASSED ({probe_status['passed']} probes): OAuth server configuration verified (issuer, resource binding, token security, grant types)")
-            if probe_status['not_observed'] > 0:
-                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): OAuth properties not testable (require registered client or authorization flow)")
-            if probe_status['findings'] > 0:
-                report_lines.append(f"FINDINGS ({probe_status['findings']} probes): OAuth server misconfigurations detected")
+        # Build summary from actual probe records (data-driven, not prose templates)
+        if 'oauth_records' in locals() and oauth_records:
+            # Extract what actually PASSED from the records
+            passed_names = [r.probe_name for r in oauth_records if r.verdict == "PASS"]
+            not_obs_names = [r.probe_name for r in oauth_records if r.verdict == "NOT_OBSERVED"]
+
+            if passed_names:
+                passed_list = ", ".join(passed_names)
+                report_lines.append(f"PASSED ({len(passed_names)} probes): {passed_list}")
+            if not_obs_names:
+                report_lines.append(f"NOT OBSERVED ({len(not_obs_names)} probes): OAuth properties not testable (require registered client or authorization flow)")
+            if probe_status.get('failed', 0) > 0:
+                report_lines.append(f"FINDINGS ({probe_status['failed']} probes): OAuth server misconfigurations detected")
         else:
-            # MCP endpoint assessment
+            # MCP endpoint assessment (fallback)
             if probe_status['passed'] > 0:
                 report_lines.append(f"PASSED ({probe_status['passed']} probes): Endpoints correctly rejected unauthenticated requests")
             if probe_status['not_observed'] > 0:
