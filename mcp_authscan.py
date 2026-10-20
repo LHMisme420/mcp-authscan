@@ -1947,6 +1947,7 @@ def main():
             files_excluded=files_excluded,
             probes_attempted=probes_attempted,
             probes_passed=probes_passed,
+            probes_failed=len(F),  # Number of findings = failed probes
             probes_not_observed=probes_not_observed,
             elapsed_seconds=elapsed_seconds
         )

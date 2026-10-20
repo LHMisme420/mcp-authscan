@@ -76,6 +76,7 @@ class ScanMetadata:
         probes_attempted: Optional[int] = None,
         probes_passed: Optional[int] = None,
         probes_not_observed: Optional[int] = None,
+        probes_failed: Optional[int] = None,
         elapsed_seconds: Optional[float] = None
     ):
         self.scope = scope
@@ -92,6 +93,7 @@ class ScanMetadata:
         self.probes_attempted = probes_attempted
         self.probes_passed = probes_passed
         self.probes_not_observed = probes_not_observed
+        self.probes_failed = probes_failed
         self.elapsed_seconds = elapsed_seconds
 
     def to_dict(self) -> dict:
@@ -126,13 +128,21 @@ class ScanMetadata:
         lines.append(f"Scope: {self.scope}")
         lines.append(f"Probe Set Version: {self.probe_set_version}")
 
-        # Probe telemetry
+        # Probe telemetry with accounting verification
         if self.probes_attempted is not None:
             lines.append(f"Probes Attempted: {self.probes_attempted}")
             if self.probes_passed is not None:
                 lines.append(f"Probes Passed: {self.probes_passed}")
+            if self.probes_failed is not None:
+                lines.append(f"Probes Failed: {self.probes_failed}")
             if self.probes_not_observed is not None:
                 lines.append(f"Probes Not Observed: {self.probes_not_observed}")
+
+            # Verify accounting: attempted = passed + failed + not_observed
+            if all(x is not None for x in [self.probes_passed, self.probes_failed, self.probes_not_observed]):
+                total_accounted = self.probes_passed + self.probes_failed + self.probes_not_observed
+                if total_accounted != self.probes_attempted:
+                    lines.append(f"[ACCOUNTING ERROR: {total_accounted} != {self.probes_attempted}]")
         if self.elapsed_seconds is not None:
             lines.append(f"Elapsed Time: {self.elapsed_seconds:.2f} seconds")
 
