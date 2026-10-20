@@ -411,6 +411,7 @@ def scan_live_server(target_url):
         probe_status['passed'] = authserver_counts.get("passed", 0)
         probe_status['failed'] = authserver_counts.get("failed", 0)
         probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
+        probe_status['observation'] = authserver_counts.get("observation", 0)
         
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
@@ -2244,7 +2245,7 @@ def main():
             probes_not_observed = probe_status['not_observed']
 
         # Verify accounting before rendering
-        total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0)
+        total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0) + probe_status.get("observation", 0)
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
     else:
@@ -2384,7 +2385,6 @@ def main():
         report_lines.append("=" * 80)
         report_lines.append("")
         report_lines.append("Scanner: mcp-authscan v" + VERSION)
-        report_lines.append("Conducted by: Claude (Anthropic)")
         report_lines.append(f"Scan Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
         report_lines.append("Repository: https://github.com/LHMisme420/mcp-authscan")
         report_lines.append("")

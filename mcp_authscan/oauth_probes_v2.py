@@ -493,19 +493,21 @@ def count_probes(records):
     for record in records:
         probe_class = record.probe_class
         if probe_class not in counts:
-            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0}
+            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0}
 
         counts[probe_class]["attempted"] += 1
         if record.verdict == "PASS":
             counts[probe_class]["passed"] += 1
         elif record.verdict == "FAIL":
             counts[probe_class]["failed"] += 1
-        else:
+        elif record.verdict == "OBSERVATION":
+            counts[probe_class]["observation"] += 1
+        elif record.verdict == "NOT_OBSERVED":
             counts[probe_class]["not_observed"] += 1
 
     # Verify accounting
     for probe_class, c in counts.items():
-        expected = c["passed"] + c["failed"] + c["not_observed"]
+        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"]
         if expected != c["attempted"]:
             return counts, False, f"{probe_class}: {expected} != {c['attempted']}"
 
