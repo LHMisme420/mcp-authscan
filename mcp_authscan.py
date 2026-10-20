@@ -2256,6 +2256,32 @@ def main():
         if not F:
             print("No findings. (Absence of finding is not proof of safety.)")
         else:
+
+            # Probe Results Summary - shows what was tested
+            report_lines.append("PROBE RESULTS SUMMARY")
+            report_lines.append("-" * 80)
+            report_lines.append("")
+            
+            if probe_status['passed'] > 0:
+                report_lines.append(f"PASSED ({probe_status['passed']} probes):")
+                report_lines.append("  Endpoint correctly rejected unauthenticated requests with 401/403")
+                report_lines.append("")
+            
+            if probe_status['not_observed'] > 0:
+                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes):")
+                report_lines.append("  - HTTP 400: Malformed request (endpoint exists but not testable with standard payloads)")
+                report_lines.append("  - HTTP 404/5xx: Endpoint not found or server error")
+                report_lines.append("  - HTML response: Expected JSON/OAuth endpoint, got SPA shell or error page")
+                report_lines.append("")
+            
+            if probe_status['findings'] > 0:
+                report_lines.append(f"VULNERABLE ({probe_status['findings']} probes):")
+                report_lines.append("  HTTP 200/201/202 with JSON response: Endpoint accepted unauthenticated request")
+                report_lines.append("")
+            
+            report_lines.append("-" * 80)
+            report_lines.append("")
+
             print("DETAILED FINDINGS")
             print("-" * 80)
             print("")
