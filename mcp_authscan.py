@@ -353,7 +353,19 @@ def scan_live_server(target_url):
 
         for oauth_server_url in oauth_server_urls:
             print(f"[*] Assessing OAuth server: {oauth_server_url}", file=sys.stderr)
-            records, oauth_findings = run_oauth_assessment(oauth_server_url, discovery_info, target_url)
+            # Fetch resource_metadata document from URL in discovery_info
+            resource_metadata_doc = None
+            if discovery_info and discovery_info.get("resource_metadata"):
+                try:
+                    resource_url = discovery_info["resource_metadata"]
+                    req = Request(resource_url)
+                    req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+                    with urlopen(req, timeout=5) as resp:
+                        resource_metadata_doc = json.loads(resp.read().decode())
+                except Exception as e:
+                    pass  # Silently fail, resource_metadata_doc stays None
+            
+            records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
             
             oauth_records.extend(records)
 

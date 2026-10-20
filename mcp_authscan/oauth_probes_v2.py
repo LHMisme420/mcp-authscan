@@ -48,9 +48,12 @@ def probe_issuer_identity(metadata_url, metadata):
     FAIL: mismatch
     """
     issuer = metadata.get("issuer", "")
-    expected = metadata_url.rstrip("/")
+    base_url = metadata_url.split("/.well-known/")[0] if "/.well-known/" in metadata_url else metadata_url
+    expected = base_url
 
-    evidence = f"issuer={issuer}\nfetch_url={expected}"
+    import sys
+    print(f"[DEBUG issuer] metadata.issuer={issuer!r} | base_url={expected!r}", file=sys.stderr)
+    evidence = f"issuer={issuer}\nbase_url={expected}"
 
     if issuer == expected:
         verdict = "PASS"
@@ -83,7 +86,9 @@ def probe_resource_binding(resource_metadata, mcp_url):
     if not resource_metadata:
         return None
 
+    import sys; print(f"[DEBUG resource_binding] input={resource_metadata!r}", file=sys.stderr)
     resource = resource_metadata.get("resource", "")
+    print(f"[DEBUG resource] metadata.resource={resource!r} | mcp_url={mcp_url!r}", file=sys.stderr)
     evidence = f"resource={resource}\nmcp_url={mcp_url}"
 
     if resource == mcp_url:
