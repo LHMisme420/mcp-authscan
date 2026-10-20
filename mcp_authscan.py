@@ -2208,11 +2208,12 @@ def main():
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
         try:
-            F, server_reachable, probe_status, discovery_info, result = scan_live_server(args.target)
-            if isinstance(result, tuple) and len(result) == 2:
-                oauth_records, probe_results = result
+            result_tuple = scan_live_server(args.target)
+            F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
+            if isinstance(oauth_result, tuple) and len(oauth_result) == 2:
+                oauth_records, probe_results = oauth_result
             else:
-                print(f"[!] Unexpected return from scan_live_server: {type(result)}", file=sys.stderr)
+                raise ValueError(f"Expected (oauth_records, probe_results) tuple, got {type(oauth_result)}: {oauth_result}")
         except Exception as e:
             print(f"[!] scan_live_server failed: {type(e).__name__}: {e}", file=sys.stderr)
             raise
