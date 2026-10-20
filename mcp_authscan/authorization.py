@@ -121,8 +121,11 @@ class ScanMetadata:
 
         # OAuth Discovery information
         if self.discovery_info:
-            lines.append(f"OAuth Discovery: {self.discovery_info.get('discovery_method', 'Unknown')}")
-            lines.append(f"OAuth Base URL: {self.discovery_info.get('oauth_base', 'Unknown')}")
+            lines.append(f"OAuth Discovery Method: {self.discovery_info.get('method', 'Unknown')}")
+            if 'endpoints' in self.discovery_info:
+                lines.append(f"OAuth Endpoints Discovered: {len(self.discovery_info['endpoints'])}")
+            if 'discovered_hosts' in self.discovery_info:
+                lines.append(f"Scope Hosts Contacted: {', '.join(self.discovery_info['discovered_hosts'][:3])}")
 
         # Repository information
         if self.repo_url:
