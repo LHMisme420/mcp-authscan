@@ -14,9 +14,8 @@ Architecture:
 """
 import json
 import sys
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 OAUTH_PROBE_VERSION = "2.0.0"
 
@@ -53,9 +52,6 @@ def probe_issuer_identity(metadata_url, metadata):
     issuer = metadata.get("issuer", "")
     base_url = metadata_url.split("/.well-known/")[0] if "/.well-known/" in metadata_url else metadata_url
     expected = base_url
-
-    import sys
-    print(f"[DEBUG issuer] metadata.issuer={issuer!r} | base_url={expected!r}", file=sys.stderr)
     evidence = f"issuer={issuer}\nbase_url={expected}"
 
     if issuer == expected:
@@ -89,9 +85,7 @@ def probe_resource_binding(resource_metadata, mcp_url):
     if not resource_metadata:
         return None
 
-    import sys; print(f"[DEBUG resource_binding] input={resource_metadata!r}", file=sys.stderr)
     resource = resource_metadata.get("resource", "")
-    print(f"[DEBUG resource] metadata.resource={resource!r} | mcp_url={mcp_url!r}", file=sys.stderr)
     evidence = f"resource={resource}\nmcp_url={mcp_url}"
 
     if resource == mcp_url:
@@ -255,7 +249,7 @@ def probe_jwks_keys(jwks_uri):
     invalid_keys = []
     for k in keys:
         if k.get("alg") == "none":
-            invalid_keys.append(f"alg=none")
+            invalid_keys.append("alg=none")
         if k.get("kty") not in ["RSA", "EC", "OKP"]:
             invalid_keys.append(f"invalid kty={k.get('kty')}")
 
@@ -311,7 +305,7 @@ def probe_password_grant(token_endpoint):
             try:
                 err = json.loads(body)
                 error_code = err.get("error", f"HTTP {e.code}")
-            except:
+            except (ValueError, KeyError):
                 error_code = f"HTTP {e.code}"
     except (URLError, Exception) as e:
         return ProbeRecord(
@@ -385,7 +379,7 @@ def probe_client_auth(token_endpoint):
             try:
                 err = json.loads(body)
                 error_code = err.get("error", f"HTTP {e.code}")
-            except:
+            except (ValueError, KeyError):
                 error_code = f"HTTP {e.code}"
     except (URLError, Exception) as e:
         return ProbeRecord(

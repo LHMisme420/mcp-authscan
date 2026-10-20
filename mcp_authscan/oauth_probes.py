@@ -21,10 +21,8 @@ Probes assess:
 Verdict rule: Response not exactly expected → NOT_OBSERVED, never PASS.
 """
 import json
-import sys
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 OAUTH_PROBE_VERSION = "1.0.0"
 
@@ -117,7 +115,7 @@ def run_oauth_probes(oauth_server_url, resource_metadata, client=None):
             cors_header = e.headers.get("Access-Control-Allow-Origin", "")
 
             if cors_header == "*":
-                probes_run.append((4, "token-cors", cors_header, f"Allow-Origin: *", "FAIL"))
+                probes_run.append((4, "token-cors", cors_header, "Allow-Origin: *", "FAIL"))
                 findings.append({
                     "rule": 4,
                     "severity": "HIGH",
@@ -182,7 +180,7 @@ def run_oauth_probes(oauth_server_url, resource_metadata, client=None):
             if "unsupported_grant_type" in body:
                 probes_run.append((6, "password-grant", "unsupported_grant_type", "Password grant correctly rejected", "PASS"))
             else:
-                probes_run.append((6, "password-grant", f"HTTP {e.code}", f"Unexpected error response", "NOT_OBSERVED"))
+                probes_run.append((6, "password-grant", f"HTTP {e.code}", "Unexpected error response", "NOT_OBSERVED"))
         except (URLError, Exception) as e:
             probes_run.append((6, "password-grant", str(type(e).__name__), str(e), "NOT_OBSERVED"))
 
@@ -209,9 +207,6 @@ def run_oauth_probes(oauth_server_url, resource_metadata, client=None):
         except (URLError, Exception) as e:
             probes_run.append((7, "implicit-flow", str(type(e).__name__), str(e), "NOT_OBSERVED"))
 
-    # Rule 8: Metadata vs behavior (grant types)
-    grant_types = metadata.get("grant_types_supported", [])
-
     # Rule 9: Client authentication (no credentials)
     if token_endpoint:
         try:
@@ -236,7 +231,7 @@ def run_oauth_probes(oauth_server_url, resource_metadata, client=None):
             try:
                 error_obj = json.loads(body)
                 error_name = error_obj.get("error", "")
-            except:
+            except (ValueError, KeyError):
                 pass
 
             if error_name == "invalid_client":
@@ -251,7 +246,7 @@ def run_oauth_probes(oauth_server_url, resource_metadata, client=None):
                     "evidence": f"Error: {error_name}"
                 })
             else:
-                probes_run.append((9, "client-auth", error_name or f"HTTP {e.code}", f"Unexpected error", "NOT_OBSERVED"))
+                probes_run.append((9, "client-auth", error_name or f"HTTP {e.code}", "Unexpected error", "NOT_OBSERVED"))
         except (URLError, Exception) as e:
             probes_run.append((9, "client-auth", str(type(e).__name__), str(e), "NOT_OBSERVED"))
 

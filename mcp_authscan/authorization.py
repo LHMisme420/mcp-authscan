@@ -149,7 +149,8 @@ class ScanMetadata:
                 lines.append(f"Probes Not Observed: {self.probes_not_observed}")
 
             # Verify accounting: attempted = passed + failed + not_observed
-            if all(x is not None for x in [self.probes_passed, self.probes_failed, self.probes_not_observed]):
+            if (self.probes_passed is not None and self.probes_failed is not None and
+                self.probes_not_observed is not None):
                 total_accounted = self.probes_passed + self.probes_failed + self.probes_not_observed
                 if total_accounted != self.probes_attempted:
                     lines.append(f"[ACCOUNTING ERROR: {total_accounted} != {self.probes_attempted}]")
