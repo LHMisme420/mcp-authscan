@@ -183,7 +183,7 @@ def scan_live_server(target_url):
     return findings
 
 VERSION = "0.9.4"
-PROBE_SET_VERSION = "0.3.0"  # Bumps only when checks are added/removed/modified
+PROBE_SET_VERSION = "1.0.0"  # Bumps only when checks are added/removed/modified
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
