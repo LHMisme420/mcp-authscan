@@ -2518,7 +2518,7 @@ def main():
         # Build summary from actual probe records
         try:
             if oauth_records:
-                check_counts(oauth_records, probes_attempted, probes_passed, len(F), probes_not_observed)
+                check_counts(oauth_records)
                 report_lines.append(render_summary(oauth_records))
             else:
                 raise NameError("no records")
