@@ -291,7 +291,7 @@ def scan_live_server(target_url):
     }
 
     try:
-        req = Request(target_url if target_url.endswith('/') else target_url + '/', method="POST")
+        req = Request(target_url, method="POST")
         req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json, text/event-stream")
