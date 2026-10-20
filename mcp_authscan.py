@@ -377,9 +377,17 @@ def scan_live_server(target_url):
                     "title": finding['title'],
                     "file": oauth_server_url,
                     "line": 0,
+                    "ref": finding['rule'],
                     "evidence": finding.get('evidence', ''),
                     "snippet": "",
                     "is_live_finding": True,
+                    "request_method": finding.get('request_method', 'POST'),
+                    "request_body": finding.get('request_body', ''),
+                    "response_status": finding.get('response_status', 0),
+                    "response_body": finding.get('response_body', ''),
+                    "response_preview": finding.get('response_body', ''),
+                    "interpretation": finding.get('interpretation', 'OAuth configuration issue detected'),
+                    "remediation": finding.get('remediation', 'Review and correct OAuth server metadata'),
                 })
 
             for record in records:
