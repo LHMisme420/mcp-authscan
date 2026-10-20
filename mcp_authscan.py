@@ -2515,45 +2515,33 @@ def main():
         print("")
 
         # Same for report file
-        # Build summary from actual probe records
-        try:
-            if oauth_records:
-                check_counts(oauth_records)
-                report_lines.append(render_summary(oauth_records))
-            else:
-                raise NameError("no records")
-        except (NameError, AttributeError):
-            print(f"[DEBUG] oauth_records={len(oauth_records) if oauth_records else 0}, probe_status={probe_status}", file=sys.stderr)
-            report_lines.append("PROBE RESULTS SUMMARY")
-            report_lines.append("-" * 80)
-            if probe_status.get("passed", 0) > 0:
-                if oauth_records:
-                    report_lines.extend(render_summary(oauth_records))
-                else:
-                    report_lines.append(f"PASSED ({probe_status['passed']} probes): (no probes ran)")
-            if probe_status.get("not_observed", 0) > 0:
-
-            report_lines.append("-" * 80)
-        report_lines.append("")
-
-        # Build summary from actual probe records (data-driven, not prose templates)
+        # Build summary from actual probe records (data-driven only)
         report_lines.append("PROBE RESULTS SUMMARY")
         report_lines.append("-" * 80)
         if oauth_records:
-            try:
-                check_counts(oauth_records)
-                summary_lines = render_summary(oauth_records)
-                report_lines.extend(summary_lines)
-            except Exception as e:
-                report_lines.append(f"(render error: {e})")
+            # Accounting check
+            check_counts(oauth_records)
+            # Human-readable evidence driven by the ProbeRecord list
+            summary_lines = render_summary(oauth_records)
+            report_lines.extend(summary_lines)
         else:
-            if probe_status['passed'] > 0:
-                if oauth_records:
-                    report_lines.extend(render_summary(oauth_records))
-                else:
-                    report_lines.append(f"PASSED ({probe_status['passed']} probes): (no probes ran)")
-            if probe_status['not_observed'] > 0:
+            # Probes never ran (discovery incomplete, unreachable, etc.)
+            report_lines.append("No OAuth probes were attempted.")
+        report_lines.append("-" * 80)
+        report_lines.append("")
 
+        # Build summary from actual probe records (data-driven only)
+        report_lines.append("PROBE RESULTS SUMMARY")
+        report_lines.append("-" * 80)
+        if oauth_records:
+            # Accounting check
+            check_counts(oauth_records)
+            # Human-readable evidence driven by the ProbeRecord list
+            summary_lines = render_summary(oauth_records)
+            report_lines.extend(summary_lines)
+        else:
+            # Probes never ran (discovery incomplete, unreachable, etc.)
+            report_lines.append("No OAuth probes were attempted.")
         report_lines.append("-" * 80)
         report_lines.append("")
 
