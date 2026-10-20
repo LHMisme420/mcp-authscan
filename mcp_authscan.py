@@ -343,7 +343,7 @@ def scan_live_server(target_url):
         print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
 
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
-        from mcp_authscan.oauth_probes import run_oauth_probes
+        from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
 
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
