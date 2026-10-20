@@ -2138,8 +2138,8 @@ def main():
         F, server_reachable, probe_status, discovery_info, probe_results = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
-        # Log discovery results
-        if discovery_info:
+        # Log discovery results (only if successful, not DISCOVERY_INCOMPLETE)
+        if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
             print(f"[+] OAuth discovery successful", file=sys.stderr)
             if 'method' in discovery_info:
                 print(f"    Method: {discovery_info['method']}", file=sys.stderr)
