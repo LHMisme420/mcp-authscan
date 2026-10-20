@@ -2239,6 +2239,9 @@ def main():
         scan_mode = "SOURCE_CODE_ASSESSMENT"
         probes_attempted = len(F)  # For source code, probes = findings flagged
         probes_passed = probes_attempted  # All checks ran
+        probe_results = []  # No detailed probe results for source code scan
+        probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'findings': 0}
+        discovery_info = None
 
     elapsed_seconds = time.time() - scan_start_time
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
