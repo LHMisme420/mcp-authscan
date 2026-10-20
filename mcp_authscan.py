@@ -2485,47 +2485,6 @@ def main():
             print("")
             return  # Stop here - don't run probes
 
-        # Probe Results Summary - show detailed evidence
-        print("PROBE RESULTS SUMMARY")
-        print("-" * 80)
-
-        # Group by verdict using probe_results for detailed display
-        passed = [p for p in probe_results if len(p) > 4 and p[4] == 'PASS']
-        not_obs = [p for p in probe_results if len(p) > 4 and p[4] == 'NOT_OBSERVED']
-        vuln = [p for p in probe_results if len(p) > 4 and p[4] == 'VULNERABLE']
-
-        if passed:
-            print(f"PASSED ({len(passed)} probes):")
-            for endpoint, method, status, reason, _ in passed:
-                print(f"  {method:4s} {endpoint:30s} HTTP {status} — {reason}")
-            print("")
-        elif probe_status['passed'] > 0:
-            print(f"PASSED ({probe_status['passed']} probes): Correctly rejected unauthenticated requests")
-            print("")
-
-        if not_obs:
-            print(f"NOT OBSERVED ({len(not_obs)} probes):")
-            for endpoint, method, status, reason, _ in not_obs:
-                status_str = str(status) if isinstance(status, int) else status
-                print(f"  {method:4s} {endpoint:30s} {status_str:3s} — {reason}")
-            print("")
-        elif probe_status['not_observed'] > 0:
-            print(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable")
-            print("")
-
-        if vuln:
-            print(f"VULNERABLE ({len(vuln)} probes):")
-            for endpoint, method, status, reason, _ in vuln:
-                print(f"  {method:4s} {endpoint:30s} HTTP {status} — {reason}")
-            print("")
-        elif probe_status['findings'] > 0:
-            print(f"VULNERABLE ({probe_status['findings']} probes): Accepted unauthenticated requests")
-            print("")
-
-        print("-" * 80)
-        print("")
-
-        # Same for report file
         # Build summary from actual probe records (data-driven only)
         print(f"[DEBUG] oauth_records at report: type={type(oauth_records)}, len={len(oauth_records)}", file=sys.stderr)
         if oauth_records:
