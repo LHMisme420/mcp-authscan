@@ -305,18 +305,35 @@ def scan_live_server(target_url):
                     if 'jsonrpc' in body or '{' in body:
                         mcp_verified = True
                         print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+                elif resp.status == 400 or resp.status == 406 or resp.status == 405:
+                    # 400: JSON-RPC error (malformed but MCP aware)
+                    # 405/406: Wrong method/content-type (path exists, headers wrong)
+                    body = resp.read(500).decode(errors='ignore')
+                    if 'jsonrpc' in body or '{' in body:
+                        mcp_verified = True
+                        print(f"[+] MCP server verified (HTTP {resp.status} with JSON-RPC error)", file=sys.stderr)
         except HTTPError as e:
             if e.code == 401:
                 # OAuth challenge - this is MCP
                 mcp_verified = True
                 print(f"[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
+            elif e.code in [400, 405, 406]:
+                # Server returned error but in JSON format - still MCP
+                body = e.fp.read(500).decode(errors='ignore') if e.fp else ""
+                if 'jsonrpc' in body or '{' in body:
+                    mcp_verified = True
+                    print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
     except:
         pass
 
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
-        print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate or 200 with JSON-RPC)", file=sys.stderr)
-        probe_status['not_observed'] = 12  # All probes not observed
+        print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
+        # Zero probes attempted—preflight failed
+        probe_status['attempted'] = 0
+        probe_status['passed'] = 0
+        probe_status['failed'] = 0
+        probe_status['not_observed'] = 0
         return findings, False, probe_status, None, []
 
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
@@ -347,7 +364,11 @@ def scan_live_server(target_url):
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
             "message": "OAuth server detected but endpoint discovery chain incomplete"
         }
-        probe_status['not_observed'] = 12  # All probes not observable (no endpoints to test)
+        # Zero probes were attempted because we had no endpoints to test
+        probe_status['attempted'] = 0
+        probe_status['passed'] = 0
+        probe_status['failed'] = 0
+        probe_status['not_observed'] = 0
         return findings, True, probe_status, discovery_incomplete, []
 
     print(f"[*] Scanning live server: {scan_target}", file=sys.stderr)
