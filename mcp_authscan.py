@@ -345,6 +345,7 @@ def scan_live_server(target_url):
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
         from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
 
+        oauth_records = []
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
             parsed = urlparse(endpoint_url)
@@ -372,6 +373,13 @@ def scan_live_server(target_url):
             for record in records:
                 print(render_probe(record), file=sys.stderr)
 
+        
+        # Verify accounting
+        oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
+        if not accounting_valid:
+            print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
+            return findings, True, probe_status, discovery_info, []
+        
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
