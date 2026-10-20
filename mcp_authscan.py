@@ -270,7 +270,7 @@ def scan_live_server(target_url):
         socket.create_connection((p.hostname, p.port or 80), timeout=5)
     except Exception as e:
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings, False, probe_status, discovery_info, []
+        return findings, False, probe_status, discovery_info, ([], [])
 
     print(f"[*] Detected live server URL", file=sys.stderr)
     print(f"[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
@@ -402,7 +402,7 @@ def scan_live_server(target_url):
         oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
         if not accounting_valid:
             print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
-            return findings, True, probe_status, discovery_info, []
+            return findings, True, probe_status, discovery_info, ([], [])
         
         # Update probe_status from OAuth assessment counts
         authserver_counts = oauth_counts.get("authserver", {})
@@ -415,7 +415,7 @@ def scan_live_server(target_url):
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
-        return findings, True, probe_status, discovery_info, []
+        return findings, True, probe_status, discovery_info, ([], [])
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
@@ -437,7 +437,7 @@ def scan_live_server(target_url):
         probe_status['passed'] = 0
         probe_status['failed'] = 0
         probe_status['not_observed'] = 0
-        return findings, True, probe_status, discovery_incomplete, []
+        return findings, True, probe_status, discovery_incomplete, ([], [])
 
     print(f"[*] Scanning live server: {scan_target}", file=sys.stderr)
     print(f"[*] Probe-by-probe execution:", file=sys.stderr)
