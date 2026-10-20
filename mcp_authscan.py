@@ -1634,12 +1634,15 @@ def main():
     args = ap.parse_args()
 
     # Auto-detect: live server (http(s)://) or source code directory?
+    scan_mode = None
     if args.target.startswith("http://") or args.target.startswith("https://"):
         print(f"[*] Detected live server URL", file=sys.stderr)
         F = scan_live_server(args.target)
+        scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
+        scan_mode = "SOURCE_CODE_ASSESSMENT"
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 
@@ -1676,6 +1679,18 @@ def main():
         report_lines.append("=" * 80)
         report_lines.append("")
         report_lines.append(auth.format_block())
+        report_lines.append("")
+        report_lines.append("ASSESSMENT MODE")
+        report_lines.append("-" * 80)
+        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
+            report_lines.append("Type: LIVE ENDPOINT TESTING")
+            report_lines.append("Method: Runtime probing of live MCP server endpoints")
+            report_lines.append("Scope: Network-based assessment of running server")
+        else:
+            report_lines.append("Type: SOURCE CODE ASSESSMENT")
+            report_lines.append("Method: Static analysis of codebase for OAuth/security patterns")
+            report_lines.append("Scope: Code repository examination")
+        report_lines.append("-" * 80)
         report_lines.append("")
         report_lines.append(metadata.format_block())
         report_lines.append("")
