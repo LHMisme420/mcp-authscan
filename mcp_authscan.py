@@ -1715,20 +1715,46 @@ def main():
             # Count unique files examined
             files_examined = len(set(f.get("file") for f in F if f.get("file")))
 
-            # Count total source files for coverage metric
+            # Reconcile file counts: excluded vs. irrelevant vs. analyzed
             try:
                 target_path = Path(args.target).resolve()
-                total_src_files = 0
-                for ext in SRC_EXT:
-                    total_src_files += len(list(target_path.rglob(f"*{ext}")))
-                files_total = total_src_files
-            except:
-                pass
+                excluded_by_category = 0
+                recognized_irrelevant = 0
+                total_src = 0
 
-            # Document exclusion categories
-            files_excluded = list(SKIP_DIR)
-            if not args.include_tests:
-                files_excluded.append("test files")
+                for file in target_path.rglob("*"):
+                    if not file.is_file():
+                        continue
+
+                    # Check file extension first
+                    if file.suffix not in SRC_EXT:
+                        continue
+
+                    total_src += 1
+
+                    # Check if in excluded directory
+                    if any(part in SKIP_DIR for part in file.parts):
+                        excluded_by_category += 1
+                        continue
+
+                    # Check if test file or irrelevant pattern
+                    if (any(part in TEST_DIR for part in file.parts) or
+                        TEST_FILE.search(file.name) or
+                        MINIFIED_FILE.search(file.name)):
+                        recognized_irrelevant += 1
+
+                files_total = total_src
+                # Report as: "113 analyzed; 189 excluded by category, 48 recognized as irrelevant"
+                if excluded_by_category > 0 or recognized_irrelevant > 0:
+                    files_examined_detail = f"{files_examined} analyzed"
+                    exclusions = []
+                    if excluded_by_category > 0:
+                        exclusions.append(f"{excluded_by_category} excluded by category")
+                    if recognized_irrelevant > 0:
+                        exclusions.append(f"{recognized_irrelevant} recognized as irrelevant")
+                    files_excluded = [files_examined_detail] + exclusions
+            except:
+                files_excluded = list(SKIP_DIR)
 
         # Define what wasn't tested based on assessment type
         not_tested = []
