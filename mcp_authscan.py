@@ -2203,7 +2203,7 @@ def main():
     commit_sha_short = None
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
-        F, server_reachable, probe_status, discovery_info, probe_results = scan_live_server(args.target)
+        F, server_reachable, probe_status, discovery_info, (oauth_records, probe_results) = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
         # Log discovery results (only if successful, not DISCOVERY_INCOMPLETE)
