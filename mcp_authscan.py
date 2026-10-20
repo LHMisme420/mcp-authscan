@@ -371,11 +371,15 @@ def scan_live_server(target_url):
                 if verdict != "NOT_OBSERVED":
                     print(f"  [OAuth-{rule_num}] {rule_name:25s} {verdict:15s}", file=sys.stderr)
 
-        # Phase 2: Test individual endpoints
-        endpoints_to_test = {}
-        for name, url in oauth_endpoints.items():
-            endpoints_to_test[f"/oauth/{name}"] = ("POST", url)
-        scan_target = target_url
+        # Phase 2: Skip endpoint-by-endpoint testing
+        # OAuth server probes (Phase 1) are sufficient for this assessment.
+        # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
+        # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
+        probe_status['attempted'] = len([p for p in [] if p])  # 0 - no additional probes
+        probe_status['passed'] = 0
+        probe_status['not_observed'] = 0
+        probe_status['findings'] = 0
+        return findings, True, probe_status, discovery_info, []
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
