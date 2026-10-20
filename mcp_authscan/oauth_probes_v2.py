@@ -215,7 +215,7 @@ def probe_token_cors(token_endpoint):
         headers_observed={"Access-Control-Allow-Origin": acao, "Access-Control-Allow-Credentials": acac, "Vary": vary},
         body_excerpt="",
         body_sha256="",
-        verdict="PASS",  # Observations always render
+        verdict="OBSERVATION",  # Never PASS or FAIL
         evidence=evidence,
         limitation=None
     )
@@ -443,13 +443,8 @@ def count_probes(records):
 
 
 def render_probe(record):
-    """
-    Consistent probe output format.
-    """
-    if record.evidence:
-        return f"  [{record.probe_id}] {record.probe_name:30s} {record.verdict:15s}"
-    else:
-        return f"  [{record.probe_id}] {record.probe_name:30s} EVIDENCE MISSING"
+    """Format probe with evidence on every line."""
+    return f"  [{record.probe_id}] {record.probe_name:30s} {record.verdict:15s}  {record.evidence}"
 
 
 def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
