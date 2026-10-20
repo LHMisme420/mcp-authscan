@@ -147,10 +147,8 @@ def discover_oauth_endpoints(base_url):
         }
     }
 
-    init_url = base + ("/initialize" if not base.endswith("/") else "initialize")
-    # For streaming endpoints, POST to /mcp
-    if not base.endswith("/initialize"):
-        init_url = base + ("/mcp" if not base.endswith("/") else "mcp")
+    # Use the target URL as-is (already the MCP endpoint path)
+    init_url = base
 
     try:
         req = Request(init_url, method="POST")
@@ -162,8 +160,7 @@ def discover_oauth_endpoints(base_url):
         try:
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
-                    # Unauthenticated access to initialize - this is a finding but not OAuth discovery
-                    print(f"[!] Unauthenticated MCP endpoint (HTTP 200)", file=sys.stderr)
+                    # Unauthenticated access - not OAuth, discovery can't continue
                     return None, None
         except HTTPError as e:
             if e.code != 401:
@@ -2292,6 +2289,16 @@ def main():
         report_lines.append("MCP-AUTHSCAN SECURITY REPORT")
         report_lines.append("=" * 80)
         report_lines.append("")
+
+        # Add scan verdict if incomplete
+        if discovery_info and discovery_info.get('status') == 'DISCOVERY_INCOMPLETE':
+            report_lines.append("⚠ SCAN INCOMPLETE")
+            report_lines.append("-" * 80)
+            report_lines.append("MCP server detected, but OAuth endpoint discovery failed.")
+            report_lines.append("No probes executed. Assessment incomplete.")
+            report_lines.append("-" * 80)
+            report_lines.append("")
+
         report_lines.append(auth.format_block())
         report_lines.append("")
         report_lines.append("ASSESSMENT MODE")
