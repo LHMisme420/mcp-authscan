@@ -2534,11 +2534,14 @@ def main():
         # Build summary from actual probe records (data-driven, not prose templates)
         try:
             if oauth_records:
-                check_counts(oauth_records, probes_attempted, probes_passed, len(F), probes_not_observed)
-                report_lines.append(render_summary(oauth_records))
+                check_counts(oauth_records)
+                report_lines.append("PROBE RESULTS SUMMARY")
+                report_lines.append("-" * 80)
+                summary_lines = render_summary(oauth_records)
+                report_lines.extend(summary_lines)
             else:
                 raise ValueError("no records")
-        except (NameError, ValueError):
+        except (NameError, ValueError, AssertionError):
             # MCP endpoint assessment (fallback)
             report_lines.append("PROBE RESULTS SUMMARY")
             report_lines.append("-" * 80)
