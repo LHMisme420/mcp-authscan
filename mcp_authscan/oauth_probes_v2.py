@@ -126,6 +126,7 @@ def probe_token_cache_control(token_endpoint):
         )
 
     cache_control = ""
+    status_code = 0
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
@@ -134,8 +135,10 @@ def probe_token_cache_control(token_endpoint):
 
         try:
             with urlopen(req, timeout=5) as resp:
+                status_code = resp.status
                 cache_control = resp.headers.get("Cache-Control", "")
         except HTTPError as e:
+            status_code = e.code
             cache_control = e.headers.get("Cache-Control", "")
     except (URLError, Exception) as e:
         return ProbeRecord(
@@ -144,7 +147,7 @@ def probe_token_cache_control(token_endpoint):
         )
 
     verdict = "PASS" if "no-store" in cache_control.lower() else "FAIL"
-    evidence = f"Cache-Control: {cache_control or '(absent)'}"
+    evidence = f"HTTP {status_code}: Cache-Control: {cache_control or '(absent)'}"
 
     return ProbeRecord(
         probe_id=3,
@@ -152,7 +155,7 @@ def probe_token_cache_control(token_endpoint):
         probe_name="token-cache-control",
         request_method="POST",
         url=token_endpoint,
-        status=0,
+        status=status_code,
         content_type="",
         headers_observed={"Cache-Control": cache_control},
         body_excerpt="",
