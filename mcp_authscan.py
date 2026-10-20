@@ -183,6 +183,7 @@ def scan_live_server(target_url):
     return findings
 
 VERSION = "0.9.4"
+PROBE_SET_VERSION = "0.3.0"  # Bumps only when checks are added/removed/modified
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -1697,16 +1698,37 @@ def main():
             contact=args.contact
         )
 
-        # For source code assessments, extract git metadata
+        # For source code assessments, extract git metadata and count files
         repo_url = None
         branch = None
-        commit_sha = None
+        commit_sha_long = None
+        commit_sha_short = None
         files_examined = None
+        files_total = None
+        files_excluded = []
 
         if scan_mode == "SOURCE_CODE_ASSESSMENT" and not args.target.startswith("http"):
-            repo_url, branch, commit_sha = get_git_metadata(args.target)
-            # Count Python files examined as proxy for scope
-            files_examined = len([f for f in F if f.get("file")])
+            repo_url, branch, commit_sha_long = get_git_metadata(args.target)
+            if commit_sha_long:
+                commit_sha_short = commit_sha_long[:12]
+
+            # Count unique files examined
+            files_examined = len(set(f.get("file") for f in F if f.get("file")))
+
+            # Count total source files for coverage metric
+            try:
+                target_path = Path(args.target).resolve()
+                total_src_files = 0
+                for ext in SRC_EXT:
+                    total_src_files += len(list(target_path.rglob(f"*{ext}")))
+                files_total = total_src_files
+            except:
+                pass
+
+            # Document exclusion categories
+            files_excluded = list(SKIP_DIR)
+            if not args.include_tests:
+                files_excluded.append("test files")
 
         # Define what wasn't tested based on assessment type
         not_tested = []
@@ -1729,14 +1751,15 @@ def main():
             ]
 
         metadata = ScanMetadata(
-            target=args.target,
             scope=args.scope or "Full assessment",
-            probe_set_version=VERSION,
+            probe_set_version=PROBE_SET_VERSION,
             not_tested=not_tested,
             repo_url=repo_url,
             branch=branch,
-            commit_sha=commit_sha,
-            files_examined=files_examined
+            commit_sha=commit_sha_short,
+            files_examined=files_examined,
+            files_total=files_total,
+            files_excluded=files_excluded
         )
 
         report_lines.append("=" * 80)
@@ -1783,6 +1806,9 @@ def main():
                 "ticket_ref": args.ticket_ref,
                 "contact": args.contact,
             }
+        # Include full commit SHA in JSON (for reproducibility)
+        if commit_sha_long:
+            payload["commit_sha"] = commit_sha_long
         blob = json.dumps(payload, sort_keys=True).encode()
         payload["report_sha256"] = hashlib.sha256(blob).hexdigest()  # anchor hook
         print(json.dumps(payload, indent=2))

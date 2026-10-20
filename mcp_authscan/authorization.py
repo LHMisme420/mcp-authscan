@@ -62,17 +62,17 @@ class ScanMetadata:
 
     def __init__(
         self,
-        target: str,
         scope: str,
-        probe_set_version: str = "0.9.4",
+        probe_set_version: str = "0.3.0",
         not_tested: Optional[list] = None,
         repo_url: Optional[str] = None,
         branch: Optional[str] = None,
         commit_sha: Optional[str] = None,
         files_examined: Optional[int] = None,
+        files_total: Optional[int] = None,
+        files_excluded: Optional[list] = None,
         lines_examined: Optional[int] = None
     ):
-        self.target = target
         self.scope = scope
         self.probe_set_version = probe_set_version
         self.not_tested = not_tested or []
@@ -80,14 +80,18 @@ class ScanMetadata:
         self.branch = branch
         self.commit_sha = commit_sha
         self.files_examined = files_examined
+        self.files_total = files_total
+        self.files_excluded = files_excluded or []
         self.lines_examined = lines_examined
 
     def to_dict(self) -> dict:
         return {
-            "target": self.target,
             "scope": self.scope,
             "probe_set_version": self.probe_set_version,
             "not_tested": self.not_tested,
+            "repo_url": self.repo_url,
+            "branch": self.branch,
+            "commit_sha": self.commit_sha,
         }
 
     def format_block(self) -> str:
@@ -105,13 +109,17 @@ class ScanMetadata:
         if self.commit_sha:
             lines.append(f"Commit SHA: {self.commit_sha}")
 
-        lines.append(f"Target: {self.target}")
         lines.append(f"Scope: {self.scope}")
         lines.append(f"Probe Set Version: {self.probe_set_version}")
 
-        # Examination metrics
-        if self.files_examined is not None:
+        # Examination metrics with coverage
+        if self.files_examined is not None and self.files_total is not None:
+            lines.append(f"Files Examined: {self.files_examined} of {self.files_total}")
+            if self.files_excluded:
+                lines.append(f"Excluded Categories: {', '.join(self.files_excluded)}")
+        elif self.files_examined is not None:
             lines.append(f"Files Examined: {self.files_examined}")
+
         if self.lines_examined is not None:
             lines.append(f"Lines of Code Examined: {self.lines_examined}")
 
