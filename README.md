@@ -9,9 +9,38 @@
 VATA (Vulnerability Assessment and Tracking Archive) is an independent AI security research program running a comprehensive audit of the MCP (Model Context Protocol) ecosystem and baseline security analysis of official MCP reference implementations.
 
 This repository contains:
-1. **authorized_scan.py** — MCP security scanner for testing OAuth, CORS, authentication, and protocol-level vulnerabilities
+1. **mcp_authscan.py** — MCP security scanner for testing OAuth, CORS, authentication, and protocol-level vulnerabilities
 2. **Lab credibility demonstration** — Before/after validation showing the scanner detects vulnerabilities in intentionally vulnerable servers and confirms fixes
 3. **Reference server security analysis** — Official MCP SDK vulnerability baseline documentation
+
+---
+
+## Quick Start
+
+**Install from source (main branch — latest fixes):**
+
+```bash
+git clone https://github.com/LHMisme420/mcp-authscan.git
+cd mcp-authscan
+pip install -e .
+```
+
+**Run live OAuth server assessment:**
+
+```bash
+python3 mcp_authscan.py https://api.example.com/mcp \
+  --authorized-by "Your Name" \
+  --auth-basis "written consent" \
+  --contact "your.email@example.com"
+```
+
+**Output:**
+- Human-readable security report with PASS/FAIL/OBSERVATION verdicts
+- OAuth endpoint configuration analysis (RFC 9728 → RFC 8414)
+- Probe results summary with evidence strings
+- Exit code 0 (clean) or 1 (unreachable/failed)
+
+⚠️ **Note:** PyPI package (v0.9.4) is outdated. Use main branch for latest fixes including PROBE RESULTS SUMMARY and fail-closed gates.
 
 ---
 
