@@ -2146,10 +2146,10 @@ def main():
                 print(f"    Hosts: {', '.join(discovery_info['discovered_hosts'])}", file=sys.stderr)
 
         if not server_reachable:
-            # Server unreachable: no probes could execute
-            probes_attempted = len(LIVE_ENDPOINTS) * 3
+            # Server unreachable or preflight failed: no probes executed
+            probes_attempted = 0
             probes_passed = 0
-            probes_not_observed = probes_attempted
+            probes_not_observed = 0
         else:
             # Server reachable: use actual probe status counts from scanner
             # This correctly distinguishes:
