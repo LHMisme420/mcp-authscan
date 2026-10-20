@@ -138,6 +138,7 @@ def scan_live_server(target_url):
         return findings, False, probe_status
 
     print(f"[*] Scanning live MCP server: {target_url}", file=sys.stderr)
+    print(f"[*] Probe-by-probe execution:", file=sys.stderr)
 
     for path, method in LIVE_ENDPOINTS.items():
         url = target_url.rstrip("/") + path
@@ -161,6 +162,7 @@ def scan_live_server(target_url):
 
                 if resp.status in [200, 201, 202]:
                     # VULNERABILITY: endpoint accepts unauthenticated requests
+                    print(f"  [D1] {method:4s} {path:15s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
                     add_live_finding(findings, "D1", "CRITICAL",
                         f"Zero-auth endpoint: {method} {path}",
                         url, method, request_body, resp.status, response_preview,
@@ -170,13 +172,16 @@ def scan_live_server(target_url):
                     probe_status['findings'] += 1
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected unauthenticated request
+                    print(f"  [D1] {method:4s} {path:15s} HTTP {resp.status} PASS (auth enforced)", file=sys.stderr)
                     probe_status['passed'] += 1
                 else:
                     # NOT_OBSERVED: unexpected status (endpoint missing, error, etc)
+                    print(f"  [D1] {method:4s} {path:15s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
                     probe_status['not_observed'] += 1
 
         except HTTPError as e:
             if e.code in [200, 201, 202]:
+                print(f"  [D1] {method:4s} {path:15s} HTTP {e.code} VULNERABLE (no auth required)", file=sys.stderr)
                 add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {path}",
                     url, method, request_body if method == "POST" else "", e.code, "",
                     f"Endpoint accessible without Authorization header",
@@ -184,12 +189,15 @@ def scan_live_server(target_url):
                     "D1-zero-auth", "HIGH")
                 probe_status['findings'] += 1
             elif e.code in [401, 403]:
+                print(f"  [D1] {method:4s} {path:15s} HTTP {e.code} PASS (auth enforced)", file=sys.stderr)
                 probe_status['passed'] += 1
             else:
                 # 404, 5xx, etc
+                print(f"  [D1] {method:4s} {path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
                 probe_status['not_observed'] += 1
-        except (URLError, socket.timeout):
+        except (URLError, socket.timeout) as e:
             # Connection failed: can't observe this probe
+            print(f"  [D1] {method:4s} {path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
         # Test 2: Evidence-based CORS policy (D2)
@@ -213,20 +221,24 @@ def scan_live_server(target_url):
 
             if not endpoint_exists:
                 # Endpoint doesn't exist or has server error - can't test
+                print(f"  [D2] {method:4s} {path:15s} (endpoint missing) NOT_OBSERVED", file=sys.stderr)
                 probe_status['not_observed'] += 1
             else:
                 # Endpoint exists, now test CORS
                 assessment = probe_cors_urllib(url, method, timeout=5, opener=urlopen)
                 if assessment.is_finding:
+                    print(f"  [D2] {method:4s} {path:15s} VULNERABLE (CORS misconfigured)", file=sys.stderr)
                     add(findings, "D2", assessment.severity, f"{assessment.summary} on {path}",
                         url, "", 0, assessment.details,
                         "D2-cors-origin-reflection" if assessment.reflected else "D2-cors-wildcard", "MEDIUM")
                     probe_status['findings'] += 1
                 else:
                     # CORS test ran and found no issue = passed
+                    print(f"  [D2] {method:4s} {path:15s} PASS (CORS OK)", file=sys.stderr)
                     probe_status['passed'] += 1
         except (HTTPError, URLError, socket.timeout):
             # Couldn't test CORS
+            print(f"  [D2] {method:4s} {path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
         # Test 3: Invalid token accepted (D3)
@@ -248,6 +260,7 @@ def scan_live_server(target_url):
 
                 if resp.status in [200, 201, 202]:
                     # VULNERABILITY: endpoint accepts invalid token
+                    print(f"  [D3] {method:4s} {path:15s} HTTP {resp.status} VULNERABLE (invalid token accepted)", file=sys.stderr)
                     add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
                         url, method, token_body, resp.status, response_preview,
                         f"Invalid token accepted (HTTP {resp.status})",
@@ -256,13 +269,16 @@ def scan_live_server(target_url):
                     probe_status['findings'] += 1
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected invalid token
+                    print(f"  [D3] {method:4s} {path:15s} HTTP {resp.status} PASS (token validation OK)", file=sys.stderr)
                     probe_status['passed'] += 1
                 else:
                     # NOT_OBSERVED: unexpected status
+                    print(f"  [D3] {method:4s} {path:15s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
                     probe_status['not_observed'] += 1
 
         except HTTPError as e:
             if e.code in [200, 201, 202]:
+                print(f"  [D3] {method:4s} {path:15s} HTTP {e.code} VULNERABLE (invalid token accepted)", file=sys.stderr)
                 add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
                     url, method, token_body if method == "POST" else "", e.code, "",
                     f"Invalid token accepted",
@@ -270,10 +286,13 @@ def scan_live_server(target_url):
                     "D3-token-validation", "HIGH")
                 probe_status['findings'] += 1
             elif e.code in [401, 403]:
+                print(f"  [D3] {method:4s} {path:15s} HTTP {e.code} PASS (token validation OK)", file=sys.stderr)
                 probe_status['passed'] += 1
             else:
+                print(f"  [D3] {method:4s} {path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
                 probe_status['not_observed'] += 1
         except (URLError, socket.timeout):
+            print(f"  [D3] {method:4s} {path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
     return findings, True, probe_status
