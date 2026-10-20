@@ -325,28 +325,30 @@ def scan_live_server(target_url):
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
 
     if oauth_endpoints:
-        # Use discovered OAuth endpoints instead of hardcoded MCP paths
+        # Use discovered OAuth endpoints
         print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
-        # Build a synthetic endpoint dict from discovered URLs
         endpoints_to_test = {}
         for name, url in oauth_endpoints.items():
-            # POST to OAuth endpoints
             endpoints_to_test[f"/oauth/{name}"] = ("POST", url)
         scan_target = target_url
     else:
-        # Discovery failed
-        if mcp_verified:
-            # MCP server exists with OAuth but discovery couldn't complete
-            print(f"[!] MCP server requires OAuth but discovery chain incomplete", file=sys.stderr)
-            print(f"[!] Could not discover OAuth endpoints via RFC 9728 → RFC 8414", file=sys.stderr)
-            print(f"[!] Cannot proceed without OAuth endpoint discovery", file=sys.stderr)
-            probe_status['not_observed'] = 12  # All probes not observable
-            return findings, True, probe_status, {"error": "discovery_incomplete"}, []
-        else:
-            # Non-OAuth MCP server - test hardcoded MCP endpoints
-            print(f"[*] Testing standard MCP endpoints", file=sys.stderr)
-            endpoints_to_test = {path: (method, target_url.rstrip("/") + path) for path, method in LIVE_ENDPOINTS.items()}
-            scan_target = target_url
+        # Discovery failed - STOP, don't fallback to guessing
+        # Report DISCOVERY_INCOMPLETE with forensic details
+        print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
+        print(f"[!] The preflight detected OAuth (401) but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
+
+        # Return with DISCOVERY_INCOMPLETE status
+        discovery_incomplete = {
+            "status": "DISCOVERY_INCOMPLETE",
+            "preflight_verified": True,
+            "preflight_status": 401,
+            "discovery_attempted": True,
+            "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
+            "message": "OAuth server detected but endpoint discovery chain incomplete"
+        }
+        probe_status['not_observed'] = 12  # All probes not observable (no endpoints to test)
+        return findings, True, probe_status, discovery_incomplete, []
 
     print(f"[*] Scanning live server: {scan_target}", file=sys.stderr)
     print(f"[*] Probe-by-probe execution:", file=sys.stderr)
@@ -2325,6 +2327,25 @@ def main():
         # Text output with optional authorization header
         if report_lines:
             print("\n".join(report_lines))
+
+        # Check for discovery incomplete status
+        if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
+            print("DISCOVERY STATUS")
+            print("-" * 80)
+            print("PREFLIGHT CHECK: PASSED")
+            print("  POST /initialize returned HTTP 401 with OAuth challenge")
+            print("  This confirms an MCP server with OAuth exists at the target path.")
+            print("")
+            print("DISCOVERY CHAIN: INCOMPLETE")
+            print("  RFC 9728 → RFC 8414 discovery attempted but did not complete.")
+            print("  Unable to discover OAuth endpoint URLs (token, authorize, etc.)")
+            print("  Cannot proceed without discovered endpoint URLs.")
+            print("")
+            print("PROBES: NOT RUN")
+            print("  All 12 probes marked NOT_OBSERVED (no endpoints to test)")
+            print("-" * 80)
+            print("")
+            return  # Stop here - don't run probes
 
         # Probe Results Summary - show detailed evidence
         print("PROBE RESULTS SUMMARY")
