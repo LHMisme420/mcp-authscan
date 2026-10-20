@@ -1980,8 +1980,12 @@ def main():
         # Log discovery results
         if discovery_info:
             print(f"[+] OAuth discovery successful", file=sys.stderr)
-            print(f"    Method: {discovery_info['discovery_method']}", file=sys.stderr)
-            print(f"    OAuth Base: {discovery_info['oauth_base']}", file=sys.stderr)
+            if 'method' in discovery_info:
+                print(f"    Method: {discovery_info['method']}", file=sys.stderr)
+            if 'endpoints' in discovery_info:
+                print(f"    Endpoints: {len(discovery_info['endpoints'])} discovered", file=sys.stderr)
+            if 'discovered_hosts' in discovery_info:
+                print(f"    Hosts: {', '.join(discovery_info['discovered_hosts'])}", file=sys.stderr)
 
         if not server_reachable:
             # Server unreachable: no probes could execute
