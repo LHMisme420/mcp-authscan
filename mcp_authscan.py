@@ -392,10 +392,18 @@ def scan_live_server(target_url):
             print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
             return findings, True, probe_status, discovery_info, []
         
+        # Update probe_status from OAuth assessment counts
+        authserver_counts = oauth_counts.get("authserver", {})
+        probe_status['attempted'] = authserver_counts.get("attempted", 0)
+        probe_status['passed'] = authserver_counts.get("passed", 0)
+        probe_status['failed'] = authserver_counts.get("failed", 0)
+        probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
+        
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
+        return findings, True, probe_status, discovery_info, []
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
