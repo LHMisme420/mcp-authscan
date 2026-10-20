@@ -2463,9 +2463,6 @@ def main():
         print(json.dumps(payload, indent=2))
     else:
         # Text output with optional authorization header
-        if report_lines:
-            print("\n".join(report_lines))
-
         # Check for discovery incomplete status
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print("DISCOVERY STATUS")
@@ -2502,6 +2499,9 @@ def main():
             report_lines.append("No OAuth probes were attempted.")
         report_lines.append("-" * 80)
         report_lines.append("")
+
+        # Print the main report with all sections (authorization, assessment, scan metadata, findings, probe results)
+        print("\n".join(report_lines))
 
         if not F:
             print("No findings. (Absence of finding is not proof of safety.)")
