@@ -2541,8 +2541,9 @@ def main():
                 report_lines.extend(summary_lines)
             else:
                 raise ValueError("no records")
-        except (NameError, ValueError, AssertionError):
+        except Exception as e:
             # MCP endpoint assessment (fallback)
+            print(f"[DEBUG] Summary render failed: {e}", file=sys.stderr)
             report_lines.append("PROBE RESULTS SUMMARY")
             report_lines.append("-" * 80)
             if probe_status['passed'] > 0:
