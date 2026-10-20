@@ -334,7 +334,7 @@ def scan_live_server(target_url):
         probe_status['passed'] = 0
         probe_status['failed'] = 0
         probe_status['not_observed'] = 0
-        return findings, False, probe_status, None, []
+        return findings, False, probe_status, None, ([], [])
 
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
@@ -2202,6 +2202,7 @@ def main():
     branch = None
     commit_sha_long = None
     commit_sha_short = None
+    oauth_records = []  # Initialize for all paths
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
         F, server_reachable, probe_status, discovery_info, (oauth_records, probe_results) = scan_live_server(args.target)
