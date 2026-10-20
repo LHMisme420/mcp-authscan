@@ -274,6 +274,51 @@ def scan_live_server(target_url):
         return findings, False, probe_status, discovery_info
 
     print(f"[*] Detected live server URL", file=sys.stderr)
+    print(f"[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
+
+    # PREFLIGHT: Verify target is an MCP server before running probes
+    # POST /initialize should return 401 with WWW-Authenticate OR 200 with JSON
+    mcp_verified = False
+    init_payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "mcp-authscan", "version": VERSION}
+        }
+    }
+
+    try:
+        req = Request(target_url if target_url.endswith('/') else target_url + '/')
+        req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json, text/event-stream")
+        req.data = json.dumps(init_payload).encode()
+
+        try:
+            with urlopen(req, timeout=5) as resp:
+                if resp.status in [200, 201, 202]:
+                    # Should be JSON-RPC response
+                    body = resp.read(500).decode(errors='ignore')
+                    if 'jsonrpc' in body or '{' in body:
+                        mcp_verified = True
+                        print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+        except HTTPError as e:
+            if e.code == 401:
+                # OAuth challenge - this is MCP
+                mcp_verified = True
+                print(f"[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
+    except:
+        pass
+
+    if not mcp_verified:
+        print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
+        print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate or 200 with JSON-RPC)", file=sys.stderr)
+        probe_status['not_observed'] = 12  # All probes not observed
+        return findings, False, probe_status, None, []
+
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
     # Perform RFC 9728 → RFC 8414 discovery
@@ -461,13 +506,21 @@ def scan_live_server(target_url):
                             "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
                             "D3-token-validation", "HIGH")
                         probe_status['findings'] += 1
-                elif resp.status in [401, 403]:
-                    # GOOD: server correctly rejected invalid token
-                    print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} PASS (token validation OK)", file=sys.stderr)
+                elif resp.status == 401:
+                    # PASS: 401 Unauthorized specifically proves token validation (rejected invalid token)
+                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} PASS (token validation enforced)", file=sys.stderr)
+                    probe_results.append((display_path, method, resp.status, "token validation enforced", "PASS"))
                     probe_status['passed'] += 1
+                elif resp.status == 403:
+                    # NOT_OBSERVED: 403 Forbidden means "access denied" but doesn't prove token validation
+                    # Could be permission denied, rate limit, firewall, or actual token validation
+                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (reason unknown - could be token validation or permission denied)", file=sys.stderr)
+                    probe_results.append((display_path, method, resp.status, "access denied but reason unknown", "NOT_OBSERVED"))
+                    probe_status['not_observed'] += 1
                 else:
                     # NOT_OBSERVED: unexpected status
-                    print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
+                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
+                    probe_results.append((display_path, method, resp.status, f"unexpected status", "NOT_OBSERVED"))
                     probe_status['not_observed'] += 1
 
         except HTTPError as e:
@@ -491,11 +544,17 @@ def scan_live_server(target_url):
                         "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
                         "D3-token-validation", "HIGH")
                     probe_status['findings'] += 1
-            elif e.code in [401, 403]:
-                print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} PASS (token validation OK)", file=sys.stderr)
+            elif e.code == 401:
+                print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} PASS (token validation enforced)", file=sys.stderr)
+                probe_results.append((display_path, method, e.code, "token validation enforced", "PASS"))
                 probe_status['passed'] += 1
+            elif e.code == 403:
+                print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED (reason unknown - could be token validation or permission denied)", file=sys.stderr)
+                probe_results.append((display_path, method, e.code, "access denied but reason unknown", "NOT_OBSERVED"))
+                probe_status['not_observed'] += 1
             else:
-                print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
+                print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
+                probe_results.append((display_path, method, e.code, "unexpected status", "NOT_OBSERVED"))
                 probe_status['not_observed'] += 1
         except (URLError, socket.timeout):
             print(f"  [D3] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
