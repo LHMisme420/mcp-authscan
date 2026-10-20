@@ -325,15 +325,22 @@ def scan_live_server(target_url):
                 response_preview = response_data.decode(errors='ignore')
 
                 if resp.status in [200, 201, 202]:
-                    # VULNERABILITY: endpoint accepts unauthenticated requests
-                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
-                    add_live_finding(findings, "D1", "CRITICAL",
-                        f"Zero-auth endpoint: {method} {display_path}",
-                        url, method, request_body, resp.status, response_preview,
-                        f"Endpoint responded to unauthenticated request (HTTP {resp.status})",
-                        "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
-                        "D1-zero-auth", "HIGH")
-                    probe_status['findings'] += 1
+                    # Check: is this actually the endpoint we're testing?
+                    # HTML responses (<!DOCTYPE, <html) are SPA shells, not API endpoints
+                    if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
+                        # Wrong content-type: expected JSON/OAuth endpoint, got HTML
+                        print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
+                        probe_status['not_observed'] += 1
+                    else:
+                        # VULNERABILITY: endpoint accepts unauthenticated requests
+                        print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
+                        add_live_finding(findings, "D1", "CRITICAL",
+                            f"Zero-auth endpoint: {method} {display_path}",
+                            url, method, request_body, resp.status, response_preview,
+                            f"Endpoint responded to unauthenticated request (HTTP {resp.status})",
+                            "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
+                            "D1-zero-auth", "HIGH")
+                        probe_status['findings'] += 1
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected unauthenticated request
                     print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} PASS (auth enforced)", file=sys.stderr)
@@ -345,13 +352,25 @@ def scan_live_server(target_url):
 
         except HTTPError as e:
             if e.code in [200, 201, 202]:
-                print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} VULNERABLE (no auth required)", file=sys.stderr)
-                add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {display_path}",
-                    url, method, request_body if method == "POST" else "", e.code, "",
-                    f"Endpoint accessible without Authorization header",
-                    "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
-                    "D1-zero-auth", "HIGH")
-                probe_status['findings'] += 1
+                # Try to read error response
+                try:
+                    error_body = e.read(500).decode(errors='ignore')
+                except:
+                    error_body = ""
+
+                # Check: is this actually the endpoint we're testing?
+                if error_body.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
+                    # Wrong content-type: expected JSON/OAuth endpoint, got HTML
+                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
+                    probe_status['not_observed'] += 1
+                else:
+                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {e.code} VULNERABLE (no auth required)", file=sys.stderr)
+                    add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {display_path}",
+                        url, method, request_body if method == "POST" else "", e.code, error_body,
+                        f"Endpoint accessible without Authorization header",
+                        "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
+                        "D1-zero-auth", "HIGH")
+                    probe_status['findings'] += 1
             elif e.code in [401, 403]:
                 print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} PASS (auth enforced)", file=sys.stderr)
                 probe_status['passed'] += 1
@@ -423,14 +442,20 @@ def scan_live_server(target_url):
                 response_preview = response_data.decode(errors='ignore')
 
                 if resp.status in [200, 201, 202]:
-                    # VULNERABILITY: endpoint accepts invalid token
-                    print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} VULNERABLE (invalid token accepted)", file=sys.stderr)
-                    add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
-                        url, method, token_body, resp.status, response_preview,
-                        f"Invalid token accepted (HTTP {resp.status})",
-                        "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
-                        "D3-token-validation", "HIGH")
-                    probe_status['findings'] += 1
+                    # Check: is this actually the endpoint we're testing?
+                    if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
+                        # Wrong content-type: expected JSON/OAuth endpoint, got HTML
+                        print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
+                        probe_status['not_observed'] += 1
+                    else:
+                        # VULNERABILITY: endpoint accepts invalid token
+                        print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (invalid token accepted)", file=sys.stderr)
+                        add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
+                            url, method, token_body, resp.status, response_preview,
+                            f"Invalid token accepted (HTTP {resp.status})",
+                            "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
+                            "D3-token-validation", "HIGH")
+                        probe_status['findings'] += 1
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected invalid token
                     print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} PASS (token validation OK)", file=sys.stderr)
@@ -442,13 +467,25 @@ def scan_live_server(target_url):
 
         except HTTPError as e:
             if e.code in [200, 201, 202]:
-                print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} VULNERABLE (invalid token accepted)", file=sys.stderr)
-                add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
-                    url, method, token_body if method == "POST" else "", e.code, "",
-                    f"Invalid token accepted",
-                    "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
-                    "D3-token-validation", "HIGH")
-                probe_status['findings'] += 1
+                # Try to read error response
+                try:
+                    error_body = e.read(500).decode(errors='ignore')
+                except:
+                    error_body = ""
+
+                # Check: is this actually the endpoint we're testing?
+                if error_body.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
+                    # Wrong content-type: expected JSON/OAuth endpoint, got HTML
+                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
+                    probe_status['not_observed'] += 1
+                else:
+                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} VULNERABLE (invalid token accepted)", file=sys.stderr)
+                    add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
+                        url, method, token_body if method == "POST" else "", e.code, error_body,
+                        f"Invalid token accepted",
+                        "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
+                        "D3-token-validation", "HIGH")
+                    probe_status['findings'] += 1
             elif e.code in [401, 403]:
                 print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} PASS (token validation OK)", file=sys.stderr)
                 probe_status['passed'] += 1
