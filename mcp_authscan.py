@@ -396,11 +396,6 @@ def scan_live_server(target_url):
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
-        probe_status['attempted'] = len([p for p in [] if p])  # 0 - no additional probes
-        probe_status['passed'] = 0
-        probe_status['not_observed'] = 0
-        probe_status['findings'] = 0
-        return findings, True, probe_status, discovery_info, []
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
@@ -2212,7 +2207,7 @@ def main():
             # - PASSED: 401/403 (server correctly rejected)
             # - NOT_OBSERVED: 404/5xx (endpoint doesn't exist or error)
             # - FINDINGS: vulnerabilities detected
-            probes_attempted = probe_status['passed'] + probe_status['not_observed'] + probe_status['findings']
+            probes_attempted = probe_status.get('attempted', 0)
             probes_passed = probe_status['passed']
             probes_not_observed = probe_status['not_observed']
     else:
