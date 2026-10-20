@@ -2527,6 +2527,9 @@ def main():
 
         # Same for report file
         # Build summary from actual probe records (data-driven only)
+        print(f"[DEBUG] oauth_records at report: type={type(oauth_records)}, len={len(oauth_records)}", file=sys.stderr)
+        if oauth_records:
+            print(f"[DEBUG] First item: {oauth_records[0]}", file=sys.stderr)
         report_lines.append("PROBE RESULTS SUMMARY")
         report_lines.append("-" * 80)
         if oauth_records:
