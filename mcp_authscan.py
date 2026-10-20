@@ -2530,21 +2530,6 @@ def main():
         report_lines.append("-" * 80)
         report_lines.append("")
 
-        # Build summary from actual probe records (data-driven only)
-        report_lines.append("PROBE RESULTS SUMMARY")
-        report_lines.append("-" * 80)
-        if oauth_records:
-            # Accounting check
-            check_counts(oauth_records)
-            # Human-readable evidence driven by the ProbeRecord list
-            summary_lines = render_summary(oauth_records)
-            report_lines.extend(summary_lines)
-        else:
-            # Probes never ran (discovery incomplete, unreachable, etc.)
-            report_lines.append("No OAuth probes were attempted.")
-        report_lines.append("-" * 80)
-        report_lines.append("")
-
         if not F:
             print("No findings. (Absence of finding is not proof of safety.)")
         else:
