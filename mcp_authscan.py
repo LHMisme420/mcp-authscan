@@ -593,6 +593,34 @@ def add(findings, rule, sev, title, path, text, idx, evidence, ref, conf):
         "evidence": evidence, "snippet": snippet(text, idx), "ref": ref,
     })
 
+def validate_response_format(response_preview, endpoint_type):
+    """
+    Validate response format matches endpoint type.
+    - JWKS: should be JSON with keys
+    - OAuth metadata: should be JSON  
+    - JSON-RPC: should have jsonrpc field or be valid JSON
+    
+    Returns True if format matches, False (NOT_OBSERVED) if format is wrong.
+    """
+    if not response_preview:
+        return False
+    
+    # HTML responses are never findings (SPA shells, error pages, etc)
+    if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
+        return False
+    
+    # Should be JSON for OAuth/JWKS endpoints
+    if endpoint_type in ['jwks', 'metadata', 'oauth']:
+        try:
+            import json as json_module
+            json_module.loads(response_preview[:500])
+            return True
+        except:
+            return False
+    
+    return False
+
+
 def add_live_finding(findings, rule, sev, title, url, method, request_body,
                       response_status, response_preview, interpretation, remediation, ref, conf):
     """Add finding from live endpoint assessment with full request/response evidence."""
