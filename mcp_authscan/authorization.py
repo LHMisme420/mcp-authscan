@@ -77,7 +77,8 @@ class ScanMetadata:
         probes_passed: Optional[int] = None,
         probes_not_observed: Optional[int] = None,
         probes_failed: Optional[int] = None,
-        elapsed_seconds: Optional[float] = None
+        elapsed_seconds: Optional[float] = None,
+        discovery_info: Optional[dict] = None
     ):
         self.scope = scope
         self.probe_set_version = probe_set_version
@@ -95,6 +96,7 @@ class ScanMetadata:
         self.probes_not_observed = probes_not_observed
         self.probes_failed = probes_failed
         self.elapsed_seconds = elapsed_seconds
+        self.discovery_info = discovery_info
 
     def to_dict(self) -> dict:
         return {
@@ -116,6 +118,11 @@ class ScanMetadata:
         # Target
         if self.target:
             lines.append(f"Target: {self.target}")
+
+        # OAuth Discovery information
+        if self.discovery_info:
+            lines.append(f"OAuth Discovery: {self.discovery_info.get('discovery_method', 'Unknown')}")
+            lines.append(f"OAuth Base URL: {self.discovery_info.get('oauth_base', 'Unknown')}")
 
         # Repository information
         if self.repo_url:

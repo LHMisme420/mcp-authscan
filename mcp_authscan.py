@@ -117,9 +117,143 @@ def validate_input_path(path_str):
     return path
 
 
+def discover_oauth_endpoints(base_url):
+    """
+    RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
+
+    Returns (endpoints_dict, discovery_info) where:
+    - endpoints_dict: {endpoint_name: url} for discovered OAuth endpoints
+    - discovery_info: metadata about discovery chain
+    or (None, None) if not an OAuth server
+    """
+    base = base_url.rstrip("/")
+    discovered_hosts = set()
+    base_parsed = urlparse(base)
+    base_host = base_parsed.hostname
+    if base_host:
+        discovered_hosts.add(base_host)
+
+    print(f"[*] RFC 9728 → RFC 8414 discovery", file=sys.stderr)
+
+    # Step 1: POST /initialize (RFC 9728)
+    init_payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "mcp-authscan", "version": VERSION}
+        }
+    }
+
+    init_url = base + ("/initialize" if not base.endswith("/") else "initialize")
+    # For streaming endpoints, POST to /mcp
+    if not base.endswith("/initialize"):
+        init_url = base + ("/mcp" if not base.endswith("/") else "mcp")
+
+    try:
+        req = Request(init_url, method="POST")
+        req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json, text/event-stream")
+        req.data = json.dumps(init_payload).encode()
+
+        try:
+            with urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    # Unauthenticated access to initialize - this is a finding but not OAuth discovery
+                    print(f"[!] Unauthenticated MCP endpoint (HTTP 200)", file=sys.stderr)
+                    return None, None
+        except HTTPError as e:
+            if e.code != 401:
+                # Not an OAuth server
+                print(f"[*] HTTP {e.code} - Not an OAuth server", file=sys.stderr)
+                return None, None
+
+            # Step 2: Parse 401 www-authenticate header (RFC 9728)
+            www_auth = e.headers.get("www-authenticate", "")
+            print(f"[+] OAuth detected (HTTP 401)", file=sys.stderr)
+
+            # Look for resource_metadata URL in www-authenticate header
+            match = re.search(r'resource_metadata="([^"]+)"', www_auth)
+            if not match:
+                print(f"[*] No OAuth discovery pointer in WWW-Authenticate", file=sys.stderr)
+                return None, None
+
+            resource_url = match.group(1)
+            resource_parsed = urlparse(resource_url)
+            if resource_parsed.hostname:
+                discovered_hosts.add(resource_parsed.hostname)
+
+            print(f"[*] Resource metadata: {resource_url}", file=sys.stderr)
+
+            # Step 3: Fetch resource metadata
+            try:
+                req = Request(resource_url)
+                req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+
+                with urlopen(req, timeout=5) as resp:
+                    resource_data = json.loads(resp.read().decode())
+                    auth_servers = resource_data.get("authorization_servers", [])
+                    print(f"[*] Found {len(auth_servers)} OAuth server(s)", file=sys.stderr)
+
+                    if not auth_servers:
+                        return None, None
+
+                    # Step 4: Fetch OAuth server metadata (RFC 8414)
+                    all_endpoints = {}
+                    for oauth_server in auth_servers:
+                        oauth_parsed = urlparse(oauth_server)
+                        if oauth_parsed.hostname:
+                            discovered_hosts.add(oauth_parsed.hostname)
+
+                        try:
+                            oauth_metadata_url = oauth_server.rstrip("/") + "/.well-known/oauth-authorization-server"
+                            req = Request(oauth_metadata_url)
+                            req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+
+                            with urlopen(req, timeout=5) as resp:
+                                oauth_data = json.loads(resp.read().decode())
+
+                                # Extract OAuth endpoints
+                                endpoints_found = {
+                                    "token": oauth_data.get("token_endpoint"),
+                                    "authorize": oauth_data.get("authorization_endpoint"),
+                                    "register": oauth_data.get("registration_endpoint"),
+                                    "revoke": oauth_data.get("revocation_endpoint"),
+                                    "device": oauth_data.get("device_authorization_endpoint"),
+                                    "jwks": oauth_data.get("jwks_uri"),
+                                }
+                                endpoints_found = {k: v for k, v in endpoints_found.items() if v}
+                                all_endpoints.update(endpoints_found)
+                                print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server}", file=sys.stderr)
+
+                        except (HTTPError, URLError, socket.timeout, json.JSONDecodeError):
+                            continue
+
+                    if all_endpoints:
+                        discovery_info = {
+                            "method": "RFC 9728 → RFC 8414",
+                            "resource_metadata": resource_url,
+                            "auth_servers": auth_servers,
+                            "discovered_hosts": list(discovered_hosts),
+                            "endpoints": all_endpoints
+                        }
+                        print(f"[+] Discovery complete - {len(all_endpoints)} endpoints found", file=sys.stderr)
+                        return all_endpoints, discovery_info
+
+            except (HTTPError, URLError, socket.timeout, json.JSONDecodeError):
+                print(f"[!] Failed to fetch OAuth metadata", file=sys.stderr)
+
+    except (URLError, socket.timeout):
+        pass
+
+    return None, None
+
 def scan_live_server(target_url):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
-    Returns (findings, reachable, probe_status) tuple.
+    Returns (findings, reachable, probe_status, discovery_info) tuple.
     probe_status = {'passed': count, 'not_observed': count, 'findings': count}
 
     STATUS CLASSIFICATION (per probe, per endpoint):
@@ -129,19 +263,49 @@ def scan_live_server(target_url):
     """
     findings = []
     probe_status = {'passed': 0, 'not_observed': 0, 'findings': 0}
+    discovery_info = None
 
     try:
         p = urlparse(target_url)
         socket.create_connection((p.hostname, p.port or 80), timeout=5)
     except Exception as e:
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings, False, probe_status
+        return findings, False, probe_status, discovery_info
 
-    print(f"[*] Scanning live MCP server: {target_url}", file=sys.stderr)
+    print(f"[*] Detected live server URL", file=sys.stderr)
+    print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
+
+    # Perform RFC 9728 → RFC 8414 discovery
+    oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
+
+    if oauth_endpoints:
+        # Use discovered OAuth endpoints instead of hardcoded MCP paths
+        print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
+        # Build a synthetic endpoint dict from discovered URLs
+        endpoints_to_test = {}
+        for name, url in oauth_endpoints.items():
+            # POST to OAuth endpoints
+            endpoints_to_test[f"/oauth/{name}"] = ("POST", url)
+        scan_target = target_url
+    else:
+        # OAuth discovery failed - use hardcoded MCP endpoints
+        print(f"[*] Testing standard MCP endpoints", file=sys.stderr)
+        endpoints_to_test = {path: (method, target_url.rstrip("/") + path) for path, method in LIVE_ENDPOINTS.items()}
+        scan_target = target_url
+
+    print(f"[*] Scanning live server: {scan_target}", file=sys.stderr)
     print(f"[*] Probe-by-probe execution:", file=sys.stderr)
 
-    for path, method in LIVE_ENDPOINTS.items():
-        url = target_url.rstrip("/") + path
+    for endpoint_path, method_and_url in endpoints_to_test.items():
+        # Handle tuple format (method, full_url)
+        if isinstance(method_and_url, tuple):
+            method, url = method_and_url
+        else:
+            method = method_and_url
+            url = scan_target.rstrip("/") + endpoint_path
+
+        # Display path for output (use endpoint_path for discovered, or URL path for hardcoded)
+        display_path = endpoint_path if not oauth_endpoints else urlparse(url).path or url.split("://")[1].split("/", 1)[1] if "/" in url.split("://")[1] else "/"
 
         # Test 1: Zero-auth endpoint (D1)
         # PASS: 401/403 (correctly rejected)
@@ -162,9 +326,9 @@ def scan_live_server(target_url):
 
                 if resp.status in [200, 201, 202]:
                     # VULNERABILITY: endpoint accepts unauthenticated requests
-                    print(f"  [D1] {method:4s} {path:15s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
+                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
                     add_live_finding(findings, "D1", "CRITICAL",
-                        f"Zero-auth endpoint: {method} {path}",
+                        f"Zero-auth endpoint: {method} {display_path}",
                         url, method, request_body, resp.status, response_preview,
                         f"Endpoint responded to unauthenticated request (HTTP {resp.status})",
                         "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
@@ -172,32 +336,32 @@ def scan_live_server(target_url):
                     probe_status['findings'] += 1
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected unauthenticated request
-                    print(f"  [D1] {method:4s} {path:15s} HTTP {resp.status} PASS (auth enforced)", file=sys.stderr)
+                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} PASS (auth enforced)", file=sys.stderr)
                     probe_status['passed'] += 1
                 else:
                     # NOT_OBSERVED: unexpected status (endpoint missing, error, etc)
-                    print(f"  [D1] {method:4s} {path:15s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
+                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
                     probe_status['not_observed'] += 1
 
         except HTTPError as e:
             if e.code in [200, 201, 202]:
-                print(f"  [D1] {method:4s} {path:15s} HTTP {e.code} VULNERABLE (no auth required)", file=sys.stderr)
-                add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {path}",
+                print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} VULNERABLE (no auth required)", file=sys.stderr)
+                add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {display_path}",
                     url, method, request_body if method == "POST" else "", e.code, "",
                     f"Endpoint accessible without Authorization header",
                     "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
                     "D1-zero-auth", "HIGH")
                 probe_status['findings'] += 1
             elif e.code in [401, 403]:
-                print(f"  [D1] {method:4s} {path:15s} HTTP {e.code} PASS (auth enforced)", file=sys.stderr)
+                print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} PASS (auth enforced)", file=sys.stderr)
                 probe_status['passed'] += 1
             else:
                 # 404, 5xx, etc
-                print(f"  [D1] {method:4s} {path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
+                print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
                 probe_status['not_observed'] += 1
         except (URLError, socket.timeout) as e:
             # Connection failed: can't observe this probe
-            print(f"  [D1] {method:4s} {path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
+            print(f"  [D1] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
         # Test 2: Evidence-based CORS policy (D2)
@@ -221,24 +385,24 @@ def scan_live_server(target_url):
 
             if not endpoint_exists:
                 # Endpoint doesn't exist or has server error - can't test
-                print(f"  [D2] {method:4s} {path:15s} (endpoint missing) NOT_OBSERVED", file=sys.stderr)
+                print(f"  [D2] {method:4s} {display_path:15s} (endpoint missing) NOT_OBSERVED", file=sys.stderr)
                 probe_status['not_observed'] += 1
             else:
                 # Endpoint exists, now test CORS
                 assessment = probe_cors_urllib(url, method, timeout=5, opener=urlopen)
                 if assessment.is_finding:
-                    print(f"  [D2] {method:4s} {path:15s} VULNERABLE (CORS misconfigured)", file=sys.stderr)
-                    add(findings, "D2", assessment.severity, f"{assessment.summary} on {path}",
+                    print(f"  [D2] {method:4s} {display_path:15s} VULNERABLE (CORS misconfigured)", file=sys.stderr)
+                    add(findings, "D2", assessment.severity, f"{assessment.summary} on {display_path}",
                         url, "", 0, assessment.details,
                         "D2-cors-origin-reflection" if assessment.reflected else "D2-cors-wildcard", "MEDIUM")
                     probe_status['findings'] += 1
                 else:
                     # CORS test ran and found no issue = passed
-                    print(f"  [D2] {method:4s} {path:15s} PASS (CORS OK)", file=sys.stderr)
+                    print(f"  [D2] {method:4s} {display_path:15s} PASS (CORS OK)", file=sys.stderr)
                     probe_status['passed'] += 1
         except (HTTPError, URLError, socket.timeout):
             # Couldn't test CORS
-            print(f"  [D2] {method:4s} {path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
+            print(f"  [D2] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
         # Test 3: Invalid token accepted (D3)
@@ -260,8 +424,8 @@ def scan_live_server(target_url):
 
                 if resp.status in [200, 201, 202]:
                     # VULNERABILITY: endpoint accepts invalid token
-                    print(f"  [D3] {method:4s} {path:15s} HTTP {resp.status} VULNERABLE (invalid token accepted)", file=sys.stderr)
-                    add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
+                    print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} VULNERABLE (invalid token accepted)", file=sys.stderr)
+                    add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
                         url, method, token_body, resp.status, response_preview,
                         f"Invalid token accepted (HTTP {resp.status})",
                         "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
@@ -269,33 +433,33 @@ def scan_live_server(target_url):
                     probe_status['findings'] += 1
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected invalid token
-                    print(f"  [D3] {method:4s} {path:15s} HTTP {resp.status} PASS (token validation OK)", file=sys.stderr)
+                    print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} PASS (token validation OK)", file=sys.stderr)
                     probe_status['passed'] += 1
                 else:
                     # NOT_OBSERVED: unexpected status
-                    print(f"  [D3] {method:4s} {path:15s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
+                    print(f"  [D3] {method:4s} {display_path:15s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
                     probe_status['not_observed'] += 1
 
         except HTTPError as e:
             if e.code in [200, 201, 202]:
-                print(f"  [D3] {method:4s} {path:15s} HTTP {e.code} VULNERABLE (invalid token accepted)", file=sys.stderr)
-                add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
+                print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} VULNERABLE (invalid token accepted)", file=sys.stderr)
+                add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
                     url, method, token_body if method == "POST" else "", e.code, "",
                     f"Invalid token accepted",
                     "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
                     "D3-token-validation", "HIGH")
                 probe_status['findings'] += 1
             elif e.code in [401, 403]:
-                print(f"  [D3] {method:4s} {path:15s} HTTP {e.code} PASS (token validation OK)", file=sys.stderr)
+                print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} PASS (token validation OK)", file=sys.stderr)
                 probe_status['passed'] += 1
             else:
-                print(f"  [D3] {method:4s} {path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
+                print(f"  [D3] {method:4s} {display_path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
                 probe_status['not_observed'] += 1
         except (URLError, socket.timeout):
-            print(f"  [D3] {method:4s} {path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
+            print(f"  [D3] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
-    return findings, True, probe_status
+    return findings, True, probe_status, discovery_info
 
 VERSION = "0.9.4"
 PROBE_SET_VERSION = "1.0.0"  # Bumps only when checks are added/removed/modified
@@ -1803,11 +1967,21 @@ def main():
     probes_attempted = 0
     probes_passed = 0
     probes_not_observed = 0
+    discovery_info = None
+    repo_url = None
+    branch = None
+    commit_sha_long = None
+    commit_sha_short = None
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
-        print(f"[*] Detected live server URL", file=sys.stderr)
-        F, server_reachable, probe_status = scan_live_server(args.target)
+        F, server_reachable, probe_status, discovery_info = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
+
+        # Log discovery results
+        if discovery_info:
+            print(f"[+] OAuth discovery successful", file=sys.stderr)
+            print(f"    Method: {discovery_info['discovery_method']}", file=sys.stderr)
+            print(f"    OAuth Base: {discovery_info['oauth_base']}", file=sys.stderr)
 
         if not server_reachable:
             # Server unreachable: no probes could execute
@@ -1857,10 +2031,6 @@ def main():
         )
 
         # For source code assessments, extract git metadata and count files
-        repo_url = None
-        branch = None
-        commit_sha_long = None
-        commit_sha_short = None
         files_examined = None
         files_total = None
         files_excluded = []
@@ -1949,7 +2119,8 @@ def main():
             probes_passed=probes_passed,
             probes_failed=len(F),  # Number of findings = failed probes
             probes_not_observed=probes_not_observed,
-            elapsed_seconds=elapsed_seconds
+            elapsed_seconds=elapsed_seconds,
+            discovery_info=discovery_info
         )
 
         report_lines.append("=" * 80)
