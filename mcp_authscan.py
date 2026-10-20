@@ -352,7 +352,9 @@ def scan_live_server(target_url):
 
         for oauth_server_url in oauth_server_urls:
             print(f"[*] Assessing OAuth server: {oauth_server_url}", file=sys.stderr)
-            probes_run, oauth_findings = run_oauth_probes(oauth_server_url, discovery_info)
+            records, oauth_findings = run_oauth_assessment(oauth_server_url, discovery_info, target_url)
+            
+            oauth_records.extend(records)
 
             for finding in oauth_findings:
                 findings.append({
@@ -367,9 +369,8 @@ def scan_live_server(target_url):
                     "is_live_finding": True,
                 })
 
-            for rule_num, rule_name, status, evidence, verdict in probes_run:
-                if verdict != "NOT_OBSERVED":
-                    print(f"  [OAuth-{rule_num}] {rule_name:25s} {verdict:15s}", file=sys.stderr)
+            for record in records:
+                print(render_probe(record), file=sys.stderr)
 
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
