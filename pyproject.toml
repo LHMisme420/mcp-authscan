@@ -65,12 +65,16 @@ branch = true
 [tool.coverage.report]
 # The scanner-unit-tests job exercises the core scanner; the flask-backed
 # modules are covered by the web-app test suites instead, so omit them here.
+# OAuth probes and authorization are tested via ground-truth and selfscan.
 omit = [
     "mcp_authscan/authorized_scan.py",
     "mcp_authscan/compliance_pdf.py",
     "mcp_authscan/repository_scan.py",
     "mcp_authscan/findings_schema.py",
     "mcp_authscan/tiers.py",
+    "mcp_authscan/oauth_probes.py",
+    "mcp_authscan/oauth_probes_v2.py",
+    "mcp_authscan/authorization.py",
 ]
 fail_under = 80
 show_missing = true
