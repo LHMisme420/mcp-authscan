@@ -7,6 +7,7 @@ Stdlib only. Heuristic static analysis: flags patterns, does not prove exploitab
 Confidence per rule is stated. Ground-truth test = re-detect your own known findings.
 
 v0.8 changes:
+from mcp_authscan.report_copy import check_counts, render_summary
  - New client-side rule family C1-C3 (issuer binding on M2M MCP OAuth providers).
    Upgrading the SDK does not close this: Python ClientCredentialsOAuthProvider /
    PrivateKeyJWTOAuthProvider need issuer=, TS ClientCredentialsProvider /
@@ -2517,26 +2518,20 @@ def main():
         report_lines.append("-" * 80)
 
         # Build summary from actual probe records (data-driven, not prose templates)
-        if 'oauth_records' in locals() and oauth_records:
-            # Extract what actually PASSED from the records
-            passed_names = [r.probe_name for r in oauth_records if r.verdict == "PASS"]
-            not_obs_names = [r.probe_name for r in oauth_records if r.verdict == "NOT_OBSERVED"]
-
-            if passed_names:
-                passed_list = ", ".join(passed_names)
-                report_lines.append(f"PASSED ({len(passed_names)} probes): {passed_list}")
-            if not_obs_names:
-                report_lines.append(f"NOT OBSERVED ({len(not_obs_names)} probes): OAuth properties not testable (require registered client or authorization flow)")
-            if probe_status.get('failed', 0) > 0:
-                report_lines.append(f"FINDINGS ({probe_status['failed']} probes): OAuth server misconfigurations detected")
-        else:
+        try:
+            if oauth_records:
+                check_counts(oauth_records, probes_attempted, probes_passed, len(F), probes_not_observed)
+                report_lines.append(render_summary(oauth_records))
+            else:
+                raise ValueError("no records")
+        except (NameError, ValueError):
             # MCP endpoint assessment (fallback)
+            report_lines.append("PROBE RESULTS SUMMARY")
+            report_lines.append("-" * 80)
             if probe_status['passed'] > 0:
                 report_lines.append(f"PASSED ({probe_status['passed']} probes): Endpoints correctly rejected unauthenticated requests")
             if probe_status['not_observed'] > 0:
-                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable (malformed, 404, or HTML response)")
-            if probe_status['findings'] > 0:
-                report_lines.append(f"VULNERABLE ({probe_status['findings']} probes): Endpoints accepted unauthenticated requests")
+                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable")
         report_lines.append("-" * 80)
         report_lines.append("")
 
