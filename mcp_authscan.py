@@ -349,7 +349,6 @@ def scan_live_server(target_url):
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
         from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
 
-        oauth_records = []
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
             parsed = urlparse(endpoint_url)
