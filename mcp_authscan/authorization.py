@@ -64,13 +64,23 @@ class ScanMetadata:
         self,
         target: str,
         scope: str,
-        probe_set_version: str = "v1.1",
-        not_tested: Optional[list] = None
+        probe_set_version: str = "0.9.4",
+        not_tested: Optional[list] = None,
+        repo_url: Optional[str] = None,
+        branch: Optional[str] = None,
+        commit_sha: Optional[str] = None,
+        files_examined: Optional[int] = None,
+        lines_examined: Optional[int] = None
     ):
         self.target = target
         self.scope = scope
         self.probe_set_version = probe_set_version
         self.not_tested = not_tested or []
+        self.repo_url = repo_url
+        self.branch = branch
+        self.commit_sha = commit_sha
+        self.files_examined = files_examined
+        self.lines_examined = lines_examined
 
     def to_dict(self) -> dict:
         return {
@@ -85,14 +95,33 @@ class ScanMetadata:
         lines = [
             "SCAN METADATA",
             "-" * 80,
-            f"Target: {self.target}",
-            f"Scope: {self.scope}",
-            f"Probe Set Version: {self.probe_set_version}",
         ]
+
+        # Repository information
+        if self.repo_url:
+            lines.append(f"Repository: {self.repo_url}")
+        if self.branch:
+            lines.append(f"Branch: {self.branch}")
+        if self.commit_sha:
+            lines.append(f"Commit SHA: {self.commit_sha}")
+
+        lines.append(f"Target: {self.target}")
+        lines.append(f"Scope: {self.scope}")
+        lines.append(f"Probe Set Version: {self.probe_set_version}")
+
+        # Examination metrics
+        if self.files_examined is not None:
+            lines.append(f"Files Examined: {self.files_examined}")
+        if self.lines_examined is not None:
+            lines.append(f"Lines of Code Examined: {self.lines_examined}")
+
+        # Out-of-scope items (honest about limitations)
         if self.not_tested:
-            lines.append(f"Not Tested Explicitly: {', '.join(self.not_tested)}")
-        else:
-            lines.append("Not Tested Explicitly: [None]")
+            lines.append("")
+            lines.append("Not Tested Explicitly:")
+            for item in self.not_tested:
+                lines.append(f"  - {item}")
+
         lines.append("-" * 80)
         return "\n".join(lines)
 

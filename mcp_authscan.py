@@ -24,7 +24,7 @@ v0.4 changes:
    dirs (testhelpers/mocks/fixtures) are skipped.
  - A5 skips comments and help-text string literals (was flagging CLI help text).
 """
-import argparse, hashlib, json, re, sys, ipaddress, os, time
+import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 from pathlib import Path
 
 
@@ -183,6 +183,35 @@ def scan_live_server(target_url):
     return findings
 
 VERSION = "0.9.4"
+
+def get_git_metadata(target_path):
+    """Extract git information if target is in a git repo."""
+    try:
+        original_cwd = os.getcwd()
+        os.chdir(target_path)
+
+        repo_url = subprocess.check_output(
+            ["git", "config", "--get", "remote.origin.url"],
+            stderr=subprocess.DEVNULL,
+            timeout=2
+        ).decode().strip()
+
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            timeout=2
+        ).decode().strip()
+
+        commit_sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            timeout=2
+        ).decode().strip()[:12]  # short SHA
+
+        os.chdir(original_cwd)
+        return repo_url, branch, commit_sha
+    except Exception:
+        return None, None, None
 
 SRC_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".mjs", ".cjs"}
 SKIP_DIR = {".git", "node_modules", "dist", "build", "vendor", ".venv", "__pycache__"}
@@ -1668,10 +1697,46 @@ def main():
             contact=args.contact
         )
 
+        # For source code assessments, extract git metadata
+        repo_url = None
+        branch = None
+        commit_sha = None
+        files_examined = None
+
+        if scan_mode == "SOURCE_CODE_ASSESSMENT" and not args.target.startswith("http"):
+            repo_url, branch, commit_sha = get_git_metadata(args.target)
+            # Count Python files examined as proxy for scope
+            files_examined = len([f for f in F if f.get("file")])
+
+        # Define what wasn't tested based on assessment type
+        not_tested = []
+        if scan_mode == "SOURCE_CODE_ASSESSMENT":
+            not_tested = [
+                "Live OAuth flows and endpoint behavior",
+                "Runtime configuration and deployment settings",
+                "Infrastructure setup (TLS, CORS, reverse proxies, WAF)",
+                "Dependency versions at runtime",
+                "Environment secrets and credentials",
+                "Network-level access controls",
+                "What the deployed service actually does vs. code"
+            ]
+        elif scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
+            not_tested = [
+                "Source code review and design patterns",
+                "Dependency vulnerabilities (CVE check)",
+                "Secrets in repository history",
+                "Comments and documentation"
+            ]
+
         metadata = ScanMetadata(
             target=args.target,
             scope=args.scope or "Full assessment",
-            probe_set_version="v1.1"
+            probe_set_version=VERSION,
+            not_tested=not_tested,
+            repo_url=repo_url,
+            branch=branch,
+            commit_sha=commit_sha,
+            files_examined=files_examined
         )
 
         report_lines.append("=" * 80)
