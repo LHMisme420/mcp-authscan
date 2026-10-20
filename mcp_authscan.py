@@ -661,7 +661,7 @@ def scan_live_server(target_url):
     return findings, True, probe_status, discovery_info, probe_results
 
 VERSION = "0.9.4"
-PROBE_SET_VERSION = "1.0.0"  # Bumps only when checks are added/removed/modified
+PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2342,6 +2342,9 @@ def main():
                 "Secrets in repository history",
                 "Comments and documentation"
             ]
+            # If we did OAuth discovery, note that MCP resource endpoint itself wasn't tested
+            if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
+                not_tested.insert(0, "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 → RFC 8414 discovery)")
 
         metadata = ScanMetadata(
             scope=args.scope or "Full assessment",
@@ -2506,12 +2509,24 @@ def main():
         # Same for report file
         report_lines.append("PROBE RESULTS SUMMARY")
         report_lines.append("-" * 80)
-        if probe_status['passed'] > 0:
-            report_lines.append(f"PASSED ({probe_status['passed']} probes): Endpoints correctly rejected unauthenticated requests")
-        if probe_status['not_observed'] > 0:
-            report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable (malformed, 404, or HTML response)")
-        if probe_status['findings'] > 0:
-            report_lines.append(f"VULNERABLE ({probe_status['findings']} probes): Endpoints accepted unauthenticated requests")
+
+        # OAuth server probing vs MCP endpoint probing use different summary language
+        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and discovery_info:
+            # OAuth server assessment
+            if probe_status['passed'] > 0:
+                report_lines.append(f"PASSED ({probe_status['passed']} probes): OAuth server configuration verified (issuer, resource binding, token security, grant types)")
+            if probe_status['not_observed'] > 0:
+                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): OAuth properties not testable (require registered client or authorization flow)")
+            if probe_status['findings'] > 0:
+                report_lines.append(f"FINDINGS ({probe_status['findings']} probes): OAuth server misconfigurations detected")
+        else:
+            # MCP endpoint assessment
+            if probe_status['passed'] > 0:
+                report_lines.append(f"PASSED ({probe_status['passed']} probes): Endpoints correctly rejected unauthenticated requests")
+            if probe_status['not_observed'] > 0:
+                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable (malformed, 404, or HTML response)")
+            if probe_status['findings'] > 0:
+                report_lines.append(f"VULNERABLE ({probe_status['findings']} probes): Endpoints accepted unauthenticated requests")
         report_lines.append("-" * 80)
         report_lines.append("")
 

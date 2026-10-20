@@ -390,6 +390,9 @@ def probe_client_auth(token_endpoint):
     if error_code == "invalid_token":
         verdict = "PASS"
         evidence = "Malformed Bearer token correctly rejected"
+    elif error_code == "invalid_client":
+        verdict = "PASS"
+        evidence = "Client authentication required: invalid_client error proves enforcement"
     elif error_code == "accepted":
         verdict = "FAIL"
         evidence = f"Server accepted malformed token (HTTP {http_status})"
