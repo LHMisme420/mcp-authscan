@@ -2215,14 +2215,14 @@ def main():
             # - PASSED: 401/403 (server correctly rejected)
             # - NOT_OBSERVED: 404/5xx (endpoint doesn't exist or error)
             # - FINDINGS: vulnerabilities detected
+            probes_attempted = probe_status.get('attempted', 0)
+            probes_passed = probe_status['passed']
+            probes_not_observed = probe_status['not_observed']
+
         # Verify accounting before rendering
         total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0)
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
-        
-            probes_attempted = probe_status.get('attempted', 0)
-            probes_passed = probe_status['passed']
-            probes_not_observed = probe_status['not_observed']
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
