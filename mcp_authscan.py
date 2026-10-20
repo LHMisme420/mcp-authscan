@@ -137,21 +137,29 @@ def scan_live_server(target_url):
         try:
             req = Request(url, method=method)
             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+            request_body = ""
             if method == "POST":
-                req.data = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'.encode()
+                request_body = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+                req.data = request_body.encode()
                 req.add_header("Content-Type", "application/json")
-            
+
             with urlopen(req, timeout=5) as resp:
+                response_data = resp.read(500)
+                response_preview = response_data.decode(errors='ignore')
                 if resp.status in [200, 201, 202]:
-                    add(findings, "D1", "CRITICAL",
+                    add_live_finding(findings, "D1", "CRITICAL",
                         f"Zero-auth endpoint: {method} {path}",
-                        url, "", 0,
-                        f"Endpoint accessible without Authorization header (HTTP {resp.status})",
+                        url, method, request_body, resp.status, response_preview,
+                        f"Endpoint responded to unauthenticated request (HTTP {resp.status})",
+                        "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
                         "D1-zero-auth", "HIGH")
         except HTTPError as e:
             if e.code in [200, 201, 202]:
-                add(findings, "D1", "CRITICAL", f"Zero-auth: {method} {path}",
-                    url, "", 0, f"HTTP {e.code} without auth", "D1-zero-auth", "HIGH")
+                add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {path}",
+                    url, method, request_body if method == "POST" else "", e.code, "",
+                    f"Endpoint accessible without Authorization header",
+                    "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
+                    "D1-zero-auth", "HIGH")
         except (URLError, socket.timeout): pass
         
         # Test 2: Evidence-based CORS policy
@@ -167,18 +175,29 @@ def scan_live_server(target_url):
         try:
             req = Request(url, method=method)
             req.add_header("Authorization", "Bearer invalid_token_xyz")
+            invalid_token = "Bearer invalid_token_xyz"
+            token_body = ""
             if method == "POST":
-                req.data = '{"jsonrpc":"2.0"}'.encode()
+                token_body = '{"jsonrpc":"2.0"}'
+                req.data = token_body.encode()
                 req.add_header("Content-Type", "application/json")
-            
+
             with urlopen(req, timeout=5) as resp:
+                response_data = resp.read(500)
+                response_preview = response_data.decode(errors='ignore')
                 if resp.status in [200, 201, 202]:
-                    add(findings, "D3", "HIGH", f"Token validation bypass on {path}",
-                        url, "", 0, "Invalid Bearer token accepted", "D3-token-validation", "HIGH")
+                    add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
+                        url, method, token_body, resp.status, response_preview,
+                        f"Invalid token accepted (HTTP {resp.status})",
+                        "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
+                        "D3-token-validation", "HIGH")
         except HTTPError as e:
             if e.code in [200, 201, 202]:
-                add(findings, "D3", "HIGH", f"Token validation bypass on {path}",
-                    url, "", 0, "Invalid token accepted", "D3-token-validation", "HIGH")
+                add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {path}",
+                    url, method, token_body if method == "POST" else "", e.code, "",
+                    f"Invalid token accepted",
+                    "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
+                    "D3-token-validation", "HIGH")
         except (URLError, socket.timeout): pass
 
     return findings, True
@@ -313,6 +332,25 @@ def add(findings, rule, sev, title, path, text, idx, evidence, ref, conf):
         "rule": rule, "severity": sev, "confidence": conf, "title": title,
         "file": str(path), "line": lineno(text, idx),
         "evidence": evidence, "snippet": snippet(text, idx), "ref": ref,
+    })
+
+def add_live_finding(findings, rule, sev, title, url, method, request_body,
+                      response_status, response_preview, interpretation, remediation, ref, conf):
+    """Add finding from live endpoint assessment with full request/response evidence."""
+    findings.append({
+        "rule": rule, "severity": sev, "confidence": conf, "title": title,
+        "file": url, "line": 0,
+        "evidence": interpretation,
+        "snippet": "",
+        "ref": ref,
+        # Live endpoint specifics
+        "is_live_finding": True,
+        "request_method": method,
+        "request_body": request_body,
+        "response_status": response_status,
+        "response_preview": response_preview,
+        "interpretation": interpretation,
+        "remediation": remediation,
     })
 
 # ---- Rule A1: OAuth authorize endpoint never validates client_id / redirect_uri ----
@@ -1878,8 +1916,25 @@ def main():
             for x in F:
                 print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
                 print(f"  {x['file']}:{x['line']}  ({x['ref']})")
-                print(f"  {x['evidence']}")
-                print(x["snippet"]); print()
+
+                # For live endpoint findings, show full request/response evidence
+                if x.get("is_live_finding"):
+                    print(f"\n  REQUEST:")
+                    print(f"    Method: {x['request_method']}")
+                    if x['request_body']:
+                        print(f"    Body: {x['request_body'][:200]}")
+                    print(f"\n  RESPONSE:")
+                    print(f"    Status: HTTP {x['response_status']}")
+                    if x['response_preview']:
+                        print(f"    Body Preview: {x['response_preview'][:200]}")
+                    print(f"\n  INTERPRETATION:")
+                    print(f"    {x['interpretation']}")
+                    print(f"\n  REMEDIATION:")
+                    print(f"    {x['remediation']}")
+                else:
+                    print(f"  {x['evidence']}")
+                    print(x["snippet"])
+                print()
 
         # Footer with hash if authorization provided
         if report_lines:
@@ -1887,7 +1942,24 @@ def main():
             for x in F:
                 full_report += f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}\n"
                 full_report += f"  {x['file']}:{x['line']}  ({x['ref']})\n"
-                full_report += f"  {x['evidence']}\n{x['snippet']}\n\n"
+
+                # For live endpoint findings, include full evidence in report hash
+                if x.get("is_live_finding"):
+                    full_report += f"\n  REQUEST:\n"
+                    full_report += f"    Method: {x['request_method']}\n"
+                    if x['request_body']:
+                        full_report += f"    Body: {x['request_body']}\n"
+                    full_report += f"\n  RESPONSE:\n"
+                    full_report += f"    Status: HTTP {x['response_status']}\n"
+                    if x['response_preview']:
+                        full_report += f"    Body Preview: {x['response_preview']}\n"
+                    full_report += f"\n  INTERPRETATION:\n"
+                    full_report += f"    {x['interpretation']}\n"
+                    full_report += f"\n  REMEDIATION:\n"
+                    full_report += f"    {x['remediation']}\n"
+                else:
+                    full_report += f"  {x['evidence']}\n{x['snippet']}\n"
+                full_report += "\n"
 
             report_hash = hashlib.sha256(full_report.encode()).hexdigest()
             print("=" * 80)
