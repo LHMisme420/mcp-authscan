@@ -341,6 +341,37 @@ def scan_live_server(target_url):
     if oauth_endpoints:
         # Use discovered OAuth endpoints
         print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
+
+        # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
+        from mcp_authscan.oauth_probes import run_oauth_probes
+
+        oauth_server_urls = set()
+        for endpoint_url in oauth_endpoints.values():
+            parsed = urlparse(endpoint_url)
+            oauth_server_urls.add(f"{parsed.scheme}://{parsed.netloc}")
+
+        for oauth_server_url in oauth_server_urls:
+            print(f"[*] Assessing OAuth server: {oauth_server_url}", file=sys.stderr)
+            probes_run, oauth_findings = run_oauth_probes(oauth_server_url, discovery_info)
+
+            for finding in oauth_findings:
+                findings.append({
+                    "rule": f"OAuth-{finding['rule']}",
+                    "severity": finding['severity'],
+                    "confidence": "HIGH",
+                    "title": finding['title'],
+                    "file": oauth_server_url,
+                    "line": 0,
+                    "evidence": finding.get('evidence', ''),
+                    "snippet": "",
+                    "is_live_finding": True,
+                })
+
+            for rule_num, rule_name, status, evidence, verdict in probes_run:
+                if verdict != "NOT_OBSERVED":
+                    print(f"  [OAuth-{rule_num}] {rule_name:25s} {verdict:15s}", file=sys.stderr)
+
+        # Phase 2: Test individual endpoints
         endpoints_to_test = {}
         for name, url in oauth_endpoints.items():
             endpoints_to_test[f"/oauth/{name}"] = ("POST", url)
