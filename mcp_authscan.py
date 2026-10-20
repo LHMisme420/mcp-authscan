@@ -271,7 +271,7 @@ def scan_live_server(target_url):
         socket.create_connection((p.hostname, p.port or 80), timeout=5)
     except Exception as e:
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings, False, probe_status, discovery_info
+        return findings, False, probe_status, discovery_info, []
 
     print(f"[*] Detected live server URL", file=sys.stderr)
     print(f"[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
