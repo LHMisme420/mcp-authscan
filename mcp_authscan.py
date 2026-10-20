@@ -118,15 +118,16 @@ def validate_input_path(path_str):
 
 
 def scan_live_server(target_url):
-    """Scan a running MCP server for zero-auth, CORS, token validation issues."""
+    """Scan a running MCP server for zero-auth, CORS, token validation issues.
+    Returns (findings, reachable) tuple."""
     findings = []
     try:
         p = urlparse(target_url)
         socket.create_connection((p.hostname, p.port or 80), timeout=5)
     except Exception as e:
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings
-    
+        return findings, False
+
     print(f"[*] Scanning live MCP server: {target_url}", file=sys.stderr)
     
     for path, method in LIVE_ENDPOINTS.items():
@@ -179,8 +180,8 @@ def scan_live_server(target_url):
                 add(findings, "D3", "HIGH", f"Token validation bypass on {path}",
                     url, "", 0, "Invalid token accepted", "D3-token-validation", "HIGH")
         except (URLError, socket.timeout): pass
-    
-    return findings
+
+    return findings, True
 
 VERSION = "0.9.4"
 PROBE_SET_VERSION = "1.0.0"  # Bumps only when checks are added/removed/modified
@@ -1672,12 +1673,19 @@ def main():
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
         print(f"[*] Detected live server URL", file=sys.stderr)
-        F = scan_live_server(args.target)
+        F, server_reachable = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
-        # Probes: 3 checks per LIVE_ENDPOINT path
-        probes_attempted = len(LIVE_ENDPOINTS) * 3
-        probes_passed = probes_attempted - len(F)
-        probes_not_observed = len([f for f in F if f.get("confidence") == "LOW"])
+
+        if not server_reachable:
+            # Server unreachable: no probes could execute
+            probes_attempted = len(LIVE_ENDPOINTS) * 3
+            probes_passed = 0
+            probes_not_observed = probes_attempted
+        else:
+            # Server reachable: probes executed
+            probes_attempted = len(LIVE_ENDPOINTS) * 3
+            probes_passed = probes_attempted - len(F)
+            probes_not_observed = 0
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
