@@ -56,7 +56,8 @@ def render_summary(oauth_records):
     """
     Build PROBE RESULTS SUMMARY from actual probe record verdicts.
     Returns list of text lines suitable for report output.
-    No misleading prose; every verdict derived from actual measurements.
+    PASSED probes rendered with human-readable evidence from PASS_EVIDENCE.
+    OBSERVED and NOT_OBSERVED keep probe IDs (that's the right register).
     """
     if not oauth_records:
         return ["(no probes run)"]
@@ -66,29 +67,29 @@ def render_summary(oauth_records):
 
     lines = []
 
-    # PASSED probes with their specific findings
+    # PASSED probes: render each with human-readable evidence from PASS_EVIDENCE
     if passed > 0:
         passed_probes = [r for r in oauth_records if r.verdict == "PASS"]
-        probe_list = ", ".join([r.probe_name for r in passed_probes])
-        lines.append(f"PASSED ({passed} probes): {probe_list}")
+        evidence_list = "; ".join([PASS_EVIDENCE.get(r.probe_name, r.probe_name) for r in passed_probes])
+        lines.append(f"PASSED ({passed}): {evidence_list}")
 
-    # OBSERVATION probes (like token-cors) with their impact
+    # OBSERVATION probes (like token-cors) with their impact - keep as IDs
     if observed > 0:
         observed_probes = [r for r in oauth_records if r.verdict == "OBSERVATION"]
         for probe in observed_probes:
             lines.append(f"OBSERVED ({probe.probe_name}): {probe.evidence}")
 
-    # NOT_OBSERVED probes with reason why
+    # NOT_OBSERVED probes with reason why - keep as IDs
     if not_observed > 0:
         not_obs_probes = [r for r in oauth_records if r.verdict == "NOT_OBSERVED"]
         probe_list = ", ".join([r.probe_name for r in not_obs_probes])
-        lines.append(f"NOT OBSERVED ({not_observed} probes): {probe_list}")
+        lines.append(f"NOT OBSERVED ({not_observed}): {probe_list}")
 
     # FAIL findings (actual vulnerabilities)
     if failed > 0:
         failed_probes = [r for r in oauth_records if r.verdict == "FAIL"]
         probe_list = ", ".join([r.probe_name for r in failed_probes])
-        lines.append(f"FINDINGS ({failed} probes): {probe_list}")
+        lines.append(f"FINDINGS ({failed}): {probe_list}")
 
     return lines
 
