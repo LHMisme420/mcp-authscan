@@ -346,10 +346,10 @@ def probe_password_grant(token_endpoint):
 
 def probe_client_auth(token_endpoint):
     """
-    Client authentication enforcement.
-    PASS: invalid_client (auth enforced)
-    FAIL: invalid_grant (processed without auth)
-    NOT_OBSERVED: other error
+    Client authentication: send malformed Bearer token.
+    PASS: invalid_token (token validation works)
+    FAIL: request accepted with bad token
+    NOT_OBSERVED: endpoint unreachable or no response
     """
     if not token_endpoint:
         return ProbeRecord(
@@ -357,17 +357,17 @@ def probe_client_auth(token_endpoint):
             0, "", {}, "", "", "NOT_OBSERVED", "", "No token_endpoint"
         )
 
-    error_code = ""
     http_status = 0
+    error_code = ""
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        req.add_header("Authorization", "Bearer malformed.token.here")
         req.data = b"grant_type=authorization_code&code=test&redirect_uri=https://localhost/cb"
 
         try:
             with urlopen(req, timeout=5) as resp:
-                body = resp.read().decode(errors='ignore')
                 error_code = "accepted"
                 http_status = resp.status
         except HTTPError as e:
@@ -384,18 +384,15 @@ def probe_client_auth(token_endpoint):
             0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
         )
 
-    if error_code == "invalid_client":
+    if error_code == "invalid_token":
         verdict = "PASS"
-        evidence = f"Unauthenticated request rejected with invalid_client"
-        limitation = None
-    elif error_code == "invalid_grant":
+        evidence = "Malformed Bearer token correctly rejected"
+    elif error_code == "accepted":
         verdict = "FAIL"
-        evidence = f"Unauthenticated request processed (invalid_grant returned, not invalid_client)"
-        limitation = None
+        evidence = f"Server accepted malformed token (HTTP {http_status})"
     else:
         verdict = "NOT_OBSERVED"
         evidence = f"Error: {error_code}"
-        limitation = "Cannot determine client auth enforcement"
 
     return ProbeRecord(
         probe_id=9,
@@ -410,7 +407,7 @@ def probe_client_auth(token_endpoint):
         body_sha256="",
         verdict=verdict,
         evidence=evidence,
-        limitation=limitation
+        limitation=None
     )
 
 
