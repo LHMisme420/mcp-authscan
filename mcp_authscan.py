@@ -334,10 +334,19 @@ def scan_live_server(target_url):
             endpoints_to_test[f"/oauth/{name}"] = ("POST", url)
         scan_target = target_url
     else:
-        # OAuth discovery failed - use hardcoded MCP endpoints
-        print(f"[*] Testing standard MCP endpoints", file=sys.stderr)
-        endpoints_to_test = {path: (method, target_url.rstrip("/") + path) for path, method in LIVE_ENDPOINTS.items()}
-        scan_target = target_url
+        # Discovery failed
+        if mcp_verified:
+            # MCP server exists with OAuth but discovery couldn't complete
+            print(f"[!] MCP server requires OAuth but discovery chain incomplete", file=sys.stderr)
+            print(f"[!] Could not discover OAuth endpoints via RFC 9728 → RFC 8414", file=sys.stderr)
+            print(f"[!] Cannot proceed without OAuth endpoint discovery", file=sys.stderr)
+            probe_status['not_observed'] = 12  # All probes not observable
+            return findings, True, probe_status, {"error": "discovery_incomplete"}, []
+        else:
+            # Non-OAuth MCP server - test hardcoded MCP endpoints
+            print(f"[*] Testing standard MCP endpoints", file=sys.stderr)
+            endpoints_to_test = {path: (method, target_url.rstrip("/") + path) for path, method in LIVE_ENDPOINTS.items()}
+            scan_target = target_url
 
     print(f"[*] Scanning live server: {scan_target}", file=sys.stderr)
     print(f"[*] Probe-by-probe execution:", file=sys.stderr)
