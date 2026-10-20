@@ -263,6 +263,7 @@ def scan_live_server(target_url):
     """
     findings = []
     probe_status = {'passed': 0, 'not_observed': 0, 'findings': 0}
+    probe_results = []  # Track (endpoint, method, status, reason) for detailed reporting
     discovery_info = None
 
     try:
@@ -330,10 +331,12 @@ def scan_live_server(target_url):
                     if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
                         # Wrong content-type: expected JSON/OAuth endpoint, got HTML
                         print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
+                        probe_results.append((display_path, method, resp.status, "wrong content-type: HTML", "NOT_OBSERVED"))
                         probe_status['not_observed'] += 1
                     else:
                         # VULNERABILITY: endpoint accepts unauthenticated requests
                         print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
+                        probe_results.append((display_path, method, resp.status, "no auth required", "VULNERABLE"))
                         add_live_finding(findings, "D1", "CRITICAL",
                             f"Zero-auth endpoint: {method} {display_path}",
                             url, method, request_body, resp.status, response_preview,
@@ -344,10 +347,12 @@ def scan_live_server(target_url):
                 elif resp.status in [401, 403]:
                     # GOOD: server correctly rejected unauthenticated request
                     print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} PASS (auth enforced)", file=sys.stderr)
+                    probe_results.append((display_path, method, resp.status, "auth enforced", "PASS"))
                     probe_status['passed'] += 1
                 else:
                     # NOT_OBSERVED: unexpected status (endpoint missing, error, etc)
                     print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
+                    probe_results.append((display_path, method, resp.status, f"unexpected status", "NOT_OBSERVED"))
                     probe_status['not_observed'] += 1
 
         except HTTPError as e:
@@ -496,7 +501,7 @@ def scan_live_server(target_url):
             print(f"  [D3] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
             probe_status['not_observed'] += 1
 
-    return findings, True, probe_status, discovery_info
+    return findings, True, probe_status, discovery_info, probe_results
 
 VERSION = "0.9.4"
 PROBE_SET_VERSION = "1.0.0"  # Bumps only when checks are added/removed/modified
@@ -2039,7 +2044,7 @@ def main():
     commit_sha_short = None
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
-        F, server_reachable, probe_status, discovery_info = scan_live_server(args.target)
+        F, server_reachable, probe_status, discovery_info, probe_results = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
         # Log discovery results
@@ -2253,35 +2258,61 @@ def main():
         if report_lines:
             print("\n".join(report_lines))
 
+        # Probe Results Summary - show detailed evidence
+        print("PROBE RESULTS SUMMARY")
+        print("-" * 80)
+
+        # Group by verdict using probe_results for detailed display
+        passed = [p for p in probe_results if len(p) > 4 and p[4] == 'PASS']
+        not_obs = [p for p in probe_results if len(p) > 4 and p[4] == 'NOT_OBSERVED']
+        vuln = [p for p in probe_results if len(p) > 4 and p[4] == 'VULNERABLE']
+
+        if passed:
+            print(f"PASSED ({len(passed)} probes):")
+            for endpoint, method, status, reason, _ in passed:
+                print(f"  {method:4s} {endpoint:30s} HTTP {status} — {reason}")
+            print("")
+        elif probe_status['passed'] > 0:
+            print(f"PASSED ({probe_status['passed']} probes): Correctly rejected unauthenticated requests")
+            print("")
+
+        if not_obs:
+            print(f"NOT OBSERVED ({len(not_obs)} probes):")
+            for endpoint, method, status, reason, _ in not_obs:
+                status_str = str(status) if isinstance(status, int) else status
+                print(f"  {method:4s} {endpoint:30s} {status_str:3s} — {reason}")
+            print("")
+        elif probe_status['not_observed'] > 0:
+            print(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable")
+            print("")
+
+        if vuln:
+            print(f"VULNERABLE ({len(vuln)} probes):")
+            for endpoint, method, status, reason, _ in vuln:
+                print(f"  {method:4s} {endpoint:30s} HTTP {status} — {reason}")
+            print("")
+        elif probe_status['findings'] > 0:
+            print(f"VULNERABLE ({probe_status['findings']} probes): Accepted unauthenticated requests")
+            print("")
+
+        print("-" * 80)
+        print("")
+
+        # Same for report file
+        report_lines.append("PROBE RESULTS SUMMARY")
+        report_lines.append("-" * 80)
+        if probe_status['passed'] > 0:
+            report_lines.append(f"PASSED ({probe_status['passed']} probes): Endpoints correctly rejected unauthenticated requests")
+        if probe_status['not_observed'] > 0:
+            report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable (malformed, 404, or HTML response)")
+        if probe_status['findings'] > 0:
+            report_lines.append(f"VULNERABLE ({probe_status['findings']} probes): Endpoints accepted unauthenticated requests")
+        report_lines.append("-" * 80)
+        report_lines.append("")
+
         if not F:
             print("No findings. (Absence of finding is not proof of safety.)")
         else:
-
-            # Probe Results Summary - shows what was tested
-            report_lines.append("PROBE RESULTS SUMMARY")
-            report_lines.append("-" * 80)
-            report_lines.append("")
-            
-            if probe_status['passed'] > 0:
-                report_lines.append(f"PASSED ({probe_status['passed']} probes):")
-                report_lines.append("  Endpoint correctly rejected unauthenticated requests with 401/403")
-                report_lines.append("")
-            
-            if probe_status['not_observed'] > 0:
-                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes):")
-                report_lines.append("  - HTTP 400: Malformed request (endpoint exists but not testable with standard payloads)")
-                report_lines.append("  - HTTP 404/5xx: Endpoint not found or server error")
-                report_lines.append("  - HTML response: Expected JSON/OAuth endpoint, got SPA shell or error page")
-                report_lines.append("")
-            
-            if probe_status['findings'] > 0:
-                report_lines.append(f"VULNERABLE ({probe_status['findings']} probes):")
-                report_lines.append("  HTTP 200/201/202 with JSON response: Endpoint accepted unauthenticated request")
-                report_lines.append("")
-            
-            report_lines.append("-" * 80)
-            report_lines.append("")
-
             print("DETAILED FINDINGS")
             print("-" * 80)
             print("")
