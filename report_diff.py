@@ -61,6 +61,10 @@ def main():
     before_auth = before.get("authorization", {})
     after_auth = after.get("authorization", {})
 
+    # Extract probe set versions (critical for detecting "removed" findings)
+    before_probe_version = before.get("probe_set_version", "unknown")
+    after_probe_version = after.get("probe_set_version", "unknown")
+
     # Generate diff report
     diff_report = {
         "diff_timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
@@ -112,7 +116,11 @@ def main():
     print(f"\n{'-' * 80}")
     print("COMPARISON")
     print(f"{'-' * 80}")
-    print(f"Before: {len(before_findings)} findings")
+    print(f"Probe Set Version - Before: {before_probe_version}")
+    print(f"Probe Set Version - After:  {after_probe_version}")
+    if before_probe_version != after_probe_version:
+        print(f"  ⚠ VERSION CHANGED - probe set updated, direct comparison may not apply")
+    print(f"\nBefore: {len(before_findings)} findings")
     print(f"After:  {len(after_findings)} findings")
     print(f"\nResolved: {len(resolved)} findings")
     print(f"New:      {len(new)} findings")
