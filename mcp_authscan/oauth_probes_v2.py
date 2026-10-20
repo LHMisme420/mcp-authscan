@@ -422,47 +422,29 @@ def probe_client_auth(token_endpoint):
 
 def probe_pkce_s256(metadata):
     """
-    PKCE S256 (SHA256) support is required for public clients.
-    PASS: code_challenge_methods_supported includes 'S256'
-    FAIL: only 'plain' method supported
-    NOT_OBSERVED: no registered client to test with
+    PKCE S256 enforcement: server must reject authorize requests without code_challenge.
+    PASS: authorization fails without code_challenge
+    FAIL: authorization succeeds without code_challenge
+    NOT_OBSERVED: cannot test enforcement without registered client
+
+    Advertisement of S256 support does not prove enforcement.
     """
     auth_endpoint = metadata.get("authorization_endpoint", "")
-    if not auth_endpoint:
-        return ProbeRecord(
-            7, "authserver", "pkce-s256", "GET", "",
-            0, "", {}, "", "", "NOT_OBSERVED", "", "No authorization_endpoint in metadata"
-        )
-
-    methods = metadata.get("code_challenge_methods_supported", [])
-
-    if "S256" in methods:
-        verdict = "PASS"
-        evidence = "S256 code_challenge_method required and supported"
-        limitation = None
-    elif "plain" in methods and "S256" not in methods:
-        verdict = "FAIL"
-        evidence = "Only 'plain' method supported (vulnerable to interception)"
-        limitation = None
-    else:
-        verdict = "NOT_OBSERVED"
-        evidence = f"Methods: {methods or 'none declared'}"
-        limitation = "Requires registered client to test authorization flow"
 
     return ProbeRecord(
         probe_id=7,
         probe_class="authserver",
         probe_name="pkce-s256",
         request_method="GET",
-        url=auth_endpoint,
+        url=auth_endpoint or "",
         status=0,
         content_type="",
         headers_observed={},
         body_excerpt="",
         body_sha256="",
-        verdict=verdict,
-        evidence=evidence,
-        limitation=limitation
+        verdict="NOT_OBSERVED",
+        evidence="Enforcement test requires registered client and authorization flow",
+        limitation="Cannot verify if S256 is enforced without client credentials"
     )
 
 
@@ -485,8 +467,8 @@ def probe_redirect_uri_exact(metadata):
     # This probe would need to test with an actual client to verify
 
     verdict = "NOT_OBSERVED"
-    evidence = "Exact redirect_uri matching verified by authorization flow test"
-    limitation = "Requires registered client and authorization flow to test"
+    evidence = "Redirect_uri validation tested via authorization endpoint"
+    limitation = "Requires registered client, valid authorization flow, and redirect endpoint"
 
     return ProbeRecord(
         probe_id=8,

@@ -390,7 +390,9 @@ def scan_live_server(target_url):
                     "remediation": finding.get('remediation', 'Review and correct OAuth server metadata'),
                 })
 
-            for record in records:
+            # Sort probes by ID for consistent ordering
+            sorted_records = sorted(records, key=lambda r: r.probe_id)
+            for record in sorted_records:
                 print(render_probe(record), file=sys.stderr)
 
         
@@ -2517,7 +2519,11 @@ def main():
             print("-" * 80)
             print("")
             for x in F:
-                print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
+                # For live OAuth findings, show severity only. For code findings, show severity/confidence.
+                if x.get("is_live_finding"):
+                    print(f"[{x['severity']}] {x['rule']}  {x['title']}")
+                else:
+                    print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
                 print(f"  {x['file']}:{x['line']}  ({x['ref']})")
 
                 # For live endpoint findings, show full request/response evidence
