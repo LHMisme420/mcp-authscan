@@ -1,0 +1,36 @@
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[+] MCP server verified (HTTP 401 with OAuth)
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+[+] OAuth detected (HTTP 401)
+[*] Resource metadata: https://api.meant.run/.well-known/oauth-protected-resource/mcp
+[*] Found 1 OAuth server(s)
+[+] Discovered 6 endpoints on https://account.meant.run
+[+] Discovery complete - 6 endpoints found
+[+] Using 6 discovered OAuth endpoints
+[*] Assessing OAuth server: https://account.meant.run
+  [1] issuer-identity                PASS             issuer=https://account.meant.run
+base_url=https://account.meant.run
+  [2] resource-binding               PASS             resource=https://api.meant.run/mcp
+mcp_url=https://api.meant.run/mcp
+  [3] token-cache-control            PASS             HTTP 400: Cache-Control: no-store
+  [4] token-cors                     OBSERVATION      ACAO: *
+ACAC: (absent)
+Vary: (absent)
+Impact: Wildcard CORS on token endpoint: clients in any origin can reach it, but authentication is enforced.
+  [5] jwks-keys                      PASS             Total keys: 1
+Key types: EC
+Invalid: 0
+  [6] password-grant                 PASS             Password grant type correctly unsupported
+  [7] pkce-s256                      NOT_OBSERVED     Enforcement test requires registered client and authorization flow
+  [8] redirect-uri-exact             NOT_OBSERVED     Redirect_uri validation tested via authorization endpoint
+  [9] client-auth                    PASS             Client authentication required: invalid_client error proves enforcement
+Traceback (most recent call last):
+  File "/home/lhmisme/mcp-authscan/mcp_authscan.py", line 2629, in <module>
+    main()
+    ~~~~^^
+  File "/home/lhmisme/mcp-authscan/mcp_authscan.py", line 2206, in main
+    F, server_reachable, probe_status, discovery_info, (oauth_records, probe_results) = scan_live_server(args.target)
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 2, got 0)

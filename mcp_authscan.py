@@ -25,6 +25,7 @@ v0.4 changes:
    dirs (testhelpers/mocks/fixtures) are skipped.
  - A5 skips comments and help-text string literals (was flagging CLI help text).
 """
+from mcp_authscan.report_copy import render_summary, check_counts
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 from datetime import datetime, timezone
 from pathlib import Path
