@@ -1614,6 +1614,23 @@ def main():
     ap.add_argument("--output", "-o", metavar="FILE",
                     help="output file for HTML/JSON report")
     ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default=None)
+
+    # Authorization and compliance tracking
+    ap.add_argument("--authorized-by", metavar="NAME",
+                    help="person who authorized the scan")
+    ap.add_argument("--client-name", metavar="NAME",
+                    help="client organization name")
+    ap.add_argument("--client-title", metavar="TITLE",
+                    help="authorizer's title/role at client")
+    ap.add_argument("--auth-basis", metavar="BASIS",
+                    help="authorization basis (VRP, contract, scope document)")
+    ap.add_argument("--ticket-ref", metavar="REF",
+                    help="client's ticket/tracking reference")
+    ap.add_argument("--contact", metavar="EMAIL",
+                    help="contact email for scan authorization")
+    ap.add_argument("--scope", metavar="SCOPE",
+                    help="scan scope (what was tested)")
+
     args = ap.parse_args()
 
     # Auto-detect: live server (http(s)://) or source code directory?
@@ -1626,6 +1643,50 @@ def main():
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 
+    # Generate report with authorization block if credentials provided
+    report_lines = []
+    auth_block = ""
+    metadata_block = ""
+    findings_by_severity = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for finding in F:
+        sev = finding.get("severity", "LOW")
+        if sev in findings_by_severity:
+            findings_by_severity[sev] += 1
+
+    if args.authorized_by and args.client_name and args.client_title and args.auth_basis and args.ticket_ref and args.contact:
+        from mcp_authscan.authorization import ScanAuthorization, ScanMetadata, report_header_with_authorization
+
+        auth = ScanAuthorization(
+            authorized_by=args.authorized_by,
+            client_name=args.client_name,
+            client_title=args.client_title,
+            auth_basis=args.auth_basis,
+            ticket_ref=args.ticket_ref,
+            contact=args.contact
+        )
+
+        metadata = ScanMetadata(
+            target=args.target,
+            scope=args.scope or "Full assessment",
+            probe_set_version="v1.1"
+        )
+
+        report_lines.append("=" * 80)
+        report_lines.append("MCP-AUTHSCAN SECURITY REPORT")
+        report_lines.append("=" * 80)
+        report_lines.append("")
+        report_lines.append(auth.format_block())
+        report_lines.append("")
+        report_lines.append(metadata.format_block())
+        report_lines.append("")
+        report_lines.append("FINDINGS SUMMARY")
+        report_lines.append("-" * 80)
+        for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+            report_lines.append(f"  {sev}: {findings_by_severity[sev]}")
+        report_lines.append(f"  TOTAL: {len(F)}")
+        report_lines.append("-" * 80)
+        report_lines.append("")
+
     if args.html:
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html")
         print(f"[+] HTML report saved to {html_file}")
@@ -1633,18 +1694,49 @@ def main():
         print(json.dumps(to_sarif(F, args.target), indent=2))
     elif args.json:
         payload = {"target": args.target, "count": len(F), "findings": F}
+        if args.authorized_by:
+            payload["authorization"] = {
+                "authorized_by": args.authorized_by,
+                "client_name": args.client_name,
+                "client_title": args.client_title,
+                "auth_basis": args.auth_basis,
+                "ticket_ref": args.ticket_ref,
+                "contact": args.contact,
+            }
         blob = json.dumps(payload, sort_keys=True).encode()
         payload["report_sha256"] = hashlib.sha256(blob).hexdigest()  # anchor hook
         print(json.dumps(payload, indent=2))
     else:
+        # Text output with optional authorization header
+        if report_lines:
+            print("\n".join(report_lines))
+
         if not F:
             print("No findings. (Absence of finding is not proof of safety.)")
-        for x in F:
-            print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
-            print(f"  {x['file']}:{x['line']}  ({x['ref']})")
-            print(f"  {x['evidence']}")
-            print(x["snippet"]); print()
-        print(f"{len(F)} finding(s).")
+        else:
+            print("DETAILED FINDINGS")
+            print("-" * 80)
+            print("")
+            for x in F:
+                print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
+                print(f"  {x['file']}:{x['line']}  ({x['ref']})")
+                print(f"  {x['evidence']}")
+                print(x["snippet"]); print()
+
+        # Footer with hash if authorization provided
+        if report_lines:
+            full_report = "\n".join(report_lines) + f"\nDETAILED FINDINGS\n{'-' * 80}\n"
+            for x in F:
+                full_report += f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}\n"
+                full_report += f"  {x['file']}:{x['line']}  ({x['ref']})\n"
+                full_report += f"  {x['evidence']}\n{x['snippet']}\n\n"
+
+            report_hash = hashlib.sha256(full_report.encode()).hexdigest()
+            print("=" * 80)
+            print(f"REPORT HASH (SHA256): {report_hash}")
+            print("=" * 80)
+        else:
+            print(f"{len(F)} finding(s).")
 
     # Review-list rules warn only. They must not fail CI.
     REVIEW = {"A4", "A5", "A6", "B2"}
