@@ -2514,8 +2514,22 @@ def main():
         print("")
 
         # Same for report file
-        report_lines.append("PROBE RESULTS SUMMARY")
-        report_lines.append("-" * 80)
+        # Build summary from actual probe records
+        try:
+            if oauth_records:
+                check_counts(oauth_records, probes_attempted, probes_passed, len(F), probes_not_observed)
+                report_lines.append(render_summary(oauth_records))
+            else:
+                raise NameError("no records")
+        except (NameError, AttributeError):
+            report_lines.append("PROBE RESULTS SUMMARY")
+            report_lines.append("-" * 80)
+            if probe_status.get("passed", 0) > 0:
+                report_lines.append(f"PASSED ({probe_status['passed']} probes): Endpoints correctly rejected unauthenticated requests")
+            if probe_status.get("not_observed", 0) > 0:
+                report_lines.append(f"NOT OBSERVED ({probe_status['not_observed']} probes): Endpoints not testable")
+            report_lines.append("-" * 80)
+        report_lines.append("")
 
         # Build summary from actual probe records (data-driven, not prose templates)
         try:
