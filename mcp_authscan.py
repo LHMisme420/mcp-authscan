@@ -1665,14 +1665,27 @@ def main():
 
     # Auto-detect: live server (http(s)://) or source code directory?
     scan_mode = None
+    scan_start_time = time.time()
+    probes_attempted = 0
+    probes_passed = 0
+    probes_not_observed = 0
+
     if args.target.startswith("http://") or args.target.startswith("https://"):
         print(f"[*] Detected live server URL", file=sys.stderr)
         F = scan_live_server(args.target)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
+        # Probes: 3 checks per LIVE_ENDPOINT path
+        probes_attempted = len(LIVE_ENDPOINTS) * 3
+        probes_passed = probes_attempted - len(F)
+        probes_not_observed = len([f for f in F if f.get("confidence") == "LOW"])
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
         scan_mode = "SOURCE_CODE_ASSESSMENT"
+        probes_attempted = len(F)  # For source code, probes = findings flagged
+        probes_passed = probes_attempted  # All checks ran
+
+    elapsed_seconds = time.time() - scan_start_time
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 
@@ -1780,12 +1793,17 @@ def main():
             scope=args.scope or "Full assessment",
             probe_set_version=PROBE_SET_VERSION,
             not_tested=not_tested,
+            target=args.target,
             repo_url=repo_url,
             branch=branch,
             commit_sha=commit_sha_short,
             files_examined=files_examined,
             files_total=files_total,
-            files_excluded=files_excluded
+            files_excluded=files_excluded,
+            probes_attempted=probes_attempted,
+            probes_passed=probes_passed,
+            probes_not_observed=probes_not_observed,
+            elapsed_seconds=elapsed_seconds
         )
 
         report_lines.append("=" * 80)

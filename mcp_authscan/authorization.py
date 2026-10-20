@@ -63,7 +63,7 @@ class ScanMetadata:
     def __init__(
         self,
         scope: str,
-        probe_set_version: str = "0.3.0",
+        probe_set_version: str = "1.0.0",
         not_tested: Optional[list] = None,
         repo_url: Optional[str] = None,
         branch: Optional[str] = None,
@@ -71,7 +71,12 @@ class ScanMetadata:
         files_examined: Optional[int] = None,
         files_total: Optional[int] = None,
         files_excluded: Optional[list] = None,
-        lines_examined: Optional[int] = None
+        lines_examined: Optional[int] = None,
+        target: Optional[str] = None,
+        probes_attempted: Optional[int] = None,
+        probes_passed: Optional[int] = None,
+        probes_not_observed: Optional[int] = None,
+        elapsed_seconds: Optional[float] = None
     ):
         self.scope = scope
         self.probe_set_version = probe_set_version
@@ -83,6 +88,11 @@ class ScanMetadata:
         self.files_total = files_total
         self.files_excluded = files_excluded or []
         self.lines_examined = lines_examined
+        self.target = target
+        self.probes_attempted = probes_attempted
+        self.probes_passed = probes_passed
+        self.probes_not_observed = probes_not_observed
+        self.elapsed_seconds = elapsed_seconds
 
     def to_dict(self) -> dict:
         return {
@@ -101,6 +111,10 @@ class ScanMetadata:
             "-" * 80,
         ]
 
+        # Target
+        if self.target:
+            lines.append(f"Target: {self.target}")
+
         # Repository information
         if self.repo_url:
             lines.append(f"Repository: {self.repo_url}")
@@ -111,6 +125,16 @@ class ScanMetadata:
 
         lines.append(f"Scope: {self.scope}")
         lines.append(f"Probe Set Version: {self.probe_set_version}")
+
+        # Probe telemetry
+        if self.probes_attempted is not None:
+            lines.append(f"Probes Attempted: {self.probes_attempted}")
+            if self.probes_passed is not None:
+                lines.append(f"Probes Passed: {self.probes_passed}")
+            if self.probes_not_observed is not None:
+                lines.append(f"Probes Not Observed: {self.probes_not_observed}")
+        if self.elapsed_seconds is not None:
+            lines.append(f"Elapsed Time: {self.elapsed_seconds:.2f} seconds")
 
         # Examination metrics with coverage
         if self.files_examined is not None and self.files_total is not None:
