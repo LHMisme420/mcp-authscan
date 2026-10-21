@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v0.8 -- static detector for self-rolled-auth failure classes in MCP servers
-and issuer-binding gaps in MCP OAuth clients.
-Seeded from filed VATA findings (lucky-aeon, mcpjungle, metamcp).
-Stdlib only. Heuristic static analysis: flags patterns, does not prove exploitability.
-Confidence per rule is stated. Ground-truth test = re-detect your own known findings.
+VATA mcp_authscan v1.1.0 -- Live OAuth endpoint scanner for MCP servers.
 
-v0.8 changes:
-from mcp_authscan.report_copy import check_counts, render_summary
- - New client-side rule family C1-C3 (issuer binding on M2M MCP OAuth providers).
-   Upgrading the SDK does not close this: Python ClientCredentialsOAuthProvider /
-   PrivateKeyJWTOAuthProvider need issuer=, TS ClientCredentialsProvider /
-   PrivateKeyJwtProvider / StaticPrivateKeyJwtProvider / CrossAppAccessProvider need
-   expectedIssuer, or credentials follow whatever AS the MCP server advertises.
-   Refs: GHSA-qx49-fqc8-xw99 (python-sdk), typescript-sdk PR #2887 (SEP-2352).
- - --exclude DIR (repeatable) so rule fixtures don't trip the self-scan gate.
+Tests RFC 9728 → RFC 8414 OAuth discovery chain and probes OAuth server configuration
+for authentication, token caching, CORS, PKCE, key rotation, and other security properties.
 
-v0.4 changes:
- - A4 rebuilt sink-first: finds HTTP calls, inspects the URL argument, flags a non-literal
-   URL derived from config/metadata/request reached with no allowlist / internal-IP guard.
-   Catches Go http.NewRequest*/client.Do, JS fetch/axios, py requests/urlopen. This is the
-   mcpjungle upstream_oauth.go RegistrationEndpoint SSRF class the old A4 missed.
- - A2 value must be whitespace-free (kills the "access token: "+err FP) and test-support
-   dirs (testhelpers/mocks/fixtures) are skipped.
- - A5 skips comments and help-text string literals (was flagging CLI help text).
+Scanner mode: HTTP request/response analysis against live MCP server endpoints.
+Protocol: Tests JSON-RPC /initialize endpoint for 401 (OAuth required) or 200 (zero-auth).
+Exit codes: 0=success, 1=auth failed, 2=unreachable, 3=preflight failed, 4=discovery incomplete.
+Output: Human-readable security report with probe results and deterministic SHA256 hash.
 """
 from mcp_authscan.report_copy import render_summary, check_counts
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess

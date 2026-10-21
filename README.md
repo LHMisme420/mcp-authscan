@@ -38,9 +38,16 @@ python3 mcp_authscan.py https://api.example.com/mcp \
 - Human-readable security report with PASS/FAIL/OBSERVATION verdicts
 - OAuth endpoint configuration analysis (RFC 9728 → RFC 8414)
 - Probe results summary with evidence strings
-- Exit code 0 (clean) or 1 (unreachable/failed)
+- Deterministic report hash (SHA256, reproducible across runs)
 
-⚠️ **Note:** PyPI package (v0.9.4) is outdated. Use main branch for latest fixes including PROBE RESULTS SUMMARY and fail-closed gates.
+**Exit codes:**
+- `0` — Scan completed successfully (no critical findings)
+- `1` — Scan completed but authorization validation failed
+- `2` — Target is unreachable (network error, connection refused)
+- `3` — Target is not a valid MCP server (preflight failed)
+- `4` — OAuth discovery incomplete (unable to complete discovery chain)
+
+**Current version:** v1.1.0 (main branch)
 
 ---
 
@@ -206,8 +213,8 @@ python3 mcp_authscan.py http://127.0.0.1:5004 \
 ```
 
 Exit codes:
-- Vulnerable scan: `1` (findings exist)
-- Fixed scan: `0` (no critical findings)
+- Vulnerable scan: `0` (OAuth configuration issues found, non-critical)
+- Fixed scan: `0` (scan completed, no critical issues)
 
 ### Reference Server Analysis
 
@@ -216,29 +223,6 @@ The reference server findings are verifiable against:
 - Package version: `2.2.0` from PyPI (released September 7, 2026)
 
 Any developer can check out that exact commit and reproduce the findings.
-
----
-
-## VATA Ecosystem Baseline
-
-### MCP Server Audit (2,028 servers)
-
-- **Total servers audited:** 2,028
-- **Rate limiting gaps:** 2,000 servers (98.6%)
-- **CRITICAL injection findings:** 2 (Phase 1)
-- **HIGH severity findings:** 6 (Phase 1)
-- **Secure servers:** 22
-
-### Exploitation Assessment
-
-Separate exploitation testing across high-risk servers documented:
-- 308 successful POCs generated
-- Attack vectors: RCE, credential extraction, authentication bypass
-
-### Publication
-
-- **GitHub:** https://github.com/LHMisme420/mcp-security-registry
-- **Zenodo:** Full research papers with verifiable methodology and evidence
 
 ---
 
