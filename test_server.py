@@ -52,8 +52,17 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=3600")  # For cache-control test
             self.end_headers()
             self.wfile.write(json.dumps({"keys": []}).encode())
-        elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device"]:
-            # OAuth endpoints - return 401/403 (invalid request, can be tested)
+        elif self.path == "/token":
+            # Token endpoint: return invalid_client for probe 9 (client-auth) to reach PASS
+            self.send_response(401)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("WWW-Authenticate", 'Bearer realm="mcp"')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "invalid_client"}).encode())
+        elif self.path in ["/authorize", "/register", "/revoke", "/device"]:
+            # Other OAuth endpoints - return 401
             self.send_response(401)
             self.send_header("Content-type", "application/json")
             self.end_headers()
@@ -92,8 +101,18 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
                 response = {"status": "success", "result": {}}
 
             self.wfile.write(json.dumps(response).encode())
-        # OAuth probe endpoints - return 401/403 for testability
-        elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device"]:
+        # OAuth probe endpoints - return appropriate error codes for testability
+        elif self.path == "/token":
+            # Token endpoint POST: return invalid_client for probe 9 (client-auth) to reach PASS
+            self.send_response(401)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("WWW-Authenticate", 'Bearer realm="mcp"')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "invalid_client"}).encode())
+        elif self.path in ["/authorize", "/register", "/revoke", "/device"]:
+            # Other OAuth endpoints - return 401
             self.send_response(401)
             self.send_header("Content-type", "application/json")
             self.end_headers()
