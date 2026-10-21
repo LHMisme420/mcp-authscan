@@ -2193,27 +2193,33 @@ def main():
     args = ap.parse_args()
 
     # AUTHORIZATION CHECK: refuse to run without authorization metadata
-    if not args.authorized_by:
-        print("[!] ERROR: --authorized-by is required", file=sys.stderr)
-        print("[!] Scans must be authorized. Usage: --authorized-by 'Name' --auth-basis 'basis' --contact 'email@example.com'", file=sys.stderr)
-        sys.exit(2)
+    # Check if this is a fixture run (will be determined when we parse the target URL)
+    # For now, check if target looks like localhost before we validate authorization
+    temp_p = urlparse(args.target) if args.target.startswith("http") else None
+    is_fixture = temp_p and temp_p.hostname in ('localhost', '127.0.0.1', '::1')
 
-    if not args.auth_basis:
-        print("[!] ERROR: --auth-basis is required", file=sys.stderr)
-        sys.exit(2)
+    # Authorization required for REAL scans, but NOT for fixture runs
+    if not is_fixture:
+        if not args.authorized_by:
+            print("[!] ERROR: --authorized-by is required for real network scans", file=sys.stderr)
+            print("[!] Usage: --authorized-by 'Name' --auth-basis 'basis' --contact 'email@example.com'", file=sys.stderr)
+            sys.exit(2)
 
-    if not args.contact:
-        print("[!] ERROR: --contact is required", file=sys.stderr)
-        sys.exit(2)
+        if not args.auth_basis:
+            print("[!] ERROR: --auth-basis is required", file=sys.stderr)
+            sys.exit(2)
 
-    # Validate authorization metadata: all fields must be present and non-empty
-    # Exit 2 (authorization refused) triggers on missing or empty fields only—not on placeholder words
-    if not args.authorized_by or not args.auth_basis or not args.contact:
-        print(f"[!] ERROR: Authorization fields are required and must be non-empty.", file=sys.stderr)
-        print(f"[!]   --authorized-by: {args.authorized_by or '(missing)'}", file=sys.stderr)
-        print(f"[!]   --auth-basis: {args.auth_basis or '(missing)'}", file=sys.stderr)
-        print(f"[!]   --contact: {args.contact or '(missing)'}", file=sys.stderr)
-        sys.exit(2)
+        if not args.contact:
+            print("[!] ERROR: --contact is required", file=sys.stderr)
+            sys.exit(2)
+
+        # Validate authorization metadata for real scans
+        if not args.authorized_by or not args.auth_basis or not args.contact:
+            print(f"[!] ERROR: Authorization fields are required and must be non-empty.", file=sys.stderr)
+            print(f"[!]   --authorized-by: {args.authorized_by or '(missing)'}", file=sys.stderr)
+            print(f"[!]   --auth-basis: {args.auth_basis or '(missing)'}", file=sys.stderr)
+            print(f"[!]   --contact: {args.contact or '(missing)'}", file=sys.stderr)
+            sys.exit(2)
 
     # Auto-detect: live server (http(s)://) or source code directory?
     scan_mode = None
@@ -2232,10 +2238,19 @@ def main():
     probe_results = []
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
+        # Detect fixture runs (localhost, 127.0.0.1)
+        p = urlparse(args.target)
+        is_fixture = p.hostname in ('localhost', '127.0.0.1', '::1')
+
+        if is_fixture and args.authorized_by:
+            print("[!] ERROR: Fixture runs (localhost) cannot accept third-party authorization.", file=sys.stderr)
+            print("[!] --authorized-by is only valid for real network scans of live servers.", file=sys.stderr)
+            print("[!] Fixture runs demonstrate probe functionality; they are not production assessments.", file=sys.stderr)
+            sys.exit(2)
+
         # Validate target host if --allow-private not set (opt-in DNS rebinding protection)
         if not args.allow_private:
             try:
-                p = urlparse(args.target)
                 if p.hostname:
                     validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
             except ValueError as e:
@@ -2379,16 +2394,19 @@ def main():
         if sev in findings_by_severity:
             findings_by_severity[sev] += 1
 
-    if args.authorized_by or "Heath Weaver" and args.auth_basis and args.ticket_ref and args.contact:
+    # For both authorized scans and fixture runs, create metadata objects
+    # Fixture runs have empty authorization, but still need metadata for reporting
+    if args.authorized_by or is_fixture:
         from mcp_authscan.authorization import ScanAuthorization, ScanMetadata, report_header_with_authorization
 
+        # For real scans, populate authorization; for fixtures, leave empty
         auth = ScanAuthorization(
-            authorized_by=args.authorized_by,
-            client_name=args.client_name,
-            client_title=args.client_title,
-            auth_basis=args.auth_basis,
-            ticket_ref=args.ticket_ref,
-            contact=args.contact
+            authorized_by=args.authorized_by or "",
+            client_name=args.client_name or "",
+            client_title=args.client_title or "",
+            auth_basis=args.auth_basis or "",
+            ticket_ref=args.ticket_ref or "",
+            contact=args.contact or ""
         )
 
         # For source code assessments, extract git metadata and count files
