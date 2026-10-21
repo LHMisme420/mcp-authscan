@@ -41,11 +41,24 @@ python3 mcp_authscan.py https://api.example.com/mcp \
 - Deterministic report hash (SHA256, reproducible across runs)
 
 **Exit codes:**
-- `0` — Scan completed successfully (no critical findings)
-- `1` — Scan completed but authorization validation failed
-- `2` — Target is unreachable (network error, connection refused)
-- `3` — Target is not a valid MCP server (preflight failed)
-- `4` — OAuth discovery incomplete (unable to complete discovery chain)
+- `0` — Scan completed. No findings at or above `--fail-on` threshold (default: high).
+- `1` — Scan completed. Findings detected at or above `--fail-on` threshold.
+- `2` — Target unreachable (connection refused or network error).
+- `3` — Target is not a valid MCP server (preflight check failed).
+- `4` — OAuth detected but discovery chain failed (incomplete).
+
+Note: Severity levels are reported in the security report. Use `--fail-on` to set the threshold:
+
+```bash
+# Default: --fail-on high (exit 1 if HIGH or CRITICAL findings)
+python3 mcp_authscan.py https://your-server/mcp ...
+
+# Only fail on CRITICAL findings (exit 0 for HIGH/MEDIUM/LOW)
+python3 mcp_authscan.py https://your-server/mcp ... --fail-on critical
+
+# Fail on any findings (MEDIUM, HIGH, or CRITICAL)
+python3 mcp_authscan.py https://your-server/mcp ... --fail-on medium
+```
 
 **Current version:** v1.1.0 (main branch)
 
@@ -209,12 +222,9 @@ python3 mcp_authscan.py http://127.0.0.1:5004 \
   --authorized-by "Your Name" \
   --auth-basis "written consent" \
   --contact "your.email@example.com"
-# Output: INFO level on /tools/list
+# Output: INFO level (MEDIUM/LOW findings only)
+# Exit: 0 (no HIGH/CRITICAL findings)
 ```
-
-Exit codes:
-- Vulnerable scan: `0` (OAuth configuration issues found, non-critical)
-- Fixed scan: `0` (scan completed, no critical issues)
 
 ### Reference Server Analysis
 
