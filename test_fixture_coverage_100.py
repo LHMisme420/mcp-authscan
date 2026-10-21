@@ -76,18 +76,24 @@ class CompleteHandler(BaseHTTPRequestHandler):
             self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:9000/resource_metadata"')
             self.end_headers()
         elif self.path == "/token":
-            # Token endpoint POST: return invalid_client for probe 9 (client-auth) and unsupported_grant_type for probe 6
-            # When called with grant_type=password, return unsupported_grant_type; otherwise invalid_client
+            # Token endpoint POST: return unsupported_grant_type for probe 6 (password-grant), invalid_client for probe 9 (client-auth)
             self.send_response(401)
             self.send_header("Content-type", "application/json")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("WWW-Authenticate", 'Bearer realm="mcp"')
             self.end_headers()
-            # Check if password grant - probe 6 will send grant_type=password
-            # For now, always return invalid_client (which causes password-grant to be NOT_OBSERVED)
-            # This is acceptable since probes 6, 7, 8 are to be excluded anyway
-            self.wfile.write(json.dumps({"error": "invalid_client"}).encode())
+
+            # Read request body to determine which probe is calling
+            content_len = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_len).decode() if content_len > 0 else ""
+
+            # Probe 6 (password-grant) sends grant_type=password
+            if "grant_type=password" in body:
+                self.wfile.write(json.dumps({"error": "unsupported_grant_type"}).encode())
+            else:
+                # Probe 9 (client-auth) or other requests get invalid_client
+                self.wfile.write(json.dumps({"error": "invalid_client"}).encode())
         elif self.path == "/authorize":
             # Authorization endpoint: return something
             self.send_response(401)
