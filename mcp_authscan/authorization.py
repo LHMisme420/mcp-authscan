@@ -145,8 +145,6 @@ class ScanMetadata:
         # Probe telemetry with accounting verification
         if self.probes_attempted is not None:
             lines.append(f"Probes Attempted: {self.probes_attempted}")
-            if self.probes_excluded is not None and self.probes_excluded > 0:
-                lines.append(f"Probes Excluded (missing prerequisites): {self.probes_excluded}")
             if self.probes_passed is not None:
                 lines.append(f"Probes Passed: {self.probes_passed}")
             if self.probes_failed is not None:
@@ -154,7 +152,10 @@ class ScanMetadata:
             if self.probes_observed is not None:
                 lines.append(f"Probes Observed: {self.probes_observed}")
             if self.probes_not_observed is not None:
-                lines.append(f"Probes Not Observed: {self.probes_not_observed}")
+                not_obs_line = f"Probes Not Observed: {self.probes_not_observed}"
+                if self.probes_excluded is not None and self.probes_excluded > 0:
+                    not_obs_line += f" ({self.probes_excluded} excluded: missing registered client)"
+                lines.append(not_obs_line)
 
             # Verify accounting: attempted = passed + failed + observed + not_observed
             # (excluded probes are a subset of not_observed, so not counted separately)

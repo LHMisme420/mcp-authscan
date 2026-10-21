@@ -214,7 +214,7 @@ def probe_token_cors(token_endpoint):
         )
 
     # Always observation, never FAIL
-    impact = "Wildcard CORS on token endpoint: clients in any origin can reach it, but authentication is enforced." if acao == "*" else "CORS restricted or absent."
+    impact = "Wildcard CORS on token endpoint allows cross-origin POST requests to reach it. Responses are protected by CORS policy, but the request itself executes on the server. This enables authorized clients on other origins to interact with the token endpoint, but also exposes it to direct cross-origin access attempts." if acao == "*" else "CORS restricted or absent."
     evidence = f"ACAO: {acao or '(absent)'}\nACAC: {acac or '(absent)'}\nVary: {vary or '(absent)'}\nImpact: {impact}"
 
     return ProbeRecord(
