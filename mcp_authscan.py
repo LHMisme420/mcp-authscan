@@ -2170,6 +2170,8 @@ def main():
                     help="output file for HTML/JSON report")
     ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default="high",
                     help="exit 1 if findings at or above this severity are found (default: high)")
+    ap.add_argument("--allow-private", action="store_true",
+                    help="allow scanning private/loopback targets (127.0.0.0/8, 10.0.0.0/8, etc) - opt-in for lab and staging")
 
     # Authorization and compliance tracking
     ap.add_argument("--authorized-by", metavar="NAME",
@@ -2230,14 +2232,15 @@ def main():
     probe_results = []
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
-        # Validate target host (DNS rebinding protection)
-        try:
-            p = urlparse(args.target)
-            if p.hostname:
-                validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
-        except ValueError as e:
-            print(f"[!] Target validation failed: {e}", file=sys.stderr)
-            sys.exit(3)
+        # Validate target host if --allow-private not set (opt-in DNS rebinding protection)
+        if not args.allow_private:
+            try:
+                p = urlparse(args.target)
+                if p.hostname:
+                    validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
+            except ValueError as e:
+                print(f"[!] Target validation failed: {e}", file=sys.stderr)
+                sys.exit(3)
 
         try:
             result_tuple = scan_live_server(args.target)
@@ -2318,10 +2321,13 @@ def main():
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
 
-        # Check if zero probes were measured (discovery succeeded but no endpoints available)
-        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("attempted", 0) == 0:
-            print(f"[!] No probes measured: Discovery succeeded but no OAuth endpoints available to test.", file=sys.stderr)
-            sys.exit(5)
+        # Check if zero probes were measured or all returned NOT_OBSERVED (nothing tested)
+        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
+            attempted = probe_status.get("attempted", 0)
+            not_observed = probe_status.get("not_observed", 0)
+            if attempted == 0 or (attempted > 0 and not_observed == attempted):
+                print(f"[!] No probes measured: {attempted} attempted, {not_observed} not_observed. Nothing was tested.", file=sys.stderr)
+                sys.exit(5)
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
