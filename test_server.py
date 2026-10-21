@@ -44,9 +44,17 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
                 "service": "oauth-server",
                 "tools": ["list_resources", "call_tool", "read_resource"]
             }).encode())
-        # OAuth probe endpoints - return 403 (no valid token) for testability
-        elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device", "/jwks"]:
-            self.send_response(403)  # Forbidden - can be tested
+        # OAuth probe endpoints - return valid responses for testability
+        elif self.path == "/jwks":
+            # JWKS endpoint - return valid JWKS response
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Cache-Control", "public, max-age=3600")  # For cache-control test
+            self.end_headers()
+            self.wfile.write(json.dumps({"keys": []}).encode())
+        elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device"]:
+            # OAuth endpoints - return 401/403 (invalid request, can be tested)
+            self.send_response(401)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"error": "invalid_request"}).encode())
@@ -84,9 +92,9 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
                 response = {"status": "success", "result": {}}
 
             self.wfile.write(json.dumps(response).encode())
-        # OAuth probe endpoints - return 403 (no valid token) for testability
+        # OAuth probe endpoints - return 401/403 for testability
         elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device"]:
-            self.send_response(403)  # Forbidden - can be tested
+            self.send_response(401)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"error": "invalid_request"}).encode())

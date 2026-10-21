@@ -2321,16 +2321,23 @@ def main():
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
 
-        # Exit 5: Zero verdicts reached (server not assessable)
-        # Verdicts = PASS or FAIL; NOT_OBSERVED and OBSERVATION don't count
+        # Exit 5: Coverage rule - server not assessable
         # Out-of-scope probes: pkce-s256 (7), redirect-uri-exact (8) - need registered client
+        # Max allowed NOT_OBSERVED: 2 (the out-of-scope probes)
+        # If more than 2 NOT_OBSERVED, cannot fully assess server
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
             attempted = probe_status.get("attempted", 0)
             passed = probe_status.get("passed", 0)
             failed = probe_status.get("failed", 0)
+            not_observed = probe_status.get("not_observed", 0)
             verdicts_reached = passed + failed
 
-            if attempted > 0 and verdicts_reached == 0:
+            # For 9-probe set: if more than 2 probes are NOT_OBSERVED, in-scope coverage is incomplete
+            if attempted >= 9 and not_observed > 2:
+                print(f"[!] Too many probes NOT_OBSERVED ({not_observed}/9): cannot fully assess server.", file=sys.stderr)
+                sys.exit(5)
+            # For other probe sets: if zero verdicts reached, not assessable
+            elif attempted > 0 and attempted < 9 and verdicts_reached == 0:
                 print(f"[!] Zero probes reached a verdict. Server not assessable.", file=sys.stderr)
                 sys.exit(5)
     else:
