@@ -143,8 +143,14 @@ def probe_token_cache_control(token_endpoint):
             0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
         )
 
-    verdict = "PASS" if "no-store" in cache_control.lower() else "FAIL"
-    evidence = f"HTTP {status_code}: Cache-Control: {cache_control or '(absent)'}"
+    # 404/405/500+ = endpoint doesn't exist or is unreachable = NOT_OBSERVED
+    # Only 200/401 responses can be measured for Cache-Control
+    if status_code in [404, 405, 500, 502, 503, 504]:
+        verdict = "NOT_OBSERVED"
+        evidence = f"HTTP {status_code}: Endpoint unreachable or not implemented"
+    else:
+        verdict = "PASS" if "no-store" in cache_control.lower() else "FAIL"
+        evidence = f"HTTP {status_code}: Cache-Control: {cache_control or '(absent)'}"
 
     return ProbeRecord(
         probe_id=3,
