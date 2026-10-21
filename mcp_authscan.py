@@ -2258,7 +2258,20 @@ def main():
             probes_not_observed = probe_status['not_observed']
             probes_observed = probe_status.get('observation', 0)
 
-        # Verify accounting before rendering
+        if not server_reachable:
+            # Server unreachable or preflight failed: fail hard
+            # Distinguish: discovery_info=None means connection error (EXIT 2)
+            # discovery_info exists but preflight_status in it means preflight failed (EXIT 3)
+            if discovery_info is None:
+                print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
+                sys.exit(2)
+            elif discovery_info.get("status") == "DISCOVERY_INCOMPLETE" and discovery_info.get("preflight_status") == 401:
+                # Preflight succeeded but discovery chain failed → EXIT 4
+                sys.exit(4)
+            else:
+                # Preflight failed (target not MCP) → EXIT 3
+                print(f"[!] Target is not an MCP server. Scan aborted.", file=sys.stderr)
+                sys.exit(3)
         total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0) + probe_status.get("observation", 0)
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
