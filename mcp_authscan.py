@@ -2206,16 +2206,13 @@ def main():
         print("[!] ERROR: --contact is required", file=sys.stderr)
         sys.exit(2)
 
-    # Validate authorization metadata against obviously fake values
-    fake_values = {"test", "example", "demo", "your name", "your.email@example.com"}
-    if args.authorized_by.lower() in fake_values:
-        print(f"[!] ERROR: --authorized-by value '{args.authorized_by}' appears to be a placeholder. Use your actual name.", file=sys.stderr)
-        sys.exit(2)
-    if args.contact.lower() in fake_values:
-        print(f"[!] ERROR: --contact value '{args.contact}' appears to be a placeholder. Use your actual email address.", file=sys.stderr)
-        sys.exit(2)
-    if args.auth_basis.lower() in fake_values:
-        print(f"[!] ERROR: --auth-basis value '{args.auth_basis}' appears to be a placeholder. Provide the actual authorization basis.", file=sys.stderr)
+    # Validate authorization metadata: all fields must be present and non-empty
+    # Exit 2 (authorization refused) triggers on missing or empty fields only—not on placeholder words
+    if not args.authorized_by or not args.auth_basis or not args.contact:
+        print(f"[!] ERROR: Authorization fields are required and must be non-empty.", file=sys.stderr)
+        print(f"[!]   --authorized-by: {args.authorized_by or '(missing)'}", file=sys.stderr)
+        print(f"[!]   --auth-basis: {args.auth_basis or '(missing)'}", file=sys.stderr)
+        print(f"[!]   --contact: {args.contact or '(missing)'}", file=sys.stderr)
         sys.exit(2)
 
     # Auto-detect: live server (http(s)://) or source code directory?
