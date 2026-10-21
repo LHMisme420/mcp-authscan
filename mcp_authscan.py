@@ -2683,8 +2683,15 @@ def main():
             # Use canonical payload hash (covers probe counts, auth, and findings)
             report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time and timestamp.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings.")
+            print(" Excludes: elapsed time, timestamp, and the report_hash field itself.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
+            print("")
+            print("[Verification: To verify integrity, extract report_hash, remove it from the")
+            print(" JSON payload, recompute SHA256 of the sorted JSON, and compare.]")
+            print("")
+            print("[Authenticity: Real proof of scan is Heath's server logs showing the probes.")
+            print(" Hash provides integrity; logs provide proof the scan actually occurred.]")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
