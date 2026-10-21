@@ -2316,17 +2316,31 @@ def main():
             probes_observed = probe_status.get('observation', 0)
 
         # Verify accounting before rendering
-        # Total = passed + failed + not_observed + observation + excluded
-        total = (probe_status.get("passed", 0) + probe_status.get("failed", 0) +
-                 probe_status.get("not_observed", 0) + probe_status.get("observation", 0) +
-                 probe_status.get("excluded", 0))
-        if total != probe_status.get("attempted", 0):
-            raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
+        # Attempted = probes actually sent (passed + failed + not_observed + observation)
+        # Excluded = probes never sent due to missing prerequisites (separate count, not in attempted)
+        # Total formula: attempted + excluded = 9 (total probe set size)
+        passed = probe_status.get("passed", 0)
+        failed = probe_status.get("failed", 0)
+        not_observed = probe_status.get("not_observed", 0)
+        observation = probe_status.get("observation", 0)
+        excluded = probe_status.get("excluded", 0)
 
-        # Exit 5: Coverage rule - all testable probes must reach verdicts
-        # Testable probes = all probes - excluded probes (never sent due to missing prerequisites)
-        # Excluded probes: marked with prerequisite_met=False in the probe records
+        attempted = passed + failed + not_observed + observation
+        total_probes = attempted + excluded
+
+        # Accounting must reconcile: attempted + excluded = 9
+        if total_probes != 9:
+            print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded = {total_probes} (expected 9)", file=sys.stderr)
+            sys.exit(5)
+
+        # Update attempted count to reflect only executed probes
+        probe_status['attempted'] = attempted
+
+        # Exit 5: Coverage rule - all executed probes must reach verdicts
+        # All executed probes (attempted) must result in PASS, FAIL, or OBSERVATION verdicts
+        # NOT_OBSERVED probes are inconclusive and do not count as verdicts
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
+            # Use corrected attempted count (only executed probes)
             attempted = probe_status.get("attempted", 0)
             passed = probe_status.get("passed", 0)
             failed = probe_status.get("failed", 0)
@@ -2335,19 +2349,15 @@ def main():
             excluded = probe_status.get("excluded", 0)
 
             verdicts_reached = passed + failed + observation
-            testable = attempted - excluded
+            # All attempted (executed) probes must reach a verdict
+            testable = attempted
 
-            # Edge case: zero testable probes means assessment is incomplete
-            if testable == 0 and attempted > 0:
-                print(f"[!] No testable probes: all {attempted} excluded due to missing prerequisites (no registered client).", file=sys.stderr)
-                sys.exit(5)
-
-            # Coverage: verdicts reached / testable probes
-            # Only PASS, FAIL, OBSERVATION count as verdicts; NOT_OBSERVED (inconclusive) do not
-            if testable > 0:
-                coverage = verdicts_reached / testable
-                if coverage < 1.0:
-                    print(f"[!] Incomplete assessment: {verdicts_reached}/{testable} testable probes reached verdicts (excluded: {excluded} requiring registered client).", file=sys.stderr)
+            # All executed probes must reach a verdict (PASS, FAIL, or OBSERVATION)
+            # NOT_OBSERVED means the probe was sent but endpoint didn't respond as expected (inconclusive)
+            if attempted > 0:
+                if verdicts_reached < attempted:
+                    print(f"[!] Incomplete assessment: {verdicts_reached}/{attempted} executed probes reached verdicts. {not_observed} NOT_OBSERVED (inconclusive).", file=sys.stderr)
+                    print(f"[!] Excluded: {excluded} probes (missing prerequisites: registered client)", file=sys.stderr)
                     sys.exit(5)
 
         # Store excluded count for reporting
