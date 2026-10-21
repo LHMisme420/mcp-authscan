@@ -2151,6 +2151,14 @@ def generate_html_report(findings, target, output_file):
 
 def main():
     ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
+
+    # Override argparse's default exit code for usage errors (exit 2 → exit 6)
+    def argparse_error(message):
+        ap.print_usage(sys.stderr)
+        print(f"mcp_authscan: error: {message}", file=sys.stderr)
+        sys.exit(6)
+    ap.error = argparse_error
+
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
@@ -2185,27 +2193,27 @@ def main():
     if not args.authorized_by:
         print("[!] ERROR: --authorized-by is required", file=sys.stderr)
         print("[!] Scans must be authorized. Usage: --authorized-by 'Name' --auth-basis 'basis' --contact 'email@example.com'", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
     if not args.auth_basis:
         print("[!] ERROR: --auth-basis is required", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
     if not args.contact:
         print("[!] ERROR: --contact is required", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
     # Validate authorization metadata against obviously fake values
     fake_values = {"test", "example", "demo", "your name", "your.email@example.com"}
     if args.authorized_by.lower() in fake_values:
         print(f"[!] ERROR: --authorized-by value '{args.authorized_by}' appears to be a placeholder. Use your actual name.", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
     if args.contact.lower() in fake_values:
         print(f"[!] ERROR: --contact value '{args.contact}' appears to be a placeholder. Use your actual email address.", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
     if args.auth_basis.lower() in fake_values:
         print(f"[!] ERROR: --auth-basis value '{args.auth_basis}' appears to be a placeholder. Provide the actual authorization basis.", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
     # Auto-detect: live server (http(s)://) or source code directory?
     scan_mode = None
@@ -2222,6 +2230,15 @@ def main():
     probe_results = []
 
     if args.target.startswith("http://") or args.target.startswith("https://"):
+        # Validate target host (DNS rebinding protection)
+        try:
+            p = urlparse(args.target)
+            if p.hostname:
+                validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
+        except ValueError as e:
+            print(f"[!] Target validation failed: {e}", file=sys.stderr)
+            sys.exit(3)
+
         try:
             result_tuple = scan_live_server(args.target)
             F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
@@ -2271,20 +2288,20 @@ def main():
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
-            sys.exit(4)
+            sys.exit(5)
 
         if not server_reachable:
             # Distinguish failure modes by discovery_info status
             if discovery_info is None:
                 # Can't connect at all
                 print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
-                sys.exit(2)
+                sys.exit(3)
             elif discovery_info.get("status") == "PREFLIGHT_FAILED":
                 # Preflight failed (target not MCP)
-                sys.exit(3)
+                sys.exit(4)
             else:
-                # Other error
-                sys.exit(2)
+                # Other error (e.g., connection timeout)
+                sys.exit(3)
         else:
             # Server reachable: use actual probe status counts from scanner
             # This correctly distinguishes:
@@ -2300,6 +2317,11 @@ def main():
         total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0) + probe_status.get("observation", 0)
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
+
+        # Check if zero probes were measured (discovery succeeded but no endpoints available)
+        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("attempted", 0) == 0:
+            print(f"[!] No probes measured: Discovery succeeded but no OAuth endpoints available to test.", file=sys.stderr)
+            sys.exit(5)
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
