@@ -158,13 +158,15 @@ class ScanMetadata:
                 lines.append(not_obs_line)
 
             # Verify accounting: attempted = passed + failed + observed + not_observed
-            # (excluded probes are a subset of not_observed, so not counted separately)
-            if (self.probes_passed is not None and self.probes_failed is not None and
-                self.probes_not_observed is not None):
-                total_accounted = self.probes_passed + self.probes_failed + self.probes_not_observed
+            # Excluded = probes never sent (recorded separately, not in attempted)
+            # So the check is: passed + failed + not_observed + observed should equal attempted
+            if (self.probes_passed is not None and self.probes_failed is not None):
+                total_accounted = self.probes_passed + self.probes_failed
+                if self.probes_not_observed is not None:
+                    total_accounted += self.probes_not_observed
                 if self.probes_observed is not None:
                     total_accounted += self.probes_observed
-                if total_accounted != self.probes_attempted:
+                if self.probes_attempted is not None and total_accounted != self.probes_attempted:
                     lines.append(f"[ACCOUNTING ERROR: {total_accounted} != {self.probes_attempted}]")
         if self.elapsed_seconds is not None:
             lines.append(f"Elapsed Time: {self.elapsed_seconds:.2f} seconds")

@@ -2335,6 +2335,8 @@ def main():
 
         # Update attempted count to reflect only executed probes
         probe_status['attempted'] = attempted
+        # Also update the local variable used for reporting
+        probes_attempted = attempted
 
         # Exit 5: Coverage rule - all executed probes must reach verdicts
         # All executed probes (attempted) must result in PASS, FAIL, or OBSERVATION verdicts
