@@ -2493,6 +2493,8 @@ def main():
         "probes_not_observed": probes_not_observed,
         "probes_excluded": probes_excluded,
         "findings_count": len(F),
+        "scan_date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "tool_version": VERSION,
         "findings": F,
     }
     if args.authorized_by:
