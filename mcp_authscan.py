@@ -325,7 +325,7 @@ def scan_live_server(target_url):
                     mcp_verified = True
                     print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
     except Exception as e:
-        print(f"[DEBUG] Preflight exception: {type(e).__name__}: {e}", file=sys.stderr)
+        pass
 
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
@@ -2482,9 +2482,6 @@ def main():
             return  # Stop here - don't run probes
 
         # Build summary from actual probe records (data-driven only)
-        print(f"[DEBUG] oauth_records at report: type={type(oauth_records)}, len={len(oauth_records)}", file=sys.stderr)
-        if oauth_records:
-            print(f"[DEBUG] First item: {oauth_records[0]}", file=sys.stderr)
         report_lines.append("PROBE RESULTS SUMMARY")
         report_lines.append("-" * 80)
         if oauth_records:
