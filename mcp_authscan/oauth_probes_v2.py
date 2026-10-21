@@ -504,32 +504,37 @@ def count_probes(records):
     """
     Derive probe counts from records, verify accounting.
     Returns (counts_by_class, accounting_valid, error_message)
-    All probes are counted as attempted. NOT_OBSERVED probes may have unmet prerequisites,
-    but they were still sent and their verdict is recorded.
+    Attempted = probes actually sent (PASS, FAIL, OBSERVATION, NOT_OBSERVED with prerequisite_met=True)
+    Excluded = probes never sent due to missing prerequisites (NOT_OBSERVED with prerequisite_met=False)
     """
     counts = {}
     for record in records:
         probe_class = record.probe_class
         if probe_class not in counts:
-            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0}
+            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0, "excluded": 0}
 
-        counts[probe_class]["attempted"] += 1
+        # Distinguish excluded (never sent) from not_observed (sent, inconclusive)
+        if record.verdict == "NOT_OBSERVED" and hasattr(record, 'prerequisite_met') and not record.prerequisite_met:
+            # Never sent due to missing prerequisites
+            counts[probe_class]["excluded"] += 1
+        else:
+            # Probe was sent (or would have been sent)
+            counts[probe_class]["attempted"] += 1
+            if record.verdict == "PASS":
+                counts[probe_class]["passed"] += 1
+            elif record.verdict == "FAIL":
+                counts[probe_class]["failed"] += 1
+            elif record.verdict == "OBSERVATION":
+                counts[probe_class]["observation"] += 1
+            elif record.verdict == "NOT_OBSERVED":
+                counts[probe_class]["not_observed"] += 1
 
-        # Count by verdict (all probes count toward attempted, regardless of prerequisites)
-        if record.verdict == "PASS":
-            counts[probe_class]["passed"] += 1
-        elif record.verdict == "FAIL":
-            counts[probe_class]["failed"] += 1
-        elif record.verdict == "OBSERVATION":
-            counts[probe_class]["observation"] += 1
-        elif record.verdict == "NOT_OBSERVED":
-            counts[probe_class]["not_observed"] += 1
-
-    # Verify accounting: attempted = passed + failed + not_observed + observation
+    # Verify accounting: attempted + excluded = 9 (total probe set size)
     for probe_class, c in counts.items():
-        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"]
-        if expected != c["attempted"]:
-            return counts, False, f"{probe_class}: {expected} != {c['attempted']}"
+        total = c["attempted"] + c["excluded"]
+        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"] + c["excluded"]
+        if expected != total:
+            return counts, False, f"{probe_class}: {expected} != {total}"
 
     return counts, True, None
 
