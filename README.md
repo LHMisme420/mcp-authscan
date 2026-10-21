@@ -189,13 +189,19 @@ All 5 vulnerabilities reported to modelcontextprotocol maintainers via GitHub Se
 ```bash
 # Vulnerable server
 python3 vuln_zero_auth.py &
-python3 authorized_scan.py http://127.0.0.1:5004
+python3 mcp_authscan.py http://127.0.0.1:5004 \
+  --authorized-by "Your Name" \
+  --auth-basis "written consent" \
+  --contact "your.email@example.com"
 # Output: CRITICAL finding on /tools/list
 
 # Fixed server (same port, different process)
 pkill -f vuln_zero_auth
 python3 vuln_zero_auth_fixed.py &
-python3 authorized_scan.py http://127.0.0.1:5004
+python3 mcp_authscan.py http://127.0.0.1:5004 \
+  --authorized-by "Your Name" \
+  --auth-basis "written consent" \
+  --contact "your.email@example.com"
 # Output: INFO level on /tools/list
 ```
 
@@ -259,6 +265,6 @@ VATA research follows a strict "Receipts Over Promises" methodology:
 ---
 
 *Lab demonstration and reference server analysis: October 2026*  
-*Scanner: authorized_scan.py*  
+*Scanner: mcp_authscan.py*  
 *Methodology: HTTP request/response analysis + protocol specification review*  
 *Classification: Research publication (Zenodo), not responsible disclosure of production systems*

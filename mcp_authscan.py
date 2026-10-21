@@ -664,7 +664,7 @@ def scan_live_server(target_url):
 
     return findings, True, probe_status, discovery_info, probe_results
 
-VERSION = "0.9.4"
+VERSION = "1.1.0"
 PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
 
 def get_git_metadata(target_path):
@@ -2206,6 +2206,18 @@ def main():
         print("[!] ERROR: --contact is required", file=sys.stderr)
         sys.exit(1)
 
+    # Validate authorization metadata against obviously fake values
+    fake_values = {"test", "example", "demo", "your name", "your.email@example.com"}
+    if args.authorized_by.lower() in fake_values:
+        print(f"[!] ERROR: --authorized-by value '{args.authorized_by}' appears to be a placeholder. Use your actual name.", file=sys.stderr)
+        sys.exit(1)
+    if args.contact.lower() in fake_values:
+        print(f"[!] ERROR: --contact value '{args.contact}' appears to be a placeholder. Use your actual email address.", file=sys.stderr)
+        sys.exit(1)
+    if args.auth_basis.lower() in fake_values:
+        print(f"[!] ERROR: --auth-basis value '{args.auth_basis}' appears to be a placeholder. Provide the actual authorization basis.", file=sys.stderr)
+        sys.exit(1)
+
     # Auto-detect: live server (http(s)://) or source code directory?
     scan_mode = None
     scan_start_time = time.time()
@@ -2246,7 +2258,7 @@ def main():
         if not server_reachable:
             # Server unreachable or preflight failed: fail hard
             print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
-            sys.exit(1)
+            sys.exit(2)
         else:
             # Server reachable: use actual probe status counts from scanner
             # This correctly distinguishes:
@@ -2538,9 +2550,10 @@ def main():
                 # For live OAuth findings, show severity only. For code findings, show severity/confidence.
                 if x.get("is_live_finding"):
                     print(f"[{x['severity']}] {x['rule']}  {x['title']}")
+                    print(f"  {x['file']}  ({x['ref']})")
                 else:
                     print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
-                print(f"  {x['file']}:{x['line']}  ({x['ref']})")
+                    print(f"  {x['file']}:{x['line']}  ({x['ref']})")
 
                 # For live endpoint findings, show full request/response evidence
                 if x.get("is_live_finding"):
@@ -2567,7 +2580,10 @@ def main():
             full_report = "\n".join(report_lines_for_hash) + f"\nDETAILED FINDINGS\n{'-' * 80}\n"
             for x in F:
                 full_report += f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}\n"
-                full_report += f"  {x['file']}:{x['line']}  ({x['ref']})\n"
+                if x.get("is_live_finding"):
+                    full_report += f"  {x['file']}  ({x['ref']})\n"
+                else:
+                    full_report += f"  {x['file']}:{x['line']}  ({x['ref']})\n"
 
                 # For live endpoint findings, include full evidence in report hash
                 if x.get("is_live_finding"):

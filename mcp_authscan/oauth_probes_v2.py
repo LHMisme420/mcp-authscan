@@ -562,6 +562,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
     # Build findings from FAIL verdicts
     severity_by_probe = {
         1: "HIGH",     # issuer-identity: breaks all token binding
+        2: "HIGH",     # resource-binding: resource metadata must identify the protected resource
         3: "LOW",      # token-cache-control: cache poisoning in shared caches
         6: "HIGH",     # password-grant: authentication bypass
         9: "HIGH",     # client-auth: token validation failure
@@ -569,6 +570,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
 
     impact_by_probe = {
         1: "Server does not publish an issuer. Clients cannot bind tokens to this server.",
+        2: "RFC 9728 protected resource metadata must contain a 'resource' field matching the MCP endpoint URL. Empty or mismatched resource field breaks client-server binding.",
         3: "Error responses cached in shared proxies may leak sensitive information.",
         6: "Server accepts deprecated password grant, enabling credential interception.",
         9: "Server accepts malformed tokens. Token validation does not work.",
