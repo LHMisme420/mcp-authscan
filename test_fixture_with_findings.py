@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test server with security findings: accepts password grant (FAIL)."""
+"""Test server with security findings: accepts password grant (FAIL). Complete coverage for EXIT 1."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
@@ -25,7 +25,8 @@ class FindingsHandler(BaseHTTPRequestHandler):
                 "registration_endpoint": "http://127.0.0.1:9002/register",
                 "revocation_endpoint": "http://127.0.0.1:9002/revoke",
                 "device_authorization_endpoint": "http://127.0.0.1:9002/device",
-                "jwks_uri": "http://127.0.0.1:9002/jwks"
+                "jwks_uri": "http://127.0.0.1:9002/jwks",
+                "code_challenge_methods_supported": ["S256"]
             }).encode())
         elif self.path == "/jwks":
             self.send_response(200)
@@ -33,6 +34,11 @@ class FindingsHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=3600")
             self.end_headers()
             self.wfile.write(json.dumps({"keys": [{"kty": "RSA"}]}).encode())
+        elif self.path in ["/authorize", "/register", "/revoke", "/device"]:
+            self.send_response(401)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "invalid_request"}).encode())
         else:
             self.send_response(404)
             self.end_headers()
@@ -43,16 +49,21 @@ class FindingsHandler(BaseHTTPRequestHandler):
             self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:9002/resource_metadata"')
             self.end_headers()
         elif self.path == "/token":
-            # VULNERABLE: accept password grant (should reject)
+            # VULNERABLE: accept password grant (should reject) - causes HIGH severity FAIL
             self.send_response(200)
             self.send_header("Content-type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"access_token": "fake_token"}).encode())
-        else:
+        elif self.path in ["/authorize", "/register", "/revoke", "/device"]:
             self.send_response(401)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"error": "invalid_request"}).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
     
     def log_message(self, format, *args):
         pass

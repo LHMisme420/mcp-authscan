@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Non-MCP server: responds but no OAuth/MCP endpoints."""
+"""Non-MCP server: responds with HTML (not JSON-RPC), triggers preflight failure."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import sys
 
 class NotMCPHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/initialize" or self.path == "/mcp":
-            # Returns 200 OK instead of 401 with OAuth challenge
+            # Returns 200 HTML instead of 401 with OAuth challenge
             self.send_response(200)
-            self.send_header("Content-type", "text/plain")
+            self.send_header("Content-type", "text/html")
             self.end_headers()
-            self.wfile.write(b"This is not an MCP server")
+            self.wfile.write(b"<html><body>This is not an MCP server</body></html>")
         else:
             self.send_response(404)
             self.end_headers()
