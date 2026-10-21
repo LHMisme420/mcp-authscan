@@ -2258,7 +2258,7 @@ def main():
         if not server_reachable:
             # Server unreachable or preflight failed: fail hard
             print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
-            sys.exit(1)
+            sys.exit(2)
         else:
             # Server reachable: use actual probe status counts from scanner
             # This correctly distinguishes:
