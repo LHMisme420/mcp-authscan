@@ -335,7 +335,8 @@ def scan_live_server(target_url):
         probe_status['passed'] = 0
         probe_status['failed'] = 0
         probe_status['not_observed'] = 0
-        return findings, False, probe_status, None, ([], [])
+        preflight_info = {"status": "PREFLIGHT_FAILED"}
+        return findings, False, probe_status, preflight_info, ([], [])
 
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
