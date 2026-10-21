@@ -400,6 +400,7 @@ def scan_live_server(target_url):
         probe_status['failed'] = authserver_counts.get("failed", 0)
         probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
         probe_status['observation'] = authserver_counts.get("observation", 0)
+        probe_status['excluded'] = authserver_counts.get("excluded", 0)
         
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
@@ -2318,33 +2319,25 @@ def main():
             probes_observed = probe_status.get('observation', 0)
 
         # Verify accounting before rendering
-        total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0) + probe_status.get("observation", 0)
+        # Total = passed + failed + not_observed + observation + excluded
+        total = (probe_status.get("passed", 0) + probe_status.get("failed", 0) +
+                 probe_status.get("not_observed", 0) + probe_status.get("observation", 0) +
+                 probe_status.get("excluded", 0))
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
 
         # Exit 5: Coverage rule - all testable probes must reach verdicts
-        # Testable probes = all probes - excluded probes (missing prerequisites)
-        # Without registered client, probes 6, 7, 8 are excluded
+        # Testable probes = all probes - excluded probes (never sent due to missing prerequisites)
+        # Excluded probes: marked with prerequisite_met=False in the probe records
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
             attempted = probe_status.get("attempted", 0)
             passed = probe_status.get("passed", 0)
             failed = probe_status.get("failed", 0)
             not_observed = probe_status.get("not_observed", 0)
             observation = probe_status.get("observation", 0)
+            excluded = probe_status.get("excluded", 0)
+
             verdicts_reached = passed + failed + observation
-
-            # Probes 6, 7, 8 require registered client - currently unavailable
-            # Count how many should be excluded (have NOT_OBSERVED due to missing client)
-            excluded = 0
-            if attempted >= 9:
-                # Check if probes 6, 7, 8 are NOT_OBSERVED (sign they need client)
-                # This is detected by their evidence strings in the probes themselves
-                # For now, if we have 3+ NOT_OBSERVED in standard 9-probe set,
-                # assume they're 6, 7, 8 and exclude them from coverage
-                if not_observed >= 3:
-                    excluded = 3
-
-            probes_excluded = excluded  # Store for reporting
             testable = attempted - excluded
 
             # Edge case: zero testable probes means assessment is incomplete
@@ -2353,11 +2346,15 @@ def main():
                 sys.exit(5)
 
             # Coverage: verdicts reached / testable probes
+            # Only PASS, FAIL, OBSERVATION count as verdicts; NOT_OBSERVED (inconclusive) do not
             if testable > 0:
                 coverage = verdicts_reached / testable
                 if coverage < 1.0:
                     print(f"[!] Incomplete assessment: {verdicts_reached}/{testable} testable probes reached verdicts (excluded: {excluded} requiring registered client).", file=sys.stderr)
                     sys.exit(5)
+
+        # Store excluded count for reporting
+        probes_excluded = probe_status.get("excluded", 0)
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)

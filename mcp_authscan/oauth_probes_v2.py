@@ -31,7 +31,7 @@ class ProbeRecord:
     """Single probe result with full evidence trail."""
     def __init__(self, probe_id, probe_class, probe_name, request_method, url,
                  status, content_type, headers_observed, body_excerpt, body_sha256,
-                 verdict, evidence, limitation):
+                 verdict, evidence, limitation, prerequisites=None, prerequisite_met=True):
         self.probe_id = probe_id
         self.probe_class = probe_class  # "resource" or "authserver"
         self.probe_name = probe_name
@@ -42,9 +42,11 @@ class ProbeRecord:
         self.headers_observed = headers_observed  # dict
         self.body_excerpt = body_excerpt
         self.body_sha256 = body_sha256
-        self.verdict = verdict  # PASS, FAIL, NOT_OBSERVED
+        self.verdict = verdict  # PASS, FAIL, NOT_OBSERVED, EXCLUDED
         self.evidence = evidence  # string
         self.limitation = limitation  # string or None
+        self.prerequisites = prerequisites  # list of required conditions (e.g., ["registered_client"])
+        self.prerequisite_met = prerequisite_met  # bool: were prerequisites available at runtime?
 
 
 def probe_issuer_identity(metadata_url, metadata):
@@ -340,8 +342,8 @@ def probe_password_grant(token_endpoint):
         limitation = None
     else:
         verdict = "NOT_OBSERVED"
-        evidence = f"Unexpected error: {error_code}"
-        limitation = "Cannot determine grant type support"
+        evidence = f"Server returned: {error_code}"
+        limitation = "Cannot determine grant type support without client credentials"
 
     return ProbeRecord(
         probe_id=6,
@@ -408,7 +410,7 @@ def probe_client_auth(token_endpoint):
         evidence = f"Server accepted malformed token (HTTP {http_status})"
     else:
         verdict = "NOT_OBSERVED"
-        evidence = f"Error: {error_code}"
+        evidence = f"Server returned: {error_code} (HTTP {http_status})"
 
     return ProbeRecord(
         probe_id=9,
@@ -451,7 +453,9 @@ def probe_pkce_s256(metadata):
         body_sha256="",
         verdict="NOT_OBSERVED",
         evidence="Enforcement test requires registered client and authorization flow",
-        limitation="Cannot verify if S256 is enforced without client credentials"
+        limitation="Cannot verify if S256 is enforced without client credentials",
+        prerequisites=["registered_client", "authorization_flow"],
+        prerequisite_met=False
     )
 
 
@@ -490,7 +494,9 @@ def probe_redirect_uri_exact(metadata):
         body_sha256="",
         verdict=verdict,
         evidence=evidence,
-        limitation=limitation
+        limitation=limitation,
+        prerequisites=["registered_client", "authorization_flow"],
+        prerequisite_met=False
     )
 
 
@@ -498,15 +504,20 @@ def count_probes(records):
     """
     Derive probe counts from records, verify accounting.
     Returns (counts_by_class, accounting_valid, error_message)
+    Counts excluded probes (prerequisite_met=False) separately from inconclusive (NOT_OBSERVED but prerequisite_met=True)
     """
     counts = {}
     for record in records:
         probe_class = record.probe_class
         if probe_class not in counts:
-            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0}
+            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0, "excluded": 0}
 
         counts[probe_class]["attempted"] += 1
-        if record.verdict == "PASS":
+
+        # Count excluded probes (never sent due to missing prerequisites)
+        if hasattr(record, 'prerequisite_met') and not record.prerequisite_met:
+            counts[probe_class]["excluded"] += 1
+        elif record.verdict == "PASS":
             counts[probe_class]["passed"] += 1
         elif record.verdict == "FAIL":
             counts[probe_class]["failed"] += 1
@@ -515,9 +526,9 @@ def count_probes(records):
         elif record.verdict == "NOT_OBSERVED":
             counts[probe_class]["not_observed"] += 1
 
-    # Verify accounting
+    # Verify accounting: attempted = passed + failed + not_observed + observation + excluded
     for probe_class, c in counts.items():
-        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"]
+        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"] + c["excluded"]
         if expected != c["attempted"]:
             return counts, False, f"{probe_class}: {expected} != {c['attempted']}"
 
