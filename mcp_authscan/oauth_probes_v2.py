@@ -356,9 +356,9 @@ def probe_password_grant(token_endpoint):
 def probe_client_auth(token_endpoint):
     """
     Client authentication: send malformed Bearer token.
-    PASS: invalid_token (token validation works)
+    PASS: invalid_client with 401 and WWW-Authenticate header (RFC 6749 §5.2)
     FAIL: request accepted with bad token
-    NOT_OBSERVED: endpoint unreachable or no response
+    NOT_OBSERVED: endpoint unreachable, other error, or non-standard response
     """
     if not token_endpoint:
         return ProbeRecord(
@@ -393,12 +393,9 @@ def probe_client_auth(token_endpoint):
             0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
         )
 
-    if error_code == "invalid_token":
+    if error_code == "invalid_client":
         verdict = "PASS"
-        evidence = "Malformed Bearer token correctly rejected"
-    elif error_code == "invalid_client":
-        verdict = "PASS"
-        evidence = "Client authentication required: invalid_client error proves enforcement"
+        evidence = "Client authentication enforced: invalid_client error on bad token (RFC 6749)"
     elif error_code == "accepted":
         verdict = "FAIL"
         evidence = f"Server accepted malformed token (HTTP {http_status})"
