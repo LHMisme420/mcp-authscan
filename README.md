@@ -265,16 +265,3 @@ VATA research follows a strict "Receipts Over Promises" methodology:
 *Methodology: HTTP request/response analysis + protocol specification review*  
 *Classification: Research publication (Zenodo), not responsible disclosure of production systems*
 
-## Exit Codes
-
-**Proven:**
-- 0: Scan succeeded
-- 1: Authorization validation failed
-- 2: Target unreachable
-
-**Planned (design complete, testing pending):**
-- 3: Target not MCP (preflight failed)
-- 4: Discovery incomplete
-
-**Not yet designed:**
-- Handling for --fail-on threshold exceeded
