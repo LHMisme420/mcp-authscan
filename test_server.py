@@ -13,8 +13,8 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
+            # Missing 'resource' field - this is a FAIL on resource-binding check (HIGH)
             self.wfile.write(json.dumps({
-                "issuer": "http://127.0.0.1:8000",
                 "authorization_servers": ["http://127.0.0.1:8000"]
             }).encode())
         # /.well-known/oauth-authorization-server - OAuth server metadata (RFC 8414)
@@ -44,6 +44,12 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
                 "service": "oauth-server",
                 "tools": ["list_resources", "call_tool", "read_resource"]
             }).encode())
+        # OAuth probe endpoints - return 403 (no valid token) for testability
+        elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device", "/jwks"]:
+            self.send_response(403)  # Forbidden - can be tested
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "invalid_request"}).encode())
         else:
             self.send_response(404)
             self.end_headers()
@@ -78,6 +84,12 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
                 response = {"status": "success", "result": {}}
 
             self.wfile.write(json.dumps(response).encode())
+        # OAuth probe endpoints - return 403 (no valid token) for testability
+        elif self.path in ["/token", "/authorize", "/register", "/revoke", "/device"]:
+            self.send_response(403)  # Forbidden - can be tested
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "invalid_request"}).encode())
         else:
             self.send_response(404)
             self.end_headers()

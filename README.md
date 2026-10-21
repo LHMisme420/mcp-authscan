@@ -46,7 +46,7 @@ python3 mcp_authscan.py https://api.example.com/mcp \
 - `2` — Authorization validation failed (refused, fail-closed, no network calls made).
 - `3` — Target unreachable (connection refused or network error).
 - `4` — Target is not a valid MCP server (preflight check failed).
-- `5` — Zero probes measured: either discovery incomplete or no verdicts reached (server not assessable).
+- `5` — Zero probes measured: either discovery incomplete or zero verdicts reached (server not assessable).
 - `6` — Usage error (malformed arguments).
 
 **Verdict types:** Only **FAIL** verdicts vote for the `--fail-on` threshold. **PASS** verdicts show server compliance. **OBSERVATION** verdicts (e.g., CORS headers absent) are reported separately and do not count as findings. **NOT_OBSERVED** (endpoints unreachable) do not count toward coverage.
