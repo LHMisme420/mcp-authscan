@@ -156,14 +156,13 @@ class ScanMetadata:
             if self.probes_not_observed is not None:
                 lines.append(f"Probes Not Observed: {self.probes_not_observed}")
 
-            # Verify accounting: attempted = passed + failed + observed + not_observed + excluded
+            # Verify accounting: attempted = passed + failed + observed + not_observed
+            # (excluded probes are a subset of not_observed, so not counted separately)
             if (self.probes_passed is not None and self.probes_failed is not None and
                 self.probes_not_observed is not None):
                 total_accounted = self.probes_passed + self.probes_failed + self.probes_not_observed
                 if self.probes_observed is not None:
                     total_accounted += self.probes_observed
-                if self.probes_excluded is not None:
-                    total_accounted += self.probes_excluded
                 if total_accounted != self.probes_attempted:
                     lines.append(f"[ACCOUNTING ERROR: {total_accounted} != {self.probes_attempted}]")
         if self.elapsed_seconds is not None:

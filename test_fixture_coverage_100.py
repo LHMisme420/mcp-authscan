@@ -13,21 +13,21 @@ class CompleteHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
-                "resource": "http://127.0.0.1:5000/mcp",
-                "authorization_servers": ["http://127.0.0.1:5000"]
+                "resource": "http://127.0.0.1:9000/mcp",
+                "authorization_servers": ["http://127.0.0.1:9000"]
             }).encode())
         elif self.path == "/.well-known/oauth-authorization-server":
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
-                "issuer": "http://127.0.0.1:5000",
-                "token_endpoint": "http://127.0.0.1:5000/token",
-                "authorization_endpoint": "http://127.0.0.1:5000/authorize",
-                "registration_endpoint": "http://127.0.0.1:5000/register",
-                "revocation_endpoint": "http://127.0.0.1:5000/revoke",
-                "device_authorization_endpoint": "http://127.0.0.1:5000/device",
-                "jwks_uri": "http://127.0.0.1:5000/jwks",
+                "issuer": "http://127.0.0.1:9000",
+                "token_endpoint": "http://127.0.0.1:9000/token",
+                "authorization_endpoint": "http://127.0.0.1:9000/authorize",
+                "registration_endpoint": "http://127.0.0.1:9000/register",
+                "revocation_endpoint": "http://127.0.0.1:9000/revoke",
+                "device_authorization_endpoint": "http://127.0.0.1:9000/device",
+                "jwks_uri": "http://127.0.0.1:9000/jwks",
                 "code_challenge_methods_supported": ["S256"],
                 "grant_types_supported": ["authorization_code"],
                 "response_types_supported": ["code"]
@@ -73,7 +73,7 @@ class CompleteHandler(BaseHTTPRequestHandler):
         if self.path == "/initialize" or self.path == "/mcp":
             # Preflight: 401 with OAuth challenge
             self.send_response(401)
-            self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:5000/resource_metadata"')
+            self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:9000/resource_metadata"')
             self.end_headers()
         elif self.path == "/token":
             # Token endpoint POST: return invalid_client for probe 9 (client-auth) and unsupported_grant_type for probe 6

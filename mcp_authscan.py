@@ -2330,7 +2330,8 @@ def main():
             passed = probe_status.get("passed", 0)
             failed = probe_status.get("failed", 0)
             not_observed = probe_status.get("not_observed", 0)
-            verdicts_reached = passed + failed
+            observation = probe_status.get("observation", 0)
+            verdicts_reached = passed + failed + observation
 
             # Probes 6, 7, 8 require registered client - currently unavailable
             # Count how many should be excluded (have NOT_OBSERVED due to missing client)
