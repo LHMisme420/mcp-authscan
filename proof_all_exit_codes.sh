@@ -36,17 +36,14 @@ python3 mcp_authscan.py http://127.0.0.1:9002/mcp \
   --allow-private --fail-on high >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
-# EXIT 2: Authorization validation failed
+# EXIT 2: Authorization validation failed (missing --auth-basis)
 echo "========== EXIT 2 =========="
-echo "Authorization validation failed (blocklist: --auth-basis 'test' is in fake_values)"
-python3 test_fixture_coverage_100.py 9000 >/dev/null 2>&1 &
-sleep 2
+echo "Authorization validation failed (missing --auth-basis field)"
 python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
-  --authorized-by "Leroy H. Mason" --auth-basis "test" --contact "security@vata.local" \
+  --authorized-by "Leroy H. Mason" --contact "security@vata.local" \
   --allow-private 2>&1 | tail -3
-pkill -9 python3 2>/dev/null || true
 python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
-  --authorized-by "Leroy H. Mason" --auth-basis "test" --contact "security@vata.local" \
+  --authorized-by "Leroy H. Mason" --contact "security@vata.local" \
   --allow-private >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
