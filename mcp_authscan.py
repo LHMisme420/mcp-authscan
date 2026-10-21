@@ -1968,11 +1968,9 @@ def scan(root, include_tests, exclude=()):
 
 
 
-# ---- HTML Report Generation ----
-
 # ---- HTML Report Generation (canonical payload only) ----
 def generate_html_report(canonical_payload, output_file):
-    """Generate OAuth assessment report from canonical_payload — same source as JSON/hash."""
+    """Generate OAuth assessment report from canonical_payload."""
     from datetime import datetime
     
     target = canonical_payload.get("target", "unknown")
@@ -1982,6 +1980,8 @@ def generate_html_report(canonical_payload, output_file):
     observed = canonical_payload.get("probes_observed", 0)
     not_observed = canonical_payload.get("probes_not_observed", 0)
     excluded = canonical_payload.get("probes_excluded", 0)
+    scan_date = canonical_payload.get("scan_date", "Unknown")
+    tool_version = canonical_payload.get("tool_version", "1.1.0")
     
     auth = canonical_payload.get("authorization", {})
     findings = canonical_payload.get("findings", [])
@@ -1991,6 +1991,16 @@ def generate_html_report(canonical_payload, output_file):
     auth_basis = auth.get("auth_basis", "Unknown")
     contact = auth.get("contact", "Unknown")
     assessed_by = auth.get("assessed_by", "Unknown")
+    
+    findings_html = ""
+    if findings:
+        findings_html = '<div class="section"><div class="section-title">Findings</div>'
+        for f in findings:
+            severity = f.get("severity", "INFO")
+            title = f.get("title", "Unknown")
+            evidence = f.get("evidence", "")
+            findings_html += f'<div style="margin-bottom:15px; padding:15px; border-left:4px solid #dc2626;"><strong>{severity}: {title}</strong><br/><pre style="font-size:12px; white-space:pre-wrap;">{evidence}</pre></div>'
+        findings_html += '</div>'
     
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -2009,12 +2019,12 @@ def generate_html_report(canonical_payload, output_file):
         .auth-label {{ font-weight: 600; color: #059669; display: inline-block; width: 160px; }}
         .section {{ margin-bottom: 40px; }}
         .section-title {{ font-size: 18px; font-weight: 600; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 20px; color: #111827; }}
-        .probe-stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-        .stat-box {{ background: white; border: 1px solid #e5e7eb; padding: 20px; border-radius: 6px; text-align: center; }}
-        .stat-number {{ font-size: 32px; font-weight: 700; color: #059669; margin-bottom: 8px; }}
-        .stat-label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; }}
+        .probe-stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 30px; }}
+        .stat-box {{ background: white; border: 1px solid #e5e7eb; padding: 15px; border-radius: 6px; text-align: center; }}
+        .stat-number {{ font-size: 28px; font-weight: 700; color: #059669; margin-bottom: 8px; }}
+        .stat-label {{ font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; }}
         .hash-section {{ background: white; border: 1px solid #e5e7eb; padding: 20px; border-radius: 6px; margin-bottom: 30px; }}
-        .hash-value {{ background: #f3f4f6; padding: 16px; border-radius: 4px; font-family: monospace; font-size: 13px; word-break: break-all; margin: 12px 0; color: #374151; }}
+        .hash-value {{ background: #f3f4f6; padding: 16px; border-radius: 4px; font-family: monospace; font-size: 12px; word-break: break-all; margin: 12px 0; color: #374151; }}
         .footer {{ border-top: 1px solid #e5e7eb; padding-top: 30px; margin-top: 40px; font-size: 12px; color: #6b7280; }}
     </style>
 </head>
@@ -2022,7 +2032,7 @@ def generate_html_report(canonical_payload, output_file):
     <div class="header">
         <h1>OAuth Security Assessment Report</h1>
         <div class="subtitle">{target} — Live Server Analysis</div>
-        <div class="subtitle" style="margin-top: 10px;">Scan Date: {datetime.now().strftime('%B %d, %Y')}</div>
+        <div class="subtitle" style="margin-top: 10px;">Scan Date: {scan_date}</div>
     </div>
 
     <div class="auth-block">
@@ -2037,10 +2047,14 @@ def generate_html_report(canonical_payload, output_file):
         <div class="probe-stats">
             <div class="stat-box"><div class="stat-number">{attempted}</div><div class="stat-label">Attempted</div></div>
             <div class="stat-box"><div class="stat-number">{passed}</div><div class="stat-label">Passed</div></div>
+            <div class="stat-box"><div class="stat-number">{failed}</div><div class="stat-label">Failed</div></div>
             <div class="stat-box"><div class="stat-number">{observed}</div><div class="stat-label">Observation</div></div>
+            <div class="stat-box"><div class="stat-number">{not_observed}</div><div class="stat-label">Not Observed</div></div>
             <div class="stat-box"><div class="stat-number">{excluded}</div><div class="stat-label">Excluded*</div></div>
         </div>
     </div>
+
+    {findings_html}
 
     <div class="section">
         <div class="section-title">Report Integrity</div>
@@ -2057,7 +2071,7 @@ def generate_html_report(canonical_payload, output_file):
 
     <div class="footer">
         <div class="footer-title">Scanner Information</div>
-        <div>Tool: mcp-authscan v1.1.0</div>
+        <div>Tool: mcp-authscan {tool_version}</div>
         <div>All values extracted from canonical_payload. No arithmetic in renderer.</div>
     </div>
 </body>
@@ -2068,6 +2082,7 @@ def generate_html_report(canonical_payload, output_file):
         f.write(html_content)
     
     return output_file
+
 
 
 
