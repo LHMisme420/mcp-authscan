@@ -2206,6 +2206,18 @@ def main():
         print("[!] ERROR: --contact is required", file=sys.stderr)
         sys.exit(1)
 
+    # Validate authorization metadata against obviously fake values
+    fake_values = {"test", "example", "demo", "your name", "your.email@example.com"}
+    if args.authorized_by.lower() in fake_values:
+        print(f"[!] ERROR: --authorized-by value '{args.authorized_by}' appears to be a placeholder. Use your actual name.", file=sys.stderr)
+        sys.exit(1)
+    if args.contact.lower() in fake_values:
+        print(f"[!] ERROR: --contact value '{args.contact}' appears to be a placeholder. Use your actual email address.", file=sys.stderr)
+        sys.exit(1)
+    if args.auth_basis.lower() in fake_values:
+        print(f"[!] ERROR: --auth-basis value '{args.auth_basis}' appears to be a placeholder. Provide the actual authorization basis.", file=sys.stderr)
+        sys.exit(1)
+
     # Auto-detect: live server (http(s)://) or source code directory?
     scan_mode = None
     scan_start_time = time.time()
@@ -2288,18 +2300,6 @@ def main():
 
     if args.authorized_by or "Heath Weaver" and args.auth_basis and args.ticket_ref and args.contact:
         from mcp_authscan.authorization import ScanAuthorization, ScanMetadata, report_header_with_authorization
-
-        # Validate authorization metadata against obviously fake values
-        fake_values = {"test", "Test", "example", "Example", "demo", "Demo", "your name", "your.email@example.com"}
-        if args.authorized_by and args.authorized_by.lower() in fake_values:
-            print(f"[!] ERROR: --authorized-by value '{args.authorized_by}' appears to be a placeholder. Use your actual name.", file=sys.stderr)
-            sys.exit(1)
-        if args.contact and args.contact.lower() in fake_values:
-            print(f"[!] ERROR: --contact value '{args.contact}' appears to be a placeholder. Use your actual email address.", file=sys.stderr)
-            sys.exit(1)
-        if args.auth_basis and args.auth_basis.lower() in fake_values:
-            print(f"[!] ERROR: --auth-basis value '{args.auth_basis}' appears to be a placeholder. Provide the actual authorization basis.", file=sys.stderr)
-            sys.exit(1)
 
         auth = ScanAuthorization(
             authorized_by=args.authorized_by,
