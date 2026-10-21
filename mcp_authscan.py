@@ -2256,9 +2256,17 @@ def main():
                 print(f"    Hosts: {', '.join(discovery_info['discovered_hosts'])}", file=sys.stderr)
 
         if not server_reachable:
-            # Server unreachable or preflight failed: fail hard
-            print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
-            sys.exit(2)
+            # Distinguish failure modes by discovery_info status
+            if discovery_info is None:
+                # Can't connect at all
+                print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
+                sys.exit(2)
+            elif discovery_info.get("status") == "PREFLIGHT_FAILED":
+                # Preflight failed (target not MCP)
+                sys.exit(3)
+            else:
+                # Other error
+                sys.exit(2)
         else:
             # Server reachable: use actual probe status counts from scanner
             # This correctly distinguishes:
