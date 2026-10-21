@@ -49,6 +49,8 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        import time
+        time.sleep(1)  # Force different elapsed times between scan runs
         # MCP endpoints require OAuth (401 with WWW-Authenticate header)
         if self.path == "/initialize" or self.path == "/mcp":
             self.send_response(401)
