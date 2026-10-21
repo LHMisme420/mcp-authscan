@@ -43,7 +43,7 @@ python3 mcp_authscan.py https://api.example.com/mcp \
 **Exit codes:**
 - `0` — Scan completed. No FAIL verdicts at or above `--fail-on` threshold (default: high).
 - `1` — Scan completed. FAIL verdicts detected at or above `--fail-on` threshold.
-- `2` — Authorization validation failed (refused, fail-closed, no network calls made).
+- `2` — Authorization validation failed (refused, fail-closed, no network calls made). Validation runs before reachability check — authorization is checked before the scanner touches the network.
 - `3` — Target unreachable (connection refused or network error).
 - `4` — Target is not a valid MCP server (preflight check failed).
 - `5` — Server not assessable: discovery incomplete, zero verdicts reached, OR too many probes NOT_OBSERVED (>2 in 9-probe set, meaning insufficient coverage).
