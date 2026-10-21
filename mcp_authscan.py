@@ -2534,7 +2534,8 @@ def main():
 
         # Footer with hash if authorization provided
         if report_lines:
-            full_report = "\n".join(report_lines) + f"\nDETAILED FINDINGS\n{'-' * 80}\n"
+            report_lines_for_hash = [line for line in report_lines if not line.strip().startswith("Elapsed Time:")]
+            full_report = "\n".join(report_lines_for_hash) + f"\nDETAILED FINDINGS\n{'-' * 80}\n"
             for x in F:
                 full_report += f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}\n"
                 full_report += f"  {x['file']}:{x['line']}  ({x['ref']})\n"
@@ -2561,6 +2562,8 @@ def main():
             print("=" * 80)
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("=" * 80)
+            if metadata.elapsed_seconds is not None:
+                print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
         else:
             print(f"{len(F)} finding(s).")
 
