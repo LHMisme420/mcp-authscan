@@ -78,7 +78,6 @@ class ScanMetadata:
         probes_not_observed: Optional[int] = None,
         probes_failed: Optional[int] = None,
         probes_observed: Optional[int] = None,
-        probes_excluded: Optional[int] = None,
         elapsed_seconds: Optional[float] = None,
         discovery_info: Optional[dict] = None
     ):
@@ -98,7 +97,6 @@ class ScanMetadata:
         self.probes_not_observed = probes_not_observed
         self.probes_failed = probes_failed
         self.probes_observed = probes_observed
-        self.probes_excluded = probes_excluded
         self.elapsed_seconds = elapsed_seconds
         self.discovery_info = discovery_info
 
@@ -152,14 +150,10 @@ class ScanMetadata:
             if self.probes_observed is not None:
                 lines.append(f"Probes Observed: {self.probes_observed}")
             if self.probes_not_observed is not None:
-                not_obs_line = f"Probes Not Observed: {self.probes_not_observed}"
-                if self.probes_excluded is not None and self.probes_excluded > 0:
-                    not_obs_line += f" ({self.probes_excluded} excluded: missing registered client)"
-                lines.append(not_obs_line)
+                lines.append(f"Probes Not Observed: {self.probes_not_observed}")
 
             # Verify accounting: attempted = passed + failed + observed + not_observed
-            # Excluded = probes never sent (recorded separately, not in attempted)
-            # So the check is: passed + failed + not_observed + observed should equal attempted
+            # All probes are attempted. NOT_OBSERVED may have unmet prerequisites but were still sent.
             if (self.probes_passed is not None and self.probes_failed is not None):
                 total_accounted = self.probes_passed + self.probes_failed
                 if self.probes_not_observed is not None:

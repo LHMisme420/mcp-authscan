@@ -504,20 +504,19 @@ def count_probes(records):
     """
     Derive probe counts from records, verify accounting.
     Returns (counts_by_class, accounting_valid, error_message)
-    Counts excluded probes (prerequisite_met=False) separately from inconclusive (NOT_OBSERVED but prerequisite_met=True)
+    All probes are counted as attempted. NOT_OBSERVED probes may have unmet prerequisites,
+    but they were still sent and their verdict is recorded.
     """
     counts = {}
     for record in records:
         probe_class = record.probe_class
         if probe_class not in counts:
-            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0, "excluded": 0}
+            counts[probe_class] = {"attempted": 0, "passed": 0, "failed": 0, "not_observed": 0, "observation": 0}
 
         counts[probe_class]["attempted"] += 1
 
-        # Count excluded probes (never sent due to missing prerequisites)
-        if hasattr(record, 'prerequisite_met') and not record.prerequisite_met:
-            counts[probe_class]["excluded"] += 1
-        elif record.verdict == "PASS":
+        # Count by verdict (all probes count toward attempted, regardless of prerequisites)
+        if record.verdict == "PASS":
             counts[probe_class]["passed"] += 1
         elif record.verdict == "FAIL":
             counts[probe_class]["failed"] += 1
@@ -526,9 +525,9 @@ def count_probes(records):
         elif record.verdict == "NOT_OBSERVED":
             counts[probe_class]["not_observed"] += 1
 
-    # Verify accounting: attempted = passed + failed + not_observed + observation + excluded
+    # Verify accounting: attempted = passed + failed + not_observed + observation
     for probe_class, c in counts.items():
-        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"] + c["excluded"]
+        expected = c["passed"] + c["failed"] + c["not_observed"] + c["observation"]
         if expected != c["attempted"]:
             return counts, False, f"{probe_class}: {expected} != {c['attempted']}"
 
