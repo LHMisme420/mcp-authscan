@@ -2560,6 +2560,7 @@ def main():
 
             report_hash = hashlib.sha256(full_report.encode()).hexdigest()
             print("=" * 80)
+            print("[Hash computed over: authorization block + assessment mode + scan metadata + findings summary + probe results. Excludes: elapsed time and timestamp fields.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
