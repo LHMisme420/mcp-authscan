@@ -46,11 +46,9 @@ class ScanAuthorization:
             "AUTHORIZATION BLOCK",
             "-" * 80,
             f"Authorized By: {self.authorized_by}",
-            f"Client Name: {self.client_name}",
-            f"Client Title: {self.client_title}",
             f"Authorization Basis: {self.auth_basis}",
-            f"Ticket Reference: {self.ticket_ref}",
             f"Contact: {self.contact}",
+            f"Assessed by: Leroy H. Mason",
             f"Scan Date: {self.scan_date}",
             "-" * 80,
         ]

@@ -2487,7 +2487,7 @@ def main():
                 not_tested.insert(0, "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 → RFC 8414 discovery)")
 
         metadata = ScanMetadata(
-            scope=args.scope or "Full assessment",
+            scope="OAuth server configuration only" if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" else (args.scope or "Full assessment"),
             probe_set_version=PROBE_SET_VERSION,
             not_tested=not_tested,
             target=args.target,
@@ -2705,8 +2705,8 @@ def main():
             print(" Excludes: elapsed time, timestamp, and the report_hash field itself.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("")
-            print("[Verification: To verify integrity, extract report_hash, remove it from the")
-            print(" JSON payload, recompute SHA256 of the sorted JSON, and compare.]")
+            print("[Verification: To verify integrity, use: --json flag to get canonical payload,")
+            print(" remove report_hash field, recompute SHA256 of sorted JSON, and compare.]")
             print("")
             print("[Authenticity: Real proof of scan is Heath's server logs showing the probes.")
             print(" Hash provides integrity; logs provide proof the scan actually occurred.]")

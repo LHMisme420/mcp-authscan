@@ -39,8 +39,17 @@ def render_summary(records):
             lines.append(f"OBSERVED ({r.probe_name}): {r.evidence}")
     
     if not_obs:
-        names = ", ".join(r.probe_name for r in not_obs)
-        lines.append(f"NOT OBSERVED ({len(not_obs)}): {names}")
+        # Distinguish excluded (never sent) from not_observed (sent, inconclusive)
+        excluded = [r for r in not_obs if hasattr(r, 'prerequisite_met') and not r.prerequisite_met]
+        inconclusive = [r for r in not_obs if not (hasattr(r, 'prerequisite_met') and not r.prerequisite_met)]
+
+        if excluded:
+            names = ", ".join(r.probe_name for r in excluded)
+            lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent): {names}")
+
+        if inconclusive:
+            names = ", ".join(r.probe_name for r in inconclusive)
+            lines.append(f"NOT OBSERVED ({len(inconclusive)}): {names}")
     
     if failed:
         names = ", ".join(r.probe_name for r in failed)
