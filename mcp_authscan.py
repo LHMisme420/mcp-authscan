@@ -2397,7 +2397,7 @@ def main():
             report_lines.append("-" * 80)
             report_lines.append("")
 
-        report_lines.append(auth.format_block())
+        report_lines.extend(auth.format_block().split("\n"))
         report_lines.append("")
         report_lines.append("ASSESSMENT MODE")
         report_lines.append("-" * 80)
@@ -2411,7 +2411,7 @@ def main():
             report_lines.append("Scope: Code repository examination")
         report_lines.append("-" * 80)
         report_lines.append("")
-        report_lines.append(metadata.format_block())
+        report_lines.extend(metadata.format_block().split("\n"))
         report_lines.append("")
 
         # Add fixture disclaimer for localhost/test targets
