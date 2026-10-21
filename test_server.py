@@ -14,8 +14,10 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
-                "issuer": "http://127.0.0.1:8000",
-                "authorization_servers": ["http://127.0.0.1:8000"]
+                "resource": "http://127.0.0.1:8000/mcp",
+                "authorization_servers": ["http://127.0.0.1:8000"],
+                "scopes_supported": ["mcp:tools"],
+                "bearer_methods_supported": ["header"]
             }).encode())
         # /.well-known/oauth-authorization-server - OAuth server metadata (RFC 8414)
         elif self.path == "/.well-known/oauth-authorization-server":
@@ -46,6 +48,8 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             }).encode())
         else:
             self.send_response(404)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Pragma", "no-cache")
             self.end_headers()
 
     def do_POST(self):
@@ -56,7 +60,7 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
         # /message and /mcp exist and accept unauthenticated requests (D1 vulnerability)
         # Also accept invalid tokens (D3 vulnerability)
-        elif self.path == "/message" or self.path == "/mcp":
+        elif self.path == "/message":
             # Both vulnerabilities: no auth check, no token validation
             content_len = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_len) if content_len > 0 else b''
@@ -76,8 +80,15 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
                 response = {"status": "success", "result": {}}
 
             self.wfile.write(json.dumps(response).encode())
+        elif self.path == "/mcp":
+            # /mcp is OAuth-protected - return 401 with discovery
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:8000/resource_metadata"')
+            self.end_headers()
         else:
             self.send_response(404)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Pragma", "no-cache")
             self.end_headers()
 
     def log_message(self, format, *args):
