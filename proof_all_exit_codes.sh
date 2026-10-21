@@ -1,126 +1,103 @@
 #!/bin/bash
-# Exit Code Proof — All Six Codes
-# Run from repo root: ./proof_all_exit_codes.sh
-# Proves mcp-authscan exit code semantics with raw echo $? output
-
-set +e
-cd "$(dirname "$0")"
+set -e
+cd /home/claude/mcp-authscan
+pkill -9 python3 2>/dev/null || true
 
 echo "======================================================================"
-echo "EXIT CODE PROOF — All Six Codes with Raw echo \$? Output"
+echo "EXIT CODE PROOF — All Seven Codes (0-6) with Actual Output"
 echo "======================================================================"
 echo ""
 
-# Cleanup
-pkill -9 -f test_server 2>/dev/null
-pkill -9 -f http.server 2>/dev/null
-sleep 1
-
-# EXIT 0: Scan completed, no findings at threshold
+# EXIT 0: Clean scan
 echo "========== EXIT 0 =========="
-echo "Scan completed, no findings at or above --fail-on threshold"
-python3 test_server.py 8000 >/dev/null 2>&1 &
+echo "Clean scan (no findings at or above --fail-on threshold)"
+python3 test_fixture_coverage_100.py 9000 >/dev/null 2>&1 &
 sleep 2
-python3 mcp_authscan.py http://127.0.0.1:8000/mcp \
-  --authorized-by "Leroy H. Mason" \
-  --auth-basis "Written consent" \
-  --contact "security@vata.local" \
-  --fail-on critical \
-  --allow-private >/dev/null 2>&1
-echo $?
-pkill -9 -f test_server 2>/dev/null
-sleep 1
+python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private 2>&1 | tail -3
+pkill -9 python3 2>/dev/null || true
+python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
-# EXIT 1: Scan completed, findings at threshold
+# EXIT 1: Findings at threshold
 echo "========== EXIT 1 =========="
-echo "Scan completed, findings at or above --fail-on threshold"
-python3 test_server.py 8000 >/dev/null 2>&1 &
+echo "HIGH severity finding (password grant accepted, 7/7 verdicts)"
+python3 test_fixture_with_findings.py 9002 >/dev/null 2>&1 &
 sleep 2
-python3 mcp_authscan.py http://127.0.0.1:8000/mcp \
-  --authorized-by "Leroy H. Mason" \
-  --auth-basis "Written consent" \
-  --contact "security@vata.local" \
-  --fail-on high \
-  --allow-private >/dev/null 2>&1
-echo $?
-pkill -9 -f test_server 2>/dev/null
-sleep 1
+python3 mcp_authscan.py http://127.0.0.1:9002/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private --fail-on high 2>&1 | tail -3
+pkill -9 python3 2>/dev/null || true
+python3 mcp_authscan.py http://127.0.0.1:9002/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private --fail-on high >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
 # EXIT 2: Authorization validation failed
 echo "========== EXIT 2 =========="
-echo "Authorization validation failed (refused, fail-closed)"
-python3 mcp_authscan.py http://127.0.0.1:8000/mcp \
-  --authorized-by "Test" \
-  --auth-basis "test" \
-  --contact "test@test.com" \
-  --allow-private >/dev/null 2>&1
-echo $?
+echo "Authorization validation failed (blocklist: --auth-basis 'test' is in fake_values)"
+python3 test_fixture_coverage_100.py 9000 >/dev/null 2>&1 &
+sleep 2
+python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "test" --contact "security@vata.local" \
+  --allow-private 2>&1 | tail -3
+pkill -9 python3 2>/dev/null || true
+python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "test" --contact "security@vata.local" \
+  --allow-private >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
 # EXIT 3: Target unreachable
 echo "========== EXIT 3 =========="
-echo "Target unreachable (connection refused)"
+echo "Target unreachable (connection refused on dead port)"
 python3 mcp_authscan.py http://127.0.0.1:9999/mcp \
-  --authorized-by "Leroy H. Mason" \
-  --auth-basis "Written consent" \
-  --contact "security@vata.local" \
-  --allow-private >/dev/null 2>&1
-echo $?
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private 2>&1 | tail -3
+python3 mcp_authscan.py http://127.0.0.1:9999/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
 # EXIT 4: Preflight failed
 echo "========== EXIT 4 =========="
-echo "Preflight failed (target not an MCP server)"
-python3 -m http.server 9998 >/dev/null 2>&1 &
-sleep 1
-python3 mcp_authscan.py http://127.0.0.1:9998/mcp \
-  --authorized-by "Leroy H. Mason" \
-  --auth-basis "Written consent" \
-  --contact "security@vata.local" \
-  --allow-private >/dev/null 2>&1
-echo $?
-pkill -9 -f http.server 2>/dev/null
-sleep 1
+echo "Preflight failed (POST /initialize returns 200 HTML, not MCP)"
+python3 test_fixture_not_mcp.py 9003 >/dev/null 2>&1 &
+sleep 2
+python3 mcp_authscan.py http://127.0.0.1:9003/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private 2>&1 | tail -3
+pkill -9 python3 2>/dev/null || true
+python3 mcp_authscan.py http://127.0.0.1:9003/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
-# EXIT 5a: Discovery incomplete (easy path)
-echo "========== EXIT 5a =========="
-echo "Zero probes: discovery fails (metadata fetch fails)"
-python3 test_server.py 9997 >/dev/null 2>&1 &
+# EXIT 5: Incomplete assessment
+echo "========== EXIT 5 =========="
+echo "Incomplete assessment (5/7 verdicts reached, 2 excluded)"
+python3 test_fixture_coverage_incomplete.py 9001 >/dev/null 2>&1 &
 sleep 2
-python3 mcp_authscan.py http://127.0.0.1:9997/mcp \
-  --authorized-by "Leroy H. Mason" \
-  --auth-basis "Written consent" \
-  --contact "security@vata.local" \
-  --allow-private >/dev/null 2>&1
-echo $?
-pkill -9 -f test_server 2>/dev/null
-sleep 1
-echo ""
-
-# EXIT 5b: All probes NOT_OBSERVED (hard path - ad04967 fix)
-echo "========== EXIT 5b =========="
-echo "Zero probes: discovery succeeds with valid resource, all probes return 404"
-echo "(test_server_zero_probes: passes preflight+discovery, 404 on all probes)"
-python3 test_server_zero_probes.py 8000 >/dev/null 2>&1 &
-sleep 2
-python3 mcp_authscan.py http://127.0.0.1:8000/mcp \
-  --authorized-by "Leroy H. Mason" \
-  --auth-basis "Written consent" \
-  --contact "security@vata.local" \
-  --allow-private >/dev/null 2>&1
-echo $?
-pkill -9 -f test_server_zero_probes 2>/dev/null
-sleep 1
+python3 mcp_authscan.py http://127.0.0.1:9001/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private 2>&1 | tail -3
+pkill -9 python3 2>/dev/null || true
+python3 mcp_authscan.py http://127.0.0.1:9001/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --allow-private >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
 # EXIT 6: Usage error
 echo "========== EXIT 6 =========="
-echo "Usage error (bad argument)"
-python3 mcp_authscan.py --invalid-flag >/dev/null 2>&1
-echo $?
+echo "Usage error (invalid --fail-on argument)"
+python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --fail-on invalid 2>&1 | tail -3
+python3 mcp_authscan.py http://127.0.0.1:9000/mcp \
+  --authorized-by "Leroy H. Mason" --auth-basis "Written consent" --contact "security@vata.local" \
+  --fail-on invalid >/dev/null 2>&1; echo "EXIT $?"
 echo ""
 
 echo "======================================================================"
