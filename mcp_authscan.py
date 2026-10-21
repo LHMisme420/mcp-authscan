@@ -2160,7 +2160,8 @@ def main():
                     help="skip a directory relative to target (repeatable)")
     ap.add_argument("--output", "-o", metavar="FILE",
                     help="output file for HTML/JSON report")
-    ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default=None)
+    ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default="high",
+                    help="exit 1 if findings at or above this severity are found (default: high)")
 
     # Authorization and compliance tracking
     ap.add_argument("--authorized-by", metavar="NAME",
@@ -2266,6 +2267,11 @@ def main():
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
             return findings, True, probe_status, discovery_info, ([], [])
+
+        # Check for discovery incomplete (OAuth detected but discovery chain failed)
+        if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
+            print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
+            sys.exit(4)
 
         if not server_reachable:
             # Distinguish failure modes by discovery_info status
@@ -2620,12 +2626,26 @@ def main():
         else:
             print(f"{len(F)} finding(s).")
 
-    # Review-list rules warn only. They must not fail CI.
-    REVIEW = {"A4", "A5", "A6", "B2"}
-    if args.fail_on:
-        thr = {"critical": 0, "high": 1, "medium": 2}[args.fail_on]
-        if any(order.get(x["severity"], 9) <= thr and x["rule"] not in REVIEW for x in F):
-            sys.exit(1)
+    # Exit code based on findings severity and --fail-on threshold
+    thr_map = {"critical": 0, "high": 1, "medium": 2}
+    thr = thr_map[args.fail_on]
+    REVIEW = {"A4", "A5", "A6", "B2"}  # Review-list rules warn only
+
+    # Check if any finding meets or exceeds the threshold
+    findings_at_threshold = False
+    for finding in F:
+        severity = finding.get("severity", "LOW")
+        sev_level = order.get(severity, 9)
+        rule = finding.get("rule", finding.get("ref", ""))  # Live findings use "ref", source code uses "rule"
+
+        if sev_level <= thr and rule not in REVIEW:
+            findings_at_threshold = True
+            break
+
+    if findings_at_threshold:
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
