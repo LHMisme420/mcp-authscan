@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test server: exactly 2 NOT_OBSERVED (probes 7-8 only), all others PASS/FAIL."""
+"""Test server: 100% coverage (7/7 verdicts). Probes 7-8 excluded (need authorization flow); probes 1-6,9 reach verdicts."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
@@ -77,12 +77,6 @@ class CompleteHandler(BaseHTTPRequestHandler):
             self.end_headers()
         elif self.path == "/token":
             # Token endpoint POST: return unsupported_grant_type for probe 6 (password-grant), invalid_client for probe 9 (client-auth)
-            self.send_response(401)
-            self.send_header("Content-type", "application/json")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("WWW-Authenticate", 'Bearer realm="mcp"')
-            self.end_headers()
 
             # Read request body to determine which probe is calling
             content_len = int(self.headers.get('Content-Length', 0))
@@ -90,9 +84,20 @@ class CompleteHandler(BaseHTTPRequestHandler):
 
             # Probe 6 (password-grant) sends grant_type=password
             if "grant_type=password" in body:
+                # Unsupported grant type: 400 Bad Request (not 401 Unauthorized)
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
                 self.wfile.write(json.dumps({"error": "unsupported_grant_type"}).encode())
             else:
-                # Probe 9 (client-auth) or other requests get invalid_client
+                # Probe 9 (client-auth) or other requests get invalid_client: 401 Unauthorized
+                self.send_response(401)
+                self.send_header("Content-type", "application/json")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("WWW-Authenticate", 'Bearer realm="mcp"')
+                self.end_headers()
                 self.wfile.write(json.dumps({"error": "invalid_client"}).encode())
         elif self.path == "/authorize":
             # Authorization endpoint: return something
