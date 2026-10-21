@@ -1966,145 +1966,99 @@ def scan(root, include_tests, exclude=()):
             r(path, text, F)
     return F
 
-def generate_html_report(findings, target, output_file):
-    """Generate a polished HTML security report."""
+
+
+# ---- HTML Report Generation ----
+
+# ---- HTML Report Generation (canonical payload only) ----
+def generate_html_report(canonical_payload, output_file):
+    """Generate OAuth assessment report from canonical_payload — same source as JSON/hash."""
     from datetime import datetime
     
-    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
-    findings_sorted = sorted(findings, key=lambda x: (order.get(x["severity"], 9), x.get("file", "")))
+    target = canonical_payload.get("target", "unknown")
+    attempted = canonical_payload.get("probes_attempted", 0)
+    passed = canonical_payload.get("probes_passed", 0)
+    failed = canonical_payload.get("probes_failed", 0)
+    observed = canonical_payload.get("probes_observed", 0)
+    not_observed = canonical_payload.get("probes_not_observed", 0)
+    excluded = canonical_payload.get("probes_excluded", 0)
     
-    # Count findings by severity
-    counts = {}
-    for f in findings:
-        sev = f["severity"]
-        counts[sev] = counts.get(sev, 0) + 1
+    auth = canonical_payload.get("authorization", {})
+    findings = canonical_payload.get("findings", [])
+    report_hash = canonical_payload.get("report_hash", "")
     
-    critical_count = counts.get("CRITICAL", 0)
-    high_count = counts.get("HIGH", 0)
-    medium_count = counts.get("MEDIUM", 0)
-    low_count = counts.get("LOW", 0) + counts.get("INFO", 0)
-    total_count = len(findings)
+    auth_by = auth.get("authorized_by", "Unknown")
+    auth_basis = auth.get("auth_basis", "Unknown")
+    contact = auth.get("contact", "Unknown")
+    assessed_by = auth.get("assessed_by", "Unknown")
     
-    html_content = """<!DOCTYPE html>
+    html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mcp-authscan Security Report</title>
+    <title>OAuth Security Assessment — {target}</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
-        .header p { font-size: 1.1em; opacity: 0.9; }
-        .target { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 4px; margin-top: 15px; font-family: monospace; }
-        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; padding: 40px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; }
-        .summary-card { text-align: center; }
-        .summary-card .number { font-size: 2.5em; font-weight: bold; margin-bottom: 5px; }
-        .summary-card .label { color: #666; font-size: 0.9em; }
-        .critical { color: #e74c3c; }
-        .high { color: #e67e22; }
-        .medium { color: #f39c12; }
-        .low { color: #3498db; }
-        .findings { padding: 40px; }
-        .finding { margin-bottom: 30px; border-left: 4px solid #e0e0e0; padding-left: 20px; }
-        .finding.critical { border-left-color: #e74c3c; }
-        .finding.high { border-left-color: #e67e22; }
-        .finding.medium { border-left-color: #f39c12; }
-        .finding.low { border-left-color: #3498db; }
-        .finding h3 { margin-bottom: 10px; font-size: 1.2em; }
-        .finding .meta { display: flex; gap: 20px; font-size: 0.9em; color: #666; margin-bottom: 10px; flex-wrap: wrap; }
-        .finding .evidence { background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 0.85em; margin: 10px 0; white-space: pre-wrap; }
-        .finding .snippet { background: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85em; margin: 5px 0; white-space: pre-wrap; }
-        .finding .remediation { background: #e8f5e9; padding: 15px; border-radius: 4px; margin-top: 10px; }
-        .remediation-title { color: #2e7d32; font-weight: bold; margin-bottom: 5px; }
-        .footer { background: #f9f9f9; padding: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #666; font-size: 0.9em; }
-        .severity-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em; margin-right: 10px; }
-        .severity-badge.critical { background: #fadbd8; color: #c0392b; }
-        .severity-badge.high { background: #fdebd0; color: #d35400; }
-        .severity-badge.medium { background: #fef5e7; color: #d68910; }
-        .severity-badge.low { background: #d6eaf8; color: #2980b9; }
-        @media print { body { background: white; } .container { box-shadow: none; } }
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 1000px; margin: 0 auto; padding: 40px 20px; background: #f9fafb; color: #1f2937; }}
+        .header {{ border-bottom: 3px solid #059669; padding-bottom: 30px; margin-bottom: 40px; }}
+        h1 {{ font-size: 28px; margin-bottom: 10px; color: #111827; }}
+        .subtitle {{ color: #6b7280; font-size: 14px; }}
+        .auth-block {{ background: #ecfdf5; border: 1px solid #a7f3d0; padding: 20px; margin-bottom: 30px; border-radius: 6px; }}
+        .auth-line {{ margin-bottom: 10px; font-size: 14px; }}
+        .auth-label {{ font-weight: 600; color: #059669; display: inline-block; width: 160px; }}
+        .section {{ margin-bottom: 40px; }}
+        .section-title {{ font-size: 18px; font-weight: 600; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 20px; color: #111827; }}
+        .probe-stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+        .stat-box {{ background: white; border: 1px solid #e5e7eb; padding: 20px; border-radius: 6px; text-align: center; }}
+        .stat-number {{ font-size: 32px; font-weight: 700; color: #059669; margin-bottom: 8px; }}
+        .stat-label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; }}
+        .hash-section {{ background: white; border: 1px solid #e5e7eb; padding: 20px; border-radius: 6px; margin-bottom: 30px; }}
+        .hash-value {{ background: #f3f4f6; padding: 16px; border-radius: 4px; font-family: monospace; font-size: 13px; word-break: break-all; margin: 12px 0; color: #374151; }}
+        .footer {{ border-top: 1px solid #e5e7eb; padding-top: 30px; margin-top: 40px; font-size: 12px; color: #6b7280; }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔒 mcp-authscan Security Report</h1>
-            <p>MCP Server/Code Security Assessment</p>
-            <div class="target">Target: <strong>""" + target + """</strong><br/>Scanned: """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC') + """</div>
+    <div class="header">
+        <h1>OAuth Security Assessment Report</h1>
+        <div class="subtitle">{target} — Live Server Analysis</div>
+        <div class="subtitle" style="margin-top: 10px;">Scan Date: {datetime.now().strftime('%B %d, %Y')}</div>
+    </div>
+
+    <div class="auth-block">
+        <div class="auth-line"><span class="auth-label">Authorized By:</span> {auth_by}</div>
+        <div class="auth-line"><span class="auth-label">Authorization Basis:</span> {auth_basis}</div>
+        <div class="auth-line"><span class="auth-label">Contact:</span> {contact}</div>
+        <div class="auth-line"><span class="auth-label">Assessed by:</span> {assessed_by}</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Probe Execution Summary</div>
+        <div class="probe-stats">
+            <div class="stat-box"><div class="stat-number">{attempted}</div><div class="stat-label">Attempted</div></div>
+            <div class="stat-box"><div class="stat-number">{passed}</div><div class="stat-label">Passed</div></div>
+            <div class="stat-box"><div class="stat-number">{observed}</div><div class="stat-label">Observation</div></div>
+            <div class="stat-box"><div class="stat-number">{excluded}</div><div class="stat-label">Excluded*</div></div>
         </div>
-        
-        <div class="summary">
-            <div class="summary-card">
-                <div class="number critical">""" + str(critical_count) + """</div>
-                <div class="label">CRITICAL</div>
-            </div>
-            <div class="summary-card">
-                <div class="number high">""" + str(high_count) + """</div>
-                <div class="label">HIGH</div>
-            </div>
-            <div class="summary-card">
-                <div class="number medium">""" + str(medium_count) + """</div>
-                <div class="label">MEDIUM</div>
-            </div>
-            <div class="summary-card">
-                <div class="number low">""" + str(low_count) + """</div>
-                <div class="label">LOW/INFO</div>
-            </div>
-            <div class="summary-card">
-                <div class="number">""" + str(total_count) + """</div>
-                <div class="label">Total Findings</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Report Integrity</div>
+        <div class="hash-section">
+            <div style="font-weight: 600; margin-bottom: 12px; color: #111827;">Hash (SHA256)</div>
+            <div class="hash-value">{report_hash}</div>
+            <div style="margin-top: 20px; font-size: 13px; color: #6b7280; line-height: 1.6;">
+                <strong>Verification:</strong> Extract report_hash from JSON, remove it, recompute SHA256 of sorted JSON, compare.
+                <br/><br/>
+                <strong>Authenticity:</strong> Server logs showing {attempted} HTTP requests prove the scan occurred.
             </div>
         </div>
-        
-        <div class="findings">
-"""
-    
-    if findings_sorted:
-        for f in findings_sorted:
-            sev_class = f["severity"].lower()
-            sev_badge = f["severity"]
-            rule = f.get("rule", "N/A")
-            title = f.get("title", "N/A")
-            file_path = f.get("file", "N/A")
-            confidence = f.get("confidence", "N/A")
-            ref = f.get("ref", "N/A")
-            evidence = f.get("evidence", "N/A")
-            snippet = f.get("snippet", "N/A")
-            remediation = f.get("remediation", "See COMPLIANCE.md for details")
-            
-            html_content += f"""
-            <div class="finding {sev_class}">
-                <h3>
-                    <span class="severity-badge {sev_class}">{sev_badge}</span>
-                    {rule} - {title}
-                </h3>
-                <div class="meta">
-                    <span>📁 {file_path}</span>
-                    <span>🔍 {confidence} confidence</span>
-                    <span>📌 {ref}</span>
-                </div>
-                <div class="evidence"><strong>Evidence:</strong><br/>{evidence}</div>
-                <div class="snippet"><strong>Code:</strong><br/>{snippet}</div>
-                <div class="remediation">
-                    <div class="remediation-title">✅ Remediation:</div>
-                    {remediation}
-                </div>
-            </div>
-"""
-    else:
-        html_content += '<div style="text-align: center; padding: 40px; color: #666;"><h2>✅ No findings detected</h2><p>Your MCP implementation passed security assessment.</p></div>'
-    
-    html_content += """
-        </div>
-        
-        <div class="footer">
-            Generated by <strong>mcp-authscan</strong> — MCP Security Assessment Tool<br/>
-            <a href="https://github.com/LHMisme420/mcp-authscan">github.com/LHMisme420/mcp-authscan</a> | 
-            <a href="https://github.com/LHMisme420/mcp-authscan/blob/main/COMPLIANCE.md">Compliance Mappings</a>
-        </div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-title">Scanner Information</div>
+        <div>Tool: mcp-authscan v1.1.0</div>
+        <div>All values extracted from canonical_payload. No arithmetic in renderer.</div>
     </div>
 </body>
 </html>
@@ -2116,39 +2070,6 @@ def generate_html_report(findings, target, output_file):
     return output_file
 
 
-# ---- HTML Report Generation ----
-def generate_html_report(findings, target, output_file):
-    """Generate a polished HTML security report."""
-    from datetime import datetime
-    
-    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
-    findings_sorted = sorted(findings, key=lambda x: (order.get(x["severity"], 9), x.get("file", "")))
-    
-    counts = {}
-    for f in findings:
-        sev = f["severity"]
-        counts[sev] = counts.get(sev, 0) + 1
-    
-    critical = counts.get("CRITICAL", 0)
-    high = counts.get("HIGH", 0)
-    medium = counts.get("MEDIUM", 0)
-    low = counts.get("LOW", 0) + counts.get("INFO", 0)
-    
-    html_content = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>mcp-authscan Report</title><style>body{font-family:sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:1200px;margin:0 auto;background:white;border-radius:8px;padding:30px}.header{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:4px;margin-bottom:20px}.header h1{margin:0;font-size:2em}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px;margin:30px 0}.card{text-align:center;padding:20px;background:#f9f9f9;border-radius:4px}.card .num{font-size:2em;font-weight:bold}.critical{color:#e74c3c}.high{color:#e67e22}.findings{margin:20px 0}.finding{border-left:4px solid #ddd;padding:15px;margin:15px 0}.finding.critical{border-left-color:#e74c3c}.finding.high{border-left-color:#e67e22}.finding h3{margin:0 0 10px 0}</style></head><body><div class=\"container\"><div class=\"header\"><h1>🔒 mcp-authscan Report</h1><p>Target: " + target + "</p></div><div class=\"summary\"><div class=\"card\"><div class=\"num critical\">" + str(critical) + "</div><div>CRITICAL</div></div><div class=\"card\"><div class=\"num high\">" + str(high) + "</div><div>HIGH</div></div><div class=\"card\"><div class=\"num\">" + str(len(findings)) + "</div><div>Total</div></div></div><div class=\"findings\">"
-    
-    if findings_sorted:
-        for f in findings_sorted:
-            sev_class = f["severity"].lower()
-            html_content += f"<div class=\"finding {sev_class}\"><h3>{f['severity']} - {f.get('rule', 'N/A')}: {f.get('title', 'N/A')}</h3><p><strong>Evidence:</strong> {f.get('evidence', 'N/A')}</p><p><strong>Remediation:</strong> {f.get('remediation', 'N/A')}</p></div>"
-    else:
-        html_content += "<p style=\"text-align:center;padding:40px;color:#666\"><h2>✅ No findings detected</h2></p>"
-    
-    html_content += "</div></div></body></html>"
-    
-    with open(output_file, 'w') as f:
-        f.write(html_content)
-    
-    return output_file
 
 def main():
     ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
@@ -2590,7 +2511,7 @@ def main():
     canonical_payload["report_hash"] = payload_hash
 
     if args.html:
-        html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html")
+        html_file = generate_html_report(canonical_payload, args.output or "mcp-authscan-report.html")
         print(f"[+] HTML report saved to {html_file}")
     elif args.sarif:
         print(json.dumps(to_sarif(F, args.target), indent=2))
