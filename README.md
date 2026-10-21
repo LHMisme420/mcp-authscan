@@ -43,9 +43,11 @@ python3 mcp_authscan.py https://api.example.com/mcp \
 **Exit codes:**
 - `0` — Scan completed. No findings at or above `--fail-on` threshold (default: high).
 - `1` — Scan completed. Findings detected at or above `--fail-on` threshold.
-- `2` — Target unreachable (connection refused or network error).
-- `3` — Target is not a valid MCP server (preflight check failed).
-- `4` — OAuth detected but discovery chain failed (incomplete).
+- `2` — Authorization validation failed (refused, fail-closed, no network calls made).
+- `3` — Target unreachable (connection refused or network error).
+- `4` — Target is not a valid MCP server (preflight check failed).
+- `5` — Zero probes measured: either discovery incomplete OR all probes returned NOT_OBSERVED.
+- `6` — Usage error (malformed arguments).
 
 Note: Severity levels are reported in the security report. Use `--fail-on` to set the threshold:
 
