@@ -19,6 +19,13 @@ from urllib.request import Request, urlopen
 
 OAUTH_PROBE_VERSION = "2.0.0"
 
+# Probe prerequisites - what each probe requires to reach a verdict
+PROBE_PREREQUISITES = {
+    6: {"requires_registered_client": True},   # password-grant
+    7: {"requires_registered_client": True},   # pkce-s256
+    8: {"requires_registered_client": True},   # redirect-uri-exact
+}
+
 
 class ProbeRecord:
     """Single probe result with full evidence trail."""

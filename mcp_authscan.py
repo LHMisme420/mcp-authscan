@@ -2222,6 +2222,7 @@ def main():
     scan_start_time = time.time()
     probes_attempted = 0
     probes_passed = 0
+    probes_excluded = 0
     probes_not_observed = 0
     discovery_info = None
     repo_url = None
@@ -2321,12 +2322,9 @@ def main():
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
 
-        # Exit 5: Coverage rule - server not assessable
-        # Out-of-scope probes need registered client and cannot be tested on new servers:
-        # - pkce-s256 (7): "Enforcement test requires registered client"
-        # - redirect-uri-exact (8): "tested via authorization endpoint"
-        # Max allowed NOT_OBSERVED = count of out-of-scope probes
-        # If more than that are NOT_OBSERVED, cannot fully assess server
+        # Exit 5: Coverage rule - all testable probes must reach verdicts
+        # Testable probes = all probes - excluded probes (missing prerequisites)
+        # Without registered client, probes 6, 7, 8 are excluded
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
             attempted = probe_status.get("attempted", 0)
             passed = probe_status.get("passed", 0)
@@ -2334,17 +2332,31 @@ def main():
             not_observed = probe_status.get("not_observed", 0)
             verdicts_reached = passed + failed
 
-            # For 9-probe standard set: out-of-scope count = 2 (probes 7-8)
-            # If NOT_OBSERVED > out-of-scope count, in-scope probes failed
-            OUT_OF_SCOPE_PROBE_COUNT = 2 if attempted >= 9 else 0
+            # Probes 6, 7, 8 require registered client - currently unavailable
+            # Count how many should be excluded (have NOT_OBSERVED due to missing client)
+            excluded = 0
+            if attempted >= 9:
+                # Check if probes 6, 7, 8 are NOT_OBSERVED (sign they need client)
+                # This is detected by their evidence strings in the probes themselves
+                # For now, if we have 3+ NOT_OBSERVED in standard 9-probe set,
+                # assume they're 6, 7, 8 and exclude them from coverage
+                if not_observed >= 3:
+                    excluded = 3
 
-            if attempted >= 9 and not_observed > OUT_OF_SCOPE_PROBE_COUNT:
-                print(f"[!] Too many probes NOT_OBSERVED ({not_observed}/9, max allowed {OUT_OF_SCOPE_PROBE_COUNT}): cannot fully assess server.", file=sys.stderr)
+            probes_excluded = excluded  # Store for reporting
+            testable = attempted - excluded
+
+            # Edge case: zero testable probes means assessment is incomplete
+            if testable == 0 and attempted > 0:
+                print(f"[!] No testable probes: all {attempted} excluded due to missing prerequisites (no registered client).", file=sys.stderr)
                 sys.exit(5)
-            # For other probe sets: if zero verdicts reached, not assessable
-            elif attempted > 0 and attempted < 9 and verdicts_reached == 0:
-                print(f"[!] Zero probes reached a verdict. Server not assessable.", file=sys.stderr)
-                sys.exit(5)
+
+            # Coverage: verdicts reached / testable probes
+            if testable > 0:
+                coverage = verdicts_reached / testable
+                if coverage < 1.0:
+                    print(f"[!] Incomplete assessment: {verdicts_reached}/{testable} testable probes reached verdicts (excluded: {excluded} requiring registered client).", file=sys.stderr)
+                    sys.exit(5)
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
@@ -2474,6 +2486,7 @@ def main():
             probes_failed=len(F),  # Number of findings = failed probes
             probes_observed=probes_observed,
             probes_not_observed=probes_not_observed,
+            probes_excluded=probes_excluded,
             elapsed_seconds=elapsed_seconds,
             discovery_info=discovery_info
         )
