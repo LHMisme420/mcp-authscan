@@ -9,23 +9,24 @@ class ZeroProbesHandler(BaseHTTPRequestHandler):
     """OAuth server that passes discovery but has no probe endpoints."""
 
     def do_GET(self):
-        # /resource_metadata - provides authorization server URLs (RFC 9728)
+        # /resource_metadata - Protected Resource Metadata (RFC 9728)
+        # Contains: resource identifier, issuer, list of authorization servers
         if self.path == "/resource_metadata":
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
+                "resource": "http://127.0.0.1:8000/mcp",  # RFC 9728: required field in PRM
                 "issuer": "http://127.0.0.1:8000",
                 "authorization_servers": ["http://127.0.0.1:8000"]
             }).encode())
-        # /.well-known/oauth-authorization-server - OAuth server metadata (RFC 8414)
+        # /.well-known/oauth-authorization-server - OAuth Authorization Server Metadata (RFC 8414)
+        # Does NOT contain resource or issuer (issuer goes in the PRM)
         elif self.path == "/.well-known/oauth-authorization-server":
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            # VALID discovery with proper resource field
             self.wfile.write(json.dumps({
-                "issuer": "http://127.0.0.1:8000",
                 "token_endpoint": "http://127.0.0.1:8000/token",
                 "authorization_endpoint": "http://127.0.0.1:8000/authorize",
                 "registration_endpoint": "http://127.0.0.1:8000/register",
@@ -34,8 +35,7 @@ class ZeroProbesHandler(BaseHTTPRequestHandler):
                 "jwks_uri": "http://127.0.0.1:8000/jwks",
                 "code_challenge_methods_supported": ["S256"],
                 "grant_types_supported": ["authorization_code"],
-                "response_types_supported": ["code"],
-                "resource": "http://127.0.0.1:8000/mcp"  # VALID resource field
+                "response_types_supported": ["code"]
             }).encode())
         else:
             # All probe endpoints return 404 (NOT_OBSERVED)
