@@ -163,8 +163,10 @@ def discover_oauth_endpoints(base_url):
         try:
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
-                    # Unauthenticated access - not OAuth, discovery can't continue
-                    return None, None
+                    # Unauthenticated access - zero-auth vulnerability detected
+                    print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
+                    zero_auth_info = {"status": "ZERO_AUTH_DETECTED", "severity": "CRITICAL"}
+                    return None, zero_auth_info
         except HTTPError as e:
             if e.code != 401:
                 # Not an OAuth server
@@ -2255,6 +2257,30 @@ def main():
                 print(f"    Endpoints: {len(discovery_info['endpoints'])} discovered", file=sys.stderr)
             if 'discovered_hosts' in discovery_info:
                 print(f"    Hosts: {', '.join(discovery_info['discovered_hosts'])}", file=sys.stderr)
+
+        # Check for zero-auth vulnerability
+        if discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
+            print(f"[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
+            findings = [{
+                "rule": "ZERO-AUTH",
+                "severity": "CRITICAL",
+                "title": "Unauthenticated MCP endpoint",
+                "evidence": "POST /initialize responded with HTTP 200 without authentication",
+                "confidence": "HIGH",
+                "file": target_url,
+                "line": 0,
+                "ref": "ZERO-AUTH",
+                "is_live_finding": True,
+                "request_method": "POST",
+                "request_body": "",
+                "response_status": 200,
+                "response_body": "",
+                "response_preview": "HTTP 200 - MCP endpoint accessible",
+                "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+                "remediation": "Implement authentication and authorization controls for all MCP endpoints."
+            }]
+            probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
+            return findings, True, probe_status, discovery_info, ([], [])
 
         if not server_reachable:
             # Distinguish failure modes by discovery_info status
