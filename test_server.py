@@ -8,8 +8,34 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
     """Intentionally vulnerable OAuth server for scanner testing."""
 
     def do_GET(self):
+        # /resource_metadata - provides authorization server URLs (RFC 9728)
+        if self.path == "/resource_metadata":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "issuer": "http://127.0.0.1:8000",
+                "authorization_servers": ["http://127.0.0.1:8000"]
+            }).encode())
+        # /.well-known/oauth-authorization-server - OAuth server metadata (RFC 8414)
+        elif self.path == "/.well-known/oauth-authorization-server":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "issuer": "http://127.0.0.1:8000",
+                "token_endpoint": "http://127.0.0.1:8000/token",
+                "authorization_endpoint": "http://127.0.0.1:8000/authorize",
+                "registration_endpoint": "http://127.0.0.1:8000/register",
+                "revocation_endpoint": "http://127.0.0.1:8000/revoke",
+                "device_authorization_endpoint": "http://127.0.0.1:8000/device",
+                "jwks_uri": "http://127.0.0.1:8000/jwks",
+                "code_challenge_methods_supported": ["S256"],
+                "grant_types_supported": ["authorization_code"],
+                "response_types_supported": ["code"]
+            }).encode())
         # /sse and /tools/list exist and accept unauthenticated requests (D1 vulnerability)
-        if self.path == "/sse" or self.path == "/tools/list":
+        elif self.path == "/sse" or self.path == "/tools/list":
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
@@ -23,9 +49,14 @@ class ReferenceOAuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        # /initialize triggers OAuth discovery (401 with WWW-Authenticate header)
+        if self.path == "/initialize":
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Bearer resource_metadata="http://127.0.0.1:8000/resource_metadata"')
+            self.end_headers()
         # /message and /mcp exist and accept unauthenticated requests (D1 vulnerability)
         # Also accept invalid tokens (D3 vulnerability)
-        if self.path == "/message" or self.path == "/mcp":
+        elif self.path == "/message" or self.path == "/mcp":
             # Both vulnerabilities: no auth check, no token validation
             content_len = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_len) if content_len > 0 else b''
