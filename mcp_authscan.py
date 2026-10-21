@@ -2322,9 +2322,11 @@ def main():
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
 
         # Exit 5: Coverage rule - server not assessable
-        # Out-of-scope probes: pkce-s256 (7), redirect-uri-exact (8) - need registered client
-        # Max allowed NOT_OBSERVED: 2 (the out-of-scope probes)
-        # If more than 2 NOT_OBSERVED, cannot fully assess server
+        # Out-of-scope probes need registered client and cannot be tested on new servers:
+        # - pkce-s256 (7): "Enforcement test requires registered client"
+        # - redirect-uri-exact (8): "tested via authorization endpoint"
+        # Max allowed NOT_OBSERVED = count of out-of-scope probes
+        # If more than that are NOT_OBSERVED, cannot fully assess server
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
             attempted = probe_status.get("attempted", 0)
             passed = probe_status.get("passed", 0)
@@ -2332,9 +2334,12 @@ def main():
             not_observed = probe_status.get("not_observed", 0)
             verdicts_reached = passed + failed
 
-            # For 9-probe set: if more than 2 probes are NOT_OBSERVED, in-scope coverage is incomplete
-            if attempted >= 9 and not_observed > 2:
-                print(f"[!] Too many probes NOT_OBSERVED ({not_observed}/9): cannot fully assess server.", file=sys.stderr)
+            # For 9-probe standard set: out-of-scope count = 2 (probes 7-8)
+            # If NOT_OBSERVED > out-of-scope count, in-scope probes failed
+            OUT_OF_SCOPE_PROBE_COUNT = 2 if attempted >= 9 else 0
+
+            if attempted >= 9 and not_observed > OUT_OF_SCOPE_PROBE_COUNT:
+                print(f"[!] Too many probes NOT_OBSERVED ({not_observed}/9, max allowed {OUT_OF_SCOPE_PROBE_COUNT}): cannot fully assess server.", file=sys.stderr)
                 sys.exit(5)
             # For other probe sets: if zero verdicts reached, not assessable
             elif attempted > 0 and attempted < 9 and verdicts_reached == 0:
