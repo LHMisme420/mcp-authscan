@@ -2192,6 +2192,20 @@ def main():
 
     args = ap.parse_args()
 
+    # AUTHORIZATION CHECK: refuse to run without authorization metadata
+    if not args.authorized_by:
+        print("[!] ERROR: --authorized-by is required", file=sys.stderr)
+        print("[!] Scans must be authorized. Usage: --authorized-by 'Name' --auth-basis 'basis' --contact 'email@example.com'", file=sys.stderr)
+        sys.exit(1)
+
+    if not args.auth_basis:
+        print("[!] ERROR: --auth-basis is required", file=sys.stderr)
+        sys.exit(1)
+
+    if not args.contact:
+        print("[!] ERROR: --contact is required", file=sys.stderr)
+        sys.exit(1)
+
     # Auto-detect: live server (http(s)://) or source code directory?
     scan_mode = None
     scan_start_time = time.time()
