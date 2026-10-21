@@ -41,13 +41,15 @@ python3 mcp_authscan.py https://api.example.com/mcp \
 - Deterministic report hash (SHA256, reproducible across runs)
 
 **Exit codes:**
-- `0` — Scan completed. No findings at or above `--fail-on` threshold (default: high).
-- `1` — Scan completed. Findings detected at or above `--fail-on` threshold.
+- `0` — Scan completed. No FAIL verdicts at or above `--fail-on` threshold (default: high).
+- `1` — Scan completed. FAIL verdicts detected at or above `--fail-on` threshold.
 - `2` — Authorization validation failed (refused, fail-closed, no network calls made).
 - `3` — Target unreachable (connection refused or network error).
 - `4` — Target is not a valid MCP server (preflight check failed).
-- `5` — Zero probes measured: either discovery incomplete OR all probes returned NOT_OBSERVED.
+- `5` — Zero probes measured: either discovery incomplete or no verdicts reached (server not assessable).
 - `6` — Usage error (malformed arguments).
+
+**Verdict types:** Only **FAIL** verdicts vote for the `--fail-on` threshold. **PASS** verdicts show server compliance. **OBSERVATION** verdicts (e.g., CORS headers absent) are reported separately and do not count as findings. **NOT_OBSERVED** (endpoints unreachable) do not count toward coverage.
 
 Note: Severity levels are reported in the security report. Use `--fail-on` to set the threshold:
 

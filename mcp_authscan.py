@@ -2321,12 +2321,19 @@ def main():
         if total != probe_status.get("attempted", 0):
             raise ValueError(f"Accounting error: {total} != {probe_status.get('attempted', 0)}")
 
-        # Check if zero probes were measured or all returned NOT_OBSERVED (nothing tested)
+        # Check if zero probes were measured: only PASS or FAIL count as verdicts
+        # Probes needing registered client (pkce-s256, redirect-uri-exact) are out of scope
+        # OUT_OF_SCOPE = {"pkce-s256", "redirect-uri-exact"}
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
             attempted = probe_status.get("attempted", 0)
-            not_observed = probe_status.get("not_observed", 0)
-            if attempted == 0 or (attempted > 0 and not_observed == attempted):
-                print(f"[!] No probes measured: {attempted} attempted, {not_observed} not_observed. Nothing was tested.", file=sys.stderr)
+            passed = probe_status.get("passed", 0)
+            failed = probe_status.get("failed", 0)
+            verdicts_reached = passed + failed  # Only PASS/FAIL count as verdicts
+
+            if verdicts_reached == 0 and attempted > 0:
+                # Zero probes reached a verdict (all are NOT_OBSERVED, OBSERVATION, or out-of-scope)
+                # This means the server is not assessable
+                print(f"[!] Zero probes measured: {verdicts_reached} verdicts reached (needed at least 1). Server may not expose assessable endpoints.", file=sys.stderr)
                 sys.exit(5)
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)

@@ -17,7 +17,6 @@ class ZeroProbesHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({
                 "resource": "http://127.0.0.1:8000/mcp",  # RFC 9728: required field in PRM
-                "issuer": "http://127.0.0.1:8000",
                 "authorization_servers": ["http://127.0.0.1:8000"]
             }).encode())
         # /.well-known/oauth-authorization-server - OAuth Authorization Server Metadata (RFC 8414)
@@ -27,6 +26,7 @@ class ZeroProbesHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({
+                "issuer": "http://127.0.0.1:8000",  # RFC 8414: issuer goes in authz-server metadata, not PRM
                 "token_endpoint": "http://127.0.0.1:8000/token",
                 "authorization_endpoint": "http://127.0.0.1:8000/authorize",
                 "registration_endpoint": "http://127.0.0.1:8000/register",
