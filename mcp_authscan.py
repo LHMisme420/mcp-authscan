@@ -2256,6 +2256,7 @@ def main():
             probes_attempted = probe_status.get('attempted', 0)
             probes_passed = probe_status['passed']
             probes_not_observed = probe_status['not_observed']
+            probes_observed = probe_status.get('observation', 0)
 
         # Verify accounting before rendering
         total = probe_status.get("passed", 0) + probe_status.get("failed", 0) + probe_status.get("not_observed", 0) + probe_status.get("observation", 0)
@@ -2388,6 +2389,7 @@ def main():
             probes_attempted=probes_attempted,
             probes_passed=probes_passed,
             probes_failed=len(F),  # Number of findings = failed probes
+            probes_observed=probes_observed,
             probes_not_observed=probes_not_observed,
             elapsed_seconds=elapsed_seconds,
             discovery_info=discovery_info
@@ -2411,7 +2413,7 @@ def main():
             report_lines.append("-" * 80)
             report_lines.append("")
 
-        report_lines.append(auth.format_block())
+        report_lines.extend(auth.format_block().split("\n"))
         report_lines.append("")
         report_lines.append("ASSESSMENT MODE")
         report_lines.append("-" * 80)
@@ -2425,7 +2427,7 @@ def main():
             report_lines.append("Scope: Code repository examination")
         report_lines.append("-" * 80)
         report_lines.append("")
-        report_lines.append(metadata.format_block())
+        report_lines.extend(metadata.format_block().split("\n"))
         report_lines.append("")
 
         # Add fixture disclaimer for localhost/test targets
