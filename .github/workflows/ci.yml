@@ -6,8 +6,8 @@ jobs:
   selfscan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: "3.12"
       - name: Self-scan (must be clean)
@@ -15,8 +15,8 @@ jobs:
   ground-truth:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: "3.12"
       - name: Re-detect seed findings
@@ -24,8 +24,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
@@ -34,8 +34,8 @@ jobs:
   dep-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: "3.12"
       - name: Audit runtime dependencies for known CVEs
@@ -45,7 +45,7 @@ jobs:
   node-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v4 # v4
       - name: Node version (runner-provided)
         run: node --version
       - name: Install dependencies
@@ -66,8 +66,8 @@ jobs:
   web-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: "3.12"
       - run: pip install -e . -r requirements-web.txt
@@ -85,8 +85,8 @@ jobs:
   types:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
@@ -99,8 +99,8 @@ jobs:
       matrix:
         python-version: ["3.8", "3.12"]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4 # v4
+      - uses: actions/setup-python@v5 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e . "coverage[toml]" hypothesis   # [toml] so coverage can read pyproject on Python <3.11; unpinned per-version
