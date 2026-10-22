@@ -1590,7 +1590,7 @@ def rule_authcode_replay(path, text, F):
 # ---- Rule A7: cross-tenant unscoped list (seed: metamcp, CWE-863) ----
 # Unscoped list on a repo that ALSO exposes a tenant-scoped sibling, reached from a
 # request/auth handler -> cross-tenant read. Needs repo-wide context (SCOPED_REPOS).
-SCOPED_REPOS = set()
+SCOPED_REPOS: set[str] = set()
 A7_SCOPED_CALL = re.compile(
     r"(\w*(?:[Rr]epository|[Rr]epo|[Ss]tore|[Dd]ao))\."
     r"(?:findAllAccessibleTo\w*|findAccessibleTo\w*|listAccessibleTo\w*|"

@@ -48,7 +48,7 @@ class ScanAuthorization:
             f"Authorized By: {self.authorized_by}",
             f"Authorization Basis: {self.auth_basis}",
             f"Contact: {self.contact}",
-            f"Assessed by: Leroy H. Mason",
+            "Assessed by: Leroy H. Mason",
             f"Scan Date: {self.scan_date}",
             "-" * 80,
         ]

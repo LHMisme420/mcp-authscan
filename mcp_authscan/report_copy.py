@@ -23,13 +23,13 @@ def render_summary(records):
     """Build summary from actual probe verdicts with human-readable evidence."""
     if not records:
         return []
-    
+
     lines = []
     passed = [r for r in records if r.verdict == "PASS"]
     obs = [r for r in records if r.verdict == "OBSERVATION"]
     not_obs = [r for r in records if r.verdict == "NOT_OBSERVED"]
     failed = [r for r in records if r.verdict == "FAIL"]
-    
+
     if passed:
         evidence = "; ".join(PASS_EVIDENCE.get(r.probe_name, r.probe_name) for r in passed)
         lines.append(f"PASSED ({len(passed)}): {evidence}")
