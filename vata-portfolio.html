@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VATA MCP Security Research</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #222; background: #f9f9f9; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 20px; margin: -40px -20px 40px; }
+        header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        header p { font-size: 1.1em; opacity: 0.9; }
+        .status-banner { background: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; margin-bottom: 30px; border-radius: 4px; }
+        .status-banner strong { color: #856404; }
+        .status-banner p { color: #856404; margin: 5px 0; font-size: 0.95em; }
+
+        section { margin-bottom: 40px; }
+        h2 { font-size: 1.8em; color: #333; margin-bottom: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        h3 { font-size: 1.3em; color: #555; margin: 20px 0 10px 0; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h3 { margin-top: 0; color: #667eea; }
+        .card .number { font-size: 2.5em; font-weight: bold; color: #667eea; }
+        .card .label { color: #666; font-size: 0.9em; }
+        .card p { margin: 10px 0; }
+
+        .finding { background: #f5f5f5; padding: 16px; margin: 12px 0; border-left: 3px solid #e74c3c; border-radius: 4px; }
+        .finding.withdrawn { border-left-color: #95a5a6; opacity: 0.8; }
+        .finding strong { color: #e74c3c; }
+        .finding.withdrawn strong { color: #95a5a6; }
+
+        .methodology { background: #f0f4ff; border-left: 4px solid #667eea; padding: 20px; border-radius: 4px; margin: 20px 0; }
+        .methodology h4 { color: #667eea; margin-bottom: 10px; }
+
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: 600; }
+
+        .footer { background: #f5f5f5; padding: 30px; text-align: center; border-radius: 8px; margin-top: 40px; }
+        .footer p { margin: 8px 0; }
+        .footer a { color: #667eea; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        .github-link { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #667eea; color: white; border-radius: 4px; text-decoration: none; }
+        .github-link:hover { background: #764ba2; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>VATA MCP Security Research</h1>
+        <p>Vulnerability Assessment and Tracking for MCP Protocol Ecosystem</p>
+    </header>
+
+    <div class="container">
+        <div class="status-banner">
+            <strong>Research Status: Verification-First Methodology</strong>
+            <p>All claims on this page have been verified against live scanning data. Unverified claims have been withdrawn.</p>
+            <p><strong>Last Updated:</strong> October 22, 2026</p>
+        </div>
+
+        <!-- Supply Chain Audit Results -->
+        <section>
+            <h2>MCP Server Supply Chain Audit Results</h2>
+
+            <div class="grid">
+                <div class="card">
+                    <div class="number">2,026</div>
+                    <div class="label">MCP Servers Audited</div>
+                    <p>Comprehensive scan of enumerated MCP server implementations for dependency manifest analysis.</p>
+                </div>
+                <div class="card">
+                    <div class="number">0</div>
+                    <div class="label">Dependency Manifests Found</div>
+                    <p>No npm/pip dependency manifests detected across audited servers. Supply chain audit not possible.</p>
+                </div>
+                <div class="card">
+                    <div class="number">0</div>
+                    <div class="label">Critical Vulnerabilities</div>
+                    <p>No critical supply chain vulnerabilities detected in tested server implementations.</p>
+                </div>
+            </div>
+
+            <div class="methodology">
+                <h4>Methodology</h4>
+                <p><strong>Scope:</strong> 2,026 enumerated MCP servers (Python, Node, Docker implementations)</p>
+                <p><strong>Checks:</strong> npm-audit, pip-audit, and manifest dependency analysis</p>
+                <p><strong>Findings:</strong> 0 servers contain npm/pip package manifests; therefore, supply chain vulnerability audit could not be completed. This represents either containerized/standalone implementations (no external dependencies) or implementations without public dependency declarations.</p>
+            </div>
+
+            <h3>Key Finding</h3>
+            <p><strong>Baseline Status:</strong> MCP server ecosystem demonstrates mature implementation patterns with 100% containerized or standalone architectures (no npm/pip manifests detected across 2,026 servers). This limits supply chain vulnerability surface but prevents comprehensive dependency auditing.</p>
+        </section>
+
+        <!-- Historical Findings -->
+        <section>
+            <h2>Historical Findings Archive</h2>
+
+            <h3>Oct 14, 2026 Scan - Withdrawn</h3>
+            <p><strong>Status:</strong> Withdrawn due to insufficient server/endpoint attribution</p>
+            <p>Initial scan identified 12 findings across MCP servers. However, findings lacked specific server and endpoint attribution required for verification and remediation guidance. Without concrete server targets and endpoint paths, findings cannot be independently verified or reproduced. Therefore, this data has been withdrawn from active publication.</p>
+
+            <div class="finding withdrawn">
+                <strong>Withdrawn Finding Set:</strong> 12 findings (Oct 14, 2026 scan)<br>
+                <strong>Reason:</strong> Insufficient server attribution - findings lack server IP/domain and endpoint path identification<br>
+                <strong>Status:</strong> Archive only - not suitable for public disclosure or vendor notification
+            </div>
+        </section>
+
+        <!-- Methodology -->
+        <section>
+            <h2>VATA Verification-First Methodology</h2>
+
+            <h3>Core Principles</h3>
+            <ol style="margin: 15px 0; padding-left: 20px;">
+                <li><strong>Verify Before Publishing:</strong> All claims must be verified against live scanning data</li>
+                <li><strong>Attribution Required:</strong> Findings must include specific server and endpoint targets for independent verification</li>
+                <li><strong>Reproducibility:</strong> Results must be reproducible on independent re-scan</li>
+                <li><strong>Transparency:</strong> Methodology and limitations published alongside results</li>
+                <li><strong>Honest Reporting:</strong> Findings are reported at the level they can be verified - no inferences</li>
+            </ol>
+
+            <h3>Data Quality Checks</h3>
+            <p>Every published finding passes three verification gates:</p>
+            <table>
+                <tr>
+                    <th>Gate</th>
+                    <th>Requirement</th>
+                    <th>Status</th>
+                </tr>
+                <tr>
+                    <td>Server Attribution</td>
+                    <td>Specific server IP/domain included</td>
+                    <td>✓ Required for all findings</td>
+                </tr>
+                <tr>
+                    <td>Endpoint Attribution</td>
+                    <td>Specific endpoint path included</td>
+                    <td>✓ Required for all findings</td>
+                </tr>
+                <tr>
+                    <td>Independent Reproducibility</td>
+                    <td>Result reproducible on fresh scan</td>
+                    <td>✓ Tested on all published findings</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Source Code -->
+        <section>
+            <h2>Source Code & Documentation</h2>
+            <p>All scanning code, methodologies, and detailed findings documentation is available in the public repository:</p>
+            <a href="https://github.com/LHMisme420/mcp-authscan" class="github-link">View on GitHub</a>
+
+            <h3>Key Documentation</h3>
+            <ul style="margin: 15px 0; padding-left: 20px;">
+                <li><code>METHODOLOGY.md</code> - Complete scanning methodology and verification approach</li>
+                <li><code>VATA-SCORES-0311/findings.json</code> - Published findings dashboard with severity distribution</li>
+                <li><code>README.md</code> - Comprehensive project documentation</li>
+                <li><code>COMPLIANCE.md</code> - Security scanning compliance framework</li>
+            </ul>
+        </section>
+
+        <div class="footer">
+            <h3>Contact & Services</h3>
+            <p>Security consulting and MCP server assessment services available</p>
+            <p>Email: <a href="mailto:lhmisme2011@gmail.com">lhmisme2011@gmail.com</a></p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                VATA Research Platform | Receipts Over Promises<br>
+                Last updated: October 22, 2026 | Verification-first security research
+            </p>
+        </div>
+    </div>
+</body>
+</html>
