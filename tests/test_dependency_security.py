@@ -6,7 +6,6 @@ from pathlib import Path
 
 from flask import Flask, session
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

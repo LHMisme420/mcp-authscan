@@ -1,11 +1,12 @@
 """Regression checks for dashboard data, using isolated temporary databases."""
 import importlib.util
 import os
-from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
+
 from flask_jwt_extended import create_access_token
 
 

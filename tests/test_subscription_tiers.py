@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
+
 from flask_jwt_extended import create_access_token
 
 

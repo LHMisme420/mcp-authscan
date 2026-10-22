@@ -1,5 +1,5 @@
-import pytest
 from jwt_weakness.extended_detector import ExtendedJWTDetector
+
 
 def test_detector_initialization():
     """Test detector initializes."""

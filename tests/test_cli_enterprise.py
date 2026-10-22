@@ -8,8 +8,14 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from mcp_authscan.cli import (
-    EXIT_FINDINGS, EXIT_OK, EXIT_SCAN_ERROR,
-    build_batch_dict, build_batch_text, compute_exit_code, load_targets, scan_one,
+    EXIT_FINDINGS,
+    EXIT_OK,
+    EXIT_SCAN_ERROR,
+    build_batch_dict,
+    build_batch_text,
+    compute_exit_code,
+    load_targets,
+    scan_one,
 )
 from mcp_authscan.report import SecurityReport, build_sarif
 from mcp_authscan.scanner import Check, RiskLevel

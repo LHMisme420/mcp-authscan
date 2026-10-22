@@ -6,16 +6,16 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 
-
 _test_directory = tempfile.TemporaryDirectory(prefix="vata-dashboard-tests-")
 os.environ["DB_FILE"] = os.path.join(_test_directory.name, "test.db")
 os.environ["JWT_SECRET"] = "dashboard-scan-tests-only-secret"
 
+from flask_jwt_extended import create_access_token
+from requests import ConnectionError as RequestsConnectionError
+
 import app as app_module
 import app_full as full_app_module
-from flask_jwt_extended import create_access_token
 from mcp_authscan.scanner import Check, RiskLevel, ScanError
-from requests import ConnectionError as RequestsConnectionError
 
 
 class DashboardScanTests(unittest.TestCase):

@@ -1,12 +1,12 @@
 import contextlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from http.client import IncompleteRead
 import io
 import json
-from pathlib import Path
 import tempfile
 import threading
 import unittest
+from http.client import IncompleteRead
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.error import URLError
 

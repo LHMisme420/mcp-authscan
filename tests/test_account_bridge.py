@@ -1,9 +1,9 @@
 import importlib.util
 import os
-import tempfile
-import unittest
 import sqlite3
+import tempfile
 import threading
+import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 

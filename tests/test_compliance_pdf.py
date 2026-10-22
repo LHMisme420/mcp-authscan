@@ -1,16 +1,17 @@
 """The PDF report uses the authenticated workspace and its existing score."""
-import importlib.util
 import base64
+import importlib.util
 import os
-from pathlib import Path
 import re
 import sqlite3
 import tempfile
 import unittest
 import zlib
+from pathlib import Path
 from unittest.mock import patch
 
 from flask_jwt_extended import create_access_token
+
 from mcp_authscan.compliance_pdf import _plain_text
 
 

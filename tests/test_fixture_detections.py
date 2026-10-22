@@ -16,7 +16,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from mcp_authscan.cli import parse_headers
 from mcp_authscan.scanner import MCPScanner, RiskLevel
 
-
 # A JSON-RPC/MCP reply whose result carries sensitive data: the body is both
 # "looks like an MCP endpoint" (has "jsonrpc") AND sensitive (access_token is a
 # SECRET_FIELD in cors.py), so it drives the auth checks and the CORS check.

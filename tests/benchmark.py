@@ -20,7 +20,12 @@ Usage:
     python3 tests/benchmark.py --only lucky-aeon,webrix,1mcp-agent
     python3 tests/benchmark.py --json report.json --keep
 """
-import argparse, hashlib, json, subprocess, sys, tempfile
+import argparse
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -122,7 +127,7 @@ def main():
         print(f"[neg]  {c['name']}  ({c['commit'][:10]})  detectors: {sorted(fired) or 'none'}")
         if fired:
             for rule, locs in fired.items(): FP += 1; print(f"  FP   {rule}  {locs[0]}  <- detector fired on CLEAN repo")
-        else: TN += 1; print(f"  TN   clean")
+        else: TN += 1; print("  TN   clean")
         rows.append({"case": c["name"], "label": "negative", "commit": c["commit"], "detector_fired": fired})
 
     for c in m.get("latent", []):

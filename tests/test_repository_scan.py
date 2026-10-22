@@ -2,16 +2,17 @@
 import importlib.util
 import json
 import os
-from pathlib import Path
 import sqlite3
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
+
 from flask_jwt_extended import create_access_token
+
 from mcp_authscan.repository_scan import RepositoryScanner, scanner_path
 from mcp_authscan.scanner import ScanError
-
 
 TARGET = 'https://github.com/fixture/authorized-repository'
 

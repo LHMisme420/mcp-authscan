@@ -6,8 +6,9 @@ Renderer tests: pull numbers from text/JSON outputs and verify they match.
 """
 import json
 import re
-from mcp_authscan.scan_main import scan_live_server
+
 from mcp_authscan.report import SecurityReport
+from mcp_authscan.scan_main import scan_live_server
 
 
 def test_probe_partition_fixture_good():
@@ -19,7 +20,7 @@ def test_probe_partition_fixture_good():
     findings, reachable, probe_status, discovery_info, (oauth_records, probe_results) = scan_live_server(
         "http://127.0.0.1:5555"
     )
-    
+
     # Partition: every probe appears exactly once in exactly one bucket
     passed = probe_status.get('passed', 0)
     failed = probe_status.get('failed', 0)
@@ -27,9 +28,9 @@ def test_probe_partition_fixture_good():
     observation = probe_status.get('observation', 0)
     excluded = probe_status.get('excluded', 0)
     attempted = probe_status.get('attempted', 0)
-    
+
     partition_sum = passed + failed + not_observed + observation + excluded
-    
+
     # Every probe in attempted appears exactly once
     assert partition_sum == attempted, (
         f"Probe partition violated: {passed} passed + {failed} failed + "
@@ -43,14 +44,14 @@ def test_probe_partition_fixture_bad():
     findings, reachable, probe_status, discovery_info, (oauth_records, probe_results) = scan_live_server(
         "http://127.0.0.1:5556"
     )
-    
+
     passed = probe_status.get('passed', 0)
     failed = probe_status.get('failed', 0)
     not_observed = probe_status.get('not_observed', 0)
     observation = probe_status.get('observation', 0)
     excluded = probe_status.get('excluded', 0)
     attempted = probe_status.get('attempted', 0)
-    
+
     partition_sum = passed + failed + not_observed + observation + excluded
     assert partition_sum == attempted, (
         f"Probe partition violated: {partition_sum} != {attempted}"

@@ -14,7 +14,11 @@ Usage:
 Exit code 0 if every seed finding is re-detected, 1 otherwise (CI-friendly).
 Requires: git, python3. No third-party packages.
 """
-import argparse, json, subprocess, sys, tempfile
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

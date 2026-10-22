@@ -1,17 +1,20 @@
 import importlib.util
 import io
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 
 from mcp_authscan.cors import (
-    CorsResponse, assess_cors, probe_cors, probe_cors_requests,
-    probe_cors_urllib, sensitive_user_data,
+    CorsResponse,
+    assess_cors,
+    probe_cors,
+    probe_cors_requests,
+    probe_cors_urllib,
+    sensitive_user_data,
 )
 from mcp_authscan.scanner import MCPScanner, RiskLevel
-
 
 PRIVATE = json.dumps({"user": {"id": 1, "email": "fixture@example.test"}}).encode()
 PUBLIC = b'{"jsonrpc":"2.0","result":{"tools":[{"name":"public-search"}]}}'
@@ -131,7 +134,8 @@ class CorsPolicyTests(unittest.TestCase):
         self.assertFalse(result.is_finding)
 
     def test_package_public_exports_remain_available(self):
-        from mcp_authscan import MCPScanner as ExportedScanner, SecurityReport
+        from mcp_authscan import MCPScanner as ExportedScanner
+        from mcp_authscan import SecurityReport
         self.assertIs(ExportedScanner, MCPScanner)
         self.assertTrue(callable(SecurityReport))
 

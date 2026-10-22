@@ -4,7 +4,11 @@ auth advisories filed by OTHER researchers, pinned at their pre-fix commit. A CA
 the expected rule fired at the advisory's root-cause file ("A-class" = any detector).
 NOT seeded from VATA findings - the honest test of whether detectors generalize.
 Does not gate CI; it starts red and goes green as coverage improves."""
-import argparse, json, subprocess, sys, tempfile
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

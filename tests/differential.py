@@ -17,7 +17,12 @@ the same bug or an adjacent/generic pattern.
     python3 tests/differential.py --keep
 Requires: git, python3, and any of bandit/gosec/semgrep you want compared.
 """
-import argparse, json, shutil, subprocess, sys, tempfile
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

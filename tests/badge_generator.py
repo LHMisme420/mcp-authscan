@@ -6,7 +6,9 @@ Used in CI to create visual proof of detector quality.
 Usage:
     python3 tests/badge_generator.py --report vata-authscan-bench.json --output badges/
 """
-import argparse, json, sys
+import argparse
+import json
+import sys
 from pathlib import Path
 
 
@@ -84,7 +86,7 @@ def main():
     print(f"    f1-badge.svg         ({f1:.2f})")
 
     # Emit markdown reference
-    print(f"\nMarkdown reference (add to README):")
+    print("\nMarkdown reference (add to README):")
     print(f"[![Precision]({out_dir}/precision-badge.svg)]({args.report})")
     print(f"[![Recall]({out_dir}/recall-badge.svg)]({args.report})")
     print(f"[![F1]({out_dir}/f1-badge.svg)]({args.report})")
