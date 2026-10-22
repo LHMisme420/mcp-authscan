@@ -28,7 +28,7 @@ pip install -e .
 **Run live OAuth server assessment:**
 
 ```bash
-python3 mcp_authscan.py https://api.example.com/mcp \
+mcp-authscan https://api.example.com/mcp \
   --authorized-by "Your Name" \
   --auth-basis "written consent" \
   --contact "your.email@example.com"
@@ -55,13 +55,13 @@ Note: Severity levels are reported in the security report. Use `--fail-on` to se
 
 ```bash
 # Default: --fail-on high (exit 1 if HIGH or CRITICAL findings)
-python3 mcp_authscan.py https://your-server/mcp ...
+mcp-authscan https://your-server/mcp ...
 
 # Only fail on CRITICAL findings (exit 0 for HIGH/MEDIUM/LOW)
-python3 mcp_authscan.py https://your-server/mcp ... --fail-on critical
+mcp-authscan https://your-server/mcp ... --fail-on critical
 
 # Fail on any findings (MEDIUM, HIGH, or CRITICAL)
-python3 mcp_authscan.py https://your-server/mcp ... --fail-on medium
+mcp-authscan https://your-server/mcp ... --fail-on medium
 ```
 
 **Current version:** v1.1.0 (main branch)
@@ -213,7 +213,7 @@ All 5 vulnerabilities reported to modelcontextprotocol maintainers via GitHub Se
 ```bash
 # Vulnerable server
 python3 vuln_zero_auth.py &
-python3 mcp_authscan.py http://127.0.0.1:5004 \
+mcp-authscan http://127.0.0.1:5004 \
   --authorized-by "Your Name" \
   --auth-basis "written consent" \
   --contact "your.email@example.com"
@@ -222,7 +222,7 @@ python3 mcp_authscan.py http://127.0.0.1:5004 \
 # Fixed server (same port, different process)
 pkill -f vuln_zero_auth
 python3 vuln_zero_auth_fixed.py &
-python3 mcp_authscan.py http://127.0.0.1:5004 \
+mcp-authscan http://127.0.0.1:5004 \
   --authorized-by "Your Name" \
   --auth-basis "written consent" \
   --contact "your.email@example.com"
