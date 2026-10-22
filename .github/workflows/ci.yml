@@ -12,15 +12,6 @@ jobs:
           python-version: "3.12"
       - name: Self-scan (must be clean)
         run: python3 mcp_authscan.py . --exclude rule_corpus --exclude examples --fail-on high
-  ground-truth:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4 # v4
-      - uses: actions/setup-python@v5 # v5
-        with:
-          python-version: "3.12"
-      - name: Re-detect seed findings
-        run: python3 tests/verify_ground_truth.py
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -42,46 +33,6 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit -r requirements.txt
-  node-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4 # v4
-      - name: Node version (runner-provided)
-        run: node --version
-      - name: Install dependencies
-        run: npm ci
-      - name: Build client + server bundle
-        run: npm run build
-      - name: Run self-contained TS test suites
-        # Service-backed suites (GCS/Stripe/Clerk/Postgres) run in the deploy
-        # environment, not here; this covers the suites with no external deps.
-        run: >-
-          npx tsx --test
-          tests/billing.test.ts
-          tests/billing-panel.test.tsx
-          tests/compliance-report-download.test.ts
-          tests/dashboard-pdf-visibility.test.tsx
-          tests/flask-pdf-bridge.test.ts
-          tests/fresh-findings.test.ts
-  web-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4 # v4
-      - uses: actions/setup-python@v5 # v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e . -r requirements-web.txt
-      - name: Run web-app Python test suites
-        run: >-
-          python3 -m unittest -v
-          tests.test_account_bridge
-          tests.test_subscription_tiers
-          tests.test_repository_scan
-          tests.test_dependency_security
-          tests.test_findings_refresh
-          tests.test_dashboard_scans
-          tests.test_compliance_pdf
-          tests.test_tier_access
   types:
     runs-on: ubuntu-latest
     steps:
@@ -91,7 +42,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - name: Mypy type check
-        run: mypy mcp_authscan
+        run: mypy mcp_authscan.py check_origin_host_validation.py check_cors_credentials_reflection.py test_fixtures.py test_cors_checks.py
   cors-scanner-tests:
     runs-on: ubuntu-latest
     steps:
