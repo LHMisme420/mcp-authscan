@@ -67,5 +67,6 @@ jobs:
           tests.test_stdio_rce_research
           tests.test_exit_codes
           tests.test_properties
+          tests.test_probe_accounting
       - name: Enforce coverage threshold
         run: coverage report --fail-under=22
