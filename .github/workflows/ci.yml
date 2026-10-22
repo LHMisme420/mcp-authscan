@@ -113,6 +113,7 @@ jobs:
           tests.test_fixture_detections
           tests.test_cli_enterprise
           tests.test_stdio_rce_research
+          tests.test_exit_codes
           tests.test_properties
       - name: Enforce coverage threshold
         run: coverage report
