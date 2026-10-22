@@ -541,7 +541,12 @@ def count_probes(records):
 
 def render_probe(record):
     """Format probe with evidence on every line."""
-    return f"  [{record.probe_id}] {record.probe_name:30s} {record.verdict:15s}  {record.evidence}"
+    # Check if this probe was excluded (never sent due to missing prerequisites)
+    if record.verdict == "NOT_OBSERVED" and hasattr(record, 'prerequisite_met') and not record.prerequisite_met:
+        verdict_display = "EXCLUDED"
+    else:
+        verdict_display = record.verdict
+    return f"  [{record.probe_id}] {record.probe_name:30s} {verdict_display:15s}  {record.evidence}"
 
 
 def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):

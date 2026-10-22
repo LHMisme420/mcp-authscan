@@ -30,6 +30,24 @@ LIVE_ENDPOINTS = {
     "/tools/list": "GET",
 }
 
+# Fields included in report hash integrity check
+HASH_FIELDS = [
+    "target",
+    "scan_mode", 
+    "probe_set_version",
+    "probes_attempted",
+    "probes_passed",
+    "probes_failed",
+    "probes_observed",
+    "probes_not_observed",
+    "probes_excluded",
+    "findings_count",
+    "scan_date",  # Timestamp IS included to bind hash to this run
+    "tool_version",
+    "findings",
+    "authorization",  # If present
+]
+
 # ---- Security Hardening ----
 PRIVATE_IP_RANGES = [
     ipaddress.ip_network("10.0.0.0/8"),
@@ -391,7 +409,7 @@ def scan_live_server(target_url):
         oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
         if not accounting_valid:
             print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
-            return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
+            sys.exit(5)
         
         # Update probe_status from OAuth assessment counts
         authserver_counts = oauth_counts.get("authserver", {})
@@ -2530,10 +2548,10 @@ def main():
     if args.html:
         html_file = generate_html_report(canonical_payload, args.output or "mcp-authscan-report.html")
         print(f"[+] HTML report saved to {html_file}")
-    elif args.sarif:
-        print(json.dumps(to_sarif(F, args.target), indent=2))
-    elif args.json:
+    if args.json:
         print(json.dumps(canonical_payload, indent=2))
+    if args.sarif and not args.json:
+        print(json.dumps(to_sarif(F, args.target), indent=2))
     else:
         # Text output with optional authorization header
         # Check for discovery incomplete status
@@ -2640,7 +2658,7 @@ def main():
             report_hash = payload_hash
             print("=" * 80)
             print("[Hash computed over: authorization + scan mode + probe status + findings.")
-            print(" Excludes: elapsed time, timestamp, and the report_hash field itself.]")
+            print(" Excludes: report_hash field itself (added after hash is computed).]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("")
             print("[Verification: To verify integrity, use: --json flag to get canonical payload,")

@@ -1,0 +1,4 @@
+PyJWT==2.15.1
+cryptography==41.0.7
+requests==2.31.0
+aiohttp==3.9.1
