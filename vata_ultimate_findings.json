@@ -1,0 +1,9 @@
+{
+  "scanner": "ULTIMATE MCP SECURITY SCANNER v1.0",
+  "checks": 25,
+  "total_servers": 8066,
+  "critical": 0,
+  "high": 0,
+  "medium": 0,
+  "vulnerable_servers": []
+}
