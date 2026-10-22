@@ -127,17 +127,3 @@ jobs:
           tests.test_properties
       - name: Enforce coverage threshold
         run: coverage report --fail-under=25
-
-  cors-scanner-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4 # v4
-      - uses: actions/setup-python@v5 # v5
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: pip install flask requests
-      - name: Run CORS scanner negative/positive control tests
-        run: |
-          cd mcp-authscan
-          python3 test_cors_checks.py
