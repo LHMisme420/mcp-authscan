@@ -10,22 +10,29 @@ Protocol: Tests JSON-RPC /initialize endpoint for 401 (OAuth required) or 200 (z
 Exit codes: 0=success, 1=auth failed, 2=unreachable, 3=preflight failed, 4=discovery incomplete.
 Output: Human-readable security report with probe results and deterministic SHA256 hash.
 """
-from mcp_authscan.report_copy import render_summary, check_counts
-import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
-from datetime import datetime, timezone
-from pathlib import Path
-
+import argparse
+import hashlib
+import ipaddress
+import json
+import os
+import re
 
 # ---- Live MCP Server Scanning ----
 import socket
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from mcp_authscan.cors import probe_cors_urllib
+from urllib.request import Request, urlopen
+
+from mcp_authscan.report_copy import check_counts, render_summary
 
 LIVE_ENDPOINTS = {
     "/sse": "GET",
-    "/message": "POST", 
+    "/message": "POST",
     "/mcp": "POST",
     "/tools/list": "GET",
 }
@@ -33,7 +40,7 @@ LIVE_ENDPOINTS = {
 # Fields included in report hash integrity check
 HASH_FIELDS = [
     "target",
-    "scan_mode", 
+    "scan_mode",
     "probe_set_version",
     "probes_attempted",
     "probes_passed",
@@ -77,7 +84,7 @@ def validate_target_host(hostname, port):
             raise ValueError(f"Target {hostname} resolves to private IP {resolved_ip} (DNS rebinding protection)")
         return resolved_ip
     except socket.gaierror as e:
-        raise ValueError(f"DNS resolution failed for {hostname}: {e}")
+        raise ValueError(f"DNS resolution failed for {hostname}: {e}") from e
 
 MAX_RESPONSE_SIZE = 10_000_000
 
@@ -103,7 +110,7 @@ class RateLimiter:
     def __init__(self, requests_per_second=10):
         self.min_interval = 1.0 / requests_per_second
         self.last_request = 0
-    
+
     def wait(self):
         elapsed = time.time() - self.last_request
         if elapsed < self.min_interval:
@@ -139,7 +146,7 @@ def discover_oauth_endpoints(base_url):
     if base_host:
         discovered_hosts.add(base_host)
 
-    print(f"[*] RFC 9728 → RFC 8414 discovery", file=sys.stderr)
+    print("[*] RFC 9728 → RFC 8414 discovery", file=sys.stderr)
 
     # Step 1: POST /initialize (RFC 9728)
     init_payload = {
@@ -167,7 +174,7 @@ def discover_oauth_endpoints(base_url):
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     # Unauthenticated access - zero-auth vulnerability detected
-                    print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
+                    print("[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
                     zero_auth_info = {"status": "ZERO_AUTH_DETECTED", "severity": "CRITICAL"}
                     return None, zero_auth_info
         except HTTPError as e:
@@ -178,12 +185,12 @@ def discover_oauth_endpoints(base_url):
 
             # Step 2: Parse 401 www-authenticate header (RFC 9728)
             www_auth = e.headers.get("www-authenticate", "")
-            print(f"[+] OAuth detected (HTTP 401)", file=sys.stderr)
+            print("[+] OAuth detected (HTTP 401)", file=sys.stderr)
 
             # Look for resource_metadata URL in www-authenticate header
             match = re.search(r'resource_metadata="([^"]+)"', www_auth)
             if not match:
-                print(f"[*] No OAuth discovery pointer in WWW-Authenticate", file=sys.stderr)
+                print("[*] No OAuth discovery pointer in WWW-Authenticate", file=sys.stderr)
                 return None, None
 
             resource_url = match.group(1)
@@ -249,7 +256,7 @@ def discover_oauth_endpoints(base_url):
                         return all_endpoints, discovery_info
 
             except (HTTPError, URLError, socket.timeout, json.JSONDecodeError):
-                print(f"[!] Failed to fetch OAuth metadata", file=sys.stderr)
+                print("[!] Failed to fetch OAuth metadata", file=sys.stderr)
 
     except (URLError, socket.timeout):
         pass
@@ -279,8 +286,8 @@ def scan_live_server(target_url):
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
         return findings, False, probe_status, discovery_info, ([], [])
 
-    print(f"[*] Detected live server URL", file=sys.stderr)
-    print(f"[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
+    print("[*] Detected live server URL", file=sys.stderr)
+    print("[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
 
     # PREFLIGHT: Verify target is an MCP server before running probes
     # POST /initialize should return 401 with WWW-Authenticate OR 200 with JSON
@@ -322,19 +329,19 @@ def scan_live_server(target_url):
             if e.code == 401:
                 # OAuth challenge - this is MCP
                 mcp_verified = True
-                print(f"[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
+                print("[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
             elif e.code in [400, 405, 406]:
                 # Server returned error but in JSON format - still MCP
                 body = e.fp.read(500).decode(errors='ignore') if e.fp else ""
                 if 'jsonrpc' in body or '{' in body:
                     mcp_verified = True
                     print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
-    except Exception as e:
+    except Exception:
         pass
 
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
-        print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
+        print("[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
         # Zero probes attempted—preflight failed
         probe_status['attempted'] = 0
         probe_status['passed'] = 0
@@ -343,7 +350,7 @@ def scan_live_server(target_url):
         preflight_info = {"status": "PREFLIGHT_FAILED"}
         return findings, False, probe_status, preflight_info, ([], [])
 
-    print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
+    print("[*] Attempting OAuth discovery...", file=sys.stderr)
 
     # Perform RFC 9728 → RFC 8414 discovery
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
@@ -353,7 +360,7 @@ def scan_live_server(target_url):
         print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
 
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
-        from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
+        from mcp_authscan.oauth_probes_v2 import count_probes, render_probe, run_oauth_assessment
 
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
@@ -371,11 +378,11 @@ def scan_live_server(target_url):
                     req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
                     with urlopen(req, timeout=5) as resp:
                         resource_metadata_doc = json.loads(resp.read().decode())
-                except Exception as e:
+                except Exception:
                     pass  # Silently fail, resource_metadata_doc stays None
-            
+
             records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
-            
+
             oauth_records.extend(records)
 
             for finding in oauth_findings:
@@ -404,13 +411,13 @@ def scan_live_server(target_url):
             for record in sorted_records:
                 print(render_probe(record), file=sys.stderr)
 
-        
+
         # Verify accounting
         oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
         if not accounting_valid:
             print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
             sys.exit(5)
-        
+
         # Update probe_status from OAuth assessment counts
         authserver_counts = oauth_counts.get("authserver", {})
         probe_status['attempted'] = authserver_counts.get("attempted", 0)
@@ -419,7 +426,7 @@ def scan_live_server(target_url):
         probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
         probe_status['observation'] = authserver_counts.get("observation", 0)
         probe_status['excluded'] = authserver_counts.get("excluded", 0)
-        
+
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
@@ -428,9 +435,9 @@ def scan_live_server(target_url):
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
-        print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-        print(f"[!] The preflight detected OAuth (401) but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
-        print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
+        print("[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
+        print("[!] The preflight detected OAuth (401) but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print("[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
         discovery_incomplete = {
@@ -448,228 +455,6 @@ def scan_live_server(target_url):
         probe_status['not_observed'] = 0
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
-    print(f"[*] Scanning live server: {scan_target}", file=sys.stderr)
-    print(f"[*] Probe-by-probe execution:", file=sys.stderr)
-
-    for endpoint_path, method_and_url in endpoints_to_test.items():
-        # Handle tuple format (method, full_url)
-        if isinstance(method_and_url, tuple):
-            method, url = method_and_url
-        else:
-            method = method_and_url
-            url = scan_target.rstrip("/") + endpoint_path
-
-        # Display path for output (use endpoint_path for discovered, or URL path for hardcoded)
-        display_path = endpoint_path if not oauth_endpoints else urlparse(url).path or url.split("://")[1].split("/", 1)[1] if "/" in url.split("://")[1] else "/"
-
-        # Test 1: Zero-auth endpoint (D1)
-        # PASS: 401/403 (correctly rejected)
-        # FINDING: 200/201/202 (vulnerable - accepts unauthenticated)
-        # NOT_OBSERVED: 404/5xx (endpoint doesn't exist)
-        request_body = ""
-        try:
-            req = Request(url, method=method)
-            req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-            if method == "POST":
-                request_body = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-                req.data = request_body.encode()
-                req.add_header("Content-Type", "application/json")
-
-            with urlopen(req, timeout=5) as resp:
-                response_data = resp.read(500)
-                response_preview = response_data.decode(errors='ignore')
-
-                if resp.status in [200, 201, 202]:
-                    # Check: is this actually the endpoint we're testing?
-                    # HTML responses (<!DOCTYPE, <html) are SPA shells, not API endpoints
-                    if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
-                        # Wrong content-type: expected JSON/OAuth endpoint, got HTML
-                        print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
-                        probe_results.append((display_path, method, resp.status, "wrong content-type: HTML", "NOT_OBSERVED"))
-                        probe_status['not_observed'] += 1
-                    else:
-                        # VULNERABILITY: endpoint accepts unauthenticated requests
-                        print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (no auth required)", file=sys.stderr)
-                        probe_results.append((display_path, method, resp.status, "no auth required", "VULNERABLE"))
-                        add_live_finding(findings, "D1", "CRITICAL",
-                            f"Zero-auth endpoint: {method} {display_path}",
-                            url, method, request_body, resp.status, response_preview,
-                            f"Endpoint responded to unauthenticated request (HTTP {resp.status})",
-                            "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
-                            "D1-zero-auth", "HIGH")
-                        probe_status['findings'] += 1
-                elif resp.status in [401, 403]:
-                    # GOOD: server correctly rejected unauthenticated request
-                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} PASS (auth enforced)", file=sys.stderr)
-                    probe_results.append((display_path, method, resp.status, "auth enforced", "PASS"))
-                    probe_status['passed'] += 1
-                else:
-                    # NOT_OBSERVED: unexpected status (endpoint missing, error, etc)
-                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
-                    probe_results.append((display_path, method, resp.status, f"unexpected status", "NOT_OBSERVED"))
-                    probe_status['not_observed'] += 1
-
-        except HTTPError as e:
-            if e.code in [200, 201, 202]:
-                # Try to read error response
-                try:
-                    error_body = e.read(500).decode(errors='ignore')
-                except:
-                    error_body = ""
-
-                # Check: is this actually the endpoint we're testing?
-                if error_body.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
-                    # Wrong content-type: expected JSON/OAuth endpoint, got HTML
-                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
-                    probe_status['not_observed'] += 1
-                else:
-                    print(f"  [D1] {method:4s} {display_path:30s} HTTP {e.code} VULNERABLE (no auth required)", file=sys.stderr)
-                    add_live_finding(findings, "D1", "CRITICAL", f"Zero-auth: {method} {display_path}",
-                        url, method, request_body if method == "POST" else "", e.code, error_body,
-                        f"Endpoint accessible without Authorization header",
-                        "Add Authorization: Bearer <token> requirement. Validate all requests before processing.",
-                        "D1-zero-auth", "HIGH")
-                    probe_status['findings'] += 1
-            elif e.code in [401, 403]:
-                print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} PASS (auth enforced)", file=sys.stderr)
-                probe_status['passed'] += 1
-            else:
-                # 404, 5xx, etc
-                print(f"  [D1] {method:4s} {display_path:15s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
-                probe_status['not_observed'] += 1
-        except (URLError, socket.timeout) as e:
-            # Connection failed: can't observe this probe
-            print(f"  [D1] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
-            probe_status['not_observed'] += 1
-
-        # Test 2: Evidence-based CORS policy (D2)
-        # CORS can only be tested on endpoints that exist (2xx, 401/403)
-        # If endpoint is 404/5xx, we can't test CORS = NOT_OBSERVED
-        try:
-            req = Request(url, method=method)
-            req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-
-            # First check: does the endpoint exist?
-            endpoint_exists = False
-            try:
-                with urlopen(req, timeout=5) as resp:
-                    if resp.status not in [404] and resp.status < 500:
-                        endpoint_exists = True
-            except HTTPError as e:
-                if e.code not in [404] and e.code < 500:
-                    endpoint_exists = True
-            except (URLError, socket.timeout):
-                pass
-
-            if not endpoint_exists:
-                # Endpoint doesn't exist or has server error - can't test
-                print(f"  [D2] {method:4s} {display_path:15s} (endpoint missing) NOT_OBSERVED", file=sys.stderr)
-                probe_status['not_observed'] += 1
-            else:
-                # Endpoint exists, now test CORS
-                assessment = probe_cors_urllib(url, method, timeout=5, opener=urlopen)
-                if assessment.is_finding:
-                    print(f"  [D2] {method:4s} {display_path:15s} VULNERABLE (CORS misconfigured)", file=sys.stderr)
-                    add(findings, "D2", assessment.severity, f"{assessment.summary} on {display_path}",
-                        url, "", 0, assessment.details,
-                        "D2-cors-origin-reflection" if assessment.reflected else "D2-cors-wildcard", "MEDIUM")
-                    probe_status['findings'] += 1
-                else:
-                    # CORS test ran and found no issue = passed
-                    print(f"  [D2] {method:4s} {display_path:15s} PASS (CORS OK)", file=sys.stderr)
-                    probe_status['passed'] += 1
-        except (HTTPError, URLError, socket.timeout):
-            # Couldn't test CORS
-            print(f"  [D2] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
-            probe_status['not_observed'] += 1
-
-        # Test 3: Invalid token accepted (D3)
-        # PASS: 401/403 (correctly rejected invalid token)
-        # FINDING: 200/201/202 (vulnerable - accepts invalid token)
-        # NOT_OBSERVED: 404/5xx (endpoint doesn't exist)
-        token_body = ""
-        try:
-            req = Request(url, method=method)
-            req.add_header("Authorization", "Bearer invalid_token_xyz")
-            if method == "POST":
-                token_body = '{"jsonrpc":"2.0"}'
-                req.data = token_body.encode()
-                req.add_header("Content-Type", "application/json")
-
-            with urlopen(req, timeout=5) as resp:
-                response_data = resp.read(500)
-                response_preview = response_data.decode(errors='ignore')
-
-                if resp.status in [200, 201, 202]:
-                    # Check: is this actually the endpoint we're testing?
-                    if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
-                        # Wrong content-type: expected JSON/OAuth endpoint, got HTML
-                        print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
-                        probe_status['not_observed'] += 1
-                    else:
-                        # VULNERABILITY: endpoint accepts invalid token
-                        print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} VULNERABLE (invalid token accepted)", file=sys.stderr)
-                        add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
-                            url, method, token_body, resp.status, response_preview,
-                            f"Invalid token accepted (HTTP {resp.status})",
-                            "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
-                            "D3-token-validation", "HIGH")
-                        probe_status['findings'] += 1
-                elif resp.status == 401:
-                    # PASS: 401 Unauthorized specifically proves token validation (rejected invalid token)
-                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} PASS (token validation enforced)", file=sys.stderr)
-                    probe_results.append((display_path, method, resp.status, "token validation enforced", "PASS"))
-                    probe_status['passed'] += 1
-                elif resp.status == 403:
-                    # NOT_OBSERVED: 403 Forbidden means "access denied" but doesn't prove token validation
-                    # Could be permission denied, rate limit, firewall, or actual token validation
-                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED (reason unknown - could be token validation or permission denied)", file=sys.stderr)
-                    probe_results.append((display_path, method, resp.status, "access denied but reason unknown", "NOT_OBSERVED"))
-                    probe_status['not_observed'] += 1
-                else:
-                    # NOT_OBSERVED: unexpected status
-                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {resp.status} NOT_OBSERVED", file=sys.stderr)
-                    probe_results.append((display_path, method, resp.status, f"unexpected status", "NOT_OBSERVED"))
-                    probe_status['not_observed'] += 1
-
-        except HTTPError as e:
-            if e.code in [200, 201, 202]:
-                # Try to read error response
-                try:
-                    error_body = e.read(500).decode(errors='ignore')
-                except:
-                    error_body = ""
-
-                # Check: is this actually the endpoint we're testing?
-                if error_body.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
-                    # Wrong content-type: expected JSON/OAuth endpoint, got HTML
-                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED (wrong content-type: HTML)", file=sys.stderr)
-                    probe_status['not_observed'] += 1
-                else:
-                    print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} VULNERABLE (invalid token accepted)", file=sys.stderr)
-                    add_live_finding(findings, "D3", "HIGH", f"Token validation bypass on {display_path}",
-                        url, method, token_body if method == "POST" else "", e.code, error_body,
-                        f"Invalid token accepted",
-                        "Validate token signature and expiry before processing requests. Reject invalid/expired tokens.",
-                        "D3-token-validation", "HIGH")
-                    probe_status['findings'] += 1
-            elif e.code == 401:
-                print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} PASS (token validation enforced)", file=sys.stderr)
-                probe_results.append((display_path, method, e.code, "token validation enforced", "PASS"))
-                probe_status['passed'] += 1
-            elif e.code == 403:
-                print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED (reason unknown - could be token validation or permission denied)", file=sys.stderr)
-                probe_results.append((display_path, method, e.code, "access denied but reason unknown", "NOT_OBSERVED"))
-                probe_status['not_observed'] += 1
-            else:
-                print(f"  [D3] {method:4s} {display_path:30s} HTTP {e.code} NOT_OBSERVED", file=sys.stderr)
-                probe_results.append((display_path, method, e.code, "unexpected status", "NOT_OBSERVED"))
-                probe_status['not_observed'] += 1
-        except (URLError, socket.timeout):
-            print(f"  [D3] {method:4s} {display_path:15s} TIMEOUT/CONNFAIL NOT_OBSERVED", file=sys.stderr)
-            probe_status['not_observed'] += 1
-
-    return findings, True, probe_status, discovery_info, probe_results
 
 VERSION = "1.1.0"
 PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
@@ -775,10 +560,12 @@ def brace_block(text, start):
         return "\n".join(lines)
     depth, j = 0, i
     while j < len(text):
-        if text[j] == "{": depth += 1
+        if text[j] == "{":
+            depth += 1
         elif text[j] == "}":
             depth -= 1
-            if depth == 0: return text[i:j+1]
+            if depth == 0:
+                return text[i:j+1]
         j += 1
     return text[i:i+4000]
 
@@ -814,20 +601,20 @@ def validate_response_format(response_preview, endpoint_type):
     """
     if not response_preview:
         return False
-    
+
     # HTML responses are never findings (SPA shells, error pages, etc)
     if response_preview.strip().startswith(('<!DOCTYPE', '<html', '<?xml')):
         return False
-    
+
     # Should be JSON for OAuth/JWKS endpoints
     if endpoint_type in ['jwks', 'metadata', 'oauth']:
         try:
             import json as json_module
             json_module.loads(response_preview[:500])
             return True
-        except:
+        except Exception:
             return False
-    
+
     return False
 
 
@@ -1989,8 +1776,7 @@ def scan(root, include_tests, exclude=()):
 # ---- HTML Report Generation (canonical payload only) ----
 def generate_html_report(canonical_payload, output_file):
     """Generate OAuth assessment report from canonical_payload."""
-    from datetime import datetime
-    
+
     target = canonical_payload.get("target", "unknown")
     attempted = canonical_payload.get("probes_attempted", 0)
     passed = canonical_payload.get("probes_passed", 0)
@@ -2000,16 +1786,16 @@ def generate_html_report(canonical_payload, output_file):
     excluded = canonical_payload.get("probes_excluded", 0)
     scan_date = canonical_payload.get("scan_date", "Unknown")
     tool_version = canonical_payload.get("tool_version", "1.1.0")
-    
+
     auth = canonical_payload.get("authorization", {})
     findings = canonical_payload.get("findings", [])
     report_hash = canonical_payload.get("report_hash", "")
-    
+
     auth_by = auth.get("authorized_by", "Unknown")
     auth_basis = auth.get("auth_basis", "Unknown")
     contact = auth.get("contact", "Unknown")
     assessed_by = auth.get("assessed_by", "Unknown")
-    
+
     findings_html = ""
     if findings:
         findings_html = '<div class="section"><div class="section-title">Findings</div>'
@@ -2019,7 +1805,7 @@ def generate_html_report(canonical_payload, output_file):
             evidence = f.get("evidence", "")
             findings_html += f'<div style="margin-bottom:15px; padding:15px; border-left:4px solid #dc2626;"><strong>{severity}: {title}</strong><br/><pre style="font-size:12px; white-space:pre-wrap;">{evidence}</pre></div>'
         findings_html += '</div>'
-    
+
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2095,10 +1881,10 @@ def generate_html_report(canonical_payload, output_file):
 </body>
 </html>
 """
-    
+
     with open(output_file, 'w') as f:
         f.write(html_content)
-    
+
     return output_file
 
 
@@ -2169,7 +1955,7 @@ def main():
 
         # Validate authorization metadata for real scans
         if not args.authorized_by or not args.auth_basis or not args.contact:
-            print(f"[!] ERROR: Authorization fields are required and must be non-empty.", file=sys.stderr)
+            print("[!] ERROR: Authorization fields are required and must be non-empty.", file=sys.stderr)
             print(f"[!]   --authorized-by: {args.authorized_by or '(missing)'}", file=sys.stderr)
             print(f"[!]   --auth-basis: {args.auth_basis or '(missing)'}", file=sys.stderr)
             print(f"[!]   --contact: {args.contact or '(missing)'}", file=sys.stderr)
@@ -2225,7 +2011,7 @@ def main():
 
         # Log discovery results (only if successful, not DISCOVERY_INCOMPLETE)
         if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
-            print(f"[+] OAuth discovery successful", file=sys.stderr)
+            print("[+] OAuth discovery successful", file=sys.stderr)
             if 'method' in discovery_info:
                 print(f"    Method: {discovery_info['method']}", file=sys.stderr)
             if 'endpoints' in discovery_info:
@@ -2235,7 +2021,7 @@ def main():
 
         # Check for zero-auth vulnerability
         if discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
-            print(f"[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
+            print("[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
             findings = [{
                 "rule": "ZERO-AUTH",
                 "severity": "CRITICAL",
@@ -2259,14 +2045,14 @@ def main():
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
-            print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
+            print("[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
             sys.exit(5)
 
         if not server_reachable:
             # Distinguish failure modes by discovery_info status
             if discovery_info is None:
                 # Can't connect at all
-                print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
+                print("[!] Target unreachable. Scan aborted.", file=sys.stderr)
                 sys.exit(3)
             elif discovery_info.get("status") == "PREFLIGHT_FAILED":
                 # Preflight failed (target not MCP)
@@ -2322,11 +2108,11 @@ def main():
             # If we have fewer, exit 5 (incomplete assessment)
             # Print hash and authorization block BEFORE exiting
             payload_hash = hashlib.sha256(json.dumps({"authorization": {"authorized_by": args.authorized_by or "", "auth_basis": args.auth_basis or "", "contact": args.contact or ""}, "scan_mode": "LIVE_ENDPOINT_ASSESSMENT", "probes_attempted": attempted, "probes_passed": passed, "probes_failed": failed, "probes_observed": observation, "probes_not_observed": not_observed, "probes_excluded": excluded}, sort_keys=True).encode()).hexdigest()
-            
+
             print("=" * 80)
             print(f"REPORT HASH (SHA256): {payload_hash}")
             print("=" * 80)
-            
+
             if args.authorized_by:
                 print("")
                 print("=" * 80)
@@ -2336,13 +2122,13 @@ def main():
                 print(f"Basis: {args.auth_basis}")
                 print(f"Contact: {args.contact}")
                 print("=" * 80)
-            
+
             if verdicts_reached < 7:
                 print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
                 sys.exit(5)
 
     else:
-        print(f"[*] Scanning source code directory", file=sys.stderr)
+        print("[*] Scanning source code directory", file=sys.stderr)
         F = scan(args.target, args.include_tests, args.exclude)
         scan_mode = "SOURCE_CODE_ASSESSMENT"
         probes_attempted = len(F)  # For source code, probes = findings flagged
@@ -2368,7 +2154,7 @@ def main():
     # For both authorized scans and fixture runs, create metadata objects
     # Fixture runs have empty authorization, but still need metadata for reporting
     if args.authorized_by or is_fixture:
-        from mcp_authscan.authorization import ScanAuthorization, ScanMetadata, report_header_with_authorization
+        from mcp_authscan.authorization import ScanAuthorization, ScanMetadata
 
         # For real scans, populate authorization; for fixtures, leave empty
         auth = ScanAuthorization(
@@ -2431,7 +2217,7 @@ def main():
                     if recognized_irrelevant > 0:
                         exclusions.append(f"{recognized_irrelevant} recognized as irrelevant")
                     files_excluded = [files_examined_detail] + exclusions
-            except:
+            except Exception:
                 files_excluded = list(SKIP_DIR)
 
         # Define what wasn't tested based on assessment type
@@ -2625,17 +2411,17 @@ def main():
 
                 # For live endpoint findings, show full request/response evidence
                 if x.get("is_live_finding"):
-                    print(f"\n  REQUEST:")
+                    print("\n  REQUEST:")
                     print(f"    Method: {x['request_method']}")
                     if x['request_body']:
                         print(f"    Body: {x['request_body'][:200]}")
-                    print(f"\n  RESPONSE:")
+                    print("\n  RESPONSE:")
                     print(f"    Status: HTTP {x['response_status']}")
                     if x['response_preview']:
                         print(f"    Body Preview: {x['response_preview'][:200]}")
-                    print(f"\n  INTERPRETATION:")
+                    print("\n  INTERPRETATION:")
                     print(f"    {x['interpretation']}")
-                    print(f"\n  REMEDIATION:")
+                    print("\n  REMEDIATION:")
                     print(f"    {x['remediation']}")
                 else:
                     print(f"  {x['evidence']}")
@@ -2655,17 +2441,17 @@ def main():
 
                 # For live endpoint findings, include full evidence in report hash
                 if x.get("is_live_finding"):
-                    full_report += f"\n  REQUEST:\n"
+                    full_report += "\n  REQUEST:\n"
                     full_report += f"    Method: {x['request_method']}\n"
                     if x['request_body']:
                         full_report += f"    Body: {x['request_body']}\n"
-                    full_report += f"\n  RESPONSE:\n"
+                    full_report += "\n  RESPONSE:\n"
                     full_report += f"    Status: HTTP {x['response_status']}\n"
                     if x['response_preview']:
                         full_report += f"    Body Preview: {x['response_preview']}\n"
-                    full_report += f"\n  INTERPRETATION:\n"
+                    full_report += "\n  INTERPRETATION:\n"
                     full_report += f"    {x['interpretation']}\n"
-                    full_report += f"\n  REMEDIATION:\n"
+                    full_report += "\n  REMEDIATION:\n"
                     full_report += f"    {x['remediation']}\n"
                 else:
                     full_report += f"  {x['evidence']}\n{x['snippet']}\n"
@@ -2684,7 +2470,7 @@ def main():
             print("[Authenticity: Real proof of scan is Heath's server logs showing the probes.")
             print(" Hash provides integrity; logs provide proof the scan actually occurred.]")
             print("=" * 80)
-            
+
             # Print authorization block
             if args.authorized_by:
                 print("")
@@ -2695,7 +2481,7 @@ def main():
                 print(f"Basis: {args.auth_basis}")
                 print(f"Contact: {args.contact}")
                 print("=" * 80)
-            
+
             if metadata.elapsed_seconds is not None:
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
         else:
@@ -2764,7 +2550,7 @@ OAUTH_2_1_CHECKS = {
 # JWT Weakness Detection Integration
 try:
     from jwt_weakness.extended_detector import ExtendedJWTDetector
-    
+
     def run_jwt_weakness_check(server_url):
         """Run JWT weakness detection on MCP server."""
         try:
@@ -2776,7 +2562,7 @@ try:
                     "findings": findings,
                     "severity": max([f.get("severity", "LOW") for f in findings])
                 }
-        except Exception as e:
+        except Exception:
             pass
         return None
 

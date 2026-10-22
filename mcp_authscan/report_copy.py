@@ -33,11 +33,11 @@ def render_summary(records):
     if passed:
         evidence = "; ".join(PASS_EVIDENCE.get(r.probe_name, r.probe_name) for r in passed)
         lines.append(f"PASSED ({len(passed)}): {evidence}")
-    
+
     if obs:
         for r in obs:
             lines.append(f"OBSERVED ({r.probe_name}): {r.evidence}")
-    
+
     if not_obs:
         # Distinguish excluded (never sent) from not_observed (sent, inconclusive)
         excluded = [r for r in not_obs if hasattr(r, 'prerequisite_met') and not r.prerequisite_met]
@@ -50,9 +50,9 @@ def render_summary(records):
         if inconclusive:
             names = ", ".join(r.probe_name for r in inconclusive)
             lines.append(f"NOT OBSERVED ({len(inconclusive)}): {names}")
-    
+
     if failed:
         names = ", ".join(r.probe_name for r in failed)
         lines.append(f"FINDINGS ({len(failed)}): {names}")
-    
+
     return lines
