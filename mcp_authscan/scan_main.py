@@ -2028,7 +2028,7 @@ def main():
                 "title": "Unauthenticated MCP endpoint",
                 "evidence": "POST /initialize responded with HTTP 200 without authentication",
                 "confidence": "HIGH",
-                "file": target_url,
+                "file": args.target,
                 "line": 0,
                 "ref": "ZERO-AUTH",
                 "is_live_finding": True,
