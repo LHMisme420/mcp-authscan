@@ -2731,3 +2731,26 @@ OAUTH_2_1_CHECKS = {
 
 # ---- HTML Report Generation ----
 
+
+# JWT Weakness Detection Integration
+try:
+    from jwt_weakness.extended_detector import ExtendedJWTDetector
+    
+    def run_jwt_weakness_check(server_url):
+        """Run JWT weakness detection on MCP server."""
+        try:
+            detector = ExtendedJWTDetector(server_url, timeout=3)
+            findings = detector.run()
+            if findings:
+                return {
+                    "check": "JWT_WEAKNESS",
+                    "findings": findings,
+                    "severity": max([f.get("severity", "LOW") for f in findings])
+                }
+        except Exception as e:
+            pass
+        return None
+
+except ImportError:
+    def run_jwt_weakness_check(server_url):
+        return None
