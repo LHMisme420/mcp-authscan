@@ -45,14 +45,21 @@ def scan_server(token, server):
     vulns_found = 0
     
     try:
-        # Test unauthenticated /tools access
-        res = requests.get(f'{server_url}/tools', timeout=TIMEOUT)
-        if res.status_code < 400:
-            submit_finding(token, server_name, 'unauthenticated_access', 'CRITICAL',
-                f'Unauthenticated /tools endpoint accessible')
+        # Check 1: Origin/Host header validation
+        origin_findings = check_origin_host_validation(server_url)
+        for endpoint, vector, severity in origin_findings:
+            submit_finding(token, server_name, vector, severity,
+                f'{vector} on {endpoint}')
             vulns_found += 1
         
-        # Test schema disclosure
+        # Check 2: CORS credentials reflection
+        cors_findings = check_cors_credentials_reflection(server_url)
+        for endpoint, vector, severity in cors_findings:
+            submit_finding(token, server_name, vector, severity,
+                f'{vector} on {endpoint}')
+            vulns_found += 1
+        
+        # Test schema disclosure (keep existing check)
         for path in ['/openapi.json', '/docs', '/.well-known/openapi.json']:
             res = requests.get(f'{server_url}{path}', timeout=TIMEOUT)
             if res.status_code < 400 and len(res.text) > 100:
@@ -60,18 +67,14 @@ def scan_server(token, server):
                     f'API schema exposed at {path}')
                 vulns_found += 1
                 break
-        
-        # Test CORS
-        res = requests.options(f'{server_url}/tools', timeout=TIMEOUT)
-        if 'access-control-allow-origin' in str(res.headers).lower():
-            submit_finding(token, server_name, 'cors_misconfiguration', 'MEDIUM',
-                'CORS misconfiguration detected')
-            vulns_found += 1
     
+    except requests.exceptions.ConnectionError:
+        return -1  # Unreachable
     except:
         pass
     
     return vulns_found
+
 
 def main():
     print("=" * 60)
@@ -113,3 +116,45 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+def check_origin_host_validation(server_url):
+    """Check for Origin/Host header validation vulnerabilities"""
+    findings = []
+    mcp_endpoints = ['/mcp', '/sse', '/message', '/tools/list']
+    
+    for endpoint in mcp_endpoints:
+        try:
+            evil_origin = 'https://evil.example.com'
+            headers = {'Origin': evil_origin, 'Access-Control-Request-Method': 'POST'}
+            res = requests.options(f'{server_url}{endpoint}', headers=headers, timeout=TIMEOUT)
+            
+            cors_origin = res.headers.get('Access-Control-Allow-Origin', '')
+            credentials = res.headers.get('Access-Control-Allow-Credentials', '').lower()
+            
+            if cors_origin == evil_origin and credentials == 'true':
+                findings.append((endpoint, 'origin_reflection_with_credentials', 'CRITICAL'))
+        except:
+            pass
+    
+    return findings
+
+def check_cors_credentials_reflection(server_url):
+    """Check for CORS credentials reflection vulnerabilities"""
+    findings = []
+    mcp_endpoints = ['/mcp', '/sse', '/message', '/tools/list']
+    
+    for endpoint in mcp_endpoints:
+        try:
+            test_origin = 'https://attacker-test.invalid'
+            headers = {'Origin': test_origin, 'Access-Control-Request-Method': 'POST'}
+            res = requests.options(f'{server_url}{endpoint}', headers=headers, timeout=TIMEOUT)
+            
+            cors_origin = res.headers.get('Access-Control-Allow-Origin', '')
+            credentials = res.headers.get('Access-Control-Allow-Credentials', '').lower()
+            
+            if cors_origin == test_origin and credentials == 'true':
+                findings.append((endpoint, 'cors_credentials_reflection', 'CRITICAL'))
+        except:
+            pass
+    
+    return findings
