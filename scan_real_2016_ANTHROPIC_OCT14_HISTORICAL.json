@@ -1,17 +1,9 @@
 {
     "scan_date": "2026-10-14T05:30:00Z",
-    "status": "HISTORICAL - NO LONGER REPRODUCIBLE",
-    "target": "Anthropic API (Claude Console)",
-    "note": "Findings discovered Oct 14, 2026. Re-tested Oct 22, 2026: none reproducible on current API. Indicates likely patches/improvements since discovery.",
-    "total_servers": 1,
+    "status": "WITHDRAWN",
+    "reason": "Server/endpoint attribution not captured. Findings lack target data necessary for re-verification.",
+    "target": "Anthropic API (claimed)",
+    "note": "12 findings recorded Oct 14, 2026. Original scan methodology did not record which endpoints were tested. Without attribution, findings cannot be independently verified or re-tested.",
     "total_findings": 12,
-    "findings": [
-        {"type": "UNAUTHENTICATED_TOOL_CALL", "severity": "CRITICAL", "status": "PATCHED", "message": "Tools callable without authentication (Oct 14)"},
-        {"type": "CORS_REFLECTION", "severity": "HIGH", "status": "PATCHED", "message": "CORS reflects attacker origin (Oct 14)"},
-        {"type": "OPEN_REDIRECT", "severity": "HIGH", "status": "PATCHED", "message": "OAuth callback vulnerable to open redirect (Oct 14)"},
-        {"type": "RACE_CONDITION_POSSIBLE", "severity": "HIGH", "status": "PATCHED", "message": "Concurrent transfers succeeded (Oct 14)"},
-        {"type": "CACHE_POISONING_POSSIBLE", "severity": "HIGH", "status": "PATCHED", "message": "Server reflects host header (Oct 14)"},
-        {"type": "MISSING_RATE_LIMIT", "severity": "MEDIUM", "status": "PATCHED", "message": "Missing rate limiting (Oct 14)"},
-        {"type": "TIMING_ATTACK_POSSIBLE", "severity": "MEDIUM", "status": "PATCHED", "message": "Timing differences between valid/invalid (Oct 14)"}
-    ]
+    "verdict": "Unverified. Withdrawn from publication."
 }
