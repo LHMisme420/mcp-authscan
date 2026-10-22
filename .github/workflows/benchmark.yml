@@ -105,25 +105,21 @@ jobs:
             const recallStatus = recall == "1.0000" ? "✅" : "⚠️";
             const f1Status = f1 == "1.0000" ? "✅" : "⚠️";
 
-            const comment = `## 🔬 Detector Benchmark Report
-
-### Metrics
-| Metric | Score | Status |
-|--------|-------|--------|
-| Precision | ${precision} | ${precisionStatus} |
-| Recall | ${recall} | ${recallStatus} |
-| F1 | ${f1} | ${f1Status} |
-
-### Confusion Matrix
-- True Positives (TP): ${tp}
-- False Positives (FP): ${fp}
-- False Negatives (FN): ${fn}
-- True Negatives (TN): ${tn}
-
-### Chain of Custody
-Report SHA256: \`${sha}...\`
-
-[View Full Report](benchmark-report.json) · [Methodology](METHODOLOGY.md)`;
+            const comment = "## 🔬 Detector Benchmark Report\n\n" +
+              "### Metrics\n" +
+              "| Metric | Score | Status |\n" +
+              "|--------|-------|--------|\n" +
+              "| Precision | " + precision + " | " + precisionStatus + " |\n" +
+              "| Recall | " + recall + " | " + recallStatus + " |\n" +
+              "| F1 | " + f1 + " | " + f1Status + " |\n\n" +
+              "### Confusion Matrix\n" +
+              "- True Positives (TP): " + tp + "\n" +
+              "- False Positives (FP): " + fp + "\n" +
+              "- False Negatives (FN): " + fn + "\n" +
+              "- True Negatives (TN): " + tn + "\n\n" +
+              "### Chain of Custody\n" +
+              "Report SHA256: `" + sha + "...`\n\n" +
+              "[View Full Report](benchmark-report.json) · [Methodology](METHODOLOGY.md)";
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
