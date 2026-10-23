@@ -70,9 +70,12 @@ localPort = 24678
 externalPort = 3001
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "autoscale"
 run = ["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=/tmp/vata-findings.sqlite", "npm", "run", "start"]
-build = ["npm", "run", "build"]
+build = ["bash", "scripts/deployment-build.sh"]
+
+[packager.features]
+enabledForHosting = false
 
 [userenv]
 
