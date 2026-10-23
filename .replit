@@ -90,6 +90,9 @@ VATA_FINDINGS_NAMESPACE = "production-findings"
 PYTHONUSERBASE = ".pythonlibs"
 PIP_PREFIX = ".pythonlibs"
 PIP_USER = "0"
+UV_PROJECT_ENVIRONMENT = ".pythonlibs"
+UV_PYTHON_DOWNLOADS = "never"
+UV_PYTHON_PREFERENCE = "only-system"
 
 [postMerge]
 path = "scripts/post-merge.sh"

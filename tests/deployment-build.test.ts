@@ -68,6 +68,9 @@ test('shared Python configuration retains the managed library directory', async 
   assert.match(shared, /^PYTHONUSERBASE\s*=\s*"\.pythonlibs"$/m);
   assert.match(shared, /^PIP_PREFIX\s*=\s*"\.pythonlibs"$/m);
   assert.match(shared, /^PIP_USER\s*=\s*"0"$/m);
+  assert.match(shared, /^UV_PROJECT_ENVIRONMENT\s*=\s*"\.pythonlibs"$/m);
+  assert.match(shared, /^UV_PYTHON_DOWNLOADS\s*=\s*"never"$/m);
+  assert.match(shared, /^UV_PYTHON_PREFERENCE\s*=\s*"only-system"$/m);
 });
 
 test('Python runtime dependencies are explicit, without the legacy hosting pip manifest', async () => {
