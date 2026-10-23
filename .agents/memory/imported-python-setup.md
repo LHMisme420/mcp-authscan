@@ -28,6 +28,19 @@ firewall. When replacing hosting's automatic installer, explicitly retain both
 Node and Python dependency installation; successful local compilation alone
 does not verify a cold dependency install in the next publish.
 
+Do not assume the documented hosting skip flag actually prevented pre-build
+installs on this project.
+
+**Why:** A failed release contained the committed custom build script and
+`enabledForHosting = false`, yet still ran the automatic pip step and failed
+before reaching that script. This was not stale source or an uncommitted fix.
+
+**How to apply:** Inspect the failed revision's own configuration before blaming
+an old build. Configure pip's non-user mode and writable managed prefix in
+production settings, where the pre-build installer can receive them. The exact
+Nix pip command passed a local read-only dependency check with that environment;
+confirm the next real publish rather than treating that check as production proof.
+
 After merges, verify the actual workflow run command serves HTTP, not just that modules import or compile.
 
 **Why:** Import-based Flask tests and compilation passed even when the executable startup guard was absent; the workflow exited successfully without starting a server. Similarly, Node bundles built with external packages can compile successfully while a required runtime dependency is missing.
