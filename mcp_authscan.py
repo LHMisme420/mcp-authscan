@@ -379,7 +379,19 @@ def scan_live_server(target_url):
                 except Exception as e:
                     pass  # Silently fail, resource_metadata_doc stays None
             
-            records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
+            try:
+                records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
+            except (ValueError, RuntimeError) as e:
+                print(f"[!] Probe error: {e}", file=sys.stderr)
+                # Return error record instead of crashing
+                from mcp_authscan.oauth_probes_v2 import ProbeRecord
+                records = [ProbeRecord(
+                    probe_id=0,
+                    name="assessment-error",
+                    status="NOT_OBSERVED",
+                    limitation=f"Assessment failed: {e}"
+                )]
+                oauth_findings = []
             
             oauth_records.extend(records)
 

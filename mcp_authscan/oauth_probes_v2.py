@@ -203,6 +203,7 @@ def probe_token_cors(token_endpoint):
         status=status,
         http_status=200,
         body=body,
+        evidence="headers",
         probe_class="authserver",
         detail="ACAO: %s" % (acao or "(absent)"),
         severity=severity,
