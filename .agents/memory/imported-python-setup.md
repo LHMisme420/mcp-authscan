@@ -92,9 +92,18 @@ other. In an isolated probe, `managed = false` did not suppress UPM detection;
 both UV lock and sync failed instead of skipping an unmanaged project.
 
 **How to apply:** Keep web deployment inputs separate from standalone packaging
-metadata without breaking repository-side CLI builds. Treat tests of a locally
-filtered source copy as only local evidence; they do not prove when hosting
-applies its ignore rules relative to automatic installation.
+metadata without breaking repository-side CLI builds. A real publish with the
+root CLI metadata excluded in `.replitignore` still ran automatic UV lock/sync
+and attempted Nix-store writes. Do not rely on publishing ignore rules to disable
+pre-build dependency discovery.
+
+**Why:** A filtered local source copy built and passed startup checks, but hosting
+still discovered the packaging project during its earlier installation phase.
+
+**How to apply:** Stop treating local filtered-build success as proof of a
+managed-installer fix. Require actual pre-build logs showing the corrected
+writable environment before claiming publishing is repaired. Do not create a
+separate virtual environment or weaken storage/authentication to bypass this.
 
 ## Verify package callback results in a prefix-managed interpreter
 
