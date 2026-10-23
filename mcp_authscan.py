@@ -165,10 +165,10 @@ def discover_oauth_endpoints(base_url):
             # Look for resource_metadata URL in www-authenticate header
             match = re.search(r'resource_metadata="([^"]+)"', www_auth)
             if not match:
-                print(f"[*] No OAuth discovery pointer in WWW-Authenticate", file=sys.stderr)
-                return None, None
-
-            resource_url = match.group(1)
+                print(f"[*] No OAuth discovery pointer in WWW-Authenticate - trying direct RFC 8414", file=sys.stderr)
+                pass  # Fall through to direct discovery
+            else:
+                resource_url = match.group(1)
             resource_parsed = urlparse(resource_url)
             if resource_parsed.hostname:
                 discovered_hosts.add(resource_parsed.hostname)
@@ -231,13 +231,14 @@ def discover_oauth_endpoints(base_url):
                         return all_endpoints, discovery_info
 
             except (HTTPError, URLError, socket.timeout, json.JSONDecodeError):
-                print(f"[!] Failed to fetch OAuth metadata", file=sys.stderr)
+                print(f"[!] Failed to fetch OAuth metadata via RFC 9728", file=sys.stderr)
+                pass
 
     except (URLError, socket.timeout):
         pass
 
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
-    print(f"[*] Trying direct RFC 8414 discovery", file=sys.stderr)
+    print(f"[*] Trying direct RFC 8414 discovery on {base}", file=sys.stderr)
     try:
         oauth_metadata_url = base.rstrip("/") + "/.well-known/oauth-authorization-server"
         req = Request(oauth_metadata_url)
@@ -252,7 +253,10 @@ def discover_oauth_endpoints(base_url):
             if endpoints:
                 print(f"[+] OAuth discovery successful", file=sys.stderr)
                 return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints}
-    except:
+            else:
+                print(f"[DEBUG] No endpoints found", file=sys.stderr)
+    except Exception as e:
+        print(f"[DEBUG] Fallback failed: {e}", file=sys.stderr)
         pass
 
     return None, None
@@ -309,9 +313,12 @@ def scan_live_server(target_url):
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
                     body = resp.read(500).decode(errors='ignore')
-                    if 'jsonrpc' in body or '{' in body:
+                    if 'jsonrpc' in body:
                         mcp_verified = True
                         print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+                    else:
+                        # 200 but not JSON-RPC - not an MCP server, continue to OAuth discovery
+                        pass
                 elif resp.status == 400 or resp.status == 406 or resp.status == 405:
                     # 400: JSON-RPC error (malformed but MCP aware)
                     # 405/406: Wrong method/content-type (path exists, headers wrong)
@@ -336,18 +343,15 @@ def scan_live_server(target_url):
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
         print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
-        # Zero probes attempted—preflight failed
-        probe_status['attempted'] = 0
-        probe_status['passed'] = 0
-        probe_status['failed'] = 0
-        probe_status['not_observed'] = 0
         preflight_info = {"status": "PREFLIGHT_FAILED"}
-        return findings, False, probe_status, preflight_info, ([], [])
+    else:
+        preflight_info = {"status": "MCP_VERIFIED"}
 
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
     # Perform RFC 9728 → RFC 8414 discovery
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
+    print(f"[DEBUG] oauth_endpoints={oauth_endpoints}", file=sys.stderr)
 
     if oauth_endpoints:
         # Use discovered OAuth endpoints
