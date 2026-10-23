@@ -77,6 +77,18 @@ test('Python runtime dependencies are explicit, without the legacy hosting pip m
   assert.match(requirements, /^gunicorn$/m);
 });
 
+test('web publishing excludes standalone CLI metadata but retains runtime requirements', async () => {
+  const ignore = await readFile(path.join(root, '.replitignore'), 'utf8');
+  const rules = ignore.split('\n').map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+  assert.ok(rules.includes('/pyproject.toml'));
+  assert.ok(rules.includes('/uv.lock'));
+  assert.ok(!rules.includes('/requirements-runtime.txt'));
+  assert.ok(!rules.includes('requirements-runtime.txt'));
+  const project = await readFile(path.join(root, 'pyproject.toml'), 'utf8');
+  assert.match(project, /\[project\]/, 'CLI packaging must remain available in the repository');
+});
+
 test('post-merge verification remains offline and read-only without importing pip', async () => {
   const hook = await readFile(path.join(root, 'scripts/post-merge.sh'), 'utf8');
   assert.doesNotMatch(hook, /python3 -m pip/);

@@ -1,6 +1,12 @@
 # Local findings exports must not be included in published builds.
 vata_findings_backup.json
 
+# The web app installs requirements-runtime.txt explicitly with a writable prefix.
+# Keep standalone CLI packaging metadata in Git/CI, not the web deployment input:
+# hosting otherwise auto-runs uv lock/sync before the custom build.
+/pyproject.toml
+/uv.lock
+
 # Do not ship private workspace findings to the public application.
 vata.db
 vata.db-*
