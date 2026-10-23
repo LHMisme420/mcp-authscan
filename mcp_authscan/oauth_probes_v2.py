@@ -170,17 +170,26 @@ def probe_token_cors(token_endpoint):
             limitation="No token endpoint"
         )
     
+    headers = {}
+    http_status = None
+    body = b""
+    acao = ""
+    
     try:
         req = Request(token_endpoint, method="OPTIONS")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Origin", "https://hostile.example.com")
         try:
             with urlopen(req, timeout=5) as resp:
-                acao = resp.headers.get("Access-Control-Allow-Origin", "")
+                headers = dict(resp.headers)
+                acao = headers.get("Access-Control-Allow-Origin", "")
                 body = resp.read()
+                http_status = 200
         except HTTPError as e:
-            acao = e.headers.get("Access-Control-Allow-Origin", "")
+            headers = dict(e.headers)
+            acao = headers.get("Access-Control-Allow-Origin", "")
             body = e.read()
+            http_status = e.code
     except (URLError, Exception) as e:
         return record(
             probe_id=4,
@@ -193,21 +202,28 @@ def probe_token_cors(token_endpoint):
     if acao == "*":
         status = "FAIL"
         severity = "MEDIUM"
+        title = "Wildcard CORS origin on OAuth token endpoint"
+        remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it"
     else:
         status = "PASS"
         severity = None
+        title = None
+        remediation = None
     
     return record(
         probe_id=4,
         name="token-cors",
         status=status,
-        http_status=200,
+        http_status=http_status,
+        headers=headers,
         body=body,
         evidence="headers",
         probe_class="authserver",
         detail="ACAO: %s" % (acao or "(absent)"),
         severity=severity,
-        endpoint=token_endpoint
+        endpoint=token_endpoint,
+        prerequisites=[] if status == "PASS" else ["token_endpoint"],
+        prerequisite_met=True if token_endpoint else False,
     )
 
 
@@ -319,7 +335,9 @@ def probe_pkce_s256(metadata):
         name="pkce-s256",
         status="EXCLUDED",
         probe_class="authserver",
-        limitation="PKCE enforcement test requires registered client"
+        limitation="PKCE enforcement test requires registered client",
+        prerequisites=["registered_client"],
+        prerequisite_met=False,
     )
 
 
@@ -330,7 +348,9 @@ def probe_redirect_uri_exact(metadata):
         name="redirect-uri-exact",
         status="EXCLUDED",
         probe_class="authserver",
-        limitation="Redirect URI test requires registered client"
+        limitation="Redirect URI test requires registered client",
+        prerequisites=["registered_client"],
+        prerequisite_met=False,
     )
 
 

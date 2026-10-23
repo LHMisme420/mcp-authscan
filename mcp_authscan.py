@@ -449,7 +449,7 @@ def scan_live_server(target_url):
                     "response_body": record.body_excerpt or "",
                     "response_preview": record.body_excerpt or "",
                     "interpretation": record.detail or "OAuth configuration issue",
-                    "remediation": f"Fix probe {record.probe_id} ({record.name})",
+                    "remediation": "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it" if record.probe_id == 4 else "Review OAuth server configuration",
                 })
         
         # Update probe_status from counts
@@ -2031,157 +2031,6 @@ def generate_html_report(findings, target, output_file, payload=None):
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
     findings_sorted = sorted(findings, key=lambda x: (order.get(x["severity"], 9), x.get("file", "")))
     
-    # Count findings by severity
-    counts = {}
-    for f in findings:
-        sev = f["severity"]
-        counts[sev] = counts.get(sev, 0) + 1
-    
-    critical_count = counts.get("CRITICAL", 0)
-    high_count = counts.get("HIGH", 0)
-    medium_count = counts.get("MEDIUM", 0)
-    low_count = counts.get("LOW", 0) + counts.get("INFO", 0)
-    total_count = len(findings)
-    
-    html_content = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mcp-authscan Security Report</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
-        .header p { font-size: 1.1em; opacity: 0.9; }
-        .target { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 4px; margin-top: 15px; font-family: monospace; }
-        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; padding: 40px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; }
-        .summary-card { text-align: center; }
-        .summary-card .number { font-size: 2.5em; font-weight: bold; margin-bottom: 5px; }
-        .summary-card .label { color: #666; font-size: 0.9em; }
-        .critical { color: #e74c3c; }
-        .high { color: #e67e22; }
-        .medium { color: #f39c12; }
-        .low { color: #3498db; }
-        .findings { padding: 40px; }
-        .finding { margin-bottom: 30px; border-left: 4px solid #e0e0e0; padding-left: 20px; }
-        .finding.critical { border-left-color: #e74c3c; }
-        .finding.high { border-left-color: #e67e22; }
-        .finding.medium { border-left-color: #f39c12; }
-        .finding.low { border-left-color: #3498db; }
-        .finding h3 { margin-bottom: 10px; font-size: 1.2em; }
-        .finding .meta { display: flex; gap: 20px; font-size: 0.9em; color: #666; margin-bottom: 10px; flex-wrap: wrap; }
-        .finding .evidence { background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 0.85em; margin: 10px 0; white-space: pre-wrap; }
-        .finding .snippet { background: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85em; margin: 5px 0; white-space: pre-wrap; }
-        .finding .remediation { background: #e8f5e9; padding: 15px; border-radius: 4px; margin-top: 10px; }
-        .remediation-title { color: #2e7d32; font-weight: bold; margin-bottom: 5px; }
-        .footer { background: #f9f9f9; padding: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #666; font-size: 0.9em; }
-        .severity-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em; margin-right: 10px; }
-        .severity-badge.critical { background: #fadbd8; color: #c0392b; }
-        .severity-badge.high { background: #fdebd0; color: #d35400; }
-        .severity-badge.medium { background: #fef5e7; color: #d68910; }
-        .severity-badge.low { background: #d6eaf8; color: #2980b9; }
-        @media print { body { background: white; } .container { box-shadow: none; } }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔒 mcp-authscan Security Report</h1>
-            <p>MCP Server/Code Security Assessment</p>
-            <div class="target">Target: <strong>""" + target + """</strong><br/>Scanned: """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC') + """</div>
-        </div>
-        
-        <div class="summary">
-            <div class="summary-card">
-                <div class="number critical">""" + str(critical_count) + """</div>
-                <div class="label">CRITICAL</div>
-            </div>
-            <div class="summary-card">
-                <div class="number high">""" + str(high_count) + """</div>
-                <div class="label">HIGH</div>
-            </div>
-            <div class="summary-card">
-                <div class="number medium">""" + str(medium_count) + """</div>
-                <div class="label">MEDIUM</div>
-            </div>
-            <div class="summary-card">
-                <div class="number low">""" + str(low_count) + """</div>
-                <div class="label">LOW/INFO</div>
-            </div>
-            <div class="summary-card">
-                <div class="number">""" + str(total_count) + """</div>
-                <div class="label">Total Findings</div>
-            </div>
-        </div>
-        
-        <div class="findings">
-"""
-    
-    if findings_sorted:
-        for f in findings_sorted:
-            sev_class = f["severity"].lower()
-            sev_badge = f["severity"]
-            rule = f.get("rule", "N/A")
-            title = f.get("title", "N/A")
-            file_path = f.get("file", "N/A")
-            confidence = f.get("confidence", "N/A")
-            ref = f.get("ref", "N/A")
-            evidence = f.get("evidence", "N/A")
-            snippet = f.get("snippet", "N/A")
-            remediation = f.get("remediation", "See COMPLIANCE.md for details")
-            
-            html_content += f"""
-            <div class="finding {sev_class}">
-                <h3>
-                    <span class="severity-badge {sev_class}">{sev_badge}</span>
-                    {rule} - {title}
-                </h3>
-                <div class="meta">
-                    <span>📁 {file_path}</span>
-                    <span>🔍 {confidence} confidence</span>
-                    <span>📌 {ref}</span>
-                </div>
-                <div class="evidence"><strong>Evidence:</strong><br/>{evidence}</div>
-                <div class="snippet"><strong>Code:</strong><br/>{snippet}</div>
-                <div class="remediation">
-                    <div class="remediation-title">✅ Remediation:</div>
-                    {remediation}
-                </div>
-            </div>
-"""
-    else:
-        html_content += '<div style="text-align: center; padding: 40px; color: #666;"><h2>✅ No findings detected</h2><p>Your MCP implementation passed security assessment.</p></div>'
-    
-    html_content += """
-        </div>
-        
-        <div class="footer">
-            Generated by <strong>mcp-authscan</strong> — MCP Security Assessment Tool<br/>
-            <a href="https://github.com/LHMisme420/mcp-authscan">github.com/LHMisme420/mcp-authscan</a> | 
-            <a href="https://github.com/LHMisme420/mcp-authscan/blob/main/COMPLIANCE.md">Compliance Mappings</a>
-        </div>
-    </div>
-</body>
-</html>
-"""
-    
-    with open(output_file, 'w') as f:
-        f.write(html_content)
-    
-    return output_file
-
-
-# ---- HTML Report Generation ----
-def generate_html_report(findings, target, output_file, payload=None):
-    """Generate a polished HTML security report."""
-    from datetime import datetime
-    
-    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
-    findings_sorted = sorted(findings, key=lambda x: (order.get(x["severity"], 9), x.get("file", "")))
-    
     counts = {}
     for f in findings:
         sev = f["severity"]
@@ -2618,7 +2467,7 @@ def main():
     
     canonical_payload = {
         "probes": probes,
-        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "target": args.target,
         "scan_mode": scan_mode,
         "probe_set_version": PROBE_SET_VERSION,
@@ -2643,6 +2492,26 @@ def main():
         canonical_payload["commit_sha"] = commit_sha_long
 
     # Hash the canonical payload (this is what the report signature covers)
+        # Compute accounting and supplementary fields
+    counts = {
+        "in_scope": len(oauth_records),
+        "attempted": len(oauth_records) - sum(1 for r in oauth_records if r.status == "EXCLUDED"),
+        "PASS": sum(1 for r in oauth_records if r.status == "PASS"),
+        "FAIL": sum(1 for r in oauth_records if r.status == "FAIL"),
+        "NOT_OBSERVED": sum(1 for r in oauth_records if r.status == "NOT_OBSERVED"),
+        "EXCLUDED": sum(1 for r in oauth_records if r.status == "EXCLUDED"),
+    }
+    canonical_payload["counts"] = counts
+    canonical_payload["coverage"] = round((counts["PASS"] + counts["FAIL"]) / float(counts["attempted"]), 4) if counts["attempted"] > 0 else 0
+    canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
+    canonical_payload["not_tested"] = [
+        "MCP protocol endpoints",
+        "PKCE S256 enforcement, needs a registered client",
+        "redirect_uri exact match, needs a registered client",
+    ]
+    for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
+        canonical_payload.pop(key, None)
+    
     payload_json = json.dumps(canonical_payload, sort_keys=True)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
     canonical_payload["report_hash"] = payload_hash
