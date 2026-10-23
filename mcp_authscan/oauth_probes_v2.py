@@ -31,7 +31,7 @@ class ProbeRecord:
     """Single probe result with full evidence trail."""
     def __init__(self, probe_id, probe_class, probe_name, request_method, url,
                  status, content_type, headers_observed, body_excerpt, body_sha256,
-                 verdict, evidence, limitation, prerequisites=None, prerequisite_met=True, **fields):
+                 verdict, evidence, limitation, prerequisites=None, prerequisite_met=True, verdict_rule=None, **fields):
         self.probe_id = probe_id
         self.probe_class = probe_class  # "resource" or "authserver"
         self.probe_name = probe_name
@@ -47,9 +47,21 @@ class ProbeRecord:
         self.limitation = limitation  # string or None
         self.prerequisites = prerequisites  # list of required conditions (e.g., ["registered_client"])
         self.prerequisite_met = prerequisite_met  # bool: were prerequisites available at runtime?
+        self.verdict_rule = verdict_rule  # Executable predicate on evidence fields
         # Store extracted field values for validator
         for key, value in fields.items():
             setattr(self, key, value)
+
+
+
+def _extract_error_code(body_text):
+    """Extract error code from OAuth error response JSON."""
+    try:
+        import json
+        data = json.loads(body_text)
+        return data.get("error")
+    except:
+        return None
 
 
 def probe_issuer_identity(metadata_url, metadata):
@@ -80,6 +92,7 @@ def probe_issuer_identity(metadata_url, metadata):
         status=200,
         content_type="application/json",
         headers_observed={},
+        verdict_rule={"field": "observed.issuer", "op": "equals", "expected_from": "observed.base_url"},
         body_excerpt=json.dumps({"issuer": issuer}),
         body_sha256="",
         verdict=verdict,
@@ -121,6 +134,7 @@ def probe_resource_binding(resource_metadata, mcp_url):
         verdict=verdict,
         evidence=evidence,
         limitation=None,
+        verdict_rule={"field": "observed.resource", "op": "equals", "expected_from": "observed.mcp_url"},
         resource=resource,
         mcp_url=mcp_url
     )
@@ -181,32 +195,26 @@ def probe_token_cache_control(token_endpoint):
         body_sha256="",
         verdict=verdict,
         evidence=evidence,
-        limitation=None
+        limitation=None,
+        verdict_rule={"field": "endpoints.0.headers.Cache-Control", "op": "contains", "expected": "no-store"}
     )
 
 
 def probe_token_cors(token_endpoint):
-    """
-    Token endpoint CORS: Send Origin header, record ACAO/ACAC/Vary.
-    Always returns observation (not PASS/FAIL) with impact statement.
-    """
+    """Token endpoint CORS. Property: No wildcard CORS origins on token endpoint."""
     if not token_endpoint:
-        return ProbeRecord(
-            4, "authserver", "token-cors", "POST", token_endpoint or "",
-            0, "", {}, "", "", "NOT_OBSERVED", "", "No token_endpoint in metadata"
-        )
-
-    acao = ""
-    acac = ""
-    vary = ""
-
+        return ProbeRecord(probe_id=4, probe_class="authserver", probe_name="token-cors", request_method="POST",
+            url=token_endpoint or "", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence="No token_endpoint", limitation=None,
+            verdict_rule={"field": "endpoints.0.headers.access-control-allow-origin", "op": "equals", "expected": "*"})
+    
+    acao = acac = vary = ""
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.add_header("Origin", "https://example.invalid")
         req.data = b"grant_type=invalid"
-
         try:
             with urlopen(req, timeout=5) as resp:
                 acao = resp.headers.get("Access-Control-Allow-Origin", "")
@@ -217,295 +225,126 @@ def probe_token_cors(token_endpoint):
             acac = e.headers.get("Access-Control-Allow-Credentials", "")
             vary = e.headers.get("Vary", "")
     except (URLError, Exception) as e:
-        return ProbeRecord(
-            4, "authserver", "token-cors", "POST", token_endpoint,
-            0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
-        )
+        return ProbeRecord(probe_id=4, probe_class="authserver", probe_name="token-cors", request_method="POST",
+            url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence=f"Request failed: {e}", limitation=None,
+            verdict_rule={"field": "endpoints.0.headers.access-control-allow-origin", "op": "equals", "expected": "*"})
+    
+    verdict = "FAIL" if acao == "*" else "PASS"
+    evidence = f"ACAO: {acao or '(absent)'} ACAC: {acac or '(absent)'} Vary: {vary or '(absent)'}"
+    return ProbeRecord(probe_id=4, probe_class="authserver", probe_name="token-cors", request_method="POST",
+        url=token_endpoint, status=0, content_type="", headers_observed={"access-control-allow-origin": acao, "access-control-allow-credentials": acac, "vary": vary},
+        body_excerpt="", body_sha256="", verdict=verdict, evidence=evidence, limitation=None,
+        verdict_rule={"field": "endpoints.0.headers.access-control-allow-origin", "op": "equals", "expected": "*"})
 
-    # Always observation, never FAIL
-    impact = "Wildcard CORS on token endpoint allows cross-origin POST requests to reach it. Responses are protected by CORS policy, but the request itself executes on the server. This enables authorized clients on other origins to interact with the token endpoint, but also exposes it to direct cross-origin access attempts." if acao == "*" else "CORS restricted or absent."
-    evidence = f"ACAO: {acao or '(absent)'}\nACAC: {acac or '(absent)'}\nVary: {vary or '(absent)'}\nImpact: {impact}"
-
-    return ProbeRecord(
-        probe_id=4,
-        probe_class="authserver",
-        probe_name="token-cors",
-        request_method="POST",
-        url=token_endpoint,
-        status=0,
-        content_type="",
-        headers_observed={"Access-Control-Allow-Origin": acao, "Access-Control-Allow-Credentials": acac, "Vary": vary},
-        body_excerpt="",
-        body_sha256="",
-        verdict="OBSERVATION",  # Never PASS or FAIL
-        evidence=evidence,
-        limitation=None
-    )
-
-
-def probe_jwks_keys(jwks_uri):
-    """
-    JWKS endpoint returns only asymmetric keys (RSA, EC, OKP), none with alg=none.
-    PASS: all keys valid
-    FAIL: alg=none or invalid kty found
-    """
-    if not jwks_uri:
-        return ProbeRecord(
-            5, "authserver", "jwks-keys", "GET", jwks_uri or "",
-            0, "", {}, "", "", "NOT_OBSERVED", "", "No jwks_uri in metadata"
-        )
-
+def probe_jwks_keys(jwks_url):
+    """JWKS endpoint key validation. Property: OAuth server publishes cryptographic keys."""
+    if not jwks_url:
+        return ProbeRecord(probe_id=5, probe_class="authserver", probe_name="jwks-keys", request_method="GET",
+            url="", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence="No JWKS URL", limitation=None,
+            verdict_rule={"field": "observed.key_types", "op": "present"})
+    
+    key_types = invalid_count = 0
     try:
-        req = Request(jwks_uri)
+        req = Request(jwks_url, method="GET")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-
         with urlopen(req, timeout=5) as resp:
-            jwks_data = json.loads(resp.read().decode())
-            keys = jwks_data.get("keys", [])
-    except (HTTPError, URLError, json.JSONDecodeError) as e:
-        return ProbeRecord(
-            5, "authserver", "jwks-keys", "GET", jwks_uri,
-            0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
-        )
-
-    invalid_keys = []
-    for k in keys:
-        if k.get("alg") == "none":
-            invalid_keys.append("alg=none")
-        if k.get("kty") not in ["RSA", "EC", "OKP"]:
-            invalid_keys.append(f"invalid kty={k.get('kty')}")
-
-    verdict = "FAIL" if invalid_keys else "PASS"
-    evidence = f"Total keys: {len(keys)}\nKey types: {', '.join(sorted(set(k.get('kty', 'unknown') for k in keys)))}\nInvalid: {len(invalid_keys)}"
-
-    return ProbeRecord(
-        probe_id=5,
-        probe_class="authserver",
-        probe_name="jwks-keys",
-        request_method="GET",
-        url=jwks_uri,
-        status=200,
-        content_type="application/json",
-        headers_observed={},
-        body_excerpt=f"{len(keys)} keys",
-        body_sha256="",
-        verdict=verdict,
-        evidence=evidence,
-        limitation=None
-    )
-
+            body = resp.read().decode()
+            jwks = json.loads(body)
+            keys = jwks.get("keys", [])
+            key_types = list(set(k.get("kty") for k in keys if k.get("kty")))
+            invalid_count = len([k for k in keys if not k.get("kty")])
+    except (URLError, Exception) as e:
+        return ProbeRecord(probe_id=5, probe_class="authserver", probe_name="jwks-keys", request_method="GET",
+            url=jwks_url, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence=f"Request failed: {e}", limitation=None,
+            verdict_rule={"field": "observed.key_types", "op": "present"})
+    
+    verdict = "PASS" if key_types else "FAIL"
+    evidence = f"Total keys: {len(keys)}\nKey types: {', '.join(key_types) if key_types else 'none'}\nInvalid: {invalid_count}"
+    return ProbeRecord(probe_id=5, probe_class="authserver", probe_name="jwks-keys", request_method="GET",
+        url=jwks_url, status=200, content_type="application/json", headers_observed={}, body_excerpt="", body_sha256="",
+        verdict=verdict, evidence=evidence, limitation=None,
+        verdict_rule={"field": "observed.key_types", "op": "present"}, key_types=key_types)
 
 def probe_password_grant(token_endpoint):
-    """
-    Password grant type support must be disabled (deprecated in OAuth 2.1).
-    PASS: unsupported_grant_type
-    FAIL: grant accepted or successful
-    NOT_OBSERVED: cannot reach verdict without registered client
-
-    To test grant type support, request must be well-formed except for grant_type parameter.
-    This requires a registered client to avoid invalid_request (malformed auth).
-    """
+    """Password grant type. Property: Server rejects resource owner password grant type."""
     if not token_endpoint:
-        return ProbeRecord(
-            6, "authserver", "password-grant", "POST", token_endpoint or "",
-            0, "", {}, "", "", "NOT_OBSERVED", "", "No token_endpoint"
-        )
-
-    error_code = ""
+        return ProbeRecord(probe_id=6, probe_class="authserver", probe_name="password-grant", request_method="POST",
+            url="", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence="No endpoint", limitation=None,
+            verdict_rule={"field": "observed.error", "op": "equals", "expected": "unsupported_grant_type"})
+    
+    error = ""
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=password&username=test&password=test"
-
         try:
             with urlopen(req, timeout=5) as resp:
-                body = resp.read().decode(errors='ignore')
-                error_code = "accepted"
+                error = json.loads(resp.read().decode()).get("error", "")
         except HTTPError as e:
-            body = e.fp.read(500).decode(errors='ignore') if e.fp else ""
-            try:
-                err = json.loads(body)
-                error_code = err.get("error", f"HTTP {e.code}")
-            except (ValueError, KeyError):
-                error_code = f"HTTP {e.code}"
-    except (URLError, Exception) as e:
-        return ProbeRecord(
-            6, "authserver", "password-grant", "POST", token_endpoint,
-            0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
-        )
+            error = json.loads(e.read().decode()).get("error", "")
+    except: pass
+    
+    verdict = "PASS" if error == "unsupported_grant_type" else "FAIL"
+    evidence = f"Password grant error: {error or 'none'}"
+    return ProbeRecord(probe_id=6, probe_class="authserver", probe_name="password-grant", request_method="POST",
+        url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+        verdict=verdict, evidence=evidence, limitation=None,
+        verdict_rule={"field": "observed.error", "op": "equals", "expected": "unsupported_grant_type"}, error=error)
 
-    if error_code == "accepted":
-        verdict = "FAIL"
-        evidence = "Token endpoint accepts password grant type"
-        limitation = None
-    elif error_code == "invalid_client":
-        verdict = "NOT_OBSERVED"
-        evidence = "Client auth evaluated before grant type check"
-        limitation = "Client credentials required to test grant types"
-    elif error_code == "unsupported_grant_type":
-        verdict = "PASS"
-        evidence = "Password grant type correctly unsupported"
-        limitation = None
-    else:
-        verdict = "NOT_OBSERVED"
-        evidence = f"Server returned: {error_code}"
-        limitation = "Cannot determine grant type support without client credentials"
+def probe_pkce_s256(token_endpoint):
+    """PKCE S256 enforcement. Property: Server requires PKCE code challenge."""
+    if not token_endpoint:
+        return ProbeRecord(probe_id=7, probe_class="authserver", probe_name="pkce-s256", request_method="POST",
+            url="", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="EXCLUDED", evidence="No endpoint", prerequisite_met=False, limitation="Enforcement test requires registered client",
+            verdict_rule={"field": "observed.error", "op": "contains", "expected": "challenge"})
+    
+    return ProbeRecord(probe_id=7, probe_class="authserver", probe_name="pkce-s256", request_method="POST",
+        url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+        verdict="EXCLUDED", evidence="Enforcement test requires registered client", prerequisite_met=False,
+        limitation="Enforcement test requires registered client and authorization flow",
+        verdict_rule={"field": "observed.error", "op": "contains", "expected": "challenge"})
 
-    return ProbeRecord(
-        probe_id=6,
-        probe_class="authserver",
-        probe_name="password-grant",
-        request_method="POST",
-        url=token_endpoint,
-        status=0,
-        content_type="",
-        headers_observed={},
-        body_excerpt=error_code,
-        body_sha256="",
-        verdict=verdict,
-        evidence=evidence,
-        limitation=limitation
-    )
-
+def probe_redirect_uri_exact(token_endpoint):
+    """Redirect URI validation. Property: Server validates redirect_uri parameter."""
+    return ProbeRecord(probe_id=8, probe_class="authserver", probe_name="redirect-uri-exact", request_method="GET",
+        url=token_endpoint or "", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+        verdict="EXCLUDED", evidence="Redirect_uri validation tested via authorization endpoint", prerequisite_met=False,
+        limitation="Redirect_uri validation tested via authorization endpoint",
+        verdict_rule={"field": "observed.error", "op": "contains", "expected": "redirect"})
 
 def probe_client_auth(token_endpoint):
-    """
-    Client authentication: send malformed Bearer token.
-    PASS: invalid_client with 401 and WWW-Authenticate header (RFC 6749 §5.2)
-    FAIL: request accepted with bad token
-    NOT_OBSERVED: endpoint unreachable, other error, or non-standard response
-    """
+    """Client authentication. Property: Server enforces client authentication."""
     if not token_endpoint:
-        return ProbeRecord(
-            9, "authserver", "client-auth", "POST", token_endpoint or "",
-            0, "", {}, "", "", "NOT_OBSERVED", "", "No token_endpoint"
-        )
-
-    http_status = 0
-    error_code = ""
+        return ProbeRecord(probe_id=9, probe_class="authserver", probe_name="client-auth", request_method="POST",
+            url="", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence="No endpoint", limitation=None,
+            verdict_rule={"field": "observed.error", "op": "equals", "expected": "invalid_client"})
+    
+    error = ""
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
-        req.add_header("Authorization", "Bearer malformed.token.here")
-        req.data = b"grant_type=authorization_code&code=test&redirect_uri=https://localhost/cb"
-
+        req.data = b"grant_type=client_credentials&client_id=test"
         try:
             with urlopen(req, timeout=5) as resp:
-                error_code = "accepted"
-                http_status = resp.status
+                error = json.loads(resp.read().decode()).get("error", "")
         except HTTPError as e:
-            http_status = e.code
-            body = e.fp.read(500).decode(errors='ignore') if e.fp else ""
-            try:
-                err = json.loads(body)
-                error_code = err.get("error", f"HTTP {e.code}")
-            except (ValueError, KeyError):
-                error_code = f"HTTP {e.code}"
-    except (URLError, Exception) as e:
-        return ProbeRecord(
-            9, "authserver", "client-auth", "POST", token_endpoint,
-            0, "", {}, "", "", "NOT_OBSERVED", "", f"Request failed: {e}"
-        )
-
-    if error_code == "invalid_client":
-        verdict = "PASS"
-        evidence = "Client authentication enforced: invalid_client error on bad token (RFC 6749)"
-    elif error_code == "accepted":
-        verdict = "FAIL"
-        evidence = f"Server accepted malformed token (HTTP {http_status})"
-    else:
-        verdict = "NOT_OBSERVED"
-        evidence = f"Server returned: {error_code} (HTTP {http_status})"
-
-    return ProbeRecord(
-        probe_id=9,
-        probe_class="authserver",
-        probe_name="client-auth",
-        request_method="POST",
-        url=token_endpoint,
-        status=http_status,
-        content_type="",
-        headers_observed={},
-        body_excerpt=error_code,
-        body_sha256="",
-        verdict=verdict,
-        evidence=evidence,
-        limitation=None
-    )
-
-
-def probe_pkce_s256(metadata):
-    """
-    PKCE S256 enforcement: server must reject authorize requests without code_challenge.
-    PASS: authorization fails without code_challenge
-    FAIL: authorization succeeds without code_challenge
-    NOT_OBSERVED: cannot test enforcement without registered client
-
-    Advertisement of S256 support does not prove enforcement.
-    """
-    auth_endpoint = metadata.get("authorization_endpoint", "")
-
-    return ProbeRecord(
-        probe_id=7,
-        probe_class="authserver",
-        probe_name="pkce-s256",
-        request_method="GET",
-        url=auth_endpoint or "",
-        status=0,
-        content_type="",
-        headers_observed={},
-        body_excerpt="",
-        body_sha256="",
-        verdict="NOT_OBSERVED",
-        evidence="Enforcement test requires registered client and authorization flow",
-        limitation="Cannot verify if S256 is enforced without client credentials",
-        prerequisites=["registered_client", "authorization_flow"],
-        prerequisite_met=False
-    )
-
-
-def probe_redirect_uri_exact(metadata):
-    """
-    Redirect URI must be validated with exact string matching.
-    PASS: documentation states exact matching required
-    FAIL: allows prefix matching or wildcard
-    NOT_OBSERVED: no registered client to test with
-    """
-    auth_endpoint = metadata.get("authorization_endpoint", "")
-    if not auth_endpoint:
-        return ProbeRecord(
-            8, "authserver", "redirect-uri-exact", "GET", "",
-            0, "", {}, "", "", "NOT_OBSERVED", "", "No authorization_endpoint in metadata"
-        )
-
-    # Look for redirect_uris_supported or similar documentation
-    # In OAuth 2.0/2.1, redirect_uri matching MUST be exact per spec
-    # This probe would need to test with an actual client to verify
-
-    verdict = "NOT_OBSERVED"
-    evidence = "Redirect_uri validation tested via authorization endpoint"
-    limitation = "Requires registered client, valid authorization flow, and redirect endpoint"
-
-    return ProbeRecord(
-        probe_id=8,
-        probe_class="authserver",
-        probe_name="redirect-uri-exact",
-        request_method="GET",
-        url=auth_endpoint,
-        status=0,
-        content_type="",
-        headers_observed={},
-        body_excerpt="",
-        body_sha256="",
-        verdict=verdict,
-        evidence=evidence,
-        limitation=limitation,
-        prerequisites=["registered_client", "authorization_flow"],
-        prerequisite_met=False
-    )
-
+            error = json.loads(e.read().decode()).get("error", "")
+    except: pass
+    
+    verdict = "PASS" if error == "invalid_client" else "FAIL"
+    evidence = f"Client auth error: {error or 'none'}"
+    return ProbeRecord(probe_id=9, probe_class="authserver", probe_name="client-auth", request_method="POST",
+        url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+        verdict=verdict, evidence=evidence, limitation=None,
+        verdict_rule={"field": "observed.error", "op": "equals", "expected": "invalid_client"}, error=error)
 
 def count_probes(records):
     """

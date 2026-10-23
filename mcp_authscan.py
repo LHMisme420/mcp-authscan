@@ -2549,7 +2549,7 @@ def main():
     PROBE_FIELDS = {
         "probe_id", "probe_name", "probe_class", "request_method", "url", "status",
         "content_type", "headers_observed", "body_excerpt", "body_sha256",
-        "verdict", "evidence", "limitation", "prerequisites", "prerequisite_met"
+        "verdict", "evidence", "limitation", "prerequisites", "prerequisite_met", "verdict_rule"
     }
     
     for record in oauth_records:
@@ -2573,15 +2573,15 @@ def main():
                 "sent": {}
             }],
             "verdict": "NOT_OBSERVED" if record.verdict == "OBSERVATION" else record.verdict,
-            "verdict_rule": {"field": record.probe_name, "op": "equals", "expected": "pass"},
+            "verdict_rule": record.verdict_rule if record.verdict_rule else {"field": record.probe_name, "op": "equals", "expected": "pass"},
             "evidence": record.evidence,
-            "observed": {
+            "observed": {k: v for k, v in {
                 "issuer": getattr(record, "issuer", None),
                 "base_url": getattr(record, "base_url", None),
                 "resource": getattr(record, "resource", None),
                 "mcp_url": getattr(record, "mcp_url", None),
                 "key_types": getattr(record, "key_types", None)
-            }
+            }.items() if v is not None}
         }
         if record.limitation:
             probe["limitation"] = record.limitation
