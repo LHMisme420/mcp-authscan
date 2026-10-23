@@ -6,6 +6,22 @@ Node/npm, PostgreSQL 16 command-line tools (`initdb`, `pg_ctl`), `ps`, and the
 Python dependencies in `requirements.txt` (including Gunicorn). Run as a
 non-root user, as required by PostgreSQL.
 
+## Dependency installation on Replit
+
+Use the interpreter-only `python-base-3.11` module and the Nix `uv` package.
+The full Python tools module's automatic pip installer can fail before the
+configured build command, even when the hosting skip flag is set.
+
+The publishing build runs `scripts/deployment-build.sh`. It installs Node from
+the lockfile and the unchanged Python requirements using `uv pip --prefix`,
+without creating a virtual environment or modifying system Python. Configured
+package registries are preserved. `PYTHONUSERBASE` and the npm start/dev scripts
+make `.pythonlibs` libraries and Gunicorn available at runtime.
+
+Run `npm run build:deployment` to exercise the real dependency-install/build path.
+Then run `npm run test:startup` to check the built server with isolated fixtures.
+Neither command initializes or reseeds the production findings namespace.
+
 ## Isolation and coverage
 
 The test creates a temporary PostgreSQL cluster on loopback and temporary

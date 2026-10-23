@@ -1,8 +1,8 @@
-modules = ["web", "nodejs-20", "go-1.21", "bash", "python-3.11", "postgresql-16"]
+modules = ["web", "nodejs-20", "go-1.21", "bash", "postgresql-16", "python-base-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "glibcLocales"]
+packages = ["freetype", "glibcLocales", "uv"]
 
 [agent]
 expertMode = true
@@ -85,8 +85,9 @@ PUBLIC_APP_URL = "https://mcp-authscan.replit.app"
 VATA_BILLING_MODE = "disabled"
 VATA_PREPARE_LIVE_BILLING = "0"
 VATA_FINDINGS_NAMESPACE = "production-findings"
-PIP_PREFIX = ".pythonlibs"
-PIP_USER = "0"
+
+[userenv.shared]
+PYTHONUSERBASE = ".pythonlibs"
 
 [postMerge]
 path = "scripts/post-merge.sh"

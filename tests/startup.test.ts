@@ -18,9 +18,11 @@ async function freePort() {
   return port;
 }
 // Allowlist, not an environment spread: never send workspace credentials to fixtures.
+const pythonBase = path.resolve(root, process.env.PYTHONUSERBASE || '.pythonlibs');
 const tools = {
   PATH: process.env.PATH!, HOME: process.env.HOME!, LANG: 'C.UTF-8',
-  PYTHONPATH: path.join(root, '.pythonlibs/lib/python3.11/site-packages'),
+  PYTHONUSERBASE: pythonBase,
+  PYTHONPATH: path.join(pythonBase, 'lib/python3.11/site-packages'),
 };
 function tool(command: string, args: string[], env: NodeJS.ProcessEnv = tools) {
   return execFileSync(command, args, { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -429,7 +431,7 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
     await symlink(process.execPath, path.join(bin, 'node'));
     await symlink(tool('which', ['npm']).trim(), path.join(bin, 'npm'));
     await symlink(tool('which', ['sh']).trim(), path.join(bin, 'sh'));
-    const missing = await launch({ PATH: bin });
+    const missing = await launch({ PATH: bin, PYTHONUSERBASE: path.join(temp, 'missing-pythonlibs') });
     assert.match(await exited(missing), /Private scanner could not start.*Gunicorn/);
     const failed = await launch({ DB_FILE: path.join(temp, 'nonexistent', 'scanner.db') });
     assert.match(await exited(failed), /Private scanner stopped unexpectedly/);

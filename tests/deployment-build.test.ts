@@ -19,7 +19,7 @@ const path = require('node:path');
 const tool = path.basename(process.argv[1]);
 const args = process.argv.slice(2);
 const step = tool === 'npm' ? 'npm-' + args[0]
-  : args[0] === '-c' ? 'python-prefix' : 'python-install';
+  : tool === 'uv' ? 'uv-install' : 'python-prefix';
 fs.appendFileSync(process.env.FIXTURE_TRACE, JSON.stringify({
   step, args, cwd: process.cwd(), pipUser: process.env.PIP_USER || null,
 }) + '\\n');
@@ -27,7 +27,7 @@ if (step === process.env.FIXTURE_FAIL_AT) process.exit(17);
 if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
 `;
   try {
-    for (const tool of ['npm', 'python3']) {
+    for (const tool of ['npm', 'python3', 'uv']) {
       await writeFile(path.join(temp, tool), stub, { mode: 0o755 });
     }
     const result = spawnSync('bash', [script], {
@@ -44,7 +44,7 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
       },
     });
     const calls = (await readFile(trace, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-    return { result, calls, prefix };
+    return { result, calls, prefix, python: path.join(temp, 'python3') };
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
@@ -56,23 +56,50 @@ test('hosting uses an explicit build without changing the durable runtime comman
   assert.match(config, /build = \["bash", "scripts\/deployment-build\.sh"\]/);
   assert.match(config, /deploymentTarget = "(?:cloudrun|autoscale)"/);
   assert.match(config, /run = \["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=\/tmp\/vata-findings\.sqlite", "npm", "run", "start"\]/);
+  const modules = config.match(/^modules = (.+)$/m)?.[1] ?? '';
+  assert.match(modules, /"python-base-3\.11"/);
+  assert.doesNotMatch(modules, /"python-\d/);
+  assert.match(config, /packages = \[[^\n]*"uv"/);
 });
 
-test('production pre-install selects the managed prefix and disables user-install mode', async () => {
+test('shared Python configuration retains the managed library directory', async () => {
   const config = await readFile(path.join(root, '.replit'), 'utf8');
-  const production = config.match(/\[userenv\.production\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
-  assert.match(production, /^PIP_USER\s*=\s*"0"$/m);
-  assert.match(production, /^PIP_PREFIX\s*=\s*"\.pythonlibs"$/m);
+  const shared = config.match(/\[userenv\.shared\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
+  assert.match(shared, /^PYTHONUSERBASE\s*=\s*"\.pythonlibs"$/m);
+});
+
+test('post-merge verification remains offline and read-only without importing pip', async () => {
+  const hook = await readFile(path.join(root, 'scripts/post-merge.sh'), 'utf8');
+  assert.doesNotMatch(hook, /python3 -m pip/);
+  assert.match(hook, /uv pip install --dry-run --no-index --no-cache --prefix/);
+});
+
+test('canonical scanner compiles and retains the discovery security parameter', () => {
+  const result = spawnSync('python3', ['-c', [
+    'import ast, pathlib',
+    'path = pathlib.Path("mcp_authscan/scan_main.py")',
+    'source = path.read_text()',
+    'compile(source, str(path), "exec")',
+    'tree = ast.parse(source)',
+    'functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "discover_oauth_endpoints"]',
+    'assert len(functions) == 1',
+    'assert [arg.arg for arg in functions[0].args.args] == ["base_url", "allow_private"]',
+  ].join('\n')], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8' },
+  });
+  assert.equal(result.status, 0, result.stderr);
 });
 
 test('build installs Node and Python into the managed prefix before compiling', async () => {
-  const { result, calls, prefix } = await buildFixture();
+  const { result, calls, prefix, python } = await buildFixture();
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(calls.map(call => call.step), ['npm-ci', 'python-prefix', 'python-install', 'npm-run']);
+  assert.deepEqual(calls.map(call => call.step), ['npm-ci', 'python-prefix', 'uv-install', 'npm-run']);
   assert.deepEqual(calls[0].args, ['ci', '--include=dev']);
   assert.deepEqual(calls[2].args,
-    ['-m', 'pip', 'install', '--prefix', prefix, '--requirement', 'requirements.txt']);
-  assert.equal(calls[2].pipUser, '0', 'Inherited user-install mode must not override the explicit prefix');
+    ['pip', 'install', '--prefix', prefix, '--python', python, '--requirement', 'requirements.txt']);
+  assert.equal(calls[2].pipUser, '1', 'UV prefix installation must not depend on changing pip user mode');
   assert.deepEqual(calls[3].args, ['run', 'build']);
   for (const call of calls) {
     assert.equal(call.cwd, path.resolve(root));
@@ -81,7 +108,7 @@ test('build installs Node and Python into the managed prefix before compiling', 
   }
 });
 
-for (const failAt of ['npm-ci', 'python-prefix', 'python-install']) {
+for (const failAt of ['npm-ci', 'python-prefix', 'uv-install']) {
   test(`failed ${failAt} prevents later build steps`, async () => {
     const { result, calls } = await buildFixture(failAt);
     assert.equal(result.status, 17);

@@ -30,7 +30,11 @@ if missing:
     sys.exit(1)
 PY
 
-python3 -m pip check
+# The interpreter-only runtime does not provide an importable pip module.
+# Resolve against the installed prefix offline and read-only instead.
+python_executable="$(command -v python3)"
+python_prefix="$("$python_executable" -c 'import site; print(site.getuserbase())')"
+uv pip install --dry-run --no-index --no-cache --prefix "$python_prefix" --python "$python_executable" --requirement requirements.txt
 python3 -m compileall -q app.py app_full.py mcp_authscan tests/test_findings_refresh.py
 
 # Bundling externalizes Node packages, so a passing build does not establish
