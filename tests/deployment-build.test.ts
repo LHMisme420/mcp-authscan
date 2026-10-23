@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -22,11 +22,17 @@ const step = tool === 'npm' ? 'npm-' + args[0]
   : tool === 'uv' ? 'uv-install' : 'python-prefix';
 fs.appendFileSync(process.env.FIXTURE_TRACE, JSON.stringify({
   step, args, cwd: process.cwd(), pipUser: process.env.PIP_USER || null,
+  generatorExists: fs.existsSync(path.join(process.env.FIXTURE_PREFIX, 'bin/cffi-gen-src')),
 }) + '\\n');
 if (step === process.env.FIXTURE_FAIL_AT) process.exit(17);
 if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
 `;
   try {
+    await mkdir(path.join(prefix, 'bin'), { recursive: true });
+    await mkdir(path.join(prefix, 'lib/python3.11/site-packages/cffi'), { recursive: true });
+    await writeFile(path.join(prefix, 'bin/cffi-gen-src'), 'generator fixture');
+    await writeFile(path.join(prefix, 'bin/gunicorn'), 'runtime launcher fixture');
+    await writeFile(path.join(prefix, 'lib/python3.11/site-packages/cffi/__init__.py'), '# runtime library fixture');
     for (const tool of ['npm', 'python3', 'uv']) {
       await writeFile(path.join(temp, tool), stub, { mode: 0o755 });
     }
@@ -44,7 +50,13 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
       },
     });
     const calls = (await readFile(trace, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-    return { result, calls, prefix, python: path.join(temp, 'python3') };
+    const exists = (file: string) => access(file).then(() => true, () => false);
+    return {
+      result, calls, prefix, python: path.join(temp, 'python3'),
+      generatorExists: await exists(path.join(prefix, 'bin/cffi-gen-src')),
+      gunicornExists: await exists(path.join(prefix, 'bin/gunicorn')),
+      cffiExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/cffi/__init__.py')),
+    };
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
@@ -101,6 +113,16 @@ test('post-merge verification remains offline and read-only without importing pi
   assert.match(hook, /uv pip install --dry-run --no-index --no-cache --prefix/);
 });
 
+test('publishing excludes only the CFFI generator, not the runtime package tree', async () => {
+  const ignore = await readFile(path.join(root, '.replitignore'), 'utf8');
+  const rules = ignore.split('\n').map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+  assert.ok(rules.includes('/.pythonlibs/bin/cffi-gen-src'));
+  for (const broadRule of ['.pythonlibs', '.pythonlibs/', '/.pythonlibs', '/.pythonlibs/', '**/.pythonlibs/**']) {
+    assert.ok(!rules.includes(broadRule), `Runtime packages must not be excluded by ${broadRule}`);
+  }
+});
+
 test('canonical scanner compiles and retains the discovery security parameter', () => {
   const result = spawnSync('python3', ['-c', [
     'import ast, pathlib',
@@ -120,7 +142,7 @@ test('canonical scanner compiles and retains the discovery security parameter', 
 });
 
 test('build installs Node and Python into the managed prefix before compiling', async () => {
-  const { result, calls, prefix, python } = await buildFixture();
+  const { result, calls, prefix, python, generatorExists, gunicornExists, cffiExists } = await buildFixture();
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls.map(call => call.step), ['npm-ci', 'python-prefix', 'uv-install', 'npm-run']);
   assert.deepEqual(calls[0].args, ['ci', '--include=dev']);
@@ -128,6 +150,10 @@ test('build installs Node and Python into the managed prefix before compiling', 
     ['pip', 'install', '--reinstall', '--prefix', prefix, '--python', python, '--requirement', 'requirements-runtime.txt']);
   assert.equal(calls[2].pipUser, '1', 'UV prefix installation must not depend on changing pip user mode');
   assert.deepEqual(calls[3].args, ['run', 'build']);
+  assert.equal(calls[3].generatorExists, true, 'Cleanup must follow successful compilation');
+  assert.equal(generatorExists, false, 'Only the unused generator is removed');
+  assert.equal(gunicornExists, true, 'The runtime server launcher must remain');
+  assert.equal(cffiExists, true, 'CFFI itself must remain importable');
   for (const call of calls) {
     assert.equal(call.cwd, path.resolve(root));
     assert.ok(!call.args.includes('--break-system-packages'));
@@ -137,9 +163,17 @@ test('build installs Node and Python into the managed prefix before compiling', 
 
 for (const failAt of ['npm-ci', 'python-prefix', 'uv-install']) {
   test(`failed ${failAt} prevents later build steps`, async () => {
-    const { result, calls } = await buildFixture(failAt);
+    const { result, calls, generatorExists } = await buildFixture(failAt);
     assert.equal(result.status, 17);
     assert.equal(calls.at(-1).step, failAt);
     assert.ok(!calls.some(call => call.step === 'npm-run'));
+    assert.equal(generatorExists, true, 'Failed builds must not run post-build cleanup');
   });
 }
+
+test('compilation failure skips generator cleanup', async () => {
+  const { result, calls, generatorExists } = await buildFixture('npm-run');
+  assert.equal(result.status, 17);
+  assert.equal(calls.at(-1).step, 'npm-run');
+  assert.equal(generatorExists, true);
+});

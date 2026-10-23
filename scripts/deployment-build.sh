@@ -26,3 +26,8 @@ python_prefix="$("$python_executable" -c 'import site; print(site.getuserbase())
 uv pip install --reinstall --prefix "$python_prefix" --python "$python_executable" --requirement requirements-runtime.txt
 
 npm run build
+
+# This prefix is the runtime environment, not a disposable build cache.
+# Keep libraries and Gunicorn; omit only CFFI's unused source-generator launcher,
+# which triggered a tar size mismatch while the hosting layer was archived.
+rm -f -- "$python_prefix/bin/cffi-gen-src"
