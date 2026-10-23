@@ -269,14 +269,14 @@ def probe_jwks_keys(jwks_url):
         verdict_rule={"field": "observed.key_types", "op": "present"}, key_types=key_types)
 
 def probe_password_grant(token_endpoint):
-    """Password grant type. Property: Server rejects resource owner password grant type."""
+    """Password grant deprecated. Property: Server does not support password grant."""
     if not token_endpoint:
         return ProbeRecord(probe_id=6, probe_class="authserver", probe_name="password-grant", request_method="POST",
             url="", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
-            verdict="NOT_OBSERVED", evidence="No endpoint", limitation=None,
-            verdict_rule={"field": "observed.error", "op": "equals", "expected": "unsupported_grant_type"})
+            verdict="EXCLUDED", evidence="No endpoint", prerequisite_met=False, limitation="Enforcement test requires registered client")
     
     error = ""
+    status_code = 0
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
@@ -284,25 +284,34 @@ def probe_password_grant(token_endpoint):
         req.data = b"grant_type=password&username=test&password=test"
         try:
             with urlopen(req, timeout=5) as resp:
-                error = json.loads(resp.read().decode()).get("error", "")
+                status_code = resp.status
+                body = resp.read().decode()
+                error = json.loads(body).get("error", "")
         except HTTPError as e:
-            error = json.loads(e.read().decode()).get("error", "")
-    except: pass
+            status_code = e.code
+            try:
+                error = json.loads(e.read().decode()).get("error", "")
+            except:
+                error = ""
+    except (URLError, Exception) as e:
+        return ProbeRecord(probe_id=6, probe_class="authserver", probe_name="password-grant", request_method="POST",
+            url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+            verdict="NOT_OBSERVED", evidence=f"Request failed: {e}", limitation=None, error="")
     
-    verdict = "PASS" if error == "unsupported_grant_type" else "FAIL"
-    evidence = f"Password grant error: {error or 'none'}"
+    verdict = "PASS" if error == "unsupported_grant_type" else "NOT_OBSERVED"
+    evidence = f"Password grant response: {error or '(no error code)'} (HTTP {status_code})"
     return ProbeRecord(probe_id=6, probe_class="authserver", probe_name="password-grant", request_method="POST",
-        url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
+        url=token_endpoint, status=status_code, content_type="application/json", headers_observed={}, body_excerpt="", body_sha256="",
         verdict=verdict, evidence=evidence, limitation=None,
         verdict_rule={"field": "observed.error", "op": "equals", "expected": "unsupported_grant_type"}, error=error)
+
 
 def probe_pkce_s256(token_endpoint):
     """PKCE S256 enforcement. Property: Server requires PKCE code challenge."""
     if not token_endpoint:
         return ProbeRecord(probe_id=7, probe_class="authserver", probe_name="pkce-s256", request_method="POST",
             url="", status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
-            verdict="EXCLUDED", evidence="No endpoint", prerequisite_met=False, limitation="Enforcement test requires registered client",
-            verdict_rule={"field": "observed.error", "op": "contains", "expected": "challenge"})
+            verdict="EXCLUDED", evidence="No endpoint", prerequisite_met=False, limitation="Enforcement test requires registered client")
     
     return ProbeRecord(probe_id=7, probe_class="authserver", probe_name="pkce-s256", request_method="POST",
         url=token_endpoint, status=0, content_type="", headers_observed={}, body_excerpt="", body_sha256="",
