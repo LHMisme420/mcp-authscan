@@ -13,6 +13,21 @@ Post-merge scripts run under Replit's Nix-managed Python, where system-wide `pip
 
 **How to apply:** If an installation is blocked, check runtime compatibility and the dependency chain before retrying. Upgrade the relevant direct dependency rather than bypassing the package firewall. Inspect the resulting requirements for duplicate entries. In post-merge scripts, use `pip` only for read-only checks, not installs.
 
+Hosting's Nix `pip` executable can force user-site packages off even when
+the workspace's `python3` enables them. Pip 26 rejects a requested user install
+in that state; changing only to `python3 -m pip --user` can instead hit PEP 668.
+
+**Why:** Two real publishing attempts stopped during automatic dependency
+installation before the application build. Both failures were reproducible
+locally, independently of application code and the findings writer.
+
+**How to apply:** Diagnose the actual installer wrapper, not just Python imports.
+Use the managed writable Python prefix rather than user-install mode or Nix's
+immutable system location. Do not disable system protection or the package
+firewall. When replacing hosting's automatic installer, explicitly retain both
+Node and Python dependency installation; successful local compilation alone
+does not verify a cold dependency install in the next publish.
+
 After merges, verify the actual workflow run command serves HTTP, not just that modules import or compile.
 
 **Why:** Import-based Flask tests and compilation passed even when the executable startup guard was absent; the workflow exited successfully without starting a server. Similarly, Node bundles built with external packages can compile successfully while a required runtime dependency is missing.
