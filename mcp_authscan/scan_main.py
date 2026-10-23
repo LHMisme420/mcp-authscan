@@ -323,7 +323,6 @@ def _direct_rfc8414_discovery(base):
 
 
 def discover_oauth_endpoints(base_url, allow_private=None):
-def discover_oauth_endpoints(base_url):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
 
