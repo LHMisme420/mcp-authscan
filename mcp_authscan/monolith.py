@@ -44,23 +44,113 @@ PRIVATE_IP_RANGES = [
 ]
 
 def is_private_ip(ip_str):
+    """True unless the address is globally routable.
+
+    Delegates to is_global_address so the target validator and the discovery
+    egress guard agree on what "public" means; the previous hand-written range
+    list missed CGNAT (100.64.0.0/10 - also Tailscale), 0.0.0.0, multicast and
+    IPv4-mapped IPv6.
+    """
     try:
-        ip = ipaddress.ip_address(ip_str)
-        return any(ip in net for net in PRIVATE_IP_RANGES)
+        ipaddress.ip_address(str(ip_str).split("%", 1)[0])
     except ValueError:
         return False
+    return not is_global_address(ip_str)
 
 def validate_target_host(hostname, port):
+    """Refuse a target whose *any* resolved address is not globally routable.
+
+    Checking only the first record let a name that answers with both a public
+    and a private address through: the scanner validated the public one and
+    then connected to whichever the stack preferred.
+    """
     try:
         addr_info = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
-        if not addr_info:
-            raise ValueError(f"Cannot resolve {hostname}")
-        resolved_ip = addr_info[0][4][0]
-        if is_private_ip(resolved_ip):
-            raise ValueError(f"Target {hostname} resolves to private IP {resolved_ip} (DNS rebinding protection)")
-        return resolved_ip
     except socket.gaierror as e:
-        raise ValueError(f"DNS resolution failed for {hostname}: {e}")
+        raise ValueError(f"DNS resolution failed for {hostname}: {e}") from e
+    if not addr_info:
+        raise ValueError(f"Cannot resolve {hostname}")
+    addresses = sorted({info[4][0] for info in addr_info})
+    for address in addresses:
+        if not is_global_address(address):
+            raise ValueError(
+                f"Target {hostname} resolves to private IP {address} "
+                f"(DNS rebinding protection)"
+            )
+    return addresses[0]
+
+
+# Set from --allow-private so explicitly authorized local targets keep working.
+ALLOW_PRIVATE_TARGETS = False
+
+
+def is_global_address(address):
+    """True only for addresses that are globally routable.
+
+    ipaddress.is_global already excludes CGNAT (100.64.0.0/10, which is also
+    Tailscale's range), 0.0.0.0, reserved and documentation ranges that a
+    hand-written list misses - but CPython reports 224.0.0.0/4 (multicast) as
+    global, so multicast, unspecified and link-local are excluded explicitly.
+    IPv4-mapped IPv6 is unwrapped first so ::ffff:127.0.0.1 cannot slip past as
+    "not in the list".
+    """
+    try:
+        ip = ipaddress.ip_address(str(address).split("%", 1)[0])
+    except ValueError:
+        return False
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    if ip.is_multicast or ip.is_unspecified or ip.is_link_local or ip.is_reserved:
+        return False
+    return ip.is_global
+
+
+def assert_url_is_fetchable(url, allow_private=None):
+    """Refuse to fetch a URL that could reach the scanner's own network.
+
+    Discovery URLs arrive inside the target's HTTP responses, so the target
+    chooses them: a server can point resource_metadata at 169.254.169.254 or at
+    a Tailscale peer and turn the scanner into a request proxy. Only http(s) is
+    accepted, and every address the host resolves to must be globally routable.
+    """
+    if allow_private is None:
+        allow_private = ALLOW_PRIVATE_TARGETS
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"refusing to fetch non-HTTP(S) URL: {url}")
+    if not parsed.hostname:
+        raise ValueError(f"refusing to fetch URL without a host: {url}")
+    if allow_private:
+        return
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError(f"cannot resolve {parsed.hostname}: {exc}") from exc
+    for info in infos:
+        address = info[4][0]
+        if not is_global_address(address):
+            raise ValueError(
+                f"refusing to fetch {url}: {parsed.hostname} resolves to "
+                f"non-public address {address}"
+            )
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise HTTPError(req.full_url, code, f"redirect refused: {newurl}", headers, fp)
+
+
+def open_without_redirects(req, timeout=5):
+    """urlopen that refuses redirects.
+
+    Following a 30x would hand the destination choice back to the target and
+    defeat the address check above: a public URL that 302s to 127.0.0.1 passes
+    validation and lands internally.
+    """
+    return build_opener(_NoRedirect).open(req, timeout=timeout)
+
 
 
 # Set from --allow-private so explicitly authorized local targets keep working.
