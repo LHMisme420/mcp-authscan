@@ -25,6 +25,9 @@ venv/
 .DS_Store
 .pythonlibs/
 
+# Keep generated root UV state local; nested scanner lockfile fixtures stay tracked.
+/uv.lock
+
 # Local findings exports must not be committed.
 /vata_findings_backup.json
 /node_modules/
