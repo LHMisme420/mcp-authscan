@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 from mcp_authscan import __version__
 from mcp_authscan.report_copy import check_counts, render_summary
@@ -86,6 +86,78 @@ def validate_target_host(hostname, port):
         return resolved_ip
     except socket.gaierror as e:
         raise ValueError(f"DNS resolution failed for {hostname}: {e}") from e
+
+
+# Set from --allow-private so explicitly authorized local targets keep working.
+ALLOW_PRIVATE_TARGETS = False
+
+
+def is_global_address(address):
+    """True only for addresses that are globally routable.
+
+    ipaddress.is_global already excludes CGNAT (100.64.0.0/10, which is also
+    Tailscale's range), 0.0.0.0, reserved and documentation ranges that a
+    hand-written list misses - but CPython reports 224.0.0.0/4 (multicast) as
+    global, so multicast, unspecified and link-local are excluded explicitly.
+    IPv4-mapped IPv6 is unwrapped first so ::ffff:127.0.0.1 cannot slip past as
+    "not in the list".
+    """
+    try:
+        ip = ipaddress.ip_address(str(address).split("%", 1)[0])
+    except ValueError:
+        return False
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    if ip.is_multicast or ip.is_unspecified or ip.is_link_local or ip.is_reserved:
+        return False
+    return ip.is_global
+
+
+def assert_url_is_fetchable(url, allow_private=None):
+    """Refuse to fetch a URL that could reach the scanner's own network.
+
+    Discovery URLs arrive inside the target's HTTP responses, so the target
+    chooses them: a server can point resource_metadata at 169.254.169.254 or at
+    a Tailscale peer and turn the scanner into a request proxy. Only http(s) is
+    accepted, and every address the host resolves to must be globally routable.
+    """
+    if allow_private is None:
+        allow_private = ALLOW_PRIVATE_TARGETS
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"refusing to fetch non-HTTP(S) URL: {url}")
+    if not parsed.hostname:
+        raise ValueError(f"refusing to fetch URL without a host: {url}")
+    if allow_private:
+        return
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError(f"cannot resolve {parsed.hostname}: {exc}") from exc
+    for info in infos:
+        address = info[4][0]
+        if not is_global_address(address):
+            raise ValueError(
+                f"refusing to fetch {url}: {parsed.hostname} resolves to "
+                f"non-public address {address}"
+            )
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise HTTPError(req.full_url, code, f"redirect refused: {newurl}", headers, fp)
+
+
+def open_without_redirects(req, timeout=5):
+    """urlopen that refuses redirects.
+
+    Following a 30x would hand the destination choice back to the target and
+    defeat the address check above: a public URL that 302s to 127.0.0.1 passes
+    validation and lands internally.
+    """
+    return build_opener(_NoRedirect).open(req, timeout=timeout)
 
 MAX_RESPONSE_SIZE = 10_000_000
 
@@ -161,6 +233,7 @@ def _direct_rfc8414_discovery(base):
     return None, None
 
 
+def discover_oauth_endpoints(base_url, allow_private=None):
 def discover_oauth_endpoints(base_url):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
@@ -236,10 +309,11 @@ def discover_oauth_endpoints(base_url):
 
             # Step 3: Fetch resource metadata
             try:
+                assert_url_is_fetchable(resource_url, allow_private=allow_private)
                 req = Request(resource_url)
                 req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
-                with urlopen(req, timeout=5) as resp:
+                with open_without_redirects(req, timeout=5) as resp:
                     resource_data = json.loads(resp.read().decode())
                     auth_servers = resource_data.get("authorization_servers", [])
                     print(f"[*] Found {len(auth_servers)} OAuth server(s)", file=sys.stderr)
@@ -256,10 +330,11 @@ def discover_oauth_endpoints(base_url):
 
                         try:
                             oauth_metadata_url = oauth_server.rstrip("/") + "/.well-known/oauth-authorization-server"
+                            assert_url_is_fetchable(oauth_server, allow_private=allow_private)
                             req = Request(oauth_metadata_url)
                             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
-                            with urlopen(req, timeout=5) as resp:
+                            with open_without_redirects(req, timeout=5) as resp:
                                 oauth_data = json.loads(resp.read().decode())
 
                                 # Extract OAuth endpoints
@@ -275,7 +350,7 @@ def discover_oauth_endpoints(base_url):
                                 all_endpoints.update(endpoints_found)
                                 print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server}", file=sys.stderr)
 
-                        except (HTTPError, URLError, socket.timeout, json.JSONDecodeError):
+                        except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError):
                             continue
 
                     if all_endpoints:
@@ -289,7 +364,7 @@ def discover_oauth_endpoints(base_url):
                         print(f"[+] Discovery complete - {len(all_endpoints)} endpoints found", file=sys.stderr)
                         return all_endpoints, discovery_info
 
-            except (HTTPError, URLError, socket.timeout, json.JSONDecodeError):
+            except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError):
                 print("[!] Failed to fetch OAuth metadata", file=sys.stderr)
 
     except (URLError, socket.timeout):
@@ -408,6 +483,7 @@ def scan_live_server(target_url):
             if discovery_info and discovery_info.get("resource_metadata"):
                 try:
                     resource_url = discovery_info["resource_metadata"]
+                    assert_url_is_fetchable(resource_url)
                     req = Request(resource_url)
                     req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
                     with urlopen(req, timeout=5) as resp:
@@ -1960,6 +2036,10 @@ def main():
                     help="scan scope (what was tested)")
 
     args = ap.parse_args()
+
+    # Discovery fetches honour the same opt-in as target validation.
+    global ALLOW_PRIVATE_TARGETS
+    ALLOW_PRIVATE_TARGETS = bool(getattr(args, "allow_private", False))
 
     # AUTHORIZATION CHECK: refuse to run without authorization metadata
     # Check if this is a fixture run (will be determined when we parse the target URL)
