@@ -51,7 +51,7 @@ A lazy scanner flags any `200 OK` as "wide open" — then lights up on single-pa
 **How you use it**
 ```
 git clone https://github.com/LHMisme420/mcp-authscan && cd mcp-authscan
-pip install -e .
+pip install -e ./mcp_authscan
 mcp-authscan scan http://localhost:8000
 mcp-authscan scan --targets inventory.txt --format sarif --fail-on high
 ```

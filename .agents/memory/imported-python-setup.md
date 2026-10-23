@@ -130,6 +130,23 @@ were missing, overridden, or resolved differently; do not infer which occurred
 solely from the destination path. Preview health and configuration tests cannot
 verify this earlier hosting phase.
 
+## Control project detection through source layout
+
+Keep standalone Python packaging metadata out of a Node web project's root
+when the managed install phase cannot be redirected by environment settings.
+Co-locate nested CLI metadata with its package sources, preserving the existing
+Python import name rather than duplicating or moving runtime code.
+
+**Why:** Publishing exclusions and shared UV settings did not prevent automatic
+Nix-store writes. Removing the actual root Python project metadata changed local
+UPM detection to Node/npm. A nested project must still produce complete source,
+wheel, and editable distributions; relocating metadata alone can break those.
+
+**How to apply:** Keep lint, typing, and coverage configuration discoverable in
+their standard root files without recreating a root Python project. Verify
+distribution contents and CLI execution outside the checkout, and require real
+publishing logs before declaring the hosting failure resolved.
+
 ## Verify package callback results in a prefix-managed interpreter
 
 Do not assume a successful Python package callback updated either the source

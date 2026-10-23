@@ -2,8 +2,8 @@
 vata_findings_backup.json
 
 # The web app installs requirements-runtime.txt explicitly with a writable prefix.
-# Keep standalone CLI packaging metadata in Git/CI, not the web deployment input:
-# hosting otherwise auto-runs uv lock/sync before the custom build.
+# CLI metadata lives under mcp_authscan/. These root-only rules are defense in
+# depth for published files, not controls for pre-build package detection.
 /pyproject.toml
 /uv.lock
 

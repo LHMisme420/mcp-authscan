@@ -26,7 +26,7 @@ def release(value):
 
 class DependencySecurityTests(unittest.TestCase):
     def test_security_floors_cover_web_jwt_and_installed_scanner_metadata(self):
-        project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+        project = tomllib.loads((ROOT / "mcp_authscan" / "pyproject.toml").read_text())["project"]
         self.assertEqual(project["requires-python"], ">=3.11")
         sources = {
             "web": (ROOT / "requirements-runtime.txt").read_text().splitlines(),

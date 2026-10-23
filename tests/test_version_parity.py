@@ -1,6 +1,6 @@
 """Every place the scanner states its own version must agree.
 
-`pyproject.toml` and `mcp_authscan.__version__` say 1.1.3, while the CLI banner
+`mcp_authscan/pyproject.toml` and `mcp_authscan.__version__` say 1.1.3, while the CLI banner
 (`--help`), the report footer ("Scanner: mcp-authscan v..."), the SARIF
 tool.version field and the User-Agent header all come from a hard-coded
 `VERSION` literal in `monolith.py`, which still said 1.1.2 - so the tool
@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def _pyproject_version() -> str:
     """Read the version from pyproject without requiring tomllib (py3.8+)."""
-    text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    text = (REPO_ROOT / "mcp_authscan" / "pyproject.toml").read_text(encoding="utf-8")
     match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
     assert match, "no version found in pyproject.toml"
     return match.group(1)

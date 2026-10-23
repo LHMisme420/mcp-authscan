@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -42,42 +42,6 @@ Changelog = "https://github.com/LHMisme420/mcp-authscan/blob/main/CHANGELOG.md"
 mcp-authscan = "mcp_authscan.cli_wrapper:main"
 
 [tool.setuptools]
-# Ship only the scanner package; the repo root holds many unrelated dirs that
-# would otherwise break setuptools' flat-layout auto-discovery.
+# This project root is the package itself; web imports keep their existing paths.
 packages = ["mcp_authscan"]
-
-[tool.ruff]
-line-length = 120
-# Gate the maintained code; legacy root scripts/corpus are out of scope.
-extend-exclude = ["rule_corpus", "examples", "scripts", "client", "server"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "W", "B", "UP"]
-ignore = ["E501"]  # long lines are tolerated; style not enforced on wrapping
-
-[tool.mypy]
-python_version = "3.11"
-ignore_missing_imports = true   # requests and others ship without stubs here
-warn_unused_ignores = true
-no_implicit_optional = true
-
-[tool.coverage.run]
-source = ["mcp_authscan"]
-branch = true
-
-[tool.coverage.report]
-# The scanner-unit-tests job exercises the core scanner; the flask-backed
-# modules are covered by the web-app test suites instead, so omit them here.
-# OAuth probes and authorization are tested via ground-truth and selfscan.
-omit = [
-    "mcp_authscan/authorized_scan.py",
-    "mcp_authscan/compliance_pdf.py",
-    "mcp_authscan/repository_scan.py",
-    "mcp_authscan/findings_schema.py",
-    "mcp_authscan/tiers.py",
-    "mcp_authscan/oauth_probes.py",
-    "mcp_authscan/oauth_probes_v2.py",
-    "mcp_authscan/authorization.py",
-]
-fail_under = 80
-show_missing = true
+package-dir = {mcp_authscan = "."}

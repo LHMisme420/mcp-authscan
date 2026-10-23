@@ -75,12 +75,14 @@ test('shared Python configuration retains the managed library directory', async 
 
 test('Python runtime dependencies are explicit, without the legacy hosting pip manifest', async () => {
   await assert.rejects(readFile(path.join(root, 'requirements.txt')), { code: 'ENOENT' });
+  await assert.rejects(readFile(path.join(root, 'pyproject.toml')), { code: 'ENOENT' });
+  await assert.rejects(readFile(path.join(root, 'uv.lock')), { code: 'ENOENT' });
   const requirements = await readFile(path.join(root, 'requirements-runtime.txt'), 'utf8');
   assert.match(requirements, /^flask>=3\.1\.3,<4$/m);
   assert.match(requirements, /^gunicorn$/m);
 });
 
-test('web publishing excludes standalone CLI metadata but retains runtime requirements', async () => {
+test('web root stays separate from the nested CLI package and retains runtime requirements', async () => {
   const ignore = await readFile(path.join(root, '.replitignore'), 'utf8');
   const rules = ignore.split('\n').map(line => line.trim())
     .filter(line => line && !line.startsWith('#'));
@@ -88,8 +90,9 @@ test('web publishing excludes standalone CLI metadata but retains runtime requir
   assert.ok(rules.includes('/uv.lock'));
   assert.ok(!rules.includes('/requirements-runtime.txt'));
   assert.ok(!rules.includes('requirements-runtime.txt'));
-  const project = await readFile(path.join(root, 'pyproject.toml'), 'utf8');
+  const project = await readFile(path.join(root, 'mcp_authscan', 'pyproject.toml'), 'utf8');
   assert.match(project, /\[project\]/, 'CLI packaging must remain available in the repository');
+  assert.match(project, /package-dir = \{mcp_authscan = "\."\}/);
 });
 
 test('post-merge verification remains offline and read-only without importing pip', async () => {

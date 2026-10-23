@@ -1,0 +1,7 @@
+line-length = 120
+# Gate maintained code; legacy root scripts/corpus are out of scope.
+extend-exclude = ["rule_corpus", "examples", "scripts", "client", "server"]
+
+[lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["E501"]

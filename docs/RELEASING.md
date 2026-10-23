@@ -7,7 +7,7 @@ creates a GitHub release with the artifacts.
 ## One-time setup
 
 1. **Confirm the name is available.** Check https://pypi.org/project/mcp-authscan/.
-   If it's taken, pick another distribution name in `pyproject.toml` (`name =`)
+   If it's taken, pick another distribution name in `mcp_authscan/pyproject.toml` (`name =`)
    — the import package `mcp_authscan` can stay the same.
 2. **Create a PyPI account** at https://pypi.org and verify your email.
 3. **Create an API token:** PyPI → Account settings → API tokens → *Add API
@@ -23,7 +23,7 @@ GitHub release — it just skips the PyPI upload.
 ## Cutting a release
 
 1. Bump the version in **both** places (they must match):
-   - `pyproject.toml` → `version = "X.Y.Z"`
+   - `mcp_authscan/pyproject.toml` → `version = "X.Y.Z"`
    - `mcp_authscan/__init__.py` → `__version__ = "X.Y.Z"`
 2. Update `CHANGELOG.md` (move items from *Unreleased* into the new version).
 3. Commit via a PR and merge to `main`.

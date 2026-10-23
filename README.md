@@ -22,11 +22,15 @@ This repository contains:
 ```bash
 git clone https://github.com/LHMisme420/mcp-authscan.git
 cd mcp-authscan
-pip install -e .
+pip install -e ./mcp_authscan
 ```
 
 Python 3.11 or newer is required, including for the standalone scanner. This
 allows the patched Pillow 13 image/PDF dependency and current HTTP dependencies.
+
+CLI packaging metadata lives in `mcp_authscan/pyproject.toml`; the repository root
+is the web project. To build CLI distributions, run
+`python -m build ./mcp_authscan --outdir ./dist`.
 
 **Run live OAuth server assessment:**
 

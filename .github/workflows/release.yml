@@ -16,7 +16,7 @@ jobs:
       - name: Build sdist and wheel
         run: |
           pip install build
-          python -m build
+          python -m build ./mcp_authscan --outdir ./dist
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
