@@ -29,29 +29,42 @@ PROBE_PREREQUISITES = {
 
 class ProbeRecord:
     """Single probe result with full evidence trail."""
-    def __init__(self, probe_id, probe_class, probe_name, request_method, url,
-                 status, content_type, headers_observed, body_excerpt, body_sha256,
-                 verdict, evidence, limitation, prerequisites=None, prerequisite_met=True, verdict_rule=None, **fields):
+    def __init__(self, probe_id, name, status, *, http_status=None,
+                 headers_observed=None, body_excerpt="", body_sha256=None,
+                 prerequisites=None, prerequisite_met=True, limitation=None,
+                 probe_class=None, detail=None, severity=None, endpoint=None):
         self.probe_id = probe_id
-        self.probe_class = probe_class  # "resource" or "authserver"
-        self.probe_name = probe_name
-        self.request_method = request_method
-        self.url = url
-        self.status = status
-        self.content_type = content_type
-        self.headers_observed = headers_observed  # dict
+        self.name = name
+        self.status = status  # PASS, FAIL, NOT_OBSERVED, EXCLUDED
+        self.http_status = http_status
+        self.headers_observed = headers_observed or {}
         self.body_excerpt = body_excerpt
         self.body_sha256 = body_sha256
-        self.verdict = verdict  # PASS, FAIL, NOT_OBSERVED, EXCLUDED
-        self.evidence = evidence  # string
-        self.limitation = limitation  # string or None
-        self.prerequisites = prerequisites  # list of required conditions (e.g., ["registered_client"])
-        self.prerequisite_met = prerequisite_met  # bool: were prerequisites available at runtime?
-        self.verdict_rule = verdict_rule  # Executable predicate on evidence fields
-        # Store extracted field values for validator
-        for key, value in fields.items():
-            setattr(self, key, value)
+        self.prerequisites = list(prerequisites or [])
+        self.prerequisite_met = prerequisite_met
+        self.limitation = limitation
+        self.probe_class = probe_class
+        self.detail = detail
+        self.severity = severity
+        self.endpoint = endpoint
 
+    def as_dict(self):
+        return {
+            "probe_id": self.probe_id,
+            "name": self.name,
+            "status": self.status,
+            "http_status": self.http_status,
+            "headers_observed": dict(self.headers_observed or {}),
+            "body_excerpt": self.body_excerpt,
+            "body_sha256": self.body_sha256,
+            "prerequisites": list(self.prerequisites or []),
+            "prerequisite_met": self.prerequisite_met,
+            "limitation": self.limitation,
+            "probe_class": self.probe_class,
+            "detail": self.detail,
+            "severity": self.severity,
+            "endpoint": self.endpoint,
+        }
 
 
 def _extract_error_code(body_text):
