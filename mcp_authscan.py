@@ -2607,50 +2607,9 @@ def main():
     # Build canonical payload dict BEFORE rendering (for integrity: hash covers displayed values)
     # Serialize oauth_records into probes array
     probes = []
-    # Fields to serialize from ProbeRecord: declared set to prevent silent drops
-    PROBE_FIELDS = {
-        "probe_id", "probe_name", "probe_class", "request_method", "url", "status",
-        "content_type", "headers_observed", "body_excerpt", "body_sha256",
-        "verdict", "evidence", "limitation", "prerequisites", "prerequisite_met", "verdict_rule"
-    }
-    
+    # Serialize ProbeRecord objects using their as_dict() method
     for record in oauth_records:
-        # Verify no unexpected attributes on record (would indicate missing declaration)
-        unexpected = set(vars(record).keys()) - PROBE_FIELDS - {"issuer", "base_url", "resource", "mcp_url", "key_types"}
-        if unexpected:
-            raise ValueError(f"ProbeRecord {record.probe_name} has undeclared fields: {unexpected}. Add to PROBE_FIELDS or observed dict.")
-        
-        probe = {
-            "probe_id": record.probe_id,
-            "probe_name": record.probe_name,
-            "category": "oauth",
-            "risk_level": "CRITICAL",
-            "endpoints": [{
-                "path": record.url,
-                "method": record.request_method,
-                "status_code": record.status,
-                "headers": record.headers_observed,
-                "body_excerpt": record.body_excerpt,
-                "body_sha256": record.body_sha256,
-                "sent": {}
-            }],
-            "verdict": "NOT_OBSERVED" if record.verdict == "OBSERVATION" else record.verdict,
-            "verdict_rule": record.verdict_rule if record.verdict_rule else {"field": record.probe_name, "op": "equals", "expected": "pass"},
-            "evidence": record.evidence,
-            "observed": {k: v for k, v in {
-                "issuer": getattr(record, "issuer", None),
-                "base_url": getattr(record, "base_url", None),
-                "resource": getattr(record, "resource", None),
-                "mcp_url": getattr(record, "mcp_url", None),
-                "key_types": getattr(record, "key_types", None)
-            }.items() if v is not None}
-        }
-        if record.limitation:
-            probe["limitation"] = record.limitation
-        if record.prerequisites:
-            probe["prerequisites"] = record.prerequisites
-        if record.prerequisite_met == False:
-            probe["prerequisite_met"] = False
+        probe = record.as_dict()
         probes.append(probe)
 
     
