@@ -2024,7 +2024,7 @@ def scan(root, include_tests, exclude=()):
             r(path, text, F)
     return F
 
-def generate_html_report(findings, target, output_file):
+def generate_html_report(findings, target, output_file, payload=None):
     """Generate a polished HTML security report."""
     from datetime import datetime
     
@@ -2175,7 +2175,7 @@ def generate_html_report(findings, target, output_file):
 
 
 # ---- HTML Report Generation ----
-def generate_html_report(findings, target, output_file):
+def generate_html_report(findings, target, output_file, payload=None):
     """Generate a polished HTML security report."""
     from datetime import datetime
     
@@ -2200,6 +2200,9 @@ def generate_html_report(findings, target, output_file):
             html_content += f"<div class=\"finding {sev_class}\"><h3>{f['severity']} - {f.get('rule', 'N/A')}: {f.get('title', 'N/A')}</h3><p><strong>Evidence:</strong> {f.get('evidence', 'N/A')}</p><p><strong>Remediation:</strong> {f.get('remediation', 'N/A')}</p></div>"
     else:
         html_content += "<p style=\"text-align:center;padding:40px;color:#666\"><h2>✅ No findings detected</h2></p>"
+    
+    if payload and payload.get('report_hash'):
+        html_content += f'<hr style="margin-top:40px"><footer style="font-size:0.85em;color:#666;padding:20px 0"><p><strong>Report Hash (SHA256):</strong><br><code>{payload["report_hash"]}</code></p></footer>'
     
     html_content += "</div></div></body></html>"
     
@@ -2645,7 +2648,7 @@ def main():
     canonical_payload["report_hash"] = payload_hash
 
     if args.html:
-        html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html")
+        html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html", canonical_payload)
         print(f"[+] HTML report saved to {html_file}")
     elif args.sarif:
         print(json.dumps(to_sarif(F, args.target), indent=2))
