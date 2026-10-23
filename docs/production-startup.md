@@ -18,6 +18,13 @@ without creating a virtual environment or modifying system Python. Configured
 package registries are preserved. `PYTHONUSERBASE` and the npm start/dev scripts
 make `.pythonlibs` libraries and Gunicorn available at runtime.
 
+The legacy publishing installer can still invoke pip for the root requirements
+before the custom build, even with the interpreter-only runtime. Keep
+`PIP_PREFIX=.pythonlibs` and `PIP_USER=0` in **shared** environment configuration,
+alongside `PYTHONUSERBASE`, so both build and runtime environments receive them.
+Production-only installer settings were insufficient in observed builds.
+This selects a writable install destination; it does not disable Nix protection.
+
 Run `npm run build:deployment` to exercise the real dependency-install/build path.
 Then run `npm run test:startup` to check the built server with isolated fixtures.
 Neither command initializes or reseeds the production findings namespace.
