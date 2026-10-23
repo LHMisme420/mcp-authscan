@@ -1,18 +1,38 @@
 from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_cors import CORS
+import hashlib
+import hmac
+import secrets
 import sqlite3
 import os
+import uuid
 from datetime import timedelta
 from mcp_authscan.scanner import MCPScanner, ScanError
 
 app = Flask(__name__)
-CORS(app)
+
+# CORS: only origins the operator names. The default allows none, so a browser
+# on any other origin cannot read responses with a token it obtained elsewhere.
+_allowed_origins = [origin.strip() for origin in os.environ.get('CORS_ORIGINS', '').split(',') if origin.strip()]
+CORS(app, origins=_allowed_origins)
 
 # Config
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET', 'dev-secret-key')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=30)
+# Fail closed: app.py already refuses to start without a secret, and this module
+# shipped a literal fallback that made every token forgeable by anyone who read
+# the source.
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET') or os.environ.get('SESSION_SECRET')
+if not app.config['JWT_SECRET_KEY']:
+    raise RuntimeError('Set JWT_SECRET or SESSION_SECRET before starting app_full.')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=int(os.environ.get('JWT_ACCESS_TOKEN_HOURS', '12')))
 jwt = JWTManager(app)
+
+
+def _internal_error(exc):
+    """Log the detail, return a correlation id - never the exception text."""
+    correlation_id = uuid.uuid4().hex[:12]
+    app.logger.exception('request failed (correlation_id=%s): %s', correlation_id, exc)
+    return jsonify({'error': 'internal error', 'correlation_id': correlation_id}), 500
 
 PORT = int(os.environ.get('PORT', 5000))
 DB_FILE = os.environ.get('DB_FILE', '/tmp/vata.db')
@@ -61,6 +81,10 @@ def init_db():
         FOREIGN KEY(org_id) REFERENCES organizations(id)
     )''')
 
+    org_columns = {row[1] for row in c.execute('PRAGMA table_info(organizations)')}
+    if 'api_key_hash' not in org_columns:
+        c.execute('ALTER TABLE organizations ADD COLUMN api_key_hash TEXT')
+
     finding_columns = {row[1] for row in c.execute('PRAGMA table_info(findings)')}
     if 'scan_id' not in finding_columns:
         c.execute('ALTER TABLE findings ADD COLUMN scan_id INTEGER')
@@ -81,44 +105,64 @@ def init_db():
 init_db()
 
 # ============ AUTH ENDPOINTS ============
+def _hash_api_key(api_key):
+    return hashlib.sha256(api_key.encode('utf-8')).hexdigest()
+
+
 @app.route('/auth/register', methods=['POST'])
 def register():
+    data = request.get_json(silent=True) or {}
+    org_name = (data.get('org_name') or '').strip()
+    if not org_name:
+        return jsonify({'error': 'org_name is required'}), 400
+    conn = sqlite3.connect(DB_FILE)
     try:
-        data = request.get_json()
-        org_name = data.get('org_name', f'org_{int(__import__("time").time())}')
-        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('SELECT id FROM organizations WHERE name = ?', (org_name,))
-        existing = c.fetchone()
-        if existing:
-            org_id = existing[0]
-        else:
-            c.execute('INSERT INTO organizations (name, api_key) VALUES (?, ?)', (org_name, f'key_{org_name}'))
-            conn.commit()
-            org_id = c.lastrowid
+        if c.fetchone():
+            # Registration is not an authentication path: never mint a token for
+            # a tenant that already exists, or a known name is an impersonation.
+            return jsonify({'error': 'organization already exists; use /auth/login'}), 409
+        api_key = secrets.token_urlsafe(32)
+        c.execute(
+            'INSERT INTO organizations (name, api_key, api_key_hash) VALUES (?, ?, ?)',
+            (org_name, None, _hash_api_key(api_key)),
+        )
+        conn.commit()
+        org_id = c.lastrowid
         access_token = create_access_token(identity=str(org_id))
-        conn.close()
-        return jsonify({'access_token': access_token, 'org_id': org_id}), 200
+        return jsonify({'access_token': access_token, 'org_id': org_id, 'api_key': api_key}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
+    finally:
+        conn.close()
+
 
 @app.route('/auth/login', methods=['POST'])
 def login():
+    data = request.get_json(silent=True) or {}
+    org_name = (data.get('org_name') or '').strip()
+    api_key = data.get('api_key') or ''
+    if not org_name or not api_key:
+        return jsonify({'error': 'org_name and api_key are required'}), 400
+    conn = sqlite3.connect(DB_FILE)
     try:
-        data = request.get_json()
-        org_name = data.get('org_name')
-        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
-        c.execute('SELECT id FROM organizations WHERE name = ?', (org_name,))
-        result = c.fetchone()
-        conn.close()
-        if not result:
-            return jsonify({'error': 'Not found'}), 404
-        org_id = result[0]
+        c.execute('SELECT id, api_key_hash FROM organizations WHERE name = ?', (org_name,))
+        row = c.fetchone()
+        if not row or not row[1]:
+            # Unknown tenant, or one created before keys were hashed: fail closed
+            # instead of issuing a token nobody had to prove they owned.
+            return jsonify({'error': 'invalid credentials'}), 401
+        org_id, stored_hash = row
+        if not hmac.compare_digest(stored_hash, _hash_api_key(api_key)):
+            return jsonify({'error': 'invalid credentials'}), 401
         access_token = create_access_token(identity=str(org_id))
         return jsonify({'access_token': access_token, 'org_id': org_id}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
+    finally:
+        conn.close()
 
 # ============ FINDINGS API ============
 @app.route('/api/findings', methods=['GET'])
@@ -139,7 +183,7 @@ def get_findings():
         conn.close()
         return jsonify({'findings': findings}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
 
 @app.route('/api/findings', methods=['POST'])
 @jwt_required()
@@ -155,7 +199,7 @@ def post_findings():
         conn.close()
         return jsonify({'status': 'ok'}), 201
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
 
 # ============ THREAT INTELLIGENCE ============
 @app.route('/api/threat-intelligence', methods=['GET'])
@@ -183,7 +227,7 @@ def threat_intelligence():
             'trend_direction': 'increasing' if week > month/4 else 'decreasing'
         }), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
 
 # ============ COMPLIANCE SCORING ============
 @app.route('/api/reports/compliance', methods=['GET'])
@@ -207,7 +251,7 @@ def compliance_report():
             score = max(0, min(100, 100 - (risk_points / total)))
         return jsonify({'compliance_score': int(score), 'critical_findings': critical, 'high_findings': high, 'total_findings': total}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
 
 # ============ SCANNING ORCHESTRATION ============
 @app.route('/api/scans/mcp', methods=['GET'])
@@ -233,7 +277,7 @@ def get_mcp_scans():
         } for row in rows]
         return jsonify({'scans': scans}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _internal_error(e)
 
 
 @app.route('/api/scans/mcp', methods=['POST'])
