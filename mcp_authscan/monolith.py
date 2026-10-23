@@ -105,6 +105,36 @@ def validate_input_path(path_str):
     return path
 
 
+def _direct_rfc8414_discovery(base):
+    """Try RFC 8414 discovery directly on the base URL.
+
+    Reached two ways: as the fallback after an RFC 9728 lookup fails, and
+    immediately when a 401 carries no resource_metadata pointer - RFC 9728 is
+    advertised *only* through that parameter, so when it is absent there is no
+    resource-metadata document to fetch, but the base URL may still document
+    its authorization server.
+    """
+    print(f"[*] Trying direct RFC 8414 discovery on {base}", file=sys.stderr)
+    try:
+        oauth_metadata_url = base.rstrip("/") + "/.well-known/oauth-authorization-server"
+        req = Request(oauth_metadata_url)
+        req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+        with urlopen(req, timeout=5) as resp:
+            oauth_data = json.loads(resp.read().decode())
+            endpoints = {
+                "token": oauth_data.get("token_endpoint"),
+                "authorize": oauth_data.get("authorization_endpoint"),
+            }
+            endpoints = {k: v for k, v in endpoints.items() if v}
+            if endpoints:
+                print("[+] OAuth discovery successful", file=sys.stderr)
+                return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints}
+            print("[DEBUG] No endpoints found", file=sys.stderr)
+    except Exception as e:
+        print(f"[DEBUG] Fallback failed: {e}", file=sys.stderr)
+    return None, None
+
+
 def discover_oauth_endpoints(base_url):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
@@ -165,10 +195,12 @@ def discover_oauth_endpoints(base_url):
             # Look for resource_metadata URL in www-authenticate header
             match = re.search(r'resource_metadata="([^"]+)"', www_auth)
             if not match:
-                print(f"[*] No OAuth discovery pointer in WWW-Authenticate - trying direct RFC 8414", file=sys.stderr)
-                pass  # Fall through to direct discovery
-            else:
-                resource_url = match.group(1)
+                # RFC 9728 is advertised only through this parameter, so there
+                # is no resource-metadata document to fetch. Go straight to
+                # direct discovery instead of dereferencing an unbound URL.
+                print("[*] No OAuth discovery pointer in WWW-Authenticate - trying direct RFC 8414", file=sys.stderr)
+                return _direct_rfc8414_discovery(base)
+            resource_url = match.group(1)
             resource_parsed = urlparse(resource_url)
             if resource_parsed.hostname:
                 discovered_hosts.add(resource_parsed.hostname)
@@ -238,28 +270,7 @@ def discover_oauth_endpoints(base_url):
         pass
 
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
-    print(f"[*] Trying direct RFC 8414 discovery on {base}", file=sys.stderr)
-    try:
-        oauth_metadata_url = base.rstrip("/") + "/.well-known/oauth-authorization-server"
-        req = Request(oauth_metadata_url)
-        req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-        with urlopen(req, timeout=5) as resp:
-            oauth_data = json.loads(resp.read().decode())
-            endpoints = {
-                "token": oauth_data.get("token_endpoint"),
-                "authorize": oauth_data.get("authorization_endpoint"),
-            }
-            endpoints = {k: v for k, v in endpoints.items() if v}
-            if endpoints:
-                print(f"[+] OAuth discovery successful", file=sys.stderr)
-                return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints}
-            else:
-                print(f"[DEBUG] No endpoints found", file=sys.stderr)
-    except Exception as e:
-        print(f"[DEBUG] Fallback failed: {e}", file=sys.stderr)
-        pass
-
-    return None, None
+    return _direct_rfc8414_discovery(base)
 
 def scan_live_server(target_url):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
