@@ -29,8 +29,21 @@ class ScannerIntegration:
             self.jwt_token = login_data['access_token']
             print(f"✅ Authenticated with JWT")
     
-    async def run_scan(self, sample_size=30):
-        """Simulate scanning MCP servers"""
+    async def run_scan(self, sample_size=30, demo=False):
+        """Produce SYNTHETIC findings.
+
+        Nothing here probes a server: the server list is invented and the
+        severities come from `severity_map`, with findings emitted at a fixed
+        30% rate. That makes the output useful only as demo data, so it is
+        refused unless the caller opts in explicitly. Real scans go through
+        the mcp_authscan package.
+        """
+        if not demo:
+            raise RuntimeError(
+                "run_scan() fabricates findings - it never contacts a server. "
+                "Pass demo=True if you want labelled demo data for a dashboard, "
+                "or use the mcp_authscan probes for a real scan."
+            )
         findings = []
         vectors = [
             "path_traversal",
@@ -62,7 +75,10 @@ class ScannerIntegration:
                     findings.append({
                         'server_url': server,
                         'vector_type': vector,
-                        'severity': severity_map[vector]
+                        'severity': severity_map[vector],
+                        'description': '[DEMO] synthetic finding, not observed '
+                                       'on any server',
+                        'demo': True,
                     })
                     print(f"  ⚠️  {server}: {vector} ({severity_map[vector]})")
             
@@ -73,10 +89,22 @@ class ScannerIntegration:
         return findings
     
     async def submit_findings(self, findings):
-        """Submit findings to API"""
+        """Submit findings to API.
+
+        Refuses unlabelled findings: a fabricated finding that reaches an API
+        is indistinguishable from a measured one once it is stored, and it
+        will be counted, charted and reported as if a server had been probed.
+        """
         if not findings:
             print("No findings to submit")
             return
+        unlabelled = [f for f in findings if f.get('demo') is not True]
+        if unlabelled:
+            raise ValueError(
+                "refusing to submit %d finding(s) that are not labelled demo: "
+                "only synthetic demo data may be submitted by this script"
+                % len(unlabelled)
+            )
         
         async with httpx.AsyncClient() as client:
             res = await client.post(
@@ -87,10 +115,10 @@ class ScannerIntegration:
             result = res.json()
             print(f"\n✅ Submitted {result['inserted']} findings to API")
     
-    async def full_pipeline(self, sample_size=30):
-        """Complete: setup -> scan -> submit"""
+    async def full_pipeline(self, sample_size=30, demo=False):
+        """Complete: setup -> scan -> submit (demo data only)"""
         await self.setup()
-        findings = await self.run_scan(sample_size)
+        findings = await self.run_scan(sample_size, demo=demo)
         await self.submit_findings(findings)
         
         print(f"\n{'='*70}")
@@ -106,8 +134,19 @@ class ScannerIntegration:
         print(f"{'='*70}")
 
 async def main():
-    scanner = ScannerIntegration()
-    await scanner.full_pipeline(sample_size=30)
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Populate a dashboard with SYNTHETIC demo findings. "
+                    "This does not scan anything.")
+    parser.add_argument("--demo", action="store_true", required=True,
+                        help="required acknowledgement that the findings are fake")
+    parser.add_argument("--sample-size", type=int, default=30)
+    parser.add_argument("--api-url", default="http://127.0.0.1:5000")
+    args = parser.parse_args()
+
+    scanner = ScannerIntegration(api_url=args.api_url)
+    await scanner.full_pipeline(sample_size=args.sample_size, demo=args.demo)
 
 if __name__ == "__main__":
     asyncio.run(main())
