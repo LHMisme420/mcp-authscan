@@ -105,6 +105,24 @@ managed-installer fix. Require actual pre-build logs showing the corrected
 writable environment before claiming publishing is repaired. Do not create a
 separate virtual environment or weaken storage/authentication to bypass this.
 
+## Distinguish managed UV settings from separate environments
+
+Replit's public Python Tools module explicitly defines
+`UV_PROJECT_ENVIRONMENT=$REPL_HOME/.pythonlibs`,
+`UV_PYTHON_DOWNLOADS=never`, and `UV_PYTHON_PREFERENCE=only-system`.
+Using the managed `.pythonlibs` path is distinct from introducing a separate
+`.venv`.
+
+**Why:** The public module source declares the full Python Tools module, not the
+interpreter-only variant. Its environment definitions do not prove what a
+particular hosting installation phase inherits. Astral documents UV's default
+project environment as `.venv`, not the system prefix; missing configuration
+alone therefore does not explain observed Nix-store writes.
+
+**How to apply:** Check the exact module variant and installer environment.
+Consider explicit managed-prefix UV settings without asserting they propagate
+into hosting's earlier install phase until actual build evidence confirms it.
+
 ## Verify package callback results in a prefix-managed interpreter
 
 Do not assume a successful Python package callback updated either the source
