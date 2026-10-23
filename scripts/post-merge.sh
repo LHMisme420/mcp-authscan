@@ -10,7 +10,7 @@ import re
 import sys
 
 missing = []
-for raw in Path("requirements.txt").read_text().splitlines():
+for raw in Path("requirements-runtime.txt").read_text().splitlines():
     line = raw.partition("#")[0].strip()
     if not line:
         continue
@@ -34,7 +34,7 @@ PY
 # Resolve against the installed prefix offline and read-only instead.
 python_executable="$(command -v python3)"
 python_prefix="$("$python_executable" -c 'import site; print(site.getuserbase())')"
-uv pip install --dry-run --no-index --no-cache --prefix "$python_prefix" --python "$python_executable" --requirement requirements.txt
+uv pip install --dry-run --no-index --no-cache --prefix "$python_prefix" --python "$python_executable" --requirement requirements-runtime.txt
 python3 -m compileall -q app.py app_full.py mcp_authscan tests/test_findings_refresh.py
 
 # Bundling externalizes Node packages, so a passing build does not establish

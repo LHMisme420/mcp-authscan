@@ -9,8 +9,14 @@ description = "Security scanner for MCP server deployments"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Leroy H. Mason", email = "lhmisme2011@gmail.com"}]
-requires-python = ">=3.8"
-dependencies = ["requests>=2.28.0", "reportlab>=4.0.0"]
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.34.2,<3",
+    "certifi>=2026.10.23",
+    "idna>=3.20,<4",
+    "pillow>=13.0.0,<14",
+    "reportlab>=5.1.0,<6",
+]
 keywords = ["mcp", "model-context-protocol", "security", "scanner",
             "authentication", "authorization", "appsec", "devsecops", "sarif"]
 classifiers = [
@@ -22,9 +28,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
@@ -53,7 +56,7 @@ select = ["E", "F", "I", "W", "B", "UP"]
 ignore = ["E501"]  # long lines are tolerated; style not enforced on wrapping
 
 [tool.mypy]
-python_version = "3.10"   # mypy's checking target; runtime still supports 3.8+
+python_version = "3.11"
 ignore_missing_imports = true   # requests and others ship without stubs here
 warn_unused_ignores = true
 no_implicit_optional = true

@@ -67,12 +67,38 @@ Explicitly expose both user-site libraries and their executable directory; do
 not assume the former tools module's environment injection still exists.
 Preserve configured registries rather than substituting public mirrors. Verify
 imports and startup against the fresh prefix, not cached workspace libraries.
-Configure a writable prefix and non-user pip mode in shared build/runtime scope,
-not solely production scope. The plain pip command resolved requirements through
-the firewall in a read-only check after the shared settings were applied; it
-still printed a non-fatal bootstrap warning. Do not mistake that for verification
-of the actual managed builder's environment.
-Only a real new publish can confirm the managed pre-install phase is resolved.
+The plain pip command resolved requirements through the firewall in a read-only
+check after shared prefix settings were applied, with a non-fatal bootstrap
+warning. However, an actual publish still failed with PEP 668 even though those
+shared settings and the hosting skip flag were committed in the failed revision.
+
+**Why:** Neither a passing workspace pip check nor production/shared pip settings
+proved that the separate managed pre-build installer honored them.
+
+**How to apply:** Do not repeat environment-only fixes or claim that they resolved
+publishing. Preserve the explicit Python-install boundary: native package tools
+may recreate the default root pip manifest, which this project intentionally
+avoids because it was used by the failing automatic step. Keep CI and dependency
+checks pointed at the explicit runtime requirements. Only real publishing logs
+can confirm that hosting reached the custom build without the legacy pip step.
+
+## Verify package callback results in a prefix-managed interpreter
+
+Do not assume a successful Python package callback updated either the source
+requirements or the active distribution metadata.
+
+**Why:** With pip's writable prefix and disabled user-site discovery, a native
+package callback downloaded patched wheels but left old dist-info alongside the
+new wheels, reported the old versions as installed, and did not update the main
+requirements. Reinstalling the resolved prefix through UV removed the stale
+metadata. The callback also inferred system build dependencies even though the
+selected image-library wheel already bundled its native libraries.
+
+**How to apply:** Inspect the dependency-file diff, actual imported module
+versions, and all advertised versions for each changed distribution. Reconcile
+the prefix using its existing managed build script, not manual metadata deletion.
+Deduplicate identical discovery paths when checking versions. Remove only newly
+inferred, unnecessary system packages; preserve the project's original packages.
 
 After merges, verify the actual workflow run command serves HTTP, not just that modules import or compile.
 
