@@ -400,6 +400,7 @@ def scan_live_server(target_url):
         probe_status['failed'] = authserver_counts.get("failed", 0)
         probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
         probe_status['observation'] = authserver_counts.get("observation", 0)
+        probe_status['excluded'] = authserver_counts.get("excluded", 0)
         
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
@@ -2220,6 +2221,8 @@ def main():
     probes_attempted = 0
     probes_passed = 0
     probes_not_observed = 0
+    probes_observed = 0
+    probes_excluded = 0
     discovery_info = None
     repo_url = None
     branch = None
@@ -2312,46 +2315,44 @@ def main():
             probes_passed = probe_status['passed']
             probes_not_observed = probe_status['not_observed']
             probes_observed = probe_status.get('observation', 0)
+            probes_excluded = probe_status.get('excluded', 0)
 
         # Verify accounting before rendering
-        # All probes are attempted. Verdict counts must equal attempted.
-        # NOT_OBSERVED probes may have unmet prerequisites but were still sent.
+        # Attempted = probes actually sent (may exclude those with unmet prerequisites)
+        # Excluded = probes never sent (verdict NOT_OBSERVED with prerequisite_met=False)
+        # Total probe set = 9 (always attempted + excluded = 9)
+        attempted = probe_status.get("attempted", 0)
+        excluded = probe_status.get("excluded", 0)
         passed = probe_status.get("passed", 0)
         failed = probe_status.get("failed", 0)
         not_observed = probe_status.get("not_observed", 0)
         observation = probe_status.get("observation", 0)
 
-        attempted = passed + failed + not_observed + observation
-
-        # Accounting must reconcile: all verdict counts sum to attempted
-        if attempted != 9:
-            print(f"[!] ACCOUNTING ERROR: {attempted} verdicts reached (expected 9)", file=sys.stderr)
+        # Verify: verdicts must sum to attempted
+        verdicts = passed + failed + not_observed + observation
+        if verdicts != attempted:
+            print(f"[!] ACCOUNTING ERROR: {verdicts} verdicts (expected {attempted} attempted)", file=sys.stderr)
             sys.exit(5)
 
-        # Update attempted count to be explicitly 9 (all probes)
-        probe_status['attempted'] = attempted
-        # Also update the local variable used for reporting
+        # Verify: attempted + excluded = 9
+        if attempted + excluded != 9:
+            print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded = {attempted + excluded} (expected 9)", file=sys.stderr)
+            sys.exit(5)
+
+        # Update probes_attempted in case it was 0 before
         probes_attempted = attempted
 
-        # Exit 5: Coverage rule - decisive verdicts on all 9 probes
-        # All 9 probes are attempted. We accept:
-        # - PASS, FAIL, OBSERVATION = conclusive verdicts
-        # - NOT_OBSERVED = inconclusive (missing prerequisites like registered client)
-        # If we have less than 7 conclusive verdicts (PASS+FAIL+OBSERVATION) the assessment is incomplete
+        # Exit 5: Coverage rule - need at least 7 conclusive verdicts
+        # Conclusive = PASS, FAIL, OBSERVATION (NOT_OBSERVED is inconclusive)
+        # If we have less than 7 conclusive verdicts, assessment is incomplete
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
-            attempted = probe_status.get("attempted", 0)
-            passed = probe_status.get("passed", 0)
-            failed = probe_status.get("failed", 0)
-            not_observed = probe_status.get("not_observed", 0)
-            observation = probe_status.get("observation", 0)
-
             verdicts_reached = passed + failed + observation
             inconclusive = not_observed
 
-            # Require at least 7 conclusive verdicts (PASS, FAIL, or OBSERVATION) out of 9 attempted
-            # 2 NOT_OBSERVED is acceptable (e.g., PKCE, redirect_uri tests needing registered client)
-            if attempted == 9 and verdicts_reached < 7:
-                print(f"[!] Incomplete assessment: {verdicts_reached}/9 probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive).", file=sys.stderr)
+            # Require at least 7 conclusive verdicts out of the attempted probes
+            # If we have fewer, exit 5 (incomplete assessment)
+            if verdicts_reached < 7:
+                print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
                 sys.exit(5)
 
     else:
@@ -2483,6 +2484,7 @@ def main():
             probes_failed=len(F),  # Number of findings = failed probes
             probes_observed=probes_observed,
             probes_not_observed=probes_not_observed,
+            probes_excluded=probes_excluded,
             elapsed_seconds=elapsed_seconds,
             discovery_info=discovery_info
         )
@@ -2540,34 +2542,94 @@ def main():
         report_lines.append("-" * 80)
         report_lines.append("")
 
+    # Build canonical payload dict BEFORE rendering (for integrity: hash covers displayed values)
+    # Serialize oauth_records into probes array
+    probes = []
+    # Fields to serialize from ProbeRecord: declared set to prevent silent drops
+    PROBE_FIELDS = {
+        "probe_id", "probe_name", "probe_class", "request_method", "url", "status",
+        "content_type", "headers_observed", "body_excerpt", "body_sha256",
+        "verdict", "evidence", "limitation", "prerequisites", "prerequisite_met"
+    }
+    
+    for record in oauth_records:
+        # Verify no unexpected attributes on record (would indicate missing declaration)
+        unexpected = set(vars(record).keys()) - PROBE_FIELDS - {"issuer", "base_url", "resource", "mcp_url", "key_types"}
+        if unexpected:
+            raise ValueError(f"ProbeRecord {record.probe_name} has undeclared fields: {unexpected}. Add to PROBE_FIELDS or observed dict.")
+        
+        probe = {
+            "probe_id": record.probe_id,
+            "probe_name": record.probe_name,
+            "category": "oauth",
+            "risk_level": "CRITICAL",
+            "endpoints": [{
+                "path": record.url,
+                "method": record.request_method,
+                "status_code": record.status,
+                "headers": record.headers_observed,
+                "body_excerpt": record.body_excerpt,
+                "body_sha256": record.body_sha256,
+                "sent": {}
+            }],
+            "verdict": "NOT_OBSERVED" if record.verdict == "OBSERVATION" else record.verdict,
+            "verdict_rule": {"field": record.probe_name, "op": "equals", "expected": "pass"},
+            "evidence": record.evidence,
+            "observed": {
+                "issuer": getattr(record, "issuer", None),
+                "base_url": getattr(record, "base_url", None),
+                "resource": getattr(record, "resource", None),
+                "mcp_url": getattr(record, "mcp_url", None),
+                "key_types": getattr(record, "key_types", None)
+            }
+        }
+        if record.limitation:
+            probe["limitation"] = record.limitation
+        if record.prerequisites:
+            probe["prerequisites"] = record.prerequisites
+        if record.prerequisite_met == False:
+            probe["prerequisite_met"] = False
+        probes.append(probe)
+
+    
+    canonical_payload = {
+        "probes": probes,
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        "target": args.target,
+        "scan_mode": scan_mode,
+        "probe_set_version": PROBE_SET_VERSION,
+        "probes_attempted": probes_attempted,
+        "probes_passed": probes_passed,
+        "probes_failed": len(F),
+        "probes_observed": probes_observed,
+        "probes_not_observed": probes_not_observed,
+        "probes_excluded": probes_excluded,
+        "findings_count": len(F),
+        "findings": F,
+    }
+    if args.authorized_by:
+        canonical_payload["authorization"] = {
+            "authorized_by": args.authorized_by,
+            "date": __import__("datetime").datetime.now().strftime("%Y-%m-%d"),
+            "basis": args.auth_basis,
+            "contact": args.contact,
+            "assessed_by": "Leroy H. Mason",  # Fixed assessor for now
+        }
+    if commit_sha_long:
+        canonical_payload["commit_sha"] = commit_sha_long
+
+    # Hash the canonical payload (this is what the report signature covers)
+    payload_json = json.dumps(canonical_payload, sort_keys=True)
+    payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+    canonical_payload["report_hash"] = payload_hash
+
     if args.html:
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html")
         print(f"[+] HTML report saved to {html_file}")
     elif args.sarif:
         print(json.dumps(to_sarif(F, args.target), indent=2))
     elif args.json:
-        payload = {
-            "target": args.target,
-            "count": len(F),
-            "findings": F,
-            "probe_set_version": PROBE_SET_VERSION,
-            "scan_mode": scan_mode,
-        }
-        if args.authorized_by:
-            payload["authorization"] = {
-                "authorized_by": args.authorized_by,
-                "client_name": args.client_name,
-                "client_title": args.client_title,
-                "auth_basis": args.auth_basis,
-                "ticket_ref": args.ticket_ref,
-                "contact": args.contact,
-            }
-        # Include full commit SHA in JSON (for reproducibility)
-        if commit_sha_long:
-            payload["commit_sha"] = commit_sha_long
-        blob = json.dumps(payload, sort_keys=True).encode()
-        payload["report_sha256"] = hashlib.sha256(blob).hexdigest()  # anchor hook
-        print(json.dumps(payload, indent=2))
+        print(json.dumps(canonical_payload, indent=2))
     else:
         # Text output with optional authorization header
         # Check for discovery incomplete status
@@ -2670,9 +2732,10 @@ def main():
                     full_report += f"  {x['evidence']}\n{x['snippet']}\n"
                 full_report += "\n"
 
-            report_hash = hashlib.sha256(full_report.encode()).hexdigest()
+            # Use canonical payload hash (covers probe counts, auth, and findings)
+            report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization block + assessment mode + scan metadata + findings summary + probe results. Excludes: elapsed time and timestamp fields.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time and timestamp.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:

@@ -31,7 +31,7 @@ class ProbeRecord:
     """Single probe result with full evidence trail."""
     def __init__(self, probe_id, probe_class, probe_name, request_method, url,
                  status, content_type, headers_observed, body_excerpt, body_sha256,
-                 verdict, evidence, limitation, prerequisites=None, prerequisite_met=True):
+                 verdict, evidence, limitation, prerequisites=None, prerequisite_met=True, **fields):
         self.probe_id = probe_id
         self.probe_class = probe_class  # "resource" or "authserver"
         self.probe_name = probe_name
@@ -47,6 +47,9 @@ class ProbeRecord:
         self.limitation = limitation  # string or None
         self.prerequisites = prerequisites  # list of required conditions (e.g., ["registered_client"])
         self.prerequisite_met = prerequisite_met  # bool: were prerequisites available at runtime?
+        # Store extracted field values for validator
+        for key, value in fields.items():
+            setattr(self, key, value)
 
 
 def probe_issuer_identity(metadata_url, metadata):
@@ -81,7 +84,9 @@ def probe_issuer_identity(metadata_url, metadata):
         body_sha256="",
         verdict=verdict,
         evidence=evidence,
-        limitation=None
+        limitation=None,
+        issuer=issuer,
+        base_url=base_url
     )
 
 
@@ -115,7 +120,9 @@ def probe_resource_binding(resource_metadata, mcp_url):
         body_sha256="",
         verdict=verdict,
         evidence=evidence,
-        limitation=None
+        limitation=None,
+        resource=resource,
+        mcp_url=mcp_url
     )
 
 
