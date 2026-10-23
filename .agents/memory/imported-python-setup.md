@@ -82,6 +82,20 @@ avoids because it was used by the failing automatic step. Keep CI and dependency
 checks pointed at the explicit runtime requirements. Only real publishing logs
 can confirm that hosting reached the custom build without the legacy pip step.
 
+The automatic builder also detects standalone PEP 621 metadata: removing the
+default pip manifest switched it to `uv lock`/`uv sync`, which still attempted
+installation into the immutable interpreter prefix.
+
+**Why:** The CLI packaging project was independently discovered before the web
+app's explicit dependency build. Disabling one installer did not disable the
+other. In an isolated probe, `managed = false` did not suppress UPM detection;
+both UV lock and sync failed instead of skipping an unmanaged project.
+
+**How to apply:** Keep web deployment inputs separate from standalone packaging
+metadata without breaking repository-side CLI builds. Treat tests of a locally
+filtered source copy as only local evidence; they do not prove when hosting
+applies its ignore rules relative to automatic installation.
+
 ## Verify package callback results in a prefix-managed interpreter
 
 Do not assume a successful Python package callback updated either the source
