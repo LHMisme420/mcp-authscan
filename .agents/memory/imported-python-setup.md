@@ -35,11 +35,36 @@ installs on this project.
 `enabledForHosting = false`, yet still ran the automatic pip step and failed
 before reaching that script. This was not stale source or an uncommitted fix.
 
+Production pip settings were also insufficient in a subsequent real publish,
+despite being present in both the failed revision and production configuration.
+The same command passed a local read-only dependency check with those settings.
+
+**Why:** The managed pre-build installer still selected a user install and failed
+before running the application build. Available logs did not reveal whether the
+production environment was unavailable to that phase or overridden by it.
+
 **How to apply:** Inspect the failed revision's own configuration before blaming
-an old build. Configure pip's non-user mode and writable managed prefix in
-production settings, where the pre-build installer can receive them. The exact
-Nix pip command passed a local read-only dependency check with that environment;
-confirm the next real publish rather than treating that check as production proof.
+an old build. Do not treat a passing local pip command, a saved production
+setting, or a successful application build as proof that managed pre-install
+works. If the same failure persists after verifying those controls, stop blind
+republishes and investigate the platform installer rather than changing app
+startup, finding storage, signing secrets, or dependency versions without evidence.
+
+For the hybrid web deployment, keep the Python interpreter separate from its
+package installer: use the interpreter-only runtime and an explicit UV prefix
+install under the Node build, not the full Python tools module.
+
+**Why:** The full tools module's managed pip step repeatedly failed before the
+application build and did not respond to the documented skip flag or saved
+production pip settings. A real empty-prefix install using UV succeeded without
+changing the requirements, disabling system protection, or creating a venv.
+
+**How to apply:** Keep Python's minor version consistent with the prefix layout.
+Explicitly expose both user-site libraries and their executable directory; do
+not assume the former tools module's environment injection still exists.
+Preserve configured registries rather than substituting public mirrors. Verify
+imports and startup against the fresh prefix, not cached workspace libraries.
+Only a real new publish can confirm the managed pre-install phase is resolved.
 
 After merges, verify the actual workflow run command serves HTTP, not just that modules import or compile.
 
