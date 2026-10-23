@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v1.1.0 -- Live OAuth endpoint scanner for MCP servers.
+VATA mcp_authscan v{VERSION} -- Live OAuth endpoint scanner for MCP servers.
 
 Tests RFC 9728 → RFC 8414 OAuth discovery chain and probes OAuth server configuration
 for authentication, token caching, CORS, PKCE, key rotation, and other security properties.
@@ -413,19 +413,14 @@ def scan_live_server(target_url):
 
 
         # Verify accounting
-        oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
-        if not accounting_valid:
-            print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
-            sys.exit(5)
+        oauth_counts = count_probes(oauth_records)
 
         # Update probe_status from OAuth assessment counts
-        authserver_counts = oauth_counts.get("authserver", {})
-        probe_status['attempted'] = authserver_counts.get("attempted", 0)
-        probe_status['passed'] = authserver_counts.get("passed", 0)
-        probe_status['failed'] = authserver_counts.get("failed", 0)
-        probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
-        probe_status['observation'] = authserver_counts.get("observation", 0)
-        probe_status['excluded'] = authserver_counts.get("excluded", 0)
+        probe_status['attempted'] = oauth_counts.get("attempted", 0)
+        probe_status['passed'] = oauth_counts.get("PASS", 0)
+        probe_status['failed'] = oauth_counts.get("FAIL", 0)
+        probe_status['not_observed'] = oauth_counts.get("NOT_OBSERVED", 0)
+        probe_status['excluded'] = oauth_counts.get("EXCLUDED", 0)
 
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
@@ -456,7 +451,7 @@ def scan_live_server(target_url):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 
-VERSION = "1.1.0"
+VERSION = "1.1.3"
 PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
 
 def get_git_metadata(target_path):
@@ -1785,7 +1780,7 @@ def generate_html_report(canonical_payload, output_file):
     not_observed = canonical_payload.get("probes_not_observed", 0)
     excluded = canonical_payload.get("probes_excluded", 0)
     scan_date = canonical_payload.get("scan_date", "Unknown")
-    tool_version = canonical_payload.get("tool_version", "1.1.0")
+    tool_version = canonical_payload.get("tool_version", __version__)
 
     auth = canonical_payload.get("authorization", {})
     findings = canonical_payload.get("findings", [])
@@ -2110,7 +2105,8 @@ def main():
             payload_hash = hashlib.sha256(json.dumps({"authorization": {"authorized_by": args.authorized_by or "", "auth_basis": args.auth_basis or "", "contact": args.contact or ""}, "scan_mode": "LIVE_ENDPOINT_ASSESSMENT", "probes_attempted": attempted, "probes_passed": passed, "probes_failed": failed, "probes_observed": observation, "probes_not_observed": not_observed, "probes_excluded": excluded}, sort_keys=True).encode()).hexdigest()
 
             print("=" * 80)
-            print(f"REPORT HASH (SHA256): {payload_hash}")
+            if not args.json:
+                print(f"REPORT HASH (SHA256): {payload_hash}")
             print("=" * 80)
 
             if args.authorized_by:
@@ -2355,7 +2351,7 @@ def main():
         print(json.dumps(canonical_payload, indent=2))
     if args.sarif and not args.json:
         print(json.dumps(to_sarif(F, args.target), indent=2))
-    else:
+    elif not args.json:
         # Text output with optional authorization header
         # Check for discovery incomplete status
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
@@ -2462,7 +2458,8 @@ def main():
             print("=" * 80)
             print("[Hash computed over: authorization + scan mode + probe status + findings.")
             print(" Excludes: report_hash field itself (added after hash is computed).]")
-            print(f"REPORT HASH (SHA256): {report_hash}")
+            if not args.json:
+                print(f"REPORT HASH (SHA256): {report_hash}")
             print("")
             print("[Verification: To verify integrity, use: --json flag to get canonical payload,")
             print(" remove report_hash field, recompute SHA256 of sorted JSON, and compare.]")

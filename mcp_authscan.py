@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VATA mcp_authscan v1.1.0 -- Live OAuth endpoint scanner for MCP servers.
+VATA mcp_authscan v{VERSION} -- Live OAuth endpoint scanner for MCP servers.
 
 Tests RFC 9728 → RFC 8414 OAuth discovery chain and probes OAuth server configuration
 for authentication, token caching, CORS, PKCE, key rotation, and other security properties.
@@ -711,7 +711,7 @@ def scan_live_server(target_url):
 
     return findings, True, probe_status, discovery_info, probe_results
 
-VERSION = "1.1.0"
+VERSION = "1.1.2"
 PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
 
 def get_git_metadata(target_path):
