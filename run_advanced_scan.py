@@ -23,7 +23,8 @@ async def run():
     print("")
     
     # Run the pipeline
-    result = await scanner.full_pipeline(sample_size=50)
+    # These findings are synthetic: this harness never contacts a server.
+    result = await scanner.full_pipeline(sample_size=50, demo=True)
     
     print("")
     print("✅ Advanced scan complete!")
