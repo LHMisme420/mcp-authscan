@@ -58,12 +58,20 @@ install under the Node build, not the full Python tools module.
 application build and did not respond to the documented skip flag or saved
 production pip settings. A real empty-prefix install using UV succeeded without
 changing the requirements, disabling system protection, or creating a venv.
+However, the next actual publish still invoked pip for the root requirements,
+now failing with PEP 668. Interpreter-only configuration does not suppress that
+legacy pre-build phase.
 
 **How to apply:** Keep Python's minor version consistent with the prefix layout.
 Explicitly expose both user-site libraries and their executable directory; do
 not assume the former tools module's environment injection still exists.
 Preserve configured registries rather than substituting public mirrors. Verify
 imports and startup against the fresh prefix, not cached workspace libraries.
+Configure a writable prefix and non-user pip mode in shared build/runtime scope,
+not solely production scope. The plain pip command resolved requirements through
+the firewall in a read-only check after the shared settings were applied; it
+still printed a non-fatal bootstrap warning. Do not mistake that for verification
+of the actual managed builder's environment.
 Only a real new publish can confirm the managed pre-install phase is resolved.
 
 After merges, verify the actual workflow run command serves HTTP, not just that modules import or compile.
