@@ -119,9 +119,16 @@ particular hosting installation phase inherits. Astral documents UV's default
 project environment as `.venv`, not the system prefix; missing configuration
 alone therefore does not explain observed Nix-store writes.
 
-**How to apply:** Check the exact module variant and installer environment.
-Consider explicit managed-prefix UV settings without asserting they propagate
-into hosting's earlier install phase until actual build evidence confirms it.
+A real publish with all three UV settings explicitly configured in shared
+environment variables still attempted installation into the Nix interpreter
+prefix. The build used the updated source, so stale code did not explain this.
+
+**How to apply:** Check the exact module variant and effective installer
+environment. Explicit shared UV settings alone did not correct hosting's
+automatic install target. The failure log does not show whether those settings
+were missing, overridden, or resolved differently; do not infer which occurred
+solely from the destination path. Preview health and configuration tests cannot
+verify this earlier hosting phase.
 
 ## Verify package callback results in a prefix-managed interpreter
 
