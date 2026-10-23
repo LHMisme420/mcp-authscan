@@ -21,6 +21,8 @@ python_executable="$(command -v python3)"
 python_prefix="$("$python_executable" -c 'import site; print(site.getuserbase())')"
 # Prefix mode installs ordinary libraries and scripts; it does not create a venv
 # or write into Nix's immutable Python installation.
-uv pip install --prefix "$python_prefix" --python "$python_executable" --requirement requirements.txt
+# Pip's prefix installation can leave old dist-info beside replacement wheels.
+# Reinstall the resolved graph so stale vulnerable metadata cannot shadow it.
+uv pip install --reinstall --prefix "$python_prefix" --python "$python_executable" --requirement requirements-runtime.txt
 
 npm run build

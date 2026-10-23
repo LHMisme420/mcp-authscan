@@ -25,6 +25,9 @@ cd mcp-authscan
 pip install -e .
 ```
 
+Python 3.11 or newer is required, including for the standalone scanner. This
+allows the patched Pillow 13 image/PDF dependency and current HTTP dependencies.
+
 **Run live OAuth server assessment:**
 
 ```bash

@@ -3,7 +3,7 @@
 Run `npm run test:startup` before publishing changes to startup. This builds the
 real client and server, then launches the exact `npm start` script. It requires
 Node/npm, PostgreSQL 16 command-line tools (`initdb`, `pg_ctl`), `ps`, and the
-Python dependencies in `requirements.txt` (including Gunicorn). Run as a
+Python dependencies in `requirements-runtime.txt` (including Gunicorn). Run as a
 non-root user, as required by PostgreSQL.
 
 ## Dependency installation on Replit

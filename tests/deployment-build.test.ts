@@ -70,6 +70,13 @@ test('shared Python configuration retains the managed library directory', async 
   assert.match(shared, /^PIP_USER\s*=\s*"0"$/m);
 });
 
+test('Python runtime dependencies are explicit, without the legacy hosting pip manifest', async () => {
+  await assert.rejects(readFile(path.join(root, 'requirements.txt')), { code: 'ENOENT' });
+  const requirements = await readFile(path.join(root, 'requirements-runtime.txt'), 'utf8');
+  assert.match(requirements, /^flask>=3\.1\.3,<4$/m);
+  assert.match(requirements, /^gunicorn$/m);
+});
+
 test('post-merge verification remains offline and read-only without importing pip', async () => {
   const hook = await readFile(path.join(root, 'scripts/post-merge.sh'), 'utf8');
   assert.doesNotMatch(hook, /python3 -m pip/);
@@ -100,7 +107,7 @@ test('build installs Node and Python into the managed prefix before compiling', 
   assert.deepEqual(calls.map(call => call.step), ['npm-ci', 'python-prefix', 'uv-install', 'npm-run']);
   assert.deepEqual(calls[0].args, ['ci', '--include=dev']);
   assert.deepEqual(calls[2].args,
-    ['pip', 'install', '--prefix', prefix, '--python', python, '--requirement', 'requirements.txt']);
+    ['pip', 'install', '--reinstall', '--prefix', prefix, '--python', python, '--requirement', 'requirements-runtime.txt']);
   assert.equal(calls[2].pipUser, '1', 'UV prefix installation must not depend on changing pip user mode');
   assert.deepEqual(calls[3].args, ['run', 'build']);
   for (const call of calls) {
