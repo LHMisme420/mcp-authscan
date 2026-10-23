@@ -35,10 +35,10 @@ mcp-authscan https://api.example.com/mcp \
 ```
 
 **Output:**
-- Human-readable security report with PASS/FAIL/OBSERVATION verdicts
+- Human-readable security report with PASS/FAIL verdicts
 - OAuth endpoint configuration analysis (RFC 9728 → RFC 8414)
 - Probe results summary with evidence strings
-- Deterministic report hash (SHA256, reproducible across runs)
+- Report hash (SHA256) with scan timestamp for integrity verification
 
 **Exit codes:**
 - `0` — Scan completed. No FAIL verdicts at or above `--fail-on` threshold (default: high).
@@ -49,7 +49,7 @@ mcp-authscan https://api.example.com/mcp \
 - `5` — Server not assessable: discovery incomplete, zero verdicts reached, OR too many probes NOT_OBSERVED (>2 in 9-probe set, meaning insufficient coverage).
 - `6` — Usage error (malformed arguments).
 
-**Verdict types:** Only **FAIL** verdicts vote for the `--fail-on` threshold. **PASS** verdicts show server compliance. **OBSERVATION** verdicts (e.g., CORS headers absent) are reported separately and do not count as findings. **NOT_OBSERVED** (endpoints unreachable) do not count toward coverage.
+**Verdict types:** Only **FAIL** verdicts vote for the `--fail-on` threshold. **PASS** verdicts show server compliance. **NOT_OBSERVED** (endpoints unreachable) do not count toward coverage. **EXCLUDED** probes require client credentials and are not assessed without registration.
 
 Note: Severity levels are reported in the security report. Use `--fail-on` to set the threshold:
 
@@ -64,7 +64,7 @@ mcp-authscan https://your-server/mcp ... --fail-on critical
 mcp-authscan https://your-server/mcp ... --fail-on medium
 ```
 
-**Current version:** v1.1.0 (main branch)
+**Current version:** v1.1.3 (main branch)
 
 ---
 
