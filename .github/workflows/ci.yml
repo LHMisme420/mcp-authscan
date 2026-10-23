@@ -6,7 +6,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # v4
+      - uses: actions/checkout@v7 # v4
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: "3.12"
@@ -16,7 +16,7 @@ jobs:
   dep-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # v4
+      - uses: actions/checkout@v7 # v4
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: "3.12"
@@ -27,7 +27,7 @@ jobs:
   types:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # v4
+      - uses: actions/checkout@v7 # v4
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: "3.12"
@@ -37,7 +37,7 @@ jobs:
   cors-scanner-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # v4
+      - uses: actions/checkout@v7 # v4
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: "3.12"
@@ -51,7 +51,7 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4 # v4
+      - uses: actions/checkout@v7 # v4
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: ${{ matrix.python-version }}
