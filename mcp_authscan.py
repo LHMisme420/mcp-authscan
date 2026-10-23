@@ -236,6 +236,25 @@ def discover_oauth_endpoints(base_url):
     except (URLError, socket.timeout):
         pass
 
+    # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
+    print(f"[*] Trying direct RFC 8414 discovery", file=sys.stderr)
+    try:
+        oauth_metadata_url = base.rstrip("/") + "/.well-known/oauth-authorization-server"
+        req = Request(oauth_metadata_url)
+        req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+        with urlopen(req, timeout=5) as resp:
+            oauth_data = json.loads(resp.read().decode())
+            endpoints = {
+                "token": oauth_data.get("token_endpoint"),
+                "authorize": oauth_data.get("authorization_endpoint"),
+            }
+            endpoints = {k: v for k, v in endpoints.items() if v}
+            if endpoints:
+                print(f"[+] OAuth discovery successful", file=sys.stderr)
+                return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints}
+    except:
+        pass
+
     return None, None
 
 def scan_live_server(target_url):
@@ -387,20 +406,43 @@ def scan_live_server(target_url):
                 print(render_probe(record), file=sys.stderr)
 
         
-        # Verify accounting
-        oauth_counts, accounting_valid, accounting_error = count_probes(oauth_records)
-        if not accounting_valid:
-            print(f"[!] ACCOUNTING ERROR: {accounting_error}", file=sys.stderr)
+        # Verify accounting using new count_probes
+        try:
+            oauth_counts = count_probes(oauth_records)
+        except RuntimeError as e:
+            print(f"[!] ACCOUNTING ERROR: {e}", file=sys.stderr)
             return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
         
-        # Update probe_status from OAuth assessment counts
-        authserver_counts = oauth_counts.get("authserver", {})
-        probe_status['attempted'] = authserver_counts.get("attempted", 0)
-        probe_status['passed'] = authserver_counts.get("passed", 0)
-        probe_status['failed'] = authserver_counts.get("failed", 0)
-        probe_status['not_observed'] = authserver_counts.get("not_observed", 0)
-        probe_status['observation'] = authserver_counts.get("observation", 0)
-        probe_status['excluded'] = authserver_counts.get("excluded", 0)
+        # Extract findings from FAIL records (new architecture)
+        for record in oauth_records:
+            if record.status == "FAIL":
+                findings.append({
+                    "rule": f"OAuth-{record.probe_id}",
+                    "severity": record.severity or "HIGH",
+                    "confidence": "HIGH",
+                    "title": record.name,
+                    "file": oauth_server_url,
+                    "line": 0,
+                    "ref": f"OAuth-{record.probe_id}",
+                    "evidence": record.detail or "",
+                    "snippet": "",
+                    "is_live_finding": True,
+                    "request_method": "POST",
+                    "request_body": "",
+                    "response_status": record.http_status or 0,
+                    "response_body": record.body_excerpt or "",
+                    "response_preview": record.body_excerpt or "",
+                    "interpretation": record.detail or "OAuth configuration issue",
+                    "remediation": f"Fix probe {record.probe_id} ({record.name})",
+                })
+        
+        # Update probe_status from counts
+        probe_status['attempted'] = oauth_counts.get("attempted", 0)
+        probe_status['passed'] = oauth_counts.get("PASS", 0)
+        probe_status['failed'] = oauth_counts.get("FAIL", 0)
+        probe_status['not_observed'] = oauth_counts.get("NOT_OBSERVED", 0)
+        probe_status['observation'] = oauth_counts.get("observation", 0)
+        probe_status['excluded'] = oauth_counts.get("EXCLUDED", 0)
         
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
@@ -2300,8 +2342,12 @@ def main():
                 print(f"[!] Target unreachable. Scan aborted.", file=sys.stderr)
                 sys.exit(3)
             elif discovery_info.get("status") == "PREFLIGHT_FAILED":
-                # Preflight failed (target not MCP)
-                sys.exit(4)
+                # Preflight failed (target not MCP), but OAuth assessment may have succeeded
+                if oauth_records:
+                    pass  # Continue - OAuth records exist
+                else:
+                    # No OAuth either - fail
+                    sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)
                 sys.exit(3)
