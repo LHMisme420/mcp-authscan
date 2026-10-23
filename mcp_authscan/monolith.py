@@ -10,6 +10,7 @@ Protocol: Tests JSON-RPC /initialize endpoint for 401 (OAuth required) or 200 (z
 Exit codes: 0=success, 1=auth failed, 2=unreachable, 3=preflight failed, 4=discovery incomplete.
 Output: Human-readable security report with probe results and deterministic SHA256 hash.
 """
+from mcp_authscan import __version__
 from mcp_authscan.report_copy import render_summary, check_counts
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 from datetime import datetime, timezone
@@ -722,7 +723,7 @@ def scan_live_server(target_url):
 
     return findings, True, probe_status, discovery_info, probe_results
 
-VERSION = "1.1.2"
+VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
 
 def get_git_metadata(target_path):

@@ -28,6 +28,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+from mcp_authscan import __version__
 from mcp_authscan.report_copy import check_counts, render_summary
 
 LIVE_ENDPOINTS = {
@@ -484,7 +485,7 @@ def scan_live_server(target_url):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 
-VERSION = "1.1.3"
+VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
 
 def get_git_metadata(target_path):
