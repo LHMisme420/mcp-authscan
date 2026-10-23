@@ -3,7 +3,8 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-# Hosting auto-install is disabled in .replit, so install both dependency sets.
+# Install both dependency sets explicitly. Production PIP_USER/PIP_PREFIX also
+# cover hosting builders that run a pre-install despite the skip setting.
 npm ci --include=dev
 
 # Use the Python module and the module's writable prefix, not the Nix pip

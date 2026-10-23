@@ -58,6 +58,13 @@ test('hosting uses an explicit build without changing the durable runtime comman
   assert.match(config, /run = \["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=\/tmp\/vata-findings\.sqlite", "npm", "run", "start"\]/);
 });
 
+test('production pre-install selects the managed prefix and disables user-install mode', async () => {
+  const config = await readFile(path.join(root, '.replit'), 'utf8');
+  const production = config.match(/\[userenv\.production\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
+  assert.match(production, /^PIP_USER\s*=\s*"0"$/m);
+  assert.match(production, /^PIP_PREFIX\s*=\s*"\.pythonlibs"$/m);
+});
+
 test('build installs Node and Python into the managed prefix before compiling', async () => {
   const { result, calls, prefix } = await buildFixture();
   assert.equal(result.status, 0, result.stderr);
