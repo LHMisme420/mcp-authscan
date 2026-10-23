@@ -1,11 +1,10 @@
-"""Thin wrapper: package entry point calls the monolith."""
+"""Package entry point: call the monolith."""
 import sys
-import runpy
+from . import monolith
 
 def main():
-    """Call the monolith as __main__."""
-    sys.argv[0] = "mcp-authscan"
-    runpy.run_path("mcp_authscan.py", run_name="__main__")
+    """Call monolith main."""
+    monolith.main()
 
 if __name__ == "__main__":
     main()
