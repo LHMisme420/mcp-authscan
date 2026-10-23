@@ -66,6 +66,8 @@ test('shared Python configuration retains the managed library directory', async 
   const config = await readFile(path.join(root, '.replit'), 'utf8');
   const shared = config.match(/\[userenv\.shared\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';
   assert.match(shared, /^PYTHONUSERBASE\s*=\s*"\.pythonlibs"$/m);
+  assert.match(shared, /^PIP_PREFIX\s*=\s*"\.pythonlibs"$/m);
+  assert.match(shared, /^PIP_USER\s*=\s*"0"$/m);
 });
 
 test('post-merge verification remains offline and read-only without importing pip', async () => {

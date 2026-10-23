@@ -88,6 +88,8 @@ VATA_FINDINGS_NAMESPACE = "production-findings"
 
 [userenv.shared]
 PYTHONUSERBASE = ".pythonlibs"
+PIP_PREFIX = ".pythonlibs"
+PIP_USER = "0"
 
 [postMerge]
 path = "scripts/post-merge.sh"
