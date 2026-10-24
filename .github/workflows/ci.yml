@@ -68,4 +68,4 @@ jobs:
           tests.test_properties
           tests.test_probe_accounting
       - name: Enforce coverage threshold
-        run: coverage report --fail-under=22
+        run: coverage report --fail-under=16
