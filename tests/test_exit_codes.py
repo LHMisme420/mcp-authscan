@@ -44,3 +44,26 @@ class ExitCodeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_exit_5_zero_probes_on_no_scheme_typo(self):
+        """Exit 5 when URL lacks scheme (typo) → zero probes attempted."""
+        # User types 'app.example.com/mcp' instead of 'https://app.example.com/mcp'
+        # Scanner falls through to SOURCE_CODE_ASSESSMENT mode, finds nothing.
+        # Contract: zero testable probes → exit 5, never 0.
+        result = subprocess.run(
+            [sys.executable, "-m", "mcp_authscan.cli_wrapper",
+             "nonexistent-dir-that-does-not-exist",
+             "--json",
+             "--authorized-by", "Test",
+             "--auth-basis", "test",
+             "--contact", "test@example.com"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 5, 
+            f"Expected exit 5 for zero probes, got {result.returncode}.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}")
+        data = json.loads(result.stdout)
+        self.assertEqual(data["counts"]["attempted"], 0, 
+            "Expected zero probes attempted")
