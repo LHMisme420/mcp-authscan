@@ -151,6 +151,13 @@ publishing logs before declaring the hosting failure resolved. A later image
 layer archiving failure is a separate phase, not evidence that automatic UV
 installation returned.
 
+Per-file launcher removal is not a verified general solution to tar-header
+mismatches: a later real publish failed on a different Python console launcher,
+despite successful package installation and compilation. Preserve runtime
+launchers and verify environment resets separately from the actual image upload;
+do not infer that a normal local executable guarantees successful hosting
+archiving.
+
 ## Verify package callback results in a prefix-managed interpreter
 
 Do not assume a successful Python package callback updated either the source

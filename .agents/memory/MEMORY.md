@@ -1,4 +1,5 @@
 - [Imported Python setup](imported-python-setup.md) — Nix pre-install conflicts; separate the interpreter from package installation and verify cold startup, not cached imports.
+- [Preview HTTP routing](preview-http-routing.md) — local health can be 200 while the main Preview domain routes to the websocket listener and returns 426.
 - [Configuration and toolchains](configuration-toolchain-validity.md) — invalid Replit configuration can temporarily remove toolchain commands from the shell environment.
 - [Published startup evidence](published-startup-evidence.md) — use actual production bind logs, not preview success or the saved run command, to verify port fixes.
 - [Finding data environments](finding-data-environments.md) — a stale preview SQLite file does not prove published scan findings are missing.
@@ -17,7 +18,7 @@
 - [Auth readiness](auth-readiness.md) — brief snapshots can precede Clerk rendering; verify form readiness before diagnosing an authentication failure.
 - [Interrupted validation](interrupted-validation.md) — completion results after a user interruption can describe an earlier code snapshot; compare timestamps before changing code.
 - [Recovery validation resources](recovery-validation-resources.md) — avoid concurrent scaled recovery runs; temporary disk quotas can fail writes even when df reports free space.
-- [Dependency runtime compatibility](dependency-runtime-compatibility.md) — preserve runtime and CommonJS compatibility when patching transitive dependencies.
+- [Dependency runtime compatibility](dependency-runtime-compatibility.md) — preserve Node/CommonJS compatibility and portable lockfile URLs when patching dependencies.
 - [Dependency audit evidence](dependency-audit-evidence.md) — distinguish patched packages, independent audit results, failed platform scans, and published releases.
 - [Production SQL console](production-sql-console.md) — use a single atomic operator import; never let an empty bootstrap outrank normal snapshots.
 - [SQLite writer handoff](sqlite-writer-deployment-handoff.md) — frontend may precede writer readiness; keep APIs closed until ownership; never bypass the lock.

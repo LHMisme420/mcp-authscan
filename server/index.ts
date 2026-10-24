@@ -2,6 +2,7 @@ import express from 'express';
 import { clerkMiddleware, getAuth } from '@clerk/express';
 import { publishableKeyFromHost } from '@clerk/shared/keys';
 import path from 'node:path';
+import { createServer as createHttpServer } from 'node:http';
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from './middlewares/clerkProxyMiddleware';
 import { accountRoutes } from './accountRoutes';
 import { appOrigin } from './appOrigin';
@@ -16,8 +17,9 @@ if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
   throw new Error('Secure sign-in is not configured.');
 }
 const app = express();
+const httpServer = createHttpServer(app);
 app.set('trust proxy', 1);
-const start = await startApplication(app);
+const start = await startApplication(app, httpServer);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 // Retired payment URLs remain explicit tombstones, including old webhook URLs.
 // No environment variable can reactivate payments in this release.
@@ -86,7 +88,10 @@ if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => req.method === 'GET' ? res.sendFile(path.resolve('build/client/index.html')) : next());
 } else {
   const { createServer } = await import('vite');
-  const vite = await createServer({ server: { middlewareMode: true }, appType: 'spa' });
+  const vite = await createServer({
+    server: { middlewareMode: true, hmr: { server: httpServer } },
+    appType: 'spa',
+  });
   app.use(vite.middlewares);
 }
 await start();

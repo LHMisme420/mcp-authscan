@@ -8,7 +8,7 @@ import { validateFindingsConfiguration, findingsReady, type FindingsStorage } fr
 import { findingsAlerts } from './findingsAlerts';
 import { acquireFindingsWriter, scannerStartupTimeout, writerStartupPolicy } from './findingsStartup';
 
-export async function startApplication(app: Express) {
+export async function startApplication(app: Express, httpServer?: Server) {
   let scanner: ChildProcess | undefined;
   let server: Server | undefined;
   let scannerStopped = true;
@@ -89,7 +89,9 @@ export async function startApplication(app: Express) {
       // Replit probes /. Serve frontend liveness before waiting for the old
       // revision's writer lock; /health and /api remain honestly unavailable.
       await new Promise<void>((resolve, reject) => {
-        server = app.listen(port, '0.0.0.0', () => resolve());
+        server = httpServer
+          ? httpServer.listen(port, '0.0.0.0', () => resolve())
+          : app.listen(port, '0.0.0.0', () => resolve());
         server.once('error', reject);
       });
       console.log(`VATA frontend listening on port ${port}; scanner APIs are warming up.`);

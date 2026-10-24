@@ -85,6 +85,13 @@ test('shared Python configuration retains the managed library directory', async 
   assert.match(shared, /^UV_PYTHON_PREFERENCE\s*=\s*"only-system"$/m);
 });
 
+test('development hot reload shares the public HTTP listener instead of opening another port', async () => {
+  const source = await readFile(path.join(root, 'server/index.ts'), 'utf8');
+  assert.match(source, /const httpServer = createHttpServer\(app\)/);
+  assert.match(source, /startApplication\(app, httpServer\)/);
+  assert.match(source, /hmr:\s*\{\s*server:\s*httpServer\s*\}/);
+});
+
 test('Python runtime dependencies are explicit, without the legacy hosting pip manifest', async () => {
   await assert.rejects(readFile(path.join(root, 'requirements.txt')), { code: 'ENOENT' });
   await assert.rejects(readFile(path.join(root, 'pyproject.toml')), { code: 'ENOENT' });

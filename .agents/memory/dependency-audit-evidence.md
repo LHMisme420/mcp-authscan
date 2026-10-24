@@ -9,6 +9,9 @@ already-patched packages need another upgrade.
 **Why:** The managed audit failed before inspection with `OSV_SCAN_FAILED`
 (scanner exit 127), although the resolved dependencies and Python requirements
 already excluded the reported versions. Independent advisory checks were usable.
+Availability is intermittent: a valid managed audit can be followed by an
+exit-127 scanner failure after remediation. Do not attribute that scanner
+runtime failure to the dependency update without separate evidence.
 
 **How to apply:** Check the resolved dependency graph and all Python requirements
 includes before changing packages. If the managed scanner is unavailable, use
