@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import venv
 import tomllib
 import unittest
 import zipfile
