@@ -111,5 +111,5 @@ class CliPackagingTests(unittest.TestCase):
                     [str(python), "-m", "mcp_authscan.cli_wrapper", "--help"],
                     capture_output=True, text=True, check=True, cwd=temp
                 )
-                self.assertIn("mcp-authscan", output.stdout)
+                self.assertIn("mcp_authscan", output.stdout)
                 self.assertIn("target", output.stdout)
