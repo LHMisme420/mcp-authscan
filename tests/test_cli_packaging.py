@@ -95,20 +95,15 @@ class CliPackagingTests(unittest.TestCase):
                     archive.extractall(unpacked, filter="data")
                 released_source = next(unpacked.iterdir())
                 self.assertTrue((released_source / "pyproject.toml").is_file())
+                rebuilt = build("build_wheel", released_source, temp / "rebuilt")
+                check_wheel(rebuilt)
+
             with self.subTest(distribution="editable"):
                 editable = build("build_editable", source, temp / "editable")
-                venv_dir = temp / "editable-venv"
-                venv.create(venv_dir, with_pip=True)
-                pip = venv_dir / "bin" / "pip"
-                python = venv_dir / "bin" / "python"
-                subprocess.run([str(pip), "install", "-q", str(editable)], check=True, cwd=temp)
-                # Verify the installed scanner can be imported and the CLI works
-                output = subprocess.run(
-                    [str(python), "-m", "mcp_authscan.cli_wrapper", "--help"],
-                    capture_output=True, text=True, check=True, cwd=temp
-                )
-                self.assertIn("v1.1.3", output.stdout)
-                self.assertIn("target", output.stdout)
+                installed = temp / "editable-site"
+                with zipfile.ZipFile(editable) as archive:
+                    archive.extractall(installed)
+                output = run(["-c", (
                     "import sys,site; from pathlib import Path; "
                     "site.addsitedir(sys.argv[1]); import mcp_authscan; "
                     "assert Path(mcp_authscan.__file__).resolve().parent == Path(sys.argv[2]); "
