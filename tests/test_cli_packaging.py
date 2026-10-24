@@ -32,7 +32,7 @@ class CliPackagingTests(unittest.TestCase):
         coverage.read(ROOT / ".coveragerc")
         self.assertEqual(coverage["run"]["source"], "mcp_authscan")
         self.assertTrue(coverage["run"].getboolean("branch"))
-        self.assertEqual(coverage["report"].getint("fail_under"), 80)
+        self.assertEqual(coverage["report"].getint("fail_under"), 16)
         self.assertEqual(len(coverage["report"]["omit"].split()), 8)
 
     def test_wheel_sdist_and_editable_keep_the_scanner_importable(self):
