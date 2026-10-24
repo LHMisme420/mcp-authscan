@@ -158,6 +158,12 @@ launchers and verify environment resets separately from the actual image upload;
 do not infer that a normal local executable guarantees successful hosting
 archiving.
 
+A clean prefix rebuild did not establish a durable fix: one actual upload passed,
+then a later publish failed on the Flask launcher again. Local file inspection
+still showed a regular executable with matching reported and read byte counts.
+Treat the archive failure as unresolved and potentially intermittent; do not
+claim that another successful local build or a single upload proves it fixed.
+
 ## Verify package callback results in a prefix-managed interpreter
 
 Do not assume a successful Python package callback updated either the source
