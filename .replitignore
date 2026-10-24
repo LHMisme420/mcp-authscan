@@ -7,9 +7,9 @@ vata_findings_backup.json
 /pyproject.toml
 /uv.lock
 
-# Keep runtime Python packages and Gunicorn; omit only these unused launchers.
-/.pythonlibs/bin/flask
-/.pythonlibs/bin/cffi-gen-src
+# Runtime uses system python3 -m gunicorn and retains all installed libraries.
+# The build removes this launcher tree; this rule records the intended exclusion.
+/.pythonlibs/bin/
 
 # Do not ship private workspace findings to the public application.
 vata.db

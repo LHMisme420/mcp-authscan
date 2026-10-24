@@ -10,10 +10,10 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const script = path.join(root, 'scripts/deployment-build.sh');
 const gunicornLauncher = '#!/fixture/nix/python3\n# runtime launcher fixture\n';
 
-async function buildFixture(failAt = '') {
+async function buildFixture(failAt = '', prefixName = '.pythonlibs') {
   const temp = await mkdtemp(path.join(os.tmpdir(), 'vata-build-'));
   const trace = path.join(temp, 'trace.jsonl');
-  const prefix = path.join(temp, '.pythonlibs');
+  const prefix = path.join(temp, prefixName);
   const stub = `#!${process.execPath}
 const fs = require('node:fs');
 const path = require('node:path');
@@ -33,11 +33,14 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
     await mkdir(path.join(prefix, 'bin'), { recursive: true });
     await mkdir(path.join(prefix, 'lib/python3.11/site-packages/cffi'), { recursive: true });
     await mkdir(path.join(prefix, 'lib/python3.11/site-packages/flask'), { recursive: true });
+    await mkdir(path.join(prefix, 'lib/python3.11/site-packages/gunicorn'), { recursive: true });
     await writeFile(path.join(prefix, 'bin/cffi-gen-src'), 'generator fixture');
     await writeFile(path.join(prefix, 'bin/flask'), '#!/fixture/nix/python3\n# unused Flask CLI\n');
     await writeFile(path.join(prefix, 'bin/gunicorn'), gunicornLauncher);
+    await writeFile(path.join(prefix, 'bin/httpx'), '#!/fixture/nix/python3\n# another generated launcher\n');
     await writeFile(path.join(prefix, 'lib/python3.11/site-packages/cffi/__init__.py'), '# runtime library fixture');
     await writeFile(path.join(prefix, 'lib/python3.11/site-packages/flask/__init__.py'), '# runtime library fixture');
+    await writeFile(path.join(prefix, 'lib/python3.11/site-packages/gunicorn/__init__.py'), '# runtime library fixture');
     for (const tool of ['npm', 'python3', 'uv']) {
       await writeFile(path.join(temp, tool), stub, { mode: 0o755 });
     }
@@ -61,7 +64,9 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
       generatorExists: await exists(path.join(prefix, 'bin/cffi-gen-src')),
       flaskCliExists: await exists(path.join(prefix, 'bin/flask')),
       gunicornExists: await exists(path.join(prefix, 'bin/gunicorn')),
-      gunicornContent: await readFile(path.join(prefix, 'bin/gunicorn'), 'utf8').catch(() => null),
+      binExists: await exists(path.join(prefix, 'bin')),
+      pythonExists: await exists(path.join(temp, 'python3')),
+      gunicornLibraryExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/gunicorn/__init__.py')),
       cffiExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/cffi/__init__.py')),
       flaskExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/flask/__init__.py')),
     };
@@ -146,16 +151,14 @@ test('post-merge verification remains offline and read-only without importing pi
   assert.match(hook, /uv pip install --dry-run --no-index --no-cache --prefix/);
 });
 
-test('publishing excludes unused launchers, not Gunicorn or runtime packages', async () => {
+test('publishing omits generated launchers, not importable runtime libraries', async () => {
   const ignore = await readFile(path.join(root, '.replitignore'), 'utf8');
   const rules = ignore.split('\n').map(line => line.trim())
     .filter(line => line && !line.startsWith('#'));
-  assert.ok(rules.includes('/.pythonlibs/bin/cffi-gen-src'));
-  assert.ok(rules.includes('/.pythonlibs/bin/flask'));
-  assert.ok(!rules.includes('/.pythonlibs/bin/gunicorn'));
+  assert.ok(rules.includes('/.pythonlibs/bin/'));
   for (const broadRule of [
     '.pythonlibs', '.pythonlibs/', '/.pythonlibs', '/.pythonlibs/', '**/.pythonlibs/**',
-    '/.pythonlibs/**', '/.pythonlibs/bin/', '/.pythonlibs/bin/**',
+    '/.pythonlibs/**',
     '/.pythonlibs/lib/', '/.pythonlibs/lib/**',
   ]) {
     assert.ok(!rules.includes(broadRule), `Runtime packages must not be excluded by ${broadRule}`);
@@ -183,7 +186,7 @@ test('canonical scanner compiles and retains the discovery security parameter', 
 test('build installs Node and Python into the managed prefix before compiling', async () => {
   const {
     result, calls, prefix, python, generatorExists, flaskCliExists,
-    gunicornExists, gunicornContent, cffiExists, flaskExists,
+    gunicornExists, binExists, pythonExists, gunicornLibraryExists, cffiExists, flaskExists,
   } = await buildFixture();
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls.map(call => call.step), ['npm-ci', 'python-prefix', 'uv-install', 'npm-run']);
@@ -196,8 +199,10 @@ test('build installs Node and Python into the managed prefix before compiling', 
   assert.equal(calls[3].flaskCliExists, true, 'Flask launcher cleanup must follow compilation');
   assert.equal(generatorExists, false, 'The unused generator is removed');
   assert.equal(flaskCliExists, false, 'The unused Flask launcher is removed');
-  assert.equal(gunicornExists, true, 'The runtime server launcher must remain');
-  assert.equal(gunicornContent, gunicornLauncher, 'The Gunicorn shebang must not be rewritten');
+  assert.equal(gunicornExists, false, 'The generated Gunicorn launcher is no longer required');
+  assert.equal(binExists, false, 'Remove the entire launcher class, not a growing file list');
+  assert.equal(pythonExists, true, 'The interpreter outside the prefix must remain');
+  assert.equal(gunicornLibraryExists, true, 'The Gunicorn module must remain installed');
   assert.equal(cffiExists, true, 'CFFI itself must remain importable');
   assert.equal(flaskExists, true, 'Flask itself must remain importable');
   for (const call of calls) {
@@ -205,6 +210,14 @@ test('build installs Node and Python into the managed prefix before compiling', 
     assert.ok(!call.args.includes('--break-system-packages'));
     assert.ok(!call.args.includes('--user'));
   }
+});
+
+test('build refuses recursive cleanup outside the managed Python prefix', async () => {
+  const { result, calls, binExists } = await buildFixture('', 'unsafe-prefix');
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Refusing launcher cleanup/);
+  assert.ok(!calls.some(call => call.step === 'uv-install'));
+  assert.equal(binExists, true, 'Unsafe-prefix launchers must not be deleted');
 });
 
 for (const failAt of ['npm-ci', 'python-prefix', 'uv-install']) {

@@ -152,11 +152,10 @@ layer archiving failure is a separate phase, not evidence that automatic UV
 installation returned.
 
 Per-file launcher removal is not a verified general solution to tar-header
-mismatches: a later real publish failed on a different Python console launcher,
-despite successful package installation and compilation. Preserve runtime
-launchers and verify environment resets separately from the actual image upload;
-do not infer that a normal local executable guarantees successful hosting
-archiving.
+mismatches: real publishes subsequently failed on other Python console launchers,
+including the one then required to start Gunicorn, despite successful package
+installation and compilation. Verify environment resets separately from image
+upload; a normal local executable does not guarantee successful hosting archiving.
 
 A clean prefix rebuild did not establish a durable fix: one actual upload passed,
 then a later publish failed on the Flask launcher again. Local file inspection
@@ -168,14 +167,20 @@ Do not blanket-rewrite console-script shebangs as an archive workaround.
 
 **Why:** Nix wrapper paths alone are not evidence of the tar failure's cause,
 and changing every launcher can change the interpreter used by required runtime
-commands. The gateway starts Gunicorn directly, so its launcher must remain
-unchanged.
+commands. Removing a required launcher before replacing its caller breaks startup.
 
-**How to apply:** Limit any launcher omission to confirmed unused commands;
-retain their importable libraries and the interpreter/Gunicorn entrypoints.
-Use publishing exclusions as defense against unused launchers reappearing.
-Verify a real build, imports, and cold startup, but label the change a targeted
-mitigation until the hosting archive and new release are actually verified.
+**How to apply:** Run the private scanner through system Python's Gunicorn module,
+not its generated console script, before omitting the managed prefix's entire
+launcher directory. Keep all importable libraries and the interpreter-only Nix
+module. Verify imports and real cold startup without the prefix's bin directory
+or a Python package-path override. Keep Node as the public entrypoint and preserve
+writer-lock/readiness gates. Do not restore a direct Gunicorn CLI dependency
+without addressing the archive problem.
+
+The actual post-build launcher cleanup is the verified control; a documentation
+search did not establish that .replitignore is enforced by the hosting archiver.
+Label this an archive workaround until actual upload and the new release are
+verified, rather than treating a successful local build as proof of resolution.
 
 ## Verify package callback results in a prefix-managed interpreter
 

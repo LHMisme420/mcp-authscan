@@ -425,7 +425,7 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
     assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_backups WHERE namespace=$1', [freshNamespace])).rows[0].count, '0');
     assert.equal((await admin!.query('SELECT COUNT(*) FROM public.vata_findings_initializations WHERE namespace=$1', [freshNamespace])).rows[0].count, '0');
   });
-  await t.test('missing Gunicorn and failed Python boot exit nonzero without a healthy public port', async () => {
+  await t.test('missing Python and failed scanner boot exit nonzero without a healthy public port', async () => {
     const bin = path.join(temp, 'bin');
     await mkdir(bin);
     await symlink(process.execPath, path.join(bin, 'node'));
@@ -437,11 +437,37 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
     assert.match(await exited(failed), /Private scanner stopped unexpectedly/);
     await assert.rejects(fetch(`http://127.0.0.1:${failed.port}/health`));
   });
+  await t.test('missing Gunicorn module exits nonzero instead of claiming readiness', async () => {
+    const run = await launch({
+      PYTHONUSERBASE: path.join(temp, 'missing-pythonlibs'),
+      PYTHONPATH: '', PYTHONNOUSERSITE: '1',
+    });
+    const output = await exited(run);
+    assert.match(output, /No module named gunicorn/);
+    assert.match(output, /Private scanner stopped unexpectedly/);
+    await assert.rejects(fetch(`http://127.0.0.1:${run.port}/health`));
+  });
+  await t.test('real scanner uses system Python without generated console launchers', async () => {
+    const bin = path.join(temp, 'module-only-bin');
+    await mkdir(bin);
+    await writeFile(path.join(bin, 'gunicorn'),
+      `#!${tool('which', ['sh']).trim()}\necho "FORBIDDEN_GUNICORN_LAUNCHER" >&2\nexit 91\n`,
+      { mode: 0o755 });
+    const modulePath = tools.PATH.split(path.delimiter)
+      .filter(entry => path.resolve(entry) !== path.join(pythonBase, 'bin'))
+      .join(path.delimiter);
+    const run = await launch({ PATH: `${bin}:${modulePath}`, PYTHONPATH: undefined });
+    try {
+      await healthy(run);
+      assert.match(run.output(), /Starting gunicorn/);
+      assert.doesNotMatch(run.output(), /FORBIDDEN_GUNICORN_LAUNCHER/);
+    } finally { await cleanup(run.child); }
+  });
   await t.test('HTTP success without scanner readiness times out and cleans up', async () => {
     const bin = path.join(temp, 'unready-bin');
     await mkdir(bin);
-    await writeFile(path.join(bin, 'gunicorn'),
-      `#!${tool('which', ['sh']).trim()}\nexec "${process.execPath}" "${path.join(root, 'tests/fixtures/unready-scanner.cjs')}"\n`,
+    await writeFile(path.join(bin, 'python3'),
+      `#!${tool('which', ['sh']).trim()}\n[ "$1" = "-m" ] && [ "$2" = "gunicorn" ] || exit 91\nexec "${process.execPath}" "${path.join(root, 'tests/fixtures/unready-scanner.cjs')}"\n`,
       { mode: 0o755 });
     const run = await launch({ PATH: `${bin}:${tools.PATH}`, VATA_SCANNER_STARTUP_TIMEOUT_MS: '800' });
     const output = await exited(run);
@@ -452,8 +478,8 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
   await t.test('scanner boot longer than the former 20-second deadline keeps liveness up and becomes ready', async () => {
     const bin = path.join(temp, 'slow-scanner-bin');
     await mkdir(bin);
-    await writeFile(path.join(bin, 'gunicorn'),
-      `#!${tool('which', ['sh']).trim()}\nexec "${process.execPath}" "${path.join(root, 'tests/fixtures/unready-scanner.cjs')}"\n`,
+    await writeFile(path.join(bin, 'python3'),
+      `#!${tool('which', ['sh']).trim()}\n[ "$1" = "-m" ] && [ "$2" = "gunicorn" ] || exit 91\nexec "${process.execPath}" "${path.join(root, 'tests/fixtures/unready-scanner.cjs')}"\n`,
       { mode: 0o755 });
     const run = await launch({
       PATH: `${bin}:${tools.PATH}`, VATA_FIXTURE_SCANNER_READY_AFTER_MS: '21000',

@@ -101,13 +101,16 @@ export async function startApplication(app: Express, httpServer?: Server) {
       // Importing app.py initializes SQLite. Never spawn it before ownership and
       // snapshot restore, even though the public frontend is already listening.
       scannerStopped = false;
-      scanner = spawn('gunicorn', [
+      // Run the installed module with the system interpreter. Generated console
+      // launchers are omitted from the deployment to avoid hosting tar failures.
+      scanner = spawn('python3', [
+        '-m', 'gunicorn',
         '--bind', `127.0.0.1:${SCANNER_PORT}`, '--workers', '1', '--threads', '4',
         '--timeout', String(Math.max(120, Math.ceil(scannerTimeoutMs / 1000))), 'app:app',
       ], { stdio: 'inherit', env: { ...process.env, VATA_PORT: String(SCANNER_PORT), PORT: String(SCANNER_PORT), VATA_AUTH_BRIDGE_ENABLED: '1' } });
       scanner.once('error', () => {
         scannerStopped = true;
-        console.error('Private scanner could not start. Check that Gunicorn and Python dependencies are installed.');
+        console.error('Private scanner could not start. Check that Python3 and the Gunicorn module are installed.');
         void stop(1);
       });
       scanner.once('exit', () => {

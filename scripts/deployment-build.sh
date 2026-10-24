@@ -19,6 +19,12 @@ fi
 export PYTHONUSERBASE="${PYTHONUSERBASE:-$PWD/.pythonlibs}"
 python_executable="$(command -v python3)"
 python_prefix="$("$python_executable" -c 'import site; print(site.getuserbase())')"
+# Cleanup below is intentionally limited to this project's managed package
+# prefix, never a system/interpreter directory supplied by a bad configuration.
+case "${python_prefix%/}" in
+  .pythonlibs|*/.pythonlibs) ;;
+  *) echo "Refusing launcher cleanup outside the managed .pythonlibs prefix." >&2; exit 1 ;;
+esac
 # Prefix mode installs ordinary libraries and scripts; it does not create a venv
 # or write into Nix's immutable Python installation.
 # Pip's prefix installation can leave old dist-info beside replacement wheels.
@@ -27,8 +33,8 @@ uv pip install --reinstall --prefix "$python_prefix" --python "$python_executabl
 
 npm run build
 
-# This prefix is the runtime environment, not a disposable build cache.
-# Keep libraries, the interpreter and Gunicorn unchanged. These two unused
-# launchers have been named in hosting tar-size failures; omitting them is a
-# targeted packaging mitigation, not a confirmed diagnosis of the archiver.
-rm -f -- "$python_prefix/bin/flask" "$python_prefix/bin/cffi-gen-src"
+# The gateway uses system Python's `-m gunicorn`, not a generated console script.
+# Keep all installed libraries, but omit the complete generated launcher tree.
+# The Python toolchain also supplies an interpreter outside this prefix.
+# This is an archive workaround, not a confirmed diagnosis of the tar failure.
+rm -rf -- "$python_prefix/bin"
