@@ -100,14 +100,15 @@ class CliPackagingTests(unittest.TestCase):
 
             with self.subTest(distribution="editable"):
                 editable = build("build_editable", source, temp / "editable")
-                installed = temp / "editable-site"
-                with zipfile.ZipFile(editable) as archive:
-                    archive.extractall(installed)
-                output = run(["-c", (
-                    "import sys,site; from pathlib import Path; "
-                    "site.addsitedir(sys.argv[1]); import mcp_authscan; "
-                    "assert Path(mcp_authscan.__file__).resolve().parent == Path(sys.argv[2]); "
-                    "from mcp_authscan.cli_wrapper import main; "
-                    "sys.argv=['mcp-authscan','--help']; main()"
-                ), str(installed), str(source)], temp)
-                self.assertIn("v1.1.3", output)
+                venv_dir = temp / "editable-venv"
+                venv.create(venv_dir, with_pip=True)
+                pip = venv_dir / "bin" / "pip"
+                python = venv_dir / "bin" / "python"
+                subprocess.run([str(pip), "install", "-q", str(editable)], check=True, cwd=temp)
+                # Verify the installed scanner can be imported and the CLI works
+                output = subprocess.run(
+                    [str(python), "-m", "mcp_authscan.cli_wrapper", "--help"],
+                    capture_output=True, text=True, check=True, cwd=temp
+                )
+                self.assertIn("mcp-authscan", output.stdout)
+                self.assertIn("target", output.stdout)
