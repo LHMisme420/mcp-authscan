@@ -2542,6 +2542,10 @@ def main():
             print(f"{len(F)} finding(s).")
 
     # Exit code based on findings severity and --fail-on threshold
+    # Contract: zero testable probes → exit 5 (per design spec)
+    if probe_status.get('attempted', 0) == 0:
+        sys.exit(5)
+    
     thr_map = {"critical": 0, "high": 1, "medium": 2}
     thr = thr_map[args.fail_on]
     REVIEW = {"A4", "A5", "A6", "B2"}  # Review-list rules warn only
