@@ -74,6 +74,24 @@ test('hosting uses an explicit build without changing the durable runtime comman
   assert.match(config, /packages = \[[^\n]*"uv"/);
 });
 
+test('production gateway port matches the published HTTP forwarding target', () => {
+  const result = spawnSync('python3', ['-c', [
+    'import json, tomllib',
+    'from pathlib import Path',
+    'config = tomllib.loads(Path(".replit").read_text())',
+    'print(json.dumps({',
+    '  "configured": config["userenv"]["production"]["VATA_PORT"],',
+    '  "forwarded": [p["localPort"] for p in config.get("ports", []) if p.get("externalPort") == 80],',
+    '}))',
+  ].join('\n')], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, 'The publishing configuration must be valid TOML');
+  const { configured, forwarded } = JSON.parse(result.stdout);
+  assert.equal(forwarded.length, 1, 'Publishing must have exactly one external HTTP target');
+  assert.equal(Number(configured), forwarded[0],
+    'Production VATA_PORT must match the port Publishing health-checks');
+  assert.notEqual(forwarded[0], 5001, 'The private scanner must not be the public HTTP target');
+});
+
 test('shared Python configuration retains the managed library directory', async () => {
   const config = await readFile(path.join(root, '.replit'), 'utf8');
   const shared = config.match(/\[userenv\.shared\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? '';

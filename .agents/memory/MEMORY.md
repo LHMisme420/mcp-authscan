@@ -1,7 +1,7 @@
 - [Imported Python setup](imported-python-setup.md) — Nix pre-install conflicts; separate the interpreter from package installation and verify cold startup, not cached imports.
 - [Preview HTTP routing](preview-http-routing.md) — local health can be 200 while the main Preview domain routes to the websocket listener and returns 426.
 - [Configuration and toolchains](configuration-toolchain-validity.md) — invalid Replit configuration can temporarily remove toolchain commands from the shell environment.
-- [Published startup evidence](published-startup-evidence.md) — use actual production bind logs, not preview success or the saved run command, to verify port fixes.
+- [Published startup evidence](published-startup-evidence.md) — compare production forwarding and bind logs; matched production and Preview ports may deliberately differ.
 - [Finding data environments](finding-data-environments.md) — a stale preview SQLite file does not prove published scan findings are missing.
 - [Findings durability approval](findings-durability-approval.md) — keep PostgreSQL durability; owner allows a fresh initial snapshot, not a local-only fallback.
 - [Independent recovery approval](independent-recovery-approval.md) — encrypted off-project retention policy and synthetic rehearsal approved; live exports and storage/key custody still need approval.

@@ -22,6 +22,20 @@ lines rather than inferring the ingress target from table order or a generic
 failure summary. Correct persistent external-80 routing to the public gateway;
 never expose the private scanner port as a substitute.
 
+The production gateway's port may deliberately differ from Preview's port.
+
+**Why:** Saved port-table edits reverted, but the supported production-environment
+setter persisted. Aligning production's VATA_PORT with the existing 24678 HTTP
+forwarding target avoids requiring manual Networking changes. Preview remains on
+5000, and the private scanner remains on 5001; no extra listener or writer is
+needed.
+
+**How to apply:** Preserve the matched production-port/forwarding pair rather than
+resetting production to 5000 solely because Preview uses it. If the forwarding
+target changes, update the production port too. Use the configuration regression
+check, then confirm actual forwarding and binding in the next published revision;
+a workspace check alone is not confirmation of a successful publish.
+
 A successful build-history entry does not establish current runtime health.
 Check workflow/browser logs and production runtime logs independently, and label
 which environment each error belongs to.
