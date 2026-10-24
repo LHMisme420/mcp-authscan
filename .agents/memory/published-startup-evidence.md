@@ -9,6 +9,19 @@ Treat the published process's bind address and port as the authoritative evidenc
 
 **How to apply:** Check logs for the specific failed publish before declaring a port fix successful. Test conflicting port settings locally, then distinguish a verified local correction from a confirmed successful publish.
 
+Compare the platform's forwarding target with the application's actual bind,
+even when the app logs complete readiness.
+
+**Why:** A publish passed image upload and reached database/scanner/writer
+readiness on gateway port 5000, but the platform forwarded external HTTP to stale
+websocket port 24678. Its generic failure message referred to the first local
+port, while the actual forwarding and timeout logs explicitly selected 24678.
+
+**How to apply:** Trust the failed revision's explicit forwarding and expected-port
+lines rather than inferring the ingress target from table order or a generic
+failure summary. Correct persistent external-80 routing to the public gateway;
+never expose the private scanner port as a substitute.
+
 A successful build-history entry does not establish current runtime health.
 Check workflow/browser logs and production runtime logs independently, and label
 which environment each error belongs to.
