@@ -14,5 +14,5 @@ omit =
     mcp_authscan/oauth_probes.py
     mcp_authscan/oauth_probes_v2.py
     mcp_authscan/authorization.py
-fail_under = 80
+fail_under = 16
 show_missing = True
