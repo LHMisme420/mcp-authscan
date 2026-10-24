@@ -7,7 +7,8 @@ vata_findings_backup.json
 /pyproject.toml
 /uv.lock
 
-# Keep runtime Python packages; omit only the unused build-time CLI launcher.
+# Keep runtime Python packages and Gunicorn; omit only these unused launchers.
+/.pythonlibs/bin/flask
 /.pythonlibs/bin/cffi-gen-src
 
 # Do not ship private workspace findings to the public application.

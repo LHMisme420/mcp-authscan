@@ -28,6 +28,7 @@ uv pip install --reinstall --prefix "$python_prefix" --python "$python_executabl
 npm run build
 
 # This prefix is the runtime environment, not a disposable build cache.
-# Keep libraries and Gunicorn; omit only CFFI's unused source-generator launcher,
-# which triggered a tar size mismatch while the hosting layer was archived.
-rm -f -- "$python_prefix/bin/cffi-gen-src"
+# Keep libraries, the interpreter and Gunicorn unchanged. These two unused
+# launchers have been named in hosting tar-size failures; omitting them is a
+# targeted packaging mitigation, not a confirmed diagnosis of the archiver.
+rm -f -- "$python_prefix/bin/flask" "$python_prefix/bin/cffi-gen-src"

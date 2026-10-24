@@ -164,6 +164,19 @@ still showed a regular executable with matching reported and read byte counts.
 Treat the archive failure as unresolved and potentially intermittent; do not
 claim that another successful local build or a single upload proves it fixed.
 
+Do not blanket-rewrite console-script shebangs as an archive workaround.
+
+**Why:** Nix wrapper paths alone are not evidence of the tar failure's cause,
+and changing every launcher can change the interpreter used by required runtime
+commands. The gateway starts Gunicorn directly, so its launcher must remain
+unchanged.
+
+**How to apply:** Limit any launcher omission to confirmed unused commands;
+retain their importable libraries and the interpreter/Gunicorn entrypoints.
+Use publishing exclusions as defense against unused launchers reappearing.
+Verify a real build, imports, and cold startup, but label the change a targeted
+mitigation until the hosting archive and new release are actually verified.
+
 ## Verify package callback results in a prefix-managed interpreter
 
 Do not assume a successful Python package callback updated either the source
