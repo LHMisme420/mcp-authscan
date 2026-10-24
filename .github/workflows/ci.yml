@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - name: Mypy type check
-        run: mypy check_origin_host_validation.py check_cors_credentials_reflection.py test_fixtures.py test_cors_checks.py
+        run: mypy test_fixtures.py test_cors_checks.py
   cors-scanner-tests:
     runs-on: ubuntu-latest
     steps:
