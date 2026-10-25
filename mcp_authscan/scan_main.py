@@ -558,6 +558,7 @@ def scan_live_server(target_url):
 
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
         from mcp_authscan.oauth_probes_v2 import count_probes, render_probe, run_oauth_assessment
+        from mcp_authscan.resource_probes import run_resource_probes, RESOURCE_PROBE_SET_VERSION
 
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
@@ -580,9 +581,11 @@ def scan_live_server(target_url):
                     pass  # Silently fail, resource_metadata_doc stays None
 
             records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
-
             oauth_records.extend(records)
-
+            
+            # Resource endpoint probes
+            resource_records = run_resource_probes(target_url)
+            
             for finding in oauth_findings:
                 findings.append({
                     "rule": f"OAuth-{finding['rule']}",
@@ -2520,13 +2523,20 @@ def main():
     canonical_payload = {
         "target": args.target,
         "scan_mode": scan_mode,
-        "probe_set_version": PROBE_SET_VERSION,
-        "probes_attempted": probes_attempted,
-        "probes_passed": probes_passed,
-        "probes_failed": len(F),
-        "probes_observed": probes_observed,
-        "probes_not_observed": probes_not_observed,
-        "probes_excluded": probes_excluded,
+        "probe_sets": [
+            {
+                "name": "Authorization server (OAuth 1.1.0)",
+                "version": PROBE_SET_VERSION,
+                "in_scope": 9,
+                "coverage": "See coverage counts below"
+            },
+            {
+                "name": "Resource endpoint (1.0.2)",
+                "version": "1.0.2",
+                "in_scope": 5,
+                "coverage": "See coverage counts below"
+            }
+        ],
         "findings_count": len(F),
         "tool_version": VERSION,
         "findings": F,
