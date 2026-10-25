@@ -8,11 +8,17 @@ Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends r
 
 Repository scan (static). Given a GitHub repository URL, it reads the source instead of sending requests.
 
-Both are available in the hosted workspace at mcp-authscan.replit.app and through the CLI.
+## Want your own MCP server reviewed?
+
+I run authorised, evidence-backed security reviews of MCP server deployments. You get a written report with every finding by severity, the request and response behind each one, and an explicit list of what was not tested.
+
+Two ways in: a single-server review at $1,750, or a full assessment at $3,500 including one retest after you fix.
+
+I only scan servers I hold written permission to test. Email lhmisme2011@gmail.com with the endpoint and who authorises it.
 
 ## Authorized use
 
-Every scan needs an authorization basis. The CLI refuses to start without --authorized-by and --auth-basis, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing. The hosted API requires an explicit attestation (authorized: true) and records it in scan_authorizations before a scan runs.
+Every scan needs an authorization basis. The CLI refuses to start without --authorized-by and --auth-basis, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
 
 Only point this at systems you own or are permitted to test.
 
@@ -21,7 +27,7 @@ Only point this at systems you own or are permitted to test.
 Python 3.11 or newer, including for the standalone scanner.
 
 ```bash
-git clone github.com/LHMisme420/mcp-authscan.git
+git clone https://github.com/LHMisme420/mcp-authscan.git
 cd mcp-authscan
 pip install -e ./mcp_authscan
 ```
