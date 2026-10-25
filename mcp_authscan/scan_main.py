@@ -462,7 +462,7 @@ def discover_oauth_endpoints(base_url, allow_private=None):
 
 def scan_live_server(target_url):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
-    Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
+    Returns (findings, reachable, probe_status, discovery_info, (oauth_records, resource_records, probe_results)) tuple.
     probe_status = {'passed': count, 'not_observed': count, 'findings': count}
 
     STATUS CLASSIFICATION (per probe, per endpoint):
@@ -481,7 +481,7 @@ def scan_live_server(target_url):
         socket.create_connection((p.hostname, p.port or 80), timeout=5)
     except Exception as e:
         print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings, False, probe_status, discovery_info, ([], [])
+        return findings, False, probe_status, discovery_info, ([], [], [])
 
     print("[*] Detected live server URL", file=sys.stderr)
     print("[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
@@ -545,7 +545,7 @@ def scan_live_server(target_url):
         probe_status['failed'] = 0
         probe_status['not_observed'] = 0
         preflight_info = {"status": "PREFLIGHT_FAILED"}
-        return findings, False, probe_status, preflight_info, ([], [])
+        return findings, False, probe_status, preflight_info, ([], [], [])
 
     print("[*] Attempting OAuth discovery...", file=sys.stderr)
 
@@ -585,6 +585,20 @@ def scan_live_server(target_url):
             
             # Resource endpoint probes
             resource_records = run_resource_probes(target_url)
+            for _r in resource_records:
+                if _r.status == "FAIL":
+                    findings.append({
+                        "rule_id": f"Resource-{_r.probe_id}",
+                        "severity": _r.severity or "MEDIUM",
+                        "endpoint": getattr(_r, "endpoint", None) or target_url,
+                        "status": _r.status,
+                        "evidence": _r.detail or "",
+                        "file": target_url,
+                        "line": 0,
+                        "title": _r.name,
+                        "response_status": _r.http_status or 0,
+                        "is_live_finding": True,
+                    })
             
             for finding in oauth_findings:
                 findings.append({
@@ -627,7 +641,7 @@ def scan_live_server(target_url):
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
-        return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
+        return findings, True, probe_status, discovery_info, (oauth_records, resource_records, probe_results)
     else:
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
@@ -649,7 +663,7 @@ def scan_live_server(target_url):
         probe_status['passed'] = 0
         probe_status['failed'] = 0
         probe_status['not_observed'] = 0
-        return findings, True, probe_status, discovery_incomplete, ([], [])
+        return findings, True, probe_status, discovery_incomplete, ([], [], [])
 
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
@@ -2086,6 +2100,14 @@ def generate_html_report(canonical_payload, output_file):
 
 
 
+def _coverage_str(records, in_scope):
+    from collections import Counter
+    c = Counter(getattr(r, "status", None) for r in records)
+    attempted = c.get("PASS",0) + c.get("FAIL",0) + c.get("NOT_OBSERVED",0)
+    pct = (attempted / in_scope * 100) if in_scope else 0
+    return f"{pct:.0f}% ({c.get('PASS',0)} PASS, {c.get('FAIL',0)} FAIL, {c.get('NOT_OBSERVED',0)} NOT_OBSERVED, {c.get('EXCLUDED',0)} EXCLUDED)"
+
+
 def main():
     ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
 
@@ -2127,6 +2149,11 @@ def main():
                     help="scan scope (what was tested)")
 
     args = ap.parse_args()
+    if getattr(args, "json", False):
+        sys.stdout = sys.stderr
+    if not args.target.startswith(("http://", "https://")):
+        print("ERROR: target must start with http:// or https://, refusing to scan", file=sys.stderr)
+        sys.exit(2)
 
     # Discovery fetches honour the same opt-in as target validation.
     global ALLOW_PRIVATE_TARGETS
@@ -2200,10 +2227,10 @@ def main():
         try:
             result_tuple = scan_live_server(args.target)
             F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
-            if isinstance(oauth_result, tuple) and len(oauth_result) == 2:
-                oauth_records, probe_results = oauth_result
+            if isinstance(oauth_result, tuple) and len(oauth_result) == 3:
+                oauth_records, resource_records, probe_results = oauth_result
             else:
-                raise ValueError(f"Expected (oauth_records, probe_results) tuple, got {type(oauth_result)}: {oauth_result}")
+                raise ValueError(f"Expected (oauth_records, resource_records, probe_results) tuple, got {type(oauth_result)}: {oauth_result}")
         except Exception as e:
             print(f"[!] scan_live_server failed: {type(e).__name__}: {e}", file=sys.stderr)
             raise
@@ -2241,7 +2268,7 @@ def main():
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
-            return findings, True, probe_status, discovery_info, ([], [])
+            return findings, True, probe_status, discovery_info, ([], [], [])
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
@@ -2341,7 +2368,7 @@ def main():
 
     elapsed_seconds = time.time() - scan_start_time
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
+    F.sort(key=lambda x: (order.get(x.get("severity"), 9), str(x.get("file") or x.get("endpoint") or ""), x.get("line", 0)))
 
     # Generate report with authorization block if credentials provided
     report_lines = []
@@ -2528,13 +2555,13 @@ def main():
                 "name": "Authorization server (OAuth 1.1.0)",
                 "version": PROBE_SET_VERSION,
                 "in_scope": 9,
-                "coverage": "See coverage counts below"
+                "coverage": _coverage_str(oauth_records, 9)
             },
             {
                 "name": "Resource endpoint (1.0.2)",
                 "version": "1.0.2",
                 "in_scope": 5,
-                "coverage": "See coverage counts below"
+                "coverage": _coverage_str(resource_records, 5)
             }
         ],
         "findings_count": len(F),
@@ -2563,7 +2590,7 @@ def main():
         html_file = generate_html_report(canonical_payload, args.output or "mcp-authscan-report.html")
         print(f"[+] HTML report saved to {html_file}")
     if args.json:
-        print(json.dumps(canonical_payload, indent=2))
+        print(json.dumps(canonical_payload, indent=2), file=sys.__stdout__)
     if args.sarif and not args.json:
         print(json.dumps(to_sarif(F, args.target), indent=2))
     elif not args.json:
