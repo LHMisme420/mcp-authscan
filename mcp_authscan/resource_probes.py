@@ -4,7 +4,7 @@ import requests
 from typing import Tuple, Optional
 from mcp_authscan.oauth_probes_v2 import ProbeRecord
 
-RESOURCE_PROBE_SET_VERSION = "1.0.1"
+RESOURCE_PROBE_SET_VERSION = "1.0.2"
 
 
 def run_resource_probes(target_url: str) -> list:
@@ -41,7 +41,7 @@ def run_resource_probes(target_url: str) -> list:
         name="anon-initialize",
         status="FAIL" if anon_init_fail else "PASS",
         detail=anon_init_msg,
-        severity="CRITICAL" if anon_init_fail else None,
+        severity="HIGH" if anon_init_fail else None,
         endpoint=target_url
     ))
     
@@ -71,7 +71,7 @@ def run_resource_probes(target_url: str) -> list:
         name="auth-challenge",
         status="FAIL" if auth_fail else "PASS",
         detail=auth_msg,
-        severity="HIGH" if auth_fail else None,
+        severity="MEDIUM" if auth_fail else None,
         endpoint=target_url
     ))
     
