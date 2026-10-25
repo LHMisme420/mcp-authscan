@@ -99,29 +99,23 @@ class CompliancePdfGateTests(unittest.TestCase):
         self.assertIn(b'not assessed', page_text.lower())
 
     def test_completed_scan_shows_score_and_per_scan_block(self):
-        """Workspace with a completed scan shows the percentage and per-scan details."""
-        now = datetime.now(timezone.utc)
+        """Workspace with a completed scan shows percentage and per-scan block."""
         with sqlite3.connect(self.module.DB_FILE) as conn:
-            conn.executemany(
-                '''INSERT INTO scan_runs(org_id,target,status,total_checks,findings_count,started_at,completed_at)
-                   VALUES(?,?,?,?,?,?,?)''',
-                [
-                    (1, 'https://mcp.example.test', 'completed', 9, 1, now, now),
-                ],
-            )
+            conn.execute(
+                'INSERT INTO scan_runs(org_id,target,status,total_checks,findings_count,started_at,completed_at) '
+                'VALUES(?,?,?,?,?,?,?)',
+                (1, 'mcp.completed.unique.test', 'completed', 9, 1,
+                 '2026-10-25 12:00:00', '2026-10-25 12:00:00'))
         response = self.client.get('/api/reports/pdf', headers=self.headers())
         self.assertEqual(response.status_code, 200)
         page_text = pdf_content_streams(response.data)
-        # Must contain a percentage (the computed score)
+        # Must contain percentage (score is computed)
         self.assertIn(b'%', page_text)
+        # Per-scan block shows unique target (only place it appears)
+        self.assertIn(b'mcp.completed.unique.test', page_text)
+        # Per-scan block shows exact completion timestamp
+        self.assertIn(b'2026-10-25 12:00:00', page_text)
+        # Per-scan block shows scan status
+        self.assertIn(b'completed', page_text.lower())
         # Must NOT say "Not assessed"
         self.assertNotIn(b'not assessed', page_text.lower())
-        # Must contain the target name and per-scan details
-        self.assertIn(b'mcp.example.test', page_text.lower())
-        # Timestamps, check count, finding count
-        self.assertIn(b'9', page_text)
-        self.assertIn(b'1', page_text)
-
-
-if __name__ == '__main__':
-    unittest.main()
