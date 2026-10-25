@@ -51,7 +51,7 @@ def run_resource_probes(target_url: str) -> list:
         name="anon-tools-list",
         status="FAIL" if anon_tools_fail else "PASS",
         detail=anon_tools_msg,
-        severity="HIGH" if anon_tools_fail else None,
+        severity="CRITICAL" if anon_tools_fail else None,
         endpoint=target_url
     ))
     
@@ -94,7 +94,8 @@ def probe_mcp_preflight(target_url: str) -> Tuple[bool, str]:
         
         try:
             data = response.json()
-            if "jsonrpc" in data or "result" in data or "error" in data:
+            # Must have jsonrpc field to be MCP JSON-RPC
+            if "jsonrpc" in data:
                 return True, "MCP endpoint responds to JSON-RPC"
         except:
             pass
