@@ -148,6 +148,7 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
             'It is not a SOC 2 attestation, certification, or audit opinion.',
             styles['muted'],
         ),
+        *_scan_section(scan_rows, styles),
         Paragraph('Findings by severity', styles['section']),
     ])
 
@@ -280,3 +281,21 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
 
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
     return buffer.getvalue()
+
+
+def _scan_section(scan_rows, styles):
+    """Render details of recorded scans when assessment is complete."""
+    if not scan_rows:
+        return []
+    lines = [
+        f"{_plain_text(str(r.get('target') or 'unknown'))} | "
+        f"{_plain_text(str(r.get('status') or 'unknown'))} | "
+        f"{r.get('total_checks') or 0} checks | {r.get('findings_count') or 0} findings | "
+        f"completed {_plain_text(str(r.get('completed_at') or 'not completed'))} | "
+        f"authorization {'on file' if r.get('attested_at') else 'not on file'}"
+        for r in scan_rows
+    ]
+    return [
+        Paragraph('Scans on record', styles['section']),
+        _paragraph('<br/>'.join(lines), styles['body']),
+    ]
