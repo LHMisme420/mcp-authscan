@@ -190,7 +190,19 @@ def compliance_pdf_report():
             ).fetchone()
             if not organization:
                 return jsonify(error='Workspace not found.'), 404
+            scan_rows = [dict(r) for r in conn.execute(
+                '''SELECT target,status,total_checks,findings_count,started_at,completed_at
+                   FROM scan_runs WHERE org_id=? ORDER BY id DESC''', (org_id,))]
+            for row in scan_rows:
+                attested = conn.execute(
+                    '''SELECT attested_at FROM scan_authorizations
+                       WHERE CAST(org_id AS TEXT)=? AND target=?
+                       ORDER BY attested_at DESC LIMIT 1''',
+                    (str(org_id), row['target'])).fetchone()
+                row['attested_at'] = attested['attested_at'] if attested else None
             summary = organization_summary(conn, org_id)
+            if not any(str(r['status'] or '').strip().lower() == 'completed' for r in scan_rows):
+                summary['compliance_score'] = None
             severity_counts = dict(conn.execute(
                 '''SELECT UPPER(TRIM(COALESCE(severity,''))),COUNT(*) FROM findings
                    WHERE org_id=? GROUP BY UPPER(TRIM(COALESCE(severity,'')))''',
@@ -207,7 +219,7 @@ def compliance_pdf_report():
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
 
     try:
-        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings)
+        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings, scan_rows)
     except Exception:
         app.logger.exception('Unable to create the organization compliance report.')
         return jsonify(error='The compliance report is temporarily unavailable.'), 503

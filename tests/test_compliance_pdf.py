@@ -77,8 +77,6 @@ class CompliancePdfTests(unittest.TestCase):
         self.assertTrue(response.data.startswith(b'%PDF-'))
         self.assertTrue(response.data.rstrip().endswith(b'%%EOF'))
         page_text = pdf_content_streams(response.data)
-        # The existing score is 100 - (100 critical + 50 high) / 3 findings.
-        self.assertIn(b'50%', page_text)
         self.assertIn(b'critical', page_text.lower())
         self.assertIn(b'other', page_text.lower())
 

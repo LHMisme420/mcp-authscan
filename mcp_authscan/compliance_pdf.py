@@ -43,7 +43,20 @@ def _paragraph(text, style):
     return Paragraph(text or '&nbsp;', style)
 
 
-def generate_compliance_pdf(organization, summary, severity_counts, findings):
+
+def _scan_note(summary, scan_rows):
+    """Note on scan status when assessment is not complete."""
+    if summary.get('compliance_score') is not None or not scan_rows:
+        return ''
+    named = ', '.join(
+        f"{_plain_text(str(r.get('target') or 'unknown'))} "
+        f"({_plain_text(str(r.get('status') or 'unknown').lower())})"
+        for r in scan_rows)
+    return '<br/>Scans recorded, none completed: ' + named
+
+
+
+def generate_compliance_pdf(organization, summary, severity_counts, findings, scan_rows=()):
     """Create a printable summary using the app's own score and tenant-scoped data."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -106,11 +119,16 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings):
     score_table = Table(
         [[
             Paragraph(
-                f'<b>VATA compliance score</b><br/>'
-                f'{summary["total_findings"]} findings included in the score',
+                '<b>VATA compliance score</b><br/>'
+                + ('Not assessed: no scans recorded'
+                   if summary.get('compliance_score') is None
+                   else f'{summary["total_findings"]} findings included in the score')
+                + _scan_note(summary, scan_rows),
                 styles['body'],
             ),
-            Paragraph(f'{summary["compliance_score"]}%', styles['score']),
+            Paragraph('Not assessed', styles['score'])
+            if summary.get('compliance_score') is None
+            else Paragraph(f'{summary["compliance_score"]}%', styles['score']),
         ]],
         colWidths=[content_width * 0.72, content_width * 0.28],
     )
