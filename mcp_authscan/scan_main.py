@@ -2304,26 +2304,27 @@ def main():
             # Require at least 7 conclusive verdicts out of the attempted probes
             # If we have fewer, exit 5 (incomplete assessment)
             # Print hash and authorization block BEFORE exiting
-            payload_hash = hashlib.sha256(json.dumps({"authorization": {"authorized_by": args.authorized_by or "", "auth_basis": args.auth_basis or "", "contact": args.contact or ""}, "scan_mode": "LIVE_ENDPOINT_ASSESSMENT", "probes_attempted": attempted, "probes_passed": passed, "probes_failed": failed, "probes_observed": observation, "probes_not_observed": not_observed, "probes_excluded": excluded}, sort_keys=True).encode()).hexdigest()
-
-            print("=" * 80)
-            if not args.json:
-                print(f"REPORT HASH (SHA256): {payload_hash}")
-            print("=" * 80)
-
-            if args.authorized_by:
-                print("")
-                print("=" * 80)
-                print("AUTHORIZATION BLOCK")
-                print("=" * 80)
-                print(f"Authorized by: {args.authorized_by}")
-                print(f"Basis: {args.auth_basis}")
-                print(f"Contact: {args.contact}")
-                print("=" * 80)
-
             if verdicts_reached < 7:
-                print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
-                sys.exit(5)
+                            payload_hash = hashlib.sha256(json.dumps({"authorization": {"authorized_by": args.authorized_by or "", "auth_basis": args.auth_basis or "", "contact": args.contact or ""}, "scan_mode": "LIVE_ENDPOINT_ASSESSMENT", "probes_attempted": attempted, "probes_passed": passed, "probes_failed": failed, "probes_observed": observation, "probes_not_observed": not_observed, "probes_excluded": excluded}, sort_keys=True).encode()).hexdigest()
+                
+                            print("=" * 80)
+                            if not args.json:
+                                print(f"REPORT HASH (SHA256): {payload_hash}")
+                            print("=" * 80)
+                
+                            if args.authorized_by:
+                                print("")
+                                print("=" * 80)
+                                print("AUTHORIZATION BLOCK")
+                                print("=" * 80)
+                                print(f"Authorized by: {args.authorized_by}")
+                                print(f"Basis: {args.auth_basis}")
+                                print(f"Contact: {args.contact}")
+                                print("=" * 80)
+                
+                            if verdicts_reached < 7:
+                                print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
+                                sys.exit(5)
 
     else:
         print("[*] Scanning source code directory", file=sys.stderr)
@@ -2527,7 +2528,7 @@ def main():
         "probes_not_observed": probes_not_observed,
         "probes_excluded": probes_excluded,
         "findings_count": len(F),
-        "scan_date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "scan_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "tool_version": VERSION,
         "findings": F,
     }
@@ -2542,6 +2543,9 @@ def main():
         canonical_payload["commit_sha"] = commit_sha_long
 
     # Hash the canonical payload (this is what the report signature covers)
+    print(f"Tool Version: {VERSION}")
+    print(f"Probe Set Version: {PROBE_SET_VERSION}")
+    print()
     payload_json = json.dumps(canonical_payload, sort_keys=True)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
     canonical_payload["report_hash"] = payload_hash
@@ -2611,12 +2615,12 @@ def main():
                 if x.get("is_live_finding"):
                     print("\n  REQUEST:")
                     print(f"    Method: {x['request_method']}")
-                    if x['request_body']:
-                        print(f"    Body: {x['request_body'][:200]}")
+                    if x.get('request_body', ''):
+                        print(f"    Body: {x.get('request_body', '')[:200]}")
                     print("\n  RESPONSE:")
                     print(f"    Status: HTTP {x['response_status']}")
-                    if x['response_preview']:
-                        print(f"    Body Preview: {x['response_preview'][:200]}")
+                    if x.get('response_preview', ''):
+                        print(f"    Body Preview: {x.get('response_preview', '')[:200]}")
                     print("\n  INTERPRETATION:")
                     print(f"    {x['interpretation']}")
                     print("\n  REMEDIATION:")
@@ -2641,12 +2645,12 @@ def main():
                 if x.get("is_live_finding"):
                     full_report += "\n  REQUEST:\n"
                     full_report += f"    Method: {x['request_method']}\n"
-                    if x['request_body']:
-                        full_report += f"    Body: {x['request_body']}\n"
+                    if x.get('request_body', ''):
+                        full_report += f"    Body: {x.get('request_body', '')}\n"
                     full_report += "\n  RESPONSE:\n"
                     full_report += f"    Status: HTTP {x['response_status']}\n"
-                    if x['response_preview']:
-                        full_report += f"    Body Preview: {x['response_preview']}\n"
+                    if x.get('response_preview', ''):
+                        full_report += f"    Body Preview: {x.get('response_preview', '')}\n"
                     full_report += "\n  INTERPRETATION:\n"
                     full_report += f"    {x['interpretation']}\n"
                     full_report += "\n  REMEDIATION:\n"
@@ -2666,7 +2670,7 @@ def main():
             print("[Verification: To verify integrity, use: --json flag to get canonical payload,")
             print(" remove report_hash field, recompute SHA256 of sorted JSON, and compare.]")
             print("")
-            print("[Authenticity: Real proof of scan is Heath's server logs showing the probes.")
+            print("[Authenticity: Real proof of scan is the target's own server logs showing the probes.")
             print(" Hash provides integrity; logs provide proof the scan actually occurred.]")
             print("=" * 80)
 

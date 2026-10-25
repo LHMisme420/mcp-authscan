@@ -4,20 +4,23 @@ PASS_EVIDENCE = {
     "issuer-identity": "authorization server metadata names its own issuer",
     "resource-binding": "resource metadata binds to the scanned MCP endpoint",
     "token-cache-control": "token endpoint responses are marked no-store",
+    "token-cors": "token endpoint allows cross-origin requests with credentials",
     "jwks-keys": "signing keys are asymmetric",
     "password-grant": "password grant is not supported",
     "client-auth": "client authentication is enforced before grant validation",
 }
 
 def check_counts(records):
-    """Verify accounting."""
+    """Verify accounting: return (passed, failed, not_observed, excluded)."""
     if not records:
         return 0, 0, 0, 0
-    passed = sum(1 for r in records if r.verdict == "PASS")
-    failed = sum(1 for r in records if r.verdict == "FAIL")
-    not_obs = sum(1 for r in records if r.verdict == "NOT_OBSERVED")
-    obs = sum(1 for r in records if r.verdict == "OBSERVATION")
-    return passed, failed, not_obs, obs
+    
+    passed = sum(1 for r in records if r.status == "PASS")
+    failed = sum(1 for r in records if r.status == "FAIL")
+    not_obs = sum(1 for r in records if r.status == "NOT_OBSERVED")
+    excluded = sum(1 for r in records if r.status == "EXCLUDED")
+    
+    return passed, failed, not_obs, excluded
 
 def render_summary(records):
     """Build summary from actual probe verdicts with human-readable evidence."""
@@ -25,34 +28,31 @@ def render_summary(records):
         return []
 
     lines = []
-    passed = [r for r in records if r.verdict == "PASS"]
-    obs = [r for r in records if r.verdict == "OBSERVATION"]
-    not_obs = [r for r in records if r.verdict == "NOT_OBSERVED"]
-    failed = [r for r in records if r.verdict == "FAIL"]
+    
+    # Group records by status
+    passed = [r for r in records if r.status == "PASS"]
+    failed = [r for r in records if r.status == "FAIL"]
+    not_obs = [r for r in records if r.status == "NOT_OBSERVED"]
+    excluded = [r for r in records if r.status == "EXCLUDED"]
 
+    # PASSED: show with evidence from PASS_EVIDENCE mapping
     if passed:
-        evidence = "; ".join(PASS_EVIDENCE.get(r.probe_name, r.probe_name) for r in passed)
+        evidence = "; ".join(PASS_EVIDENCE.get(r.name, r.name) for r in passed)
         lines.append(f"PASSED ({len(passed)}): {evidence}")
 
-    if obs:
-        for r in obs:
-            lines.append(f"OBSERVED ({r.probe_name}): {r.evidence}")
+    # EXCLUDED: never sent (prerequisite not met)
+    if excluded:
+        names = ", ".join(r.name for r in excluded)
+        lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent): {names}")
 
+    # NOT_OBSERVED: sent, but inconclusive
     if not_obs:
-        # Distinguish excluded (never sent) from not_observed (sent, inconclusive)
-        excluded = [r for r in not_obs if hasattr(r, 'prerequisite_met') and not r.prerequisite_met]
-        inconclusive = [r for r in not_obs if not (hasattr(r, 'prerequisite_met') and not r.prerequisite_met)]
+        names = ", ".join(r.name for r in not_obs)
+        lines.append(f"NOT OBSERVED ({len(not_obs)}, sent, inconclusive): {names}")
 
-        if excluded:
-            names = ", ".join(r.probe_name for r in excluded)
-            lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent): {names}")
-
-        if inconclusive:
-            names = ", ".join(r.probe_name for r in inconclusive)
-            lines.append(f"NOT OBSERVED ({len(inconclusive)}): {names}")
-
+    # FAILED: actual findings
     if failed:
-        names = ", ".join(r.probe_name for r in failed)
+        names = ", ".join(r.name for r in failed)
         lines.append(f"FINDINGS ({len(failed)}): {names}")
 
     return lines
