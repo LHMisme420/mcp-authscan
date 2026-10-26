@@ -201,7 +201,7 @@ def compliance_pdf_report():
                     (str(org_id), row['target'])).fetchone()
                 row['attested_at'] = attested['attested_at'] if attested else None
             summary = organization_summary(conn, org_id)
-            if not any(str(r['status'] or '').strip().lower() == 'completed' for r in scan_rows):
+            if not scan_rows:
                 summary['compliance_score'] = None
             severity_counts = dict(conn.execute(
                 '''SELECT UPPER(TRIM(COALESCE(severity,''))),COUNT(*) FROM findings
