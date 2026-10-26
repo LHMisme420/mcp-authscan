@@ -79,5 +79,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements-runtime.txt
+      - name: Reject vulnerable Python pins and stale runtime distributions
+        run: python3 -m unittest tests.test_python_dependency_security -v
       - name: Verify PDF and JSON assessment gates
         run: python3 -m unittest discover -s tests -p 'test_compliance_pdf*.py' -v

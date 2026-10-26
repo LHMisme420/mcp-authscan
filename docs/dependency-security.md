@@ -36,7 +36,21 @@ payments, migrate a database, or change authentication providers.
 Checks:
 
 ```sh
+python3 -m unittest tests.test_python_dependency_security -v
 npm run test:dependencies
 npx tsc --noEmit
 npm run test:startup
 ```
+
+The Python dependency regression gate follows every requirements include, checks
+the standalone package minimums, checks imported versions and all visible
+distribution metadata, and exercises Pillow's PNG/JPEG codecs. CI runs it in the
+runtime dependency installation before the report tests. This is a downgrade
+guard, not an advisory database: a fresh audit is still required for newly
+disclosed vulnerabilities.
+
+Audit evidence must distinguish source pins, installed packages and the published
+release. If the managed dependency scanner exits before inspection, report its
+failure rather than claiming the Security pane was cleared. An independent OSV
+query can validate package/version pairs, but does not refresh that pane or
+establish which packages a running deployment uses.
