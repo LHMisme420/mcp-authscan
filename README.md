@@ -1,6 +1,10 @@
+![mcp-authscan logo](logo.png)
+
 # VATA, MCP Security Scanner
 
-Receipts over promises.
+[![Tracked by Cyber Toolchain](https://cybertoolchain.io/badge.svg)](https://cybertoolchain.io/tools/mcp-authscan/)
+
+Auth scanner for live MCP servers.
 
 VATA checks the security posture of Model Context Protocol deployments. It runs in two modes.
 
@@ -93,7 +97,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Tool version 1.1.3 and probe set 1.1.0 are versioned separately, so adding a probe never rewrites how a past report reads.
+Tool version 1.1.1 and probe set 1.1.0 are versioned separately, so adding a probe never rewrites how a past report reads.
 
 ## About
 

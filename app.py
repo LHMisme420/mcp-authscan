@@ -10,7 +10,7 @@ from mcp_authscan.scanner import MCPScanner, ScanError
 from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, scanner_path
 from mcp_authscan.tiers import reserve_scan
 from mcp_authscan.findings_schema import initialize_database
-from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf
+from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf, compute_canonical_findings_hash
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET') or os.getenv('SESSION_SECRET')
@@ -172,8 +172,15 @@ def organization_summary(conn, org_id):
 @app.get('/api/reports/compliance')
 @jwt_required()
 def compliance_report():
+    org_id = get_jwt_identity()
     with sqlite3.connect(DB_FILE) as conn:
-        return jsonify(organization_summary(conn, get_jwt_identity()))
+        summary = organization_summary(conn, org_id)
+        scan_rows = conn.execute(
+            'SELECT status FROM scan_runs WHERE org_id=? ORDER BY id DESC',
+            (org_id,)).fetchall()
+        if not any(r[0] == 'completed' for r in scan_rows):
+            summary['compliance_score'] = None
+        return jsonify(summary)
 
 
 @app.get('/api/reports/pdf')
@@ -201,7 +208,7 @@ def compliance_pdf_report():
                     (str(org_id), row['target'])).fetchone()
                 row['attested_at'] = attested['attested_at'] if attested else None
             summary = organization_summary(conn, org_id)
-            if not scan_rows:
+            if not any(r['status'] == 'completed' for r in scan_rows):
                 summary['compliance_score'] = None
             severity_counts = dict(conn.execute(
                 '''SELECT UPPER(TRIM(COALESCE(severity,''))),COUNT(*) FROM findings
@@ -219,7 +226,8 @@ def compliance_pdf_report():
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
 
     try:
-        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings, scan_rows)
+        content_hash = compute_canonical_findings_hash(findings, severity_counts)
+        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings, scan_rows, content_hash=content_hash)
     except Exception:
         app.logger.exception('Unable to create the organization compliance report.')
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
