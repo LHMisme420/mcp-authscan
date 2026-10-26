@@ -9,6 +9,8 @@ requests==2.34.2
 certifi==2026.10.23
 idna==3.20
 pillow==13.0.0
+# Override the older setuptools bundled by the immutable Python toolchain.
+setuptools==84.2.1
 aiohttp
 anthropic
 authlib

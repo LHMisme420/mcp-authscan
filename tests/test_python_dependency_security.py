@@ -42,6 +42,22 @@ def requirements(path, visited=None):
 
 
 class PythonDependencySecurityTests(unittest.TestCase):
+    def test_setuptools_runtime_and_build_require_patched_release(self):
+        self.assertIn('setuptools==84.2.1', requirements(ROOT / 'requirements-runtime.txt'))
+        metadata = tomllib.loads((ROOT / 'mcp_authscan/pyproject.toml').read_text())
+        self.assertIn('setuptools>=84.2.1,<85', metadata['build-system']['requires'])
+        self.assertIn(
+            '"setuptools>=84.2.1,<85"',
+            (ROOT / '.github/workflows/ci.yml').read_text())
+        self.assertGreaterEqual(
+            release_version(importlib.metadata.version('setuptools')),
+            release_version('84.2.1'))
+        setuptools = importlib.import_module('setuptools')
+        self.assertEqual(setuptools.__version__, importlib.metadata.version('setuptools'))
+        # The immutable Nix copy may remain visible to broad inventory scans.
+        # Never hide its metadata: prove the active import selects the fixed copy.
+        self.assertNotIn('/nix/store/', str(Path(setuptools.__file__).resolve()))
+
     def test_all_requirements_paths_keep_patched_versions(self):
         for filename in (
             'requirements-runtime.txt', 'requirements-web.txt',

@@ -1,5 +1,12 @@
 # Dependency security constraints
 
+- Require Setuptools 84.2.1 for the explicit runtime installation and at least
+  that version (below 85) for scanner builds and CI. This patches the
+  MANIFEST.in Unicode exclusion bypass and legacy wheel path escape without
+  replacing the Python 3.11 interpreter. The runtime prefix must take import
+  precedence over the older Setuptools bundled in the immutable Nix toolchain.
+  A broad inventory can still report that bundled copy; do not describe an
+  active-version override as removal from the toolchain or hide it from audits.
 - Require Pillow 13.0.0+, Certifi 2026.10.23+, IDNA 3.20+, and Requests 2.34.2+.
   Apply these floors to both the web requirements and standalone scanner metadata;
   the JWT-only requirements must not pin an older HTTP stack. ReportLab 5.1 is

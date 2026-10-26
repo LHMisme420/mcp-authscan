@@ -53,7 +53,7 @@ jobs:
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis "setuptools>=64" wheel
+      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis "setuptools>=84.2.1,<85" wheel
       - name: Run scanner unit tests with coverage
         # Scoped to the self-contained scanner suites (the web-app/billing tests
         # need flask, which is not declared in requirements — tracked separately).
