@@ -28,6 +28,20 @@ contention must time out, not trigger lock theft, local-only fallback, reseeding
 namespace changes or deletion. Migrating findings to PostgreSQL remains separate
 scope; this approval changes the startup contract, not the storage model.
 
+Treat the generic writer-not-ready response as a readiness gate, not a diagnosis
+of advisory-lock contention. Check private scanner dependencies too, and preserve
+legacy subprocess contracts when consolidating scanner code into packages.
+
+**Why:** A package consolidation removed the web runner's filesystem entry point.
+SQLite was healthy and Gunicorn bound its port, but the private health check
+stayed unavailable. The same public error also covered earlier PostgreSQL
+failures, so database recovery would not have fixed this missing-file failure.
+
+**How to apply:** Reproduce readiness with an isolated database, execute the
+actual offline scanner on synthetic source, and keep its JSON/exit contract
+separate from the live-target CLI's authorization and reporting behavior.
+Mocking every subprocess cannot catch missing or incompatible entry points.
+
 Legacy startup that gates listening on the writer lock still requires
 stop-before-start recovery. A seeded namespace and passing workspace tests alone
 do not establish that a production replacement can acquire the lock.

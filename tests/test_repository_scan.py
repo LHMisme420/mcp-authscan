@@ -189,6 +189,35 @@ class RepositoryScanTests(unittest.TestCase):
             for finding in result_json['findings']:
                 self.assertIn('title', finding)
 
+    def test_real_scanner_entrypoint_runs_outside_project_directory(self):
+        result = subprocess.run(
+            ['python3', str(scanner_path()), '--help'],
+            cwd=self.temp.name, capture_output=True, text=True, timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--json', result.stdout)
+        self.assertEqual(self.client.get('/health').status_code, 200)
+
+    def test_web_scan_runs_real_bundled_scanner_without_executing_source(self):
+        real_run = subprocess.run
+        sentinel = Path(self.temp.name) / 'must-not-exist'
+
+        def fixture_clone_then_real_scan(command, **kwargs):
+            if command[0] == 'git':
+                (Path(command[-1]) / 'fixture.py').write_text(
+                    f'from pathlib import Path\nPath({str(sentinel)!r}).touch()\n'
+                )
+                return self.process()
+            return real_run(command, **kwargs)
+
+        # Substitute only the network clone; execute the actual scanner process.
+        with patch('mcp_authscan.repository_scan.subprocess.run',
+                   side_effect=fixture_clone_then_real_scan):
+            response = self.submit()
+        self.assertEqual(response.status_code, 200, response.json)
+        self.assertEqual(response.json['scan']['status'], 'completed')
+        self.assertFalse(sentinel.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
