@@ -65,7 +65,19 @@ jobs:
           tests.test_cli_packaging
           tests.test_stdio_rce_research
           tests.test_exit_codes
+          tests.test_exit_code_fixtures
+          tests.test_oauth_token_verdicts
           tests.test_properties
           tests.test_probe_accounting
       - name: Enforce coverage threshold
         run: coverage report --fail-under=16
+  compliance-report-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-runtime.txt
+      - name: Verify PDF and JSON assessment gates
+        run: python3 -m unittest discover -s tests -p 'test_compliance_pdf*.py' -v

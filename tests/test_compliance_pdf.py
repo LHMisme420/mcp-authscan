@@ -1,4 +1,4 @@
-"""The PDF report uses the authenticated workspace and its existing score."""
+"""PDF download, workspace isolation and severity-count regressions."""
 import base64
 import importlib.util
 import os
@@ -68,7 +68,7 @@ class CompliancePdfTests(unittest.TestCase):
             token = create_access_token(identity=str(identity))
         return {'Authorization': f'Bearer {token}'}
 
-    def test_pdf_is_valid_download_with_existing_score_and_severity_counts(self):
+    def test_pdf_is_valid_download_with_severity_counts(self):
         response = self.client.get('/api/reports/pdf', headers=self.headers())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, 'application/pdf')

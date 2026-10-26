@@ -291,10 +291,14 @@ def probe_password_grant(token_endpoint):
         req.data = b"grant_type=password&username=test&password=test"
         try:
             with urlopen(req, timeout=5) as resp:
+                http_status = resp.status
                 body = resp.read()
-                error = json.loads(body.decode("utf-8")).get("error", "")
+                response = json.loads(body.decode("utf-8"))
+                error = response.get("error", "")
         except HTTPError as e:
+            http_status = e.code
             body = e.read()
+            response = {}
             try:
                 error = json.loads(body.decode("utf-8")).get("error", "")
             except:
@@ -308,7 +312,11 @@ def probe_password_grant(token_endpoint):
             detail="Request failed: %s" % e
         )
     
-    if error == "unsupported_grant_type":
+    token = response.get("access_token")
+    if 200 <= http_status < 300 and isinstance(token, str) and token.strip() and not error:
+        status = "FAIL"
+        severity = "HIGH"
+    elif 400 <= http_status < 500 and error == "unsupported_grant_type":
         status = "PASS"
         severity = None
     else:
@@ -319,10 +327,11 @@ def probe_password_grant(token_endpoint):
         probe_id=6,
         name="password-grant",
         status=status,
-        http_status=400,
+        http_status=http_status,
         body=body,
         probe_class="authserver",
-        detail="Error: %s" % (error or "(none)"),
+        detail=("Token issued using the deprecated password grant" if status == "FAIL"
+                else "Error: %s" % (error or "(none)")),
         severity=severity,
         endpoint=token_endpoint
     )
@@ -372,10 +381,14 @@ def probe_client_auth(token_endpoint):
         req.data = b"grant_type=authorization_code&code=invalid"
         try:
             with urlopen(req, timeout=5) as resp:
+                http_status = resp.status
                 body = resp.read()
-                error = json.loads(body.decode("utf-8")).get("error", "")
+                response = json.loads(body.decode("utf-8"))
+                error = response.get("error", "")
         except HTTPError as e:
+            http_status = e.code
             body = e.read()
+            response = {}
             try:
                 error = json.loads(body.decode("utf-8")).get("error", "")
             except:
@@ -389,7 +402,11 @@ def probe_client_auth(token_endpoint):
             detail="Request failed: %s" % e
         )
     
-    if error == "invalid_client":
+    token = response.get("access_token")
+    if 200 <= http_status < 300 and isinstance(token, str) and token.strip() and not error:
+        status = "FAIL"
+        severity = "HIGH"
+    elif 400 <= http_status < 500 and error == "invalid_client":
         status = "PASS"
         severity = None
     else:
@@ -400,10 +417,11 @@ def probe_client_auth(token_endpoint):
         probe_id=9,
         name="client-auth",
         status=status,
-        http_status=400,
+        http_status=http_status,
         body=body,
         probe_class="authserver",
-        detail="Error: %s" % (error or "(none)"),
+        detail=("Token issued for an invalid code without client authentication" if status == "FAIL"
+                else "Error: %s" % (error or "(none)")),
         severity=severity,
         endpoint=token_endpoint
     )

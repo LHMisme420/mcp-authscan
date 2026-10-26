@@ -72,6 +72,9 @@ class CompliancePdfGateTests(unittest.TestCase):
         # Must contain "Not assessed: no scans recorded" or similar
         self.assertIn(b'not assessed', page_text.lower())
         self.assertIn(b'no scans', page_text.lower())
+        summary = self.client.get('/api/reports/compliance', headers=self.headers())
+        self.assertEqual(summary.status_code, 200)
+        self.assertIsNone(summary.json['compliance_score'])
 
     def test_failed_and_running_scans_are_named_but_not_scored(self):
         """Workspace with only failed/running scans shows 'Not assessed', names the scans."""
@@ -97,6 +100,9 @@ class CompliancePdfGateTests(unittest.TestCase):
         self.assertIn(b'running', page_text.lower())
         # Still no numeric assessment
         self.assertIn(b'not assessed', page_text.lower())
+        summary = self.client.get('/api/reports/compliance', headers=self.headers())
+        self.assertEqual(summary.status_code, 200)
+        self.assertIsNone(summary.json['compliance_score'])
 
     def test_completed_scan_shows_score_and_per_scan_block(self):
         """Workspace with a completed scan shows percentage and per-scan block."""
@@ -119,3 +125,6 @@ class CompliancePdfGateTests(unittest.TestCase):
         self.assertIn(b'completed', page_text.lower())
         # Must NOT say "Not assessed"
         self.assertNotIn(b'not assessed', page_text.lower())
+        summary = self.client.get('/api/reports/compliance', headers=self.headers())
+        self.assertEqual(summary.status_code, 200)
+        self.assertIsNotNone(summary.json['compliance_score'])

@@ -588,6 +588,10 @@ def scan_live_server(target_url):
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
         return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
     else:
+        if not mcp_verified:
+            # Discovery did not establish an OAuth surface either. Do not
+            # misreport an HTML/non-MCP target as a verified OAuth challenge.
+            return findings, False, probe_status, preflight_info, ([], [])
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
         print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)

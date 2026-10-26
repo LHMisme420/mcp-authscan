@@ -22,3 +22,4 @@
 - [Dependency audit evidence](dependency-audit-evidence.md) — distinguish patched packages, independent audit results, failed platform scans, and published releases.
 - [Production SQL console](production-sql-console.md) — use a single atomic operator import; never let an empty bootstrap outrank normal snapshots.
 - [SQLite writer handoff](sqlite-writer-deployment-handoff.md) — frontend may precede writer readiness; keep APIs closed until ownership; never bypass the lock.
+- [Scanner release verification](scanner-release-verification.md) — repository tests do not replace exit-code fixtures; scoring gates must agree before deployment.
