@@ -172,8 +172,15 @@ def organization_summary(conn, org_id):
 @app.get('/api/reports/compliance')
 @jwt_required()
 def compliance_report():
+    org_id = get_jwt_identity()
     with sqlite3.connect(DB_FILE) as conn:
-        return jsonify(organization_summary(conn, get_jwt_identity()))
+        summary = organization_summary(conn, org_id)
+        scan_rows = conn.execute(
+            'SELECT status FROM scan_runs WHERE org_id=? ORDER BY id DESC',
+            (org_id,)).fetchall()
+        if not any(r[0] == 'completed' for r in scan_rows):
+            summary['compliance_score'] = None
+        return jsonify(summary)
 
 
 @app.get('/api/reports/pdf')
@@ -201,7 +208,7 @@ def compliance_pdf_report():
                     (str(org_id), row['target'])).fetchone()
                 row['attested_at'] = attested['attested_at'] if attested else None
             summary = organization_summary(conn, org_id)
-            if not scan_rows:
+            if not any(r['status'] == 'completed' for r in scan_rows):
                 summary['compliance_score'] = None
             severity_counts = dict(conn.execute(
                 '''SELECT UPPER(TRIM(COALESCE(severity,''))),COUNT(*) FROM findings
