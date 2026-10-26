@@ -36,3 +36,14 @@ to one target would misrepresent the scope the owner asked the hash to bind.
 
 **How to apply:** Keep the verification payload reproducible and versioned, and
 state its limits. A checksum is not a signature or proof of database durability.
+
+Report integrity must also bind actual coverage: excluded and not-observed
+probe counts and the probe set version. Scan status is not coverage.
+
+**Why:** The owner identified that equal check totals can hide different
+exclusions and inconclusive probes.
+
+**How to apply:** Persist real scan coverage before hashing it. Do not invent
+zero counts or label legacy runs fully assessed when coverage was not recorded.
+Secret-existence metadata is likewise not evidence of secret strength,
+production/development separation, or the value used by a running revision.
