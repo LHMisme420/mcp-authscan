@@ -1,4 +1,4 @@
-![mcp-authscan logo](assets/logo.jpg)
+![mcp-authscan logo](logo.png)
 
 # VATA, MCP Security Scanner
 
