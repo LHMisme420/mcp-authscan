@@ -2,6 +2,8 @@
 from datetime import datetime, timezone
 from html import escape
 from io import BytesIO
+import hashlib
+import json
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -25,6 +27,31 @@ MUTED = colors.HexColor('#64716c')
 LINE = colors.HexColor('#d8ddd2')
 SURFACE = colors.HexColor('#f3f1e9')
 STANDARD_SEVERITIES = ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')
+
+
+def compute_canonical_findings_hash(findings, severity_counts):
+    """Compute SHA256 hash of findings and severity counts, excluding generation timestamp.
+
+    This hash is deterministic and reproducible: same findings always produce same hash.
+    Used for chain-of-custody verification across JSON and PDF exports.
+    """
+    canonical = {
+        'severity_counts': dict(sorted(severity_counts.items())),
+        'findings': [
+            {
+                'server_name': f.get('server_name'),
+                'rule': f.get('rule'),
+                'vector_type': f.get('vector_type'),
+                'severity': f.get('severity'),
+                'description': f.get('description'),
+                'remediation': f.get('remediation'),
+                'created_at': f.get('created_at'),
+            }
+            for f in findings
+        ]
+    }
+    payload = json.dumps(canonical, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _plain_text(value, *, limit=1000):
@@ -56,7 +83,7 @@ def _scan_note(summary, scan_rows):
 
 
 
-def generate_compliance_pdf(organization, summary, severity_counts, findings, scan_rows=()):
+def generate_compliance_pdf(organization, summary, severity_counts, findings, scan_rows=(), content_hash=None):
     """Create a printable summary using the app's own score and tenant-scoped data."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -264,6 +291,20 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
                 f'This PDF shows the {MAX_REPORTED_FINDINGS} most recent findings. '
                 f'The summary score and severity counts cover all '
                 f'{summary["total_findings"]} findings.',
+                styles['body'],
+            ),
+        ])
+
+    # Add content hash if provided (excludes generation timestamp)
+    if content_hash:
+        story.extend([
+            Spacer(1, 0.2 * inch),
+            Paragraph('Report Integrity', styles['section']),
+            Paragraph(
+                f'<b>Content Hash (SHA256):</b><br/>'
+                f'<code>{content_hash}</code><br/><br/>'
+                f'<b>Hash Scope:</b> All findings and severity counts (excludes generation timestamp). '
+                f'Verify authenticity by computing SHA256(findings + severity_counts) and comparing to hash above.',
                 styles['body'],
             ),
         ])

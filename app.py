@@ -10,7 +10,7 @@ from mcp_authscan.scanner import MCPScanner, ScanError
 from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, scanner_path
 from mcp_authscan.tiers import reserve_scan
 from mcp_authscan.findings_schema import initialize_database
-from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf
+from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf, compute_canonical_findings_hash
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET') or os.getenv('SESSION_SECRET')
@@ -226,7 +226,8 @@ def compliance_pdf_report():
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
 
     try:
-        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings, scan_rows)
+        content_hash = compute_canonical_findings_hash(findings, severity_counts)
+        pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings, scan_rows, content_hash=content_hash)
     except Exception:
         app.logger.exception('Unable to create the organization compliance report.')
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
