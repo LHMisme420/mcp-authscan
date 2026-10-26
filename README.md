@@ -1,3 +1,5 @@
+![mcp-authscan logo](assets/logo.jpg)
+
 # VATA, MCP Security Scanner
 
 [![Tracked by Cyber Toolchain](https://cybertoolchain.io/badge.svg)](https://cybertoolchain.io/tools/mcp-authscan/)
