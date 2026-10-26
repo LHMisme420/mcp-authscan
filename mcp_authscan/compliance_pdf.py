@@ -303,8 +303,9 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
             Paragraph(
                 f'<b>Content Hash (SHA256):</b><br/>'
                 f'<code>{content_hash}</code><br/><br/>'
-                f'<b>Hash Scope:</b> All findings and severity counts (excludes generation timestamp). '
-                f'Verify authenticity by computing SHA256(findings + severity_counts) and comparing to hash above.',
+                f'<b>To Verify:</b> Serialize findings + severity_counts as JSON (key order: severity_counts first, sorted keys, no spaces after separators). '
+                f'Compute SHA256 of that JSON string. Result must match hash above. '
+                f'Excludes: generation timestamp, PDF metadata.',
                 styles['body'],
             ),
         ])
