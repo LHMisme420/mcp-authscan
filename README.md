@@ -1,5 +1,7 @@
 # VATA, MCP Security Scanner
 
+[![Tracked by Cyber Toolchain](https://cybertoolchain.io/badge.svg)](https://cybertoolchain.io/tools/mcp-authscan/)
+
 Receipts over promises.
 
 VATA checks the security posture of Model Context Protocol deployments. It runs in two modes.
