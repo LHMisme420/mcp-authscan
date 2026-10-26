@@ -66,3 +66,19 @@ htmlcov/
 *.orig
 *.clean
 *.py.bak.*
+
+# Test/scan artifacts and data dumps
+*.pdf
+*_audit*.json
+mcp_servers*.json
+discovered_endpoints.json
+mci_findings.json
+quick_scan_results.json
+scan_*.json
+scan_*.txt
+scan-test.txt
+*_results.json
+*_results.txt
+*_ACTUAL.json
+*_HISTORICAL.json
+*_BROKEN.json

@@ -95,7 +95,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Tool version 1.1.3 and probe set 1.1.0 are versioned separately, so adding a probe never rewrites how a past report reads.
+Tool version 1.1.1 and probe set 1.1.0 are versioned separately, so adding a probe never rewrites how a past report reads.
 
 ## About
 

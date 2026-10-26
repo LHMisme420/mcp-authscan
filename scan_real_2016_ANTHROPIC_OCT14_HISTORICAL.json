@@ -1,9 +1,0 @@
-{
-    "scan_date": "2026-10-14T05:30:00Z",
-    "status": "WITHDRAWN",
-    "reason": "Server/endpoint attribution not captured. Findings lack target data necessary for re-verification.",
-    "target": "Anthropic API (claimed)",
-    "note": "12 findings recorded Oct 14, 2026. Original scan methodology did not record which endpoints were tested. Without attribution, findings cannot be independently verified or re-tested.",
-    "total_findings": 12,
-    "verdict": "Unverified. Withdrawn from publication."
-}
