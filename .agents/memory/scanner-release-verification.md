@@ -27,3 +27,12 @@ healthy page from an older revision does not validate the shipped report.
 **How to apply:** Do not label local hash checks as deployed evidence. Keep
 authenticated report access intact and report plainly when no signed-in export
 was available to verify.
+
+Bind report hashes to each scan's context, not just a single latest target or
+an organization-wide aggregate.
+
+**Why:** The PDF covers an organization's scan history; flattening that history
+to one target would misrepresent the scope the owner asked the hash to bind.
+
+**How to apply:** Keep the verification payload reproducible and versioned, and
+state its limits. A checksum is not a signature or proof of database durability.

@@ -10,7 +10,7 @@ from mcp_authscan.scanner import MCPScanner, ScanError
 from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, scanner_path
 from mcp_authscan.tiers import reserve_scan
 from mcp_authscan.findings_schema import initialize_database
-from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf, compute_canonical_findings_hash
+from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf, compute_canonical_findings_hash, canonical_report_content
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET') or os.getenv('SESSION_SECRET')
@@ -187,11 +187,16 @@ def compliance_report():
 @jwt_required()
 def compliance_pdf_report():
     org_id = get_jwt_identity()
+    export_format = request.args.get('format', 'pdf')
+    if export_format not in ('pdf', 'json'):
+        return jsonify(error='Report format must be pdf or json.'), 400
     try:
         with closing(sqlite3.connect(
             Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=15,
         )) as conn:
             conn.row_factory = sqlite3.Row
+            # Keep counts, findings and scan metadata on the same read snapshot.
+            conn.execute('BEGIN')
             organization = conn.execute(
                 'SELECT id,name FROM organizations WHERE id=?', (org_id,),
             ).fetchone()
@@ -226,7 +231,16 @@ def compliance_pdf_report():
         return jsonify(error='The compliance report is temporarily unavailable.'), 503
 
     try:
-        content_hash = compute_canonical_findings_hash(findings, severity_counts)
+        content_hash = compute_canonical_findings_hash(findings, severity_counts, scan_rows)
+        if export_format == 'json':
+            response = jsonify(
+                canonical_report=canonical_report_content(findings, severity_counts, scan_rows),
+                content_hash=content_hash,
+                hash_algorithm='SHA-256',
+                serialization="json.dumps(canonical_report, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False).encode('utf-8')",
+            )
+            response.headers['Cache-Control'] = 'no-store'
+            return response
         pdf = generate_compliance_pdf(dict(organization), summary, severity_counts, findings, scan_rows, content_hash=content_hash)
     except Exception:
         app.logger.exception('Unable to create the organization compliance report.')

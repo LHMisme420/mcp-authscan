@@ -29,13 +29,17 @@ SURFACE = colors.HexColor('#f3f1e9')
 STANDARD_SEVERITIES = ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')
 
 
-def compute_canonical_findings_hash(findings, severity_counts):
-    """Compute SHA256 hash of findings and severity counts, excluding generation timestamp.
-
-    This hash is deterministic and reproducible: same findings always produce same hash.
-    Used for chain-of-custody verification across JSON and PDF exports.
-    """
-    canonical = {
+def canonical_report_content(findings, severity_counts, scan_rows):
+    """Bind findings to each scan's target and counts, preserving database order."""
+    return {
+        'schema_version': 2,
+        'scan_runs': [
+            {key: row.get(key) for key in (
+                'target', 'status', 'total_checks', 'findings_count',
+                'started_at', 'completed_at', 'attested_at',
+            )}
+            for row in scan_rows
+        ],
         'severity_counts': dict(sorted(severity_counts.items())),
         'findings': [
             {
@@ -50,8 +54,16 @@ def compute_canonical_findings_hash(findings, severity_counts):
             for f in findings
         ]
     }
-    payload = json.dumps(canonical, sort_keys=True, separators=(',', ':'))
-    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def compute_canonical_findings_hash(findings, severity_counts, scan_rows):
+    """SHA-256 of the versioned report payload, not PDF bytes or export time."""
+    canonical = canonical_report_content(findings, severity_counts, scan_rows)
+    payload = json.dumps(
+        canonical, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
+        allow_nan=False,
+    )
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
 
 def _plain_text(value, *, limit=1000):
@@ -303,9 +315,22 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
             Paragraph(
                 f'<b>Content Hash (SHA256):</b><br/>'
                 f'<code>{content_hash}</code><br/><br/>'
-                f'<b>To Verify:</b> Serialize findings + severity_counts as JSON with json.dumps(..., sort_keys=True, separators=(\'&#44;\', \':\')). UTF-8 encoding. '
-                f'Compute SHA256 of that JSON string. Result must match hash above. '
-                f'Excludes: generation timestamp, PDF metadata.',
+                '<b>To Verify (schema version 2):</b> Export JSON from '
+                '/api/reports/pdf?format=json using the same signed-in workspace. '
+                'Hash only its canonical_report object, including scan_runs '
+                '(each target, total_checks, findings_count, status, scan timestamps '
+                'and authorization timestamp), severity_counts and findings. '
+                'In Python: hashlib.sha256(json.dumps(canonical_report, '
+                "sort_keys=True, separators=('&#44;', ':'), ensure_ascii=True, "
+                "allow_nan=False).encode('utf-8')).hexdigest(). "
+                'Preserve array order and null values; do not normalize strings. '
+                'The result must match the hash above. '
+                'Excludes: PDF generation timestamp and PDF metadata. '
+                'Findings are capped at the 1000 most recent, in newest-first order; '
+                'severity_counts cover all findings. Scan runs are newest-first. '
+                'Data changes between exports produce a different hash; compare '
+                'exports from unchanged data. This checksum detects content changes, '
+                'not authenticity or certification.',
                 styles['body'],
             ),
         ])
