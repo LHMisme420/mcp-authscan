@@ -1,4 +1,5 @@
 """Exit code proof: scanner verdict → exit code mapping."""
+import json
 import subprocess
 import sys
 import threading
@@ -42,9 +43,6 @@ class ExitCodeTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-m", "mcp_authscan.main", "http://127.0.0.1:9999"], capture_output=True)
         self.assertEqual(result.returncode, 3)
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_exit_5_zero_probes_on_no_scheme_typo(self):
         """Exit 5 when URL lacks scheme (typo) → zero probes attempted."""
         # User types 'app.example.com/mcp' instead of 'https://app.example.com/mcp'
@@ -67,3 +65,83 @@ if __name__ == "__main__":
         data = json.loads(result.stdout)
         self.assertEqual(data["counts"]["attempted"], 0, 
             "Expected zero probes attempted")
+
+
+    def test_exit_6_usage_error(self):
+        """Exit 6: usage error (missing required argument)."""
+        result = subprocess.run(
+            [sys.executable, "-m", "mcp_authscan.cli_wrapper"],
+            capture_output=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 6,
+            f"Expected exit 6 for usage error, got {result.returncode}")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+
+    def test_exit_4_not_a_valid_mcp_server(self):
+        """Exit 4: target is not a valid MCP server."""
+        # Per README: "target is not a valid MCP server"
+        # Test with a 200 response that is not MCP (plain text)
+        server = self._start_server(9004, 200, b'Hello, this is not an MCP server')
+        result = subprocess.run(
+            [sys.executable, "-m", "mcp_authscan.cli_wrapper",
+             "http://127.0.0.1:9004",
+             "--authorized-by", "Test",
+             "--auth-basis", "test",
+             "--contact", "test@example.com"],
+            capture_output=True,
+            timeout=10,
+        )
+        server.shutdown()
+        self.assertEqual(result.returncode, 4,
+            f"Expected exit 4 for non-MCP server, got {result.returncode}.\n"
+            f"stderr: {result.stderr.decode()}")
+
+    def test_exit_6_usage_error(self):
+        """Exit 6: usage error (missing required argument)."""
+        # Per README: "usage error"
+        result = subprocess.run(
+            [sys.executable, "-m", "mcp_authscan.cli_wrapper",
+             "http://example.com"],
+            capture_output=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 6,
+            f"Expected exit 6 for usage error, got {result.returncode}.\n"
+            f"stderr: {result.stderr.decode()}")
+
+    def test_exit_4_not_a_valid_mcp_server(self):
+        """Exit 4: target is not a valid MCP server."""
+        # Per README: "target is not a valid MCP server"
+        # Test with a 200 response that is not MCP (plain text)
+        server = self._start_server(9004, 200, b'Hello, this is not an MCP server')
+        result = subprocess.run(
+            [sys.executable, "-m", "mcp_authscan.cli_wrapper",
+             "http://127.0.0.1:9004",
+             "--authorized-by", "Test",
+             "--auth-basis", "test",
+             "--contact", "test@example.com"],
+            capture_output=True,
+            timeout=10,
+        )
+        server.shutdown()
+        self.assertEqual(result.returncode, 4,
+            f"Expected exit 4 for non-MCP server, got {result.returncode}.\n"
+            f"stderr: {result.stderr.decode()}")
+
+    def test_exit_6_usage_error(self):
+        """Exit 6: usage error (missing required argument)."""
+        # Per README: "usage error"
+        result = subprocess.run(
+            [sys.executable, "-m", "mcp_authscan.cli_wrapper",
+             "http://example.com"],
+            capture_output=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 6,
+            f"Expected exit 6 for usage error, got {result.returncode}.\n"
+            f"stderr: {result.stderr.decode()}")
