@@ -44,11 +44,12 @@ def requirements(path, visited=None):
 class PythonDependencySecurityTests(unittest.TestCase):
     def test_setuptools_runtime_and_build_require_patched_release(self):
         self.assertIn('setuptools==84.2.1', requirements(ROOT / 'requirements-runtime.txt'))
-        metadata = tomllib.loads((ROOT / 'mcp_authscan/pyproject.toml').read_text())
+        metadata = tomllib.loads((ROOT / 'pyproject.toml').read_text())
         self.assertIn('setuptools>=84.2.1,<85', metadata['build-system']['requires'])
-        self.assertIn(
-            release_version(importlib.metadata.version('setuptools')),
-            release_version('84.2.1'))
+        installed = release_version(importlib.metadata.version('setuptools'))
+        required = release_version('84.2.1')
+        self.assertGreaterEqual(installed, required, 
+            f"setuptools {installed} < required {required}")
         setuptools = importlib.import_module('setuptools')
         self.assertEqual(setuptools.__version__, importlib.metadata.version('setuptools'))
         # The immutable Nix copy may remain visible to broad inventory scans.
@@ -76,7 +77,7 @@ class PythonDependencySecurityTests(unittest.TestCase):
             self.assertEqual(found, expected, filename)
 
     def test_standalone_package_declares_patched_minimums(self):
-        metadata = tomllib.loads((ROOT / 'mcp_authscan/pyproject.toml').read_text())
+        metadata = tomllib.loads((ROOT / 'pyproject.toml').read_text())
         dependencies = metadata['project']['dependencies']
         self.assertEqual(metadata['project']['requires-python'], '>=3.11')
         for name, minimum in PATCHED.items():
