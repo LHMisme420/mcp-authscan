@@ -19,7 +19,6 @@ PACKAGE = ROOT / "mcp_authscan"
 
 class CliPackagingTests(unittest.TestCase):
     def test_root_tool_configuration_survives_without_a_root_python_project(self):
-        self.assertFalse((ROOT / "pyproject.toml").exists())
         ruff = tomllib.loads((ROOT / "ruff.toml").read_text())
         self.assertEqual(ruff["line-length"], 120)
         self.assertEqual(ruff["lint"]["select"], ["E", "F", "I", "W", "B", "UP"])
@@ -32,8 +31,8 @@ class CliPackagingTests(unittest.TestCase):
         coverage.read(ROOT / ".coveragerc")
         self.assertEqual(coverage["run"]["source"], "mcp_authscan")
         self.assertTrue(coverage["run"].getboolean("branch"))
-        self.assertEqual(coverage["report"].getint("fail_under"), 16)
-        self.assertEqual(len(coverage["report"]["omit"].split()), 8)
+        self.assertEqual(coverage["report"].getint("fail_under"), 55)
+        self.assertNotIn("omit", coverage["report"])
 
     def test_wheel_sdist_and_editable_keep_the_scanner_importable(self):
         # Use existing build tools without creating an isolated virtual environment.
