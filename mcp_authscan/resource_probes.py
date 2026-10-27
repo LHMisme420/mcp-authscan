@@ -3,7 +3,7 @@
 import json
 import requests
 import hashlib
-from typing import List
+from typing import Any, List
 from mcp_authscan.oauth_probes_v2 import ProbeRecord
 
 RESOURCE_PROBE_SET_VERSION = "1.0.2"
@@ -26,7 +26,7 @@ def run_resource_probes(target_url: str) -> List[ProbeRecord]:
 def probe_mcp_preflight(target_url: str) -> ProbeRecord:
     """POST /initialize with empty JSON-RPC, no auth. PASS if we get 401/403 with WWW-Authenticate."""
     try:
-        payload = {"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1}
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1}
         response = requests.post(target_url, json=payload, timeout=5, verify=True)
         
         if response.status_code in [401, 403]:
@@ -114,7 +114,7 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
 def probe_anon_initialize(target_url: str) -> ProbeRecord:
     """POST /initialize unauthenticated, FAIL if serverInfo/capabilities returned."""
     try:
-        payload = {"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1}
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1}
         response = requests.post(target_url, json=payload, timeout=5, verify=True)
         
         if response.status_code in [401, 403]:
@@ -191,7 +191,7 @@ def probe_anon_initialize(target_url: str) -> ProbeRecord:
 def probe_anon_tools_list(target_url: str) -> ProbeRecord:
     """POST /tools/list unauthenticated, FAIL if tools array is non-empty."""
     try:
-        payload = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
         response = requests.post(target_url, json=payload, timeout=5, verify=True)
         
         if response.status_code in [401, 403]:
@@ -273,7 +273,7 @@ def probe_endpoint_cors(target_url: str) -> ProbeRecord:
     """Send Origin header, FAIL if Allow-Origin echoes it or is *."""
     try:
         headers = {"Origin": "https://boardy.invalid"}
-        payload = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
         response = requests.post(target_url, json=payload, headers=headers, timeout=5, verify=True)
         
         allow_origin = response.headers.get("Access-Control-Allow-Origin")
@@ -339,7 +339,7 @@ def probe_endpoint_cors(target_url: str) -> ProbeRecord:
 def probe_auth_challenge(target_url: str) -> ProbeRecord:
     """Send unauthenticated request, expect 401. FAIL if no WWW-Authenticate."""
     try:
-        payload = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
         response = requests.post(target_url, json=payload, timeout=5, verify=True)
         
         if response.status_code == 401:
