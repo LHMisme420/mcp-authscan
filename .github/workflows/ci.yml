@@ -1,7 +1,7 @@
 name: ci
 permissions:
   contents: read
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   lint:
     runs-on: ubuntu-latest
