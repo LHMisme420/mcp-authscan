@@ -2,7 +2,7 @@ try:
     from importlib.metadata import version
     __version__ = version("mcp_authscan")
 except Exception:
-    __version__ = "1.1.6"  # fallback
+    __version__ = "unknown"  # fallback
 __all__ = ["MCPScanner", "SecurityReport"]
 
 

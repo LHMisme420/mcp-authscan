@@ -4,6 +4,12 @@ from . import monolith
 
 def main():
     """Call monolith main, catching any unhandled exceptions."""
+    # Handle --version flag
+    if "--version" in sys.argv:
+        from . import __version__
+        print(f"mcp-authscan {__version__}")
+        sys.exit(0)
+    
     try:
         monolith.main()
     except SystemExit:
