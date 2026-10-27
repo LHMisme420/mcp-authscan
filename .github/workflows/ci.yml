@@ -31,7 +31,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - name: Mypy type check
-        run: mypy test_fixtures.py test_cors_checks.py
+        run: mypy
   cors-scanner-tests:
     runs-on: ubuntu-latest
     steps:
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis "setuptools>=64" wheel
+      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis wheel
       - name: Run scanner unit tests with coverage
         # Scoped to the self-contained scanner suites (the web-app/billing tests
         # need flask, which is not declared in requirements — tracked separately).
