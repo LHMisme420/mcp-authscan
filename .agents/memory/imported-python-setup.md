@@ -86,6 +86,18 @@ The automatic builder also detects standalone PEP 621 metadata: removing the
 default pip manifest switched it to `uv lock`/`uv sync`, which still attempted
 installation into the immutable interpreter prefix.
 
+Release merges must preserve the separation of CLI packaging from the web
+project root, even when upstream expects root-level packaging.
+
+**Why:** A later CLI release restored root metadata and hosting resumed automatic
+UV before the custom build. UV rejected the writable package prefix because it
+was not a virtual environment. Previously successful publishes did not prevent
+this regression, and publishing exclusions did not suppress discovery.
+
+**How to apply:** Check packaging layout after upstream merges. Do not solve
+automatic project detection by converting the runtime prefix into a venv or
+changing findings storage; retain the explicit runtime installer boundary.
+
 **Why:** The CLI packaging project was independently discovered before the web
 app's explicit dependency build. Disabling one installer did not disable the
 other. In an isolated probe, `managed = false` did not suppress UPM detection;

@@ -42,9 +42,21 @@ def requirements(path, visited=None):
 
 
 class PythonDependencySecurityTests(unittest.TestCase):
+    def test_web_root_does_not_trigger_automatic_python_project_install(self):
+        # Hosting runs automatic UV before the custom build if root metadata
+        # exists. Our .pythonlibs is an install prefix, not a UV project venv.
+        for filename in ('pyproject.toml', 'uv.lock', 'requirements.txt'):
+            with self.subTest(filename=filename):
+                self.assertFalse((ROOT / filename).exists(),
+                                 f'Keep {filename} out of the web project root')
+        self.assertTrue((ROOT / 'mcp_authscan/pyproject.toml').is_file())
+        build = (ROOT / 'scripts/deployment-build.sh').read_text()
+        self.assertIn('--prefix', build)
+        self.assertIn('--requirement requirements-runtime.txt', build)
+
     def test_setuptools_runtime_and_build_require_patched_release(self):
         self.assertIn('setuptools==84.2.1', requirements(ROOT / 'requirements-runtime.txt'))
-        metadata = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+        metadata = tomllib.loads((ROOT / 'mcp_authscan/pyproject.toml').read_text())
         self.assertIn('setuptools>=84.2.1,<85', metadata['build-system']['requires'])
         installed = release_version(importlib.metadata.version('setuptools'))
         required = release_version('84.2.1')
@@ -77,7 +89,7 @@ class PythonDependencySecurityTests(unittest.TestCase):
             self.assertEqual(found, expected, filename)
 
     def test_standalone_package_declares_patched_minimums(self):
-        metadata = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+        metadata = tomllib.loads((ROOT / 'mcp_authscan/pyproject.toml').read_text())
         dependencies = metadata['project']['dependencies']
         self.assertEqual(metadata['project']['requires-python'], '>=3.11')
         for name, minimum in PATCHED.items():
