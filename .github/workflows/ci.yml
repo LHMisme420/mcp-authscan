@@ -1,7 +1,7 @@
 name: ci
 permissions:
   contents: read
-on: [push, pull_request, workflow_dispatch]
+on: [push, pull_request]
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -31,7 +31,17 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - name: Mypy type check
-        run: mypy tests/test_fixtures.py tests/test_cors_checks.py
+        run: mypy test_fixtures.py test_cors_checks.py
+  cors-scanner-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7 # v4
+      - uses: actions/setup-python@v6 # v5
+        with:
+          python-version: "3.12"
+      - run: pip install flask requests
+      - name: Run CORS scanner tests (negative & positive control)
+        run: python3 test_cors_checks.py
   unit-tests:
     runs-on: ubuntu-latest
     strategy:
@@ -43,7 +53,7 @@ jobs:
       - uses: actions/setup-python@v6 # v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis "setuptools>=84.2.1,<85" wheel
+      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis "setuptools>=64" wheel
       - name: Run scanner unit tests with coverage
         # Scoped to the self-contained scanner suites (the web-app/billing tests
         # need flask, which is not declared in requirements — tracked separately).
@@ -60,4 +70,16 @@ jobs:
           tests.test_properties
           tests.test_probe_accounting
       - name: Enforce coverage threshold
-        run: coverage report
+        run: coverage report --fail-under=16
+  compliance-report-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-runtime.txt
+      - name: Reject vulnerable Python pins and stale runtime distributions
+        run: python3 -m unittest tests.test_python_dependency_security -v
+      - name: Verify PDF and JSON assessment gates
+        run: python3 -m unittest discover -s tests -p 'test_compliance_pdf*.py' -v
