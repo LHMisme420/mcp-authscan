@@ -50,10 +50,26 @@ class ProbeRecord:
 
 def probe_issuer_identity(metadata_url, metadata):
     """Issuer identity must be published in OAuth server metadata."""
-    issuer = metadata.get("issuer", "")
     base_url = metadata_url.split("/.well-known/")[0] if "/.well-known/" in metadata_url else metadata_url
-    body = json.dumps({"issuer": issuer}).encode("utf-8")
     
+    # Explicit presence check: issuer field is required
+    issuer = metadata.get("issuer")
+    if issuer is None:
+        body = json.dumps({"issuer": None}).encode("utf-8")
+        return record(
+            probe_id=1,
+            name="issuer-identity",
+            status="FAIL",
+            http_status=200,
+            body=body,
+            probe_class="authserver",
+            detail="issuer field is missing from OAuth metadata (required)",
+            severity="HIGH",
+            endpoint=metadata_url
+        )
+    
+    # Issuer present: check if it matches expected value
+    body = json.dumps({"issuer": issuer}).encode("utf-8")
     if issuer == base_url:
         status = "PASS"
         severity = None
@@ -139,6 +155,20 @@ def probe_token_cache_control(token_endpoint):
             detail="Request failed: %s" % e
         )
     
+    # Explicit check: endpoint must actually respond (2xx-4xx status)
+    # 5xx means the endpoint didn't handle the request properly
+    if http_status and http_status >= 500:
+        return record(
+            probe_id=3,
+            name="token-cache-control",
+            status="NOT_OBSERVED",
+            http_status=http_status,
+            body=body,
+            probe_class="authserver",
+            detail="Token endpoint returned %d (server error). Cache headers cannot be evaluated." % http_status,
+            endpoint=token_endpoint
+        )
+    
     if "no-store" in cache_control:
         status = "PASS"
         severity = None
@@ -150,7 +180,7 @@ def probe_token_cache_control(token_endpoint):
         probe_id=3,
         name="token-cache-control",
         status=status,
-        http_status=400,
+        http_status=http_status or 400,
         body=body,
         probe_class="authserver",
         detail="Cache-Control: %s" % (cache_control or "(absent)"),
@@ -176,9 +206,13 @@ def probe_token_cors(token_endpoint):
     acao = ""
     
     try:
-        req = Request(token_endpoint, method="OPTIONS")
+        # Check CORS on POST (the request that carries credentials)
+        # Probe: POST with hostile Origin header
+        req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Origin", "https://hostile.example.com")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        req.data = b"grant_type=invalid"
         try:
             with urlopen(req, timeout=5) as resp:
                 headers = dict(resp.headers)
@@ -254,12 +288,27 @@ def probe_jwks_keys(jwks_uri):
             detail="Request failed: %s" % e
         )
     
-    if keys and all(k.get("kty") for k in keys):
-        status = "PASS"
-        severity = None
+    # Explicit check: keys must be asymmetric (RSA, EC, etc)
+    # Symmetric keys (oct) in signing context are a failure
+    asymmetric_ktys = {"RSA", "EC", "EdDSA", "OKP"}  # Asymmetric key types
+    
+    if not keys:
+        # No keys published
+        status = "FAIL"
+        severity = "HIGH"
+        detail = "No keys published in JWKS"
     else:
-        status = "PASS"  # Informational probe - always pass if data retrieved
-        severity = None
+        # Check if all keys are asymmetric
+        asymmetric_keys = [k for k in keys if k.get("kty") in asymmetric_ktys]
+        if not asymmetric_keys:
+            # All keys are symmetric or unknown - that's a failure for signing
+            status = "FAIL"
+            severity = "HIGH"
+            detail = "Keys: %d (all symmetric or unknown - signing keys must be asymmetric)" % len(keys)
+        else:
+            status = "PASS"
+            severity = None
+            detail = "Keys: %d asymmetric" % len(asymmetric_keys)
     
     return record(
         probe_id=5,
@@ -268,7 +317,8 @@ def probe_jwks_keys(jwks_uri):
         http_status=200,
         body=body,
         probe_class="authserver",
-        detail="Keys: %d" % len(keys),
+        detail=detail,
+        severity=severity,
         endpoint=jwks_uri
     )
 

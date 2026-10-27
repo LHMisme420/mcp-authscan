@@ -1,0 +1,52 @@
+VATA Compliance Summary
+test_org
+Workspace ID: -2001
+Generated: 2026-10-26 16:31:18 UTC
+
+Current compliance overview
+VATA compliance score
+Not assessed: no scans recorded
+
+Not assessed
+
+This score uses VATA’s existing severity-based formula. It is not a SOC 2 attestation, certification, or audit opinion.
+
+Findings by severity
+Severity
+
+Findings
+
+Critical
+
+0
+
+High
+
+0
+
+Medium
+
+0
+
+Low
+
+0
+
+Other / Unspecified
+
+0
+
+Finding details
+No findings are recorded for this organization.
+
+Report Integrity
+Content Hash (SHA256):
+1d9c5d43cd24c2fabdc77b3d64ca82ddcb4b51e4d7de4ea31b3f5a743f0da1a8
+To Verify: Serialize findings + severity_counts as JSON (key order: severity_counts first, sorted keys, no spaces after separators).
+Compute SHA256 of that JSON string. Result must match hash above. Excludes: generation timestamp, PDF metadata.
+
+VATA · Organization compliance summary
+
+Page 1
+
+
