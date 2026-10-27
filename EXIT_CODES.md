@@ -1,23 +1,46 @@
 # Exit Codes - Verified Behavior
 
-| Code | Meaning | Status |
-|------|---------|--------|
-| 0 | Clean scan (no findings, all probes conclusive) | Pending: needs server with no FAIL probes |
-| 1 | Findings detected (FAIL probes above threshold) | Pending: localhost has 2 FAIL, but exit 5 (incomplete) takes precedence |
-| 2 | Arguments/setup error | Verified: `mcp-authscan` without target |
-| 3 | Target validation failed | Verified: DNS resolution failure |
-| 4 | Internal scan error | Verified: NameError in scan_live_server |
-| 5 | Incomplete assessment | Verified: localhost:8765 (3 probes EXCLUDED) |
-| 6 | Guard refusal (private IP) | Pending: needs localhost without --allow-private |
+## Code Grouping
 
-## Exit 5 - Incomplete Assessment Example
+**Precondition aborts** (no probes run):
+- Exit 2: Arguments/setup error
+- Exit 3: Target validation failed (including private IP DNS rebinding protection)
+- Exit 4: Internal scan error
 
-**Test case:** localhost:8765 (minimal OAuth server)
+**Outcome codes** (probes executed):
+- Exit 1: Findings detected (FAIL probes above threshold)
+- Exit 5: Incomplete assessment (conclusive probes + some EXCLUDED)
 
-**Result summary:**
-- 6 probes with conclusive verdicts: 4 PASS + **2 FAIL**
-- 3 probes EXCLUDED (missing prerequisites): resource-binding, pkce-s256, redirect-uri-exact
-- **Not a clean scan** – contains findings (password-grant FAIL, client-auth FAIL)
-- Exit 5 because assessment is incomplete (not all probes could run)
+**Success**:
+- Exit 0: Clean scan (all probes conclusive, no findings)
+- Exit 6: (TBD - not yet triggered in testing)
 
-**Takeaway:** Exit 5 can coexist with findings. Exit code precedence: validation errors (2-4) > findings (1) > incomplete assessment (5).
+## Verified Test Cases
+
+| Code | Condition | Evidence |
+|------|-----------|----------|
+| 3 | Private IP without --allow-private | `[!] Target validation failed: Target localhost resolves to private IP 127.0.0.1 (DNS rebinding protection)` |
+| 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
+| 5 | Mixed verdict assessment | localhost:8765: 4 PASS + 2 FAIL + 3 EXCLUDED = incomplete |
+
+## Exit 5 in Detail: Incomplete Assessment
+
+A single run of localhost:8765 demonstrates all three verdict types:
+
+**Conclusive verdicts (6 probes):**
+- PASS: [1] issuer-identity, [3] token-cache-control, [4] token-cors, [5] jwks-keys
+- FAIL: [6] password-grant, [9] client-auth
+
+**EXCLUDED (3 probes):**
+- [2] resource-binding (prerequisite: oauth-protected-resource metadata)
+- [7] pkce-s256 (prerequisite: code_challenge_methods_supported)
+- [8] redirect-uri-exact (prerequisite: registration_endpoint)
+
+**Exit code:** 5 (incomplete assessment)  
+**Outcome:** Findings exist (2 FAIL), but assessment incomplete (3 probes blocked by missing prerequisites)  
+**Note:** If all 9 probes could run with these same 2 FAIL results, exit would be 1, not 5.
+
+## Known Issues
+
+- **--json flag broken**: The `--json` flag outputs stderr text instead of JSON. EXCLUDED probe details cannot be verified from JSON at this time. This requires separate investigation and fix.
+
