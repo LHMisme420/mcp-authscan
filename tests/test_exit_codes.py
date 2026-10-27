@@ -34,13 +34,13 @@ class ExitCodeTests(unittest.TestCase):
     def test_exit_3_private_ip_rebinding_protection(self):
         """Exit 3: private IP triggers DNS rebinding protection."""
         server = self._start_server(9003, 401)
-        result = subprocess.run([sys.executable, "-m", "mcp_authscan.main", "http://127.0.0.1:9003"], capture_output=True)
+        result = subprocess.run(["mcp-authscan", "http://127.0.0.1:9003", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
         self.assertEqual(result.returncode, 3)
         server.shutdown()
 
     def test_exit_3_unreachable_target(self):
         """Exit 3: network unreachable."""
-        result = subprocess.run([sys.executable, "-m", "mcp_authscan.main", "http://127.0.0.1:9999"], capture_output=True)
+        result = subprocess.run(["mcp-authscan", "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
         self.assertEqual(result.returncode, 3)
 
     def test_exit_5_zero_probes_on_no_scheme_typo(self):
