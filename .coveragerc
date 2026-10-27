@@ -1,0 +1,6 @@
+[run]
+source = mcp_authscan
+branch = true
+
+[report]
+fail_under = 55
