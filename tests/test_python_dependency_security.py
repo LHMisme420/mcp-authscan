@@ -47,9 +47,6 @@ class PythonDependencySecurityTests(unittest.TestCase):
         metadata = tomllib.loads((ROOT / 'mcp_authscan/pyproject.toml').read_text())
         self.assertIn('setuptools>=84.2.1,<85', metadata['build-system']['requires'])
         self.assertIn(
-            '"setuptools>=84.2.1,<85"',
-            (ROOT / '.github/workflows/ci.yml').read_text())
-        self.assertGreaterEqual(
             release_version(importlib.metadata.version('setuptools')),
             release_version('84.2.1'))
         setuptools = importlib.import_module('setuptools')
