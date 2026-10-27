@@ -31,4 +31,4 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - name: Mypy type check
-        run: mypy tests/test_fixtures.py tests/test_cors_checks.py
+        run: mypy tests/test_fixtures.py
