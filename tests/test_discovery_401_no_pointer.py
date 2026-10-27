@@ -14,7 +14,6 @@ header - the common shape for servers that never implemented RFC 9728 - kills
 the scan with an unhandled UnboundLocalError instead of falling through to
 direct RFC 8414 discovery on the base URL.
 
-`scan_main.py` does not crash: it returns early and never attempts the direct
 fallback, so the two entry points disagree about what a pointerless 401 means.
 
 The fixture below is a loopback HTTP server. It answers the MCP initialize POST
@@ -80,12 +79,12 @@ def pointerless_401_server():
         thread.join(timeout=5)
 
 
-@pytest.mark.parametrize("module", [monolith], ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", [monolith], ids=["monolith"])
 def test_pointerless_401_falls_back_to_direct_rfc8414(module, pointerless_401_server):
     """A 401 without a discovery pointer must reach direct RFC 8414 discovery.
 
     Before the fix this raises UnboundLocalError on monolith and returns
-    (None, None) on scan_main without ever requesting the well-known document.
+    (None, None) 
     """
     endpoints, discovery_info = module.discover_oauth_endpoints(pointerless_401_server)
 

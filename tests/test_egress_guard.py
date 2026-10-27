@@ -38,20 +38,20 @@ REFUSED_URLS = [
 ]
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 @pytest.mark.parametrize("url", REFUSED_URLS)
 def test_refuses_non_public_and_non_http(module, url):
     with pytest.raises(ValueError):
         module.assert_url_is_fetchable(url)
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 def test_allows_a_globally_routable_address(module):
     # IP literal: no DNS lookup, no connection.
     module.assert_url_is_fetchable("https://93.184.216.34/mcp")
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 def test_allow_private_opts_back_in(module):
     module.assert_url_is_fetchable("http://127.0.0.1/token", allow_private=True)
 
@@ -82,7 +82,7 @@ def redirect_server():
         thread.join(timeout=5)
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 def test_redirects_are_refused_not_followed(module, redirect_server):
     """A 30x lets the target pick the destination after the address check."""
     from urllib.request import Request

@@ -45,27 +45,27 @@ NON_PUBLIC = [
 PUBLIC = [("93.184.216.34", "public IPv4 literal"), ("2606:2800:220:1::1", "public IPv6 literal")]
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 @pytest.mark.parametrize("address,why", NON_PUBLIC, ids=[a for a, _ in NON_PUBLIC])
 def test_non_public_address_is_private(module, address, why):
     assert module.is_private_ip(address) is True, f"{address} ({why}) treated as public"
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 @pytest.mark.parametrize("address,why", NON_PUBLIC, ids=[a for a, _ in NON_PUBLIC])
 def test_validate_target_host_refuses_non_public_literal(module, address, why):
     with pytest.raises(ValueError):
         module.validate_target_host(address, 80)
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 @pytest.mark.parametrize("address,why", PUBLIC, ids=[a for a, _ in PUBLIC])
 def test_public_address_is_allowed(module, address, why):
     assert module.is_private_ip(address) is False
     assert module.validate_target_host(address, 443) == address
 
 
-@pytest.mark.parametrize("module", MODULES, ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", MODULES, ids=["monolith"])
 def test_validate_target_host_checks_every_resolved_record(module, monkeypatch):
     """Public record first, private record second: must still be refused."""
     mixed = [
