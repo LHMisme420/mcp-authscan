@@ -82,3 +82,10 @@ scan-test.txt
 *_ACTUAL.json
 *_HISTORICAL.json
 *_BROKEN.json
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.whl

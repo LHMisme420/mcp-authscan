@@ -25,7 +25,7 @@ def get_tool_version():
 
 def get_probe_set_version():
     """Extract probe set version from scanner config or constants."""
-    constants_path = Path(__file__).parent.parent / "mcp_authscan" / "scanner" / "constants.py"
+    constants_path = Path(__file__).parent.parent / "mcp_authscan" / "scanner.py"
     with open(constants_path) as f:
         content = f.read()
     match = re.search(r'PROBE_SET_VERSION\s*=\s*["\']([^"\']+)["\']', content)
