@@ -22,9 +22,9 @@ import socket
 
 import pytest
 
-from mcp_authscan import monolith, scan_main
+from mcp_authscan import monolith
 
-MODULES = [monolith, scan_main]
+MODULES = [monolith]
 
 NON_PUBLIC = [
     ("127.0.0.1", "loopback"),

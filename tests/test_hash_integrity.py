@@ -6,7 +6,7 @@ from copy import deepcopy
 
 
 def canonical_hash(payload_dict):
-    """Compute hash the same way scan_main.py does."""
+    """Compute hash the same way monolith.py does."""
     payload_json = json.dumps(payload_dict, sort_keys=True)
     return hashlib.sha256(payload_json.encode()).hexdigest()
 

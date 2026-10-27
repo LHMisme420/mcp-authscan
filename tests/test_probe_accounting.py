@@ -8,7 +8,7 @@ import json
 import re
 
 from mcp_authscan.report import SecurityReport
-from mcp_authscan.scan_main import scan_live_server
+from mcp_authscan.monolith import scan_live_server
 
 
 def test_probe_partition_fixture_good():

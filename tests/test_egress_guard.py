@@ -21,9 +21,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from mcp_authscan import monolith, scan_main
+from mcp_authscan import monolith
 
-MODULES = [monolith, scan_main]
+MODULES = [monolith]
 
 # Addresses a target could name to reach the scanner's own network, all of
 # which the old hand-written range list missed or never inspected.

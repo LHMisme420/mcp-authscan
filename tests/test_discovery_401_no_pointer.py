@@ -28,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from mcp_authscan import monolith, scan_main
+from mcp_authscan import monolith
 
 
 class _Pointerless401Handler(BaseHTTPRequestHandler):
@@ -80,7 +80,7 @@ def pointerless_401_server():
         thread.join(timeout=5)
 
 
-@pytest.mark.parametrize("module", [monolith, scan_main], ids=["monolith", "scan_main"])
+@pytest.mark.parametrize("module", [monolith], ids=["monolith", "scan_main"])
 def test_pointerless_401_falls_back_to_direct_rfc8414(module, pointerless_401_server):
     """A 401 without a discovery pointer must reach direct RFC 8414 discovery.
 
