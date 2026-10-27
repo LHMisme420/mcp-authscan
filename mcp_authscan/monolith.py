@@ -143,21 +143,6 @@ class _NoRedirect(HTTPRedirectHandler):
         raise HTTPError(req.full_url, code, f"redirect refused: {newurl}", headers, fp)
 
 
-def open_without_redirects(req, timeout=5):
-    """urlopen that refuses redirects.
-
-    Following a 30x would hand the destination choice back to the target and
-    defeat the address check above: a public URL that 302s to 127.0.0.1 passes
-    validation and lands internally.
-    """
-    return build_opener(_NoRedirect).open(req, timeout=timeout)
-
-
-
-# Set from --allow-private so explicitly authorized local targets keep working.
-ALLOW_PRIVATE_TARGETS = False
-
-
 
 def open_without_redirects(req, timeout=5):
     """urlopen that refuses redirects.
