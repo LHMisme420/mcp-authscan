@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """
 VATA mcp_authscan v{VERSION} -- Live OAuth endpoint scanner for MCP servers.
@@ -2069,8 +2070,8 @@ def main():
             else:
                 raise ValueError(f"Expected (oauth_records, probe_results) tuple, got {type(oauth_result)}: {oauth_result}")
         except Exception as e:
-            print(f"[!] scan_live_server failed: {type(e).__name__}: {e}", file=sys.stderr)
-            raise
+            print(f"[!] Internal scan error: {type(e).__name__}: {e}", file=sys.stderr)
+            sys.exit(4)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
         # Log discovery results (only if successful, not DISCOVERY_INCOMPLETE)

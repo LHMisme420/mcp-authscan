@@ -460,7 +460,7 @@ def discover_oauth_endpoints(base_url, allow_private=None):
 
     return None, None
 
-def scan_live_server(target_url):
+def scan_live_server(target_url, allow_private=False):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
     Returns (findings, reachable, probe_status, discovery_info, (oauth_records, resource_records, probe_results)) tuple.
     probe_status = {'passed': count, 'not_observed': count, 'findings': count}
@@ -550,7 +550,7 @@ def scan_live_server(target_url):
     print("[*] Attempting OAuth discovery...", file=sys.stderr)
 
     # Perform RFC 9728 → RFC 8414 discovery
-    oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
+    oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url, allow_private=allow_private)
 
     if oauth_endpoints:
         # Use discovered OAuth endpoints

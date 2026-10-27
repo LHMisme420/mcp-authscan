@@ -135,15 +135,18 @@ def probe_token_cache_control(token_endpoint):
             limitation="No token endpoint"
         )
     
+    http_status = None
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.data = b"grant_type=invalid"
         try:
             with urlopen(req, timeout=5) as resp:
+                http_status = resp.status
                 cache_control = resp.headers.get("Cache-Control", "")
                 body = resp.read()
         except HTTPError as e:
+            http_status = e.code
             cache_control = e.headers.get("Cache-Control", "")
             body = e.read()
     except (URLError, Exception) as e:
@@ -491,7 +494,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
 
     records = []
     records.append(probe_issuer_identity(metadata_url, metadata))
-    rb = probe_resource_binding(resource_metadata, mcp_url) if resource_metadata else None
+    rb = probe_resource_binding(resource_metadata, mcp_url)
     if rb:
         records.append(rb)
     records.append(probe_token_cache_control(metadata.get("token_endpoint")))
