@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=84.2.1,<85", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -45,3 +45,6 @@ mcp-authscan = "mcp_authscan.cli_wrapper:main"
 # This project root is the package itself; web imports keep their existing paths.
 packages = ["mcp_authscan"]
 package-dir = {mcp_authscan = "mcp_authscan"}
+
+[tool.mypy]
+files = ["mcp_authscan"]

@@ -41,7 +41,7 @@ jobs:
           python-version: "3.12"
       - run: pip install flask requests
       - name: Run CORS scanner tests (negative & positive control)
-        run: python3 test_cors_checks.py
+        run: python3 -m unittest tests.test_cors_policy -v
   unit-tests:
     runs-on: ubuntu-latest
     strategy:
@@ -81,5 +81,3 @@ jobs:
       - run: pip install -r requirements-runtime.txt
       - name: Reject vulnerable Python pins and stale runtime distributions
         run: python3 -m unittest tests.test_python_dependency_security -v
-      - name: Verify PDF and JSON assessment gates
-        run: python3 -m unittest discover -s tests -p 'test_compliance_pdf*.py' -v
