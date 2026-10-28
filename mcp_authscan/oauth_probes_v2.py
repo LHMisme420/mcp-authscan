@@ -256,7 +256,7 @@ def probe_token_cors(token_endpoint):
         # Wildcard or echo: both are CORS misconfigurations
         status = "FAIL"
         # Check credentials to determine severity
-        allow_credentials = resp_headers.get("Access-Control-Allow-Credentials", "").lower() == "true"
+        allow_credentials = headers.get("Access-Control-Allow-Credentials", "").lower() == "true"
         severity = "CRITICAL" if allow_credentials else "HIGH"
         title = "CORS misconfiguration on OAuth token endpoint"
         remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it (not * or request origin)"

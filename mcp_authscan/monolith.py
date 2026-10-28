@@ -568,6 +568,14 @@ def scan_live_server(target_url):
         probe_status['observation'] = oauth_counts.get("observation", 0)
         probe_status['excluded'] = oauth_counts.get("EXCLUDED", 0)
         
+        # If OAuth assessment failed (all counts are 0), mark all 9 probes as excluded
+        if (oauth_counts.get("attempted", 0) == 0 and 
+            oauth_counts.get("PASS", 0) == 0 and 
+            oauth_counts.get("FAIL", 0) == 0 and
+            oauth_counts.get("NOT_OBSERVED", 0) == 0):
+            probe_status['excluded'] = 9
+            probe_status['attempted'] = 0
+        
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
@@ -2355,14 +2363,24 @@ def main():
     # Serialize oauth_records into probes array
     probes = []
     # Serialize ProbeRecord objects using their as_dict() method
+    # Exclude headers that vary between runs (Date, ETag, etc.)
+    varying_headers = {
+                "date", "etag", "set-cookie", "server", "x-powered-by", "x-frame-options",
+                "cf-ray", "x-deno-trace-id", "report-to", "x-trace-id", "x-request-id",
+                "via", "age", "x-cache", "content-length"
+            }
     for record in oauth_records:
         probe = record.as_dict()
+        if "headers_observed" in probe and probe["headers_observed"]:
+            probe["headers_observed"] = {
+                k: v for k, v in probe["headers_observed"].items()
+                if k.lower() not in varying_headers
+            }
         probes.append(probe)
 
     
     canonical_payload = {
         "probes": probes,
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "target": args.target,
         "scan_mode": scan_mode,
         "probe_set_version": PROBE_SET_VERSION,
