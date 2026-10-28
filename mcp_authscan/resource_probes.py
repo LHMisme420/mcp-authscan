@@ -497,7 +497,24 @@ def probe_auth_challenge(target_url: str) -> ProbeRecord:
                     severity="MEDIUM",
                     endpoint=target_url
                 )
-            # Has WWW-Authenticate: PASS
+            # Parse and validate scheme
+            auth_scheme = www_auth.split()[0].rstrip(',') if www_auth.split() else ""
+            valid_schemes = {"basic", "bearer", "digest", "ntlm", "negotiate", "aws4-hmac-sha256"}
+            
+            if auth_scheme.lower() not in valid_schemes:
+                return ProbeRecord(
+                    probe_id="auth-challenge",
+                    name="auth-challenge",
+                    status="FAIL",
+                    http_status=status_code,
+                    headers_observed={"WWW-Authenticate": www_auth[:100]},
+                    body_sha256=body_hash,
+                    detail=f"Invalid WWW-Authenticate scheme '{auth_scheme}': not a recognized auth method",
+                    severity="MEDIUM",
+                    endpoint=target_url
+                )
+            
+            # Valid scheme: PASS
             return ProbeRecord(
                 probe_id="auth-challenge",
                 name="auth-challenge",
@@ -505,7 +522,7 @@ def probe_auth_challenge(target_url: str) -> ProbeRecord:
                 http_status=status_code,
                 headers_observed={"WWW-Authenticate": www_auth[:100]},
                 body_sha256=body_hash,
-                detail="Correctly challenges with WWW-Authenticate header",
+                detail=f"Correctly challenges with {auth_scheme} authentication",
                 endpoint=target_url
             )
 
