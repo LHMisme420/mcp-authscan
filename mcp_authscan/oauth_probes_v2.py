@@ -236,6 +236,12 @@ def probe_token_cors(token_endpoint):
             detail="Request failed: %s" % e
         )
     
+    # TODO(1.1.7): Check for 5xx before evaluating verdict.
+    # A 5xx response means the endpoint cannot be assessed; return NOT_OBSERVED.
+    # Currently, a 503 with no ACAO header reports PASS (incorrect).
+    # This affects all probes that make HTTP requests: token-cors, token-cache-control,
+    # jwks-keys, password-grant, client-auth. See CHANGELOG.md Known Issues.
+
     if acao == "*":
         status = "FAIL"
         severity = "MEDIUM"

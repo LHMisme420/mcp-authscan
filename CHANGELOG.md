@@ -43,6 +43,16 @@ aims to follow [Semantic Versioning](https://semver.org/).
   the `mcp-authscan` console entry point.
 - Removed a broken `keycloak` submodule gitlink that aborted CI checkout.
 
+### Known Issues
+- **5xx Response Handling (Deferred to 1.1.7)**: When an OAuth endpoint returns
+  5xx (server error), the scanner currently evaluates the response as if it
+  contained a verdict. This causes probes that make HTTP requests (token-cors,
+  token-cache-control, jwks-keys, password-grant, client-auth) to potentially
+  publish FAIL findings about missing headers or invalid tokens when the server
+  is actually unreachable or overloaded. A 5xx response cannot carry a verdict
+  about CORS policy or authentication behavior. A systematic response handler
+  that checks for 5xx before probe-specific logic will be implemented in 1.1.7.
+
 ### Removed
 - Exploit/recon scripts and result artifacts targeting specific named third
   parties, which contradicted the project's authorization stance.
