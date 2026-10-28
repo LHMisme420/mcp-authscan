@@ -40,7 +40,7 @@ def load_targets(urls, targets_file):
     de-duplicated with input order preserved."""
     collected = list(urls or [])
     if targets_file:
-        with open(targets_file) as handle:
+        with open(targets_file, encoding='utf-8') as handle:
             for line in handle:
                 line = line.strip()
                 if line and not line.startswith("#"):

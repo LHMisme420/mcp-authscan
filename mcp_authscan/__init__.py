@@ -1,7 +1,7 @@
 try:
     from importlib.metadata import version
     __version__ = version("mcp_authscan")
-except Exception:
+except (ImportError, ModuleNotFoundError):
     __version__ = "unknown"  # fallback
 __all__ = ["MCPScanner", "SecurityReport"]
 
