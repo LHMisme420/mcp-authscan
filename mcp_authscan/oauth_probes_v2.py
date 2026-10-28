@@ -266,6 +266,15 @@ def probe_token_cors(token_endpoint):
         title = None
         remediation = None
     
+    # Construct detail based on response status and ACAO value
+    if status == "FAIL":
+        if http_status == 400:
+            detail = f"ACAO: {acao} (on 400 error response: cross-origin requester receives error, not token)"
+        else:
+            detail = f"ACAO: {acao}"
+    else:
+        detail = "ACAO: %s" % (acao or "(absent)")
+    
     return record(
         probe_id=4,
         name="token-cors",
@@ -275,7 +284,7 @@ def probe_token_cors(token_endpoint):
         body=body,
         evidence="headers",
         probe_class="authserver",
-        detail="ACAO: %s" % (acao or "(absent)"),
+        detail=detail,
         severity=severity,
         endpoint=token_endpoint,
         prerequisites=[] if status == "PASS" else ["token_endpoint"],
