@@ -2286,7 +2286,7 @@ def main():
                 not_tested.insert(0, "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 → RFC 8414 discovery)")
 
         metadata = ScanMetadata(
-            scope=args.scope or "Full assessment",
+            scope=args.scope or "OAuth configuration assessment",
             probe_set_version=PROBE_SET_VERSION,
             not_tested=not_tested,
             target=args.target,
