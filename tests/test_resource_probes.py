@@ -192,7 +192,8 @@ class TestEndpointCors:
             )
             result = probe_endpoint_cors("http://example.com")
             assert result.status == "FAIL"
-            assert "echoes request origin" in result.detail
+            assert "CORS misconfigured" in result.detail
+            assert result.severity == "HIGH"  # No credentials, so HIGH
 
     def test_specific_origin_returns_pass(self):
         """Specific restricted origin is correct behavior, return PASS."""

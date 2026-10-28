@@ -70,8 +70,8 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
                     http_status=status_code,
                     headers_observed={"WWW-Authenticate": "absent"},
                     body_sha256=body_hash,
-                    detail=f"{status_code} response lacks WWW-Authenticate header",
-                    severity="HIGH",
+                    detail=f"{status_code} enforced but WWW-Authenticate header absent",
+                    severity="MEDIUM",
                     endpoint=target_url
                 )
             # Has WWW-Authenticate: PASS
@@ -205,7 +205,7 @@ def probe_anon_initialize(target_url: str) -> ProbeRecord:
                     status="FAIL",
                     http_status=status_code,
                     body_sha256=body_hash,
-                    detail="Unauthenticated initialize returned serverInfo/capabilities",
+                    detail="Unauthenticated initialize returned serverInfo/capabilities: info leak confirmed",
                     severity="HIGH",
                     endpoint=target_url
                 )
@@ -315,8 +315,8 @@ def probe_anon_tools_list(target_url: str) -> ProbeRecord:
                         status="FAIL",
                         http_status=status_code,
                         body_sha256=body_hash,
-                        detail=f"Unauthenticated tools/list returned {len(tool_names)} tools",
-                        severity="HIGH",
+                        detail=f"Unauthenticated tools/list returned {len(tool_names)} tools: enumeration confirmed",
+                        severity="CRITICAL",
                         endpoint=target_url
                     )
 
@@ -406,6 +406,8 @@ def probe_endpoint_cors(target_url: str) -> ProbeRecord:
 
         # Wildcard or echo: FAIL
         if allow_origin == "*" or allow_origin == origin_sent:
+            # Credentialed cross-origin is CRITICAL; non-credentialed is HIGH
+            severity = "CRITICAL" if allow_credentials else "HIGH"
             return ProbeRecord(
                 probe_id="endpoint-cors",
                 name="endpoint-cors",
@@ -416,8 +418,8 @@ def probe_endpoint_cors(target_url: str) -> ProbeRecord:
                     "Access-Control-Allow-Credentials": str(allow_credentials)
                 },
                 body_sha256=body_hash,
-                detail=f"CORS misconfigured: Allow-Origin={allow_origin} echoes request origin",
-                severity="HIGH",
+                detail=f"CORS misconfigured: Allow-Origin={allow_origin}" + (" with credentials=true" if allow_credentials else ""),
+                severity=severity,
                 endpoint=target_url
             )
 
@@ -490,8 +492,8 @@ def probe_auth_challenge(target_url: str) -> ProbeRecord:
                     http_status=status_code,
                     headers_observed={"WWW-Authenticate": "absent"},
                     body_sha256=body_hash,
-                    detail="401 response lacks WWW-Authenticate header",
-                    severity="HIGH",
+                    detail="401 enforced but WWW-Authenticate header absent",
+                    severity="MEDIUM",
                     endpoint=target_url
                 )
             # Has WWW-Authenticate: PASS
