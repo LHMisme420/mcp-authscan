@@ -73,7 +73,7 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
                     detail="MCP endpoint responds to JSON-RPC",
                     endpoint=target_url
                 )
-        except:
+        except (ValueError, AttributeError, TypeError):
             pass
         
         return ProbeRecord(

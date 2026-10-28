@@ -362,7 +362,7 @@ def probe_password_grant(token_endpoint):
             response = {}
             try:
                 error = json.loads(body.decode("utf-8")).get("error", "")
-            except:
+            except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
                 error = ""
     except (URLError, Exception) as e:
         return record(
@@ -452,7 +452,7 @@ def probe_client_auth(token_endpoint):
             response = {}
             try:
                 error = json.loads(body.decode("utf-8")).get("error", "")
-            except:
+            except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
                 error = ""
     except (URLError, Exception) as e:
         return record(

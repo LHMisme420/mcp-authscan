@@ -754,7 +754,7 @@ def validate_response_format(response_preview, endpoint_type):
             import json as json_module
             json_module.loads(response_preview[:500])
             return True
-        except:
+        except (json_module.JSONDecodeError, ValueError, TypeError):
             return False
     
     return False
@@ -2251,7 +2251,7 @@ def main():
                     if recognized_irrelevant > 0:
                         exclusions.append(f"{recognized_irrelevant} recognized as irrelevant")
                     files_excluded = [files_examined_detail] + exclusions
-            except:
+            except (OSError, IOError, PermissionError):
                 files_excluded = list(SKIP_DIR)
 
         # Define what wasn't tested based on assessment type
