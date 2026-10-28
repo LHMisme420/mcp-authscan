@@ -71,6 +71,7 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
                     headers_observed={"WWW-Authenticate": "absent"},
                     body_sha256=body_hash,
                     detail=f"{status_code} response lacks WWW-Authenticate header",
+                    severity="HIGH",
                     endpoint=target_url
                 )
             # Has WWW-Authenticate: PASS
@@ -205,6 +206,7 @@ def probe_anon_initialize(target_url: str) -> ProbeRecord:
                     http_status=status_code,
                     body_sha256=body_hash,
                     detail="Unauthenticated initialize returned serverInfo/capabilities",
+                    severity="HIGH",
                     endpoint=target_url
                 )
 
@@ -314,6 +316,7 @@ def probe_anon_tools_list(target_url: str) -> ProbeRecord:
                         http_status=status_code,
                         body_sha256=body_hash,
                         detail=f"Unauthenticated tools/list returned {len(tool_names)} tools",
+                        severity="HIGH",
                         endpoint=target_url
                     )
 
@@ -414,6 +417,7 @@ def probe_endpoint_cors(target_url: str) -> ProbeRecord:
                 },
                 body_sha256=body_hash,
                 detail=f"CORS misconfigured: Allow-Origin={allow_origin} echoes request origin",
+                severity="HIGH",
                 endpoint=target_url
             )
 
@@ -487,6 +491,7 @@ def probe_auth_challenge(target_url: str) -> ProbeRecord:
                     headers_observed={"WWW-Authenticate": "absent"},
                     body_sha256=body_hash,
                     detail="401 response lacks WWW-Authenticate header",
+                    severity="HIGH",
                     endpoint=target_url
                 )
             # Has WWW-Authenticate: PASS
