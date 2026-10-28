@@ -36,11 +36,11 @@ Each probe defines when it reaches a PASS verdict (compliance confirmed) vs FAIL
 - **NOT_OBSERVED:** invalid_client, invalid_request, or other unexpected error
 
 ### [7] pkce-s256
-- **NOT_OBSERVED:** Cannot test without registered client and authorization flow
+- **EXCLUDED:** Cannot test without registered client and authorization flow
 - (Out of scope for new server assessment)
 
 ### [8] redirect-uri-exact
-- **NOT_OBSERVED:** Cannot test without registered client and authorization endpoint
+- **EXCLUDED:** Cannot test without registered client and authorization endpoint
 - (Out of scope for new server assessment)
 
 ### [9] client-auth
@@ -55,7 +55,7 @@ Each probe defines when it reaches a PASS verdict (compliance confirmed) vs FAIL
 For 9-probe assessment:
 - **In-scope probes:** 1-6, 9 (seven probes that can run on any server)
 - **Out-of-scope probes:** 7-8 (two probes requiring registered client)
-- **Pass coverage:** NOT_OBSERVED ≤ 2 (only the out-of-scope probes)
-- **Fail coverage:** NOT_OBSERVED > 2 → EXIT 5 (cannot fully assess server)
+- **Pass coverage:** EXCLUDED ≤ 2 (only the out-of-scope probes)
+- **Fail coverage:** EXCLUDED > 2 → EXIT 5 (cannot fully assess server)
 
 A server must reach verdicts on all in-scope probes to report exit 0 or 1. Insufficient coverage → EXIT 5.
