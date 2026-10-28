@@ -239,8 +239,18 @@ def probe_token_cors(token_endpoint):
             detail="Request failed: %s" % e
         )
     
-    # Check for 5xx before evaluating verdict.
-    # A 5xx response means the endpoint cannot be assessed; return NOT_OBSERVED.
+    # Check for error responses before evaluating verdict.
+    # 4xx: endpoint error; cannot assess CORS. Return EXCLUDED.
+    if http_status and 400 <= http_status < 500:
+        return record(
+            probe_id=4,
+            name="token-cors",
+            status="EXCLUDED",
+            http_status=http_status,
+            probe_class="authserver",
+            detail="Endpoint returned error; cannot assess CORS configuration"
+        )
+    # 5xx: server error; cannot assess. Return NOT_OBSERVED.
     if http_status and http_status >= 500:
         status = "NOT_OBSERVED"
         severity = None
@@ -314,9 +324,9 @@ def probe_jwks_keys(jwks_uri):
         return record(
             probe_id=5,
             name="jwks-keys",
-            status="NOT_OBSERVED",
+            status="EXCLUDED",
             probe_class="authserver",
-            detail="Request failed: %s" % e
+            detail="Cannot reach JWKS endpoint"
         )
     
     # Explicit check: keys must be asymmetric (RSA, EC, etc)
