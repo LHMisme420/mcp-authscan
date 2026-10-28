@@ -5,7 +5,23 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mcp-authscan"
 version = "1.1.6"  # keep in sync with mcp_authscan.__version__
-description = "Security scanner for MCP server deployments"
+description = """MCP AuthScan
+Security scanner for MCP server deployments you are authorised to test. Python 3.11+.
+
+pip install mcp-authscan
+mcp-authscan scan target.example.com/mcp
+
+Each scan returns a verdict per probe, not a score:
+PASS the property was positively demonstrated
+FAIL the property was demonstrably absent, with a severity attached
+NOT_OBSERVED the probe ran but the response established neither
+EXCLUDED the probe could not run, with the missing prerequisite named, and it leaves the coverage denominator
+
+Coverage is conclusive probes over the in-scope set; EXCLUDED is counted separately. Text, JSON and SARIF 2.1.0 output. --fail-on severity gates CI. Baselines carry an expiry date and a reason. Every report records target, start and end, exit code, tool version, probe-set version and a content hash covering the authorization, scan mode, verdicts and findings, with the header block outside the hash. Tokens, cookies, API keys and email addresses are redacted from the captured evidence.
+
+Use it only against targets you own or have written permission to test. Reports are written to be handed to someone who wasn't on the call.
+
+Exit codes are in EXIT_CODES.md. MIT. Repo: github.com/LHMisme420/mcp-authscan"""
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Leroy H. Mason", email = "lhmisme2011@gmail.com"}]
