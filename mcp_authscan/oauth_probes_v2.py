@@ -219,12 +219,14 @@ def probe_token_cors(token_endpoint):
         try:
             with urlopen(req, timeout=5) as resp:
                 headers = dict(resp.headers)
-                acao = headers.get("Access-Control-Allow-Origin", "")
+                # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
+                acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
                 body = resp.read()
                 http_status = 200
         except HTTPError as e:
             headers = dict(e.headers)
-            acao = headers.get("Access-Control-Allow-Origin", "")
+            # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
+            acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
             body = e.read()
             http_status = e.code
     except (URLError, Exception) as e:
