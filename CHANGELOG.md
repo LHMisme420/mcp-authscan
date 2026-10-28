@@ -6,6 +6,12 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Terminology
+- Probes 7-8 (pkce-s256, redirect-uri-exact) have **unmet prerequisites** (require 
+  registered client to test), so they return EXCLUDED status. This is distinct from
+  "out-of-scope" — both terms refer to tests that cannot run, but prerequisites define
+  the verdict semantics (EXCLUDED, not NOT_OBSERVED) per the 2026-10-23 amendment.
+
 ### Added
 - Hosted app: a per-scan **authorization attestation**. The `/api/scan(s/mcp)`
   endpoint now requires `authorized: true` and records the attestation to a
