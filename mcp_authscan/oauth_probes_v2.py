@@ -4,6 +4,33 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from ._common import record, SEVERITY_ORDER
+from urllib.parse import urlparse
+import socket
+from .monolith import assert_url_is_fetchable
+
+class EgressRefusalError(Exception):
+    """Raised when a URL is outside the allowed scope."""
+    pass
+
+
+def _egress_guard(request_obj, timeout=5):
+    """Egress guard: enforce scope on all outbound requests.
+    
+    Checks that request_obj.full_url is fetchable (globally routable, not SSRF).
+    Raises EgressRefusalError if the target is outside scope.
+    Returns (status_code, headers_dict, body_bytes) on success.
+    """
+    try:
+        assert_url_is_fetchable(request_obj.full_url)
+    except ValueError as e:
+        raise EgressRefusalError(str(e))
+    
+    try:
+        with urlopen(request_obj, timeout=timeout) as resp:
+            return (resp.status, dict(resp.headers), resp.read())
+    except HTTPError as e:
+        return (e.code, dict(e.headers), e.read())
+
 
 OAUTH_PROBE_VERSION = "2.0.0"
 
@@ -141,14 +168,16 @@ def probe_token_cache_control(token_endpoint):
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.data = b"grant_type=invalid"
         try:
-            with urlopen(req, timeout=5) as resp:
-                http_status = resp.status
-                cache_control = resp.headers.get("Cache-Control", "")
-                body = resp.read()
-        except HTTPError as e:
-            http_status = e.code
-            cache_control = e.headers.get("Cache-Control", "")
-            body = e.read()
+            http_status, headers, body = _egress_guard(req)
+            cache_control = headers.get("Cache-Control", "")
+        except EgressRefusalError:
+            return record(
+                probe_id=3,
+                name="token-cache-control",
+                status="NOT_OBSERVED",
+                probe_class="authserver",
+                detail="Target URL outside allowed scope"
+            )
     except (URLError, Exception) as e:
         return record(
             probe_id=3,
@@ -218,18 +247,17 @@ def probe_token_cors(token_endpoint):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=invalid"
         try:
-            with urlopen(req, timeout=5) as resp:
-                headers = dict(resp.headers)
-                # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
-                acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
-                body = resp.read()
-                http_status = 200
-        except HTTPError as e:
-            headers = dict(e.headers)
+            http_status, headers, body = _egress_guard(req)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
             acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
-            body = e.read()
-            http_status = e.code
+        except EgressRefusalError:
+            return record(
+                probe_id=4,
+                name="token-cors",
+                status="NOT_OBSERVED",
+                probe_class="authserver",
+                detail="Target URL outside allowed scope"
+            )
     except (URLError, Exception) as e:
         return record(
             probe_id=4,
@@ -316,10 +344,17 @@ def probe_jwks_keys(jwks_uri):
     try:
         req = Request(jwks_uri)
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-        with urlopen(req, timeout=5) as resp:
-            body = resp.read()
-            jwks = json.loads(body.decode("utf-8"))
-            keys = jwks.get("keys", [])
+        status_code, headers, body = _egress_guard(req)
+        jwks = json.loads(body.decode("utf-8"))
+        keys = jwks.get("keys", [])
+    except EgressRefusalError:
+        return record(
+            probe_id=5,
+            name="jwks-keys",
+            status="NOT_OBSERVED",
+            probe_class="authserver",
+            detail="Target URL outside allowed scope"
+        )
     except (URLError, Exception, json.JSONDecodeError) as e:
         return record(
             probe_id=5,
@@ -381,19 +416,21 @@ def probe_password_grant(token_endpoint):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=password&username=test&password=test"
         try:
-            with urlopen(req, timeout=5) as resp:
-                http_status = resp.status
-                body = resp.read()
-                response = json.loads(body.decode("utf-8"))
-                error = response.get("error", "")
-        except HTTPError as e:
-            http_status = e.code
-            body = e.read()
+            http_status, headers, body = _egress_guard(req)
+            response = json.loads(body.decode("utf-8"))
+            error = response.get("error", "")
+        except EgressRefusalError:
+            return record(
+                probe_id=7,
+                name="password-grant",
+                status="NOT_OBSERVED",
+                probe_class="authserver",
+                detail="Target URL outside allowed scope"
+            )
+        except json.JSONDecodeError:
+            http_status = 400
             response = {}
-            try:
-                error = json.loads(body.decode("utf-8")).get("error", "")
-            except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-                error = ""
+            error = ""
     except (URLError, Exception) as e:
         return record(
             probe_id=6,
@@ -471,19 +508,21 @@ def probe_client_auth(token_endpoint):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=authorization_code&code=invalid"
         try:
-            with urlopen(req, timeout=5) as resp:
-                http_status = resp.status
-                body = resp.read()
-                response = json.loads(body.decode("utf-8"))
-                error = response.get("error", "")
-        except HTTPError as e:
-            http_status = e.code
-            body = e.read()
+            http_status, headers, body = _egress_guard(req)
+            response = json.loads(body.decode("utf-8"))
+            error = response.get("error", "")
+        except EgressRefusalError:
+            return record(
+                probe_id=7,
+                name="password-grant",
+                status="NOT_OBSERVED",
+                probe_class="authserver",
+                detail="Target URL outside allowed scope"
+            )
+        except json.JSONDecodeError:
+            http_status = 400
             response = {}
-            try:
-                error = json.loads(body.decode("utf-8")).get("error", "")
-            except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-                error = ""
+            error = ""
     except (URLError, Exception) as e:
         return record(
             probe_id=9,
@@ -524,11 +563,13 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
     try:
         req = Request(metadata_url)
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-        with urlopen(req, timeout=5) as resp:
-            metadata = json.loads(resp.read().decode())
-    except (HTTPError, URLError, json.JSONDecodeError) as e:
+        status_code, headers, body = _egress_guard(req)
+        metadata = json.loads(body.decode())
+    except EgressRefusalError as e:
+        print("[!] OAuth server outside allowed scope: %s" % e, file=sys.stderr)
+        return [], []
+    except (URLError, json.JSONDecodeError) as e:
         print("[!] Cannot fetch OAuth metadata from %s: %s" % (metadata_url, e), file=sys.stderr)
-        # Return empty records list; OAuth probes will be skipped by caller
         return [], []
 
     records = []
