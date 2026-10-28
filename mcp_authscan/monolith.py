@@ -601,7 +601,7 @@ def scan_live_server(target_url):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "1.1.0"  # 1.1.0: 9-probe OAuth server assessment (issuer, resource-binding, cache-control, cors, jwks, password-grant, pkce, redirect-uri, client-auth)
+PROBE_SET_VERSION = "2026.10.28"  # OAuth probe suite: token-cors 5xx/absent/echo handling, origin echo detection
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""

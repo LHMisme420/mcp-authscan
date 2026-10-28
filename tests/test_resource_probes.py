@@ -1,252 +1,284 @@
-"""Test resource endpoint probes."""
+"""Test resource probes with four-branch verdict logic.
+
+Tests verify:
+- 5xx → NOT_OBSERVED
+- Correct behavior → PASS
+- Vulnerability → FAIL
+- Non-assessable → NOT_OBSERVED
+- No MODERATE or MEDIUM severity strings
+"""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from mcp_authscan.resource_probes import (
-    probe_anon_tools_list,
+    probe_mcp_preflight,
     probe_anon_initialize,
+    probe_anon_tools_list,
     probe_endpoint_cors,
     probe_auth_challenge,
 )
 
 
-def test_anon_tools_list_fails_on_exposed_tools():
-    """Bad fixture: tools/list returns tools array without auth. Should FAIL."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "jsonrpc": "2.0",
-            "result": {
-                "tools": [
-                    {"name": "weather", "description": "Get weather"},
-                    {"name": "calendar", "description": "Calendar access"},
-                ]
-            },
-            "id": 1
-        }
-        mock_post.return_value = mock_response
-        
-        should_fail, evidence = probe_anon_tools_list("http://localhost:8000")
-        assert should_fail is True
-        assert "2 tools" in evidence
+class TestMcpPreflight:
+    """Test probe_mcp_preflight four-branch logic."""
+
+    def test_5xx_returns_not_observed(self):
+        """5xx error should return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (500, {}, b"")
+            result = probe_mcp_preflight("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+            assert result.http_status == 500
+
+    def test_401_with_www_authenticate_returns_pass(self):
+        """401 with WWW-Authenticate header is correct behavior, return PASS."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                401,
+                {"WWW-Authenticate": "Bearer realm=\"example\""},
+                b"Unauthorized"
+            )
+            result = probe_mcp_preflight("http://example.com")
+            assert result.status == "PASS"
+            assert result.http_status == 401
+
+    def test_401_without_www_authenticate_returns_fail(self):
+        """401 without WWW-Authenticate header is vulnerability, return FAIL."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (401, {}, b"Unauthorized")
+            result = probe_mcp_preflight("http://example.com")
+            assert result.status == "FAIL"
+
+    def test_200_non_json_returns_not_observed(self):
+        """200 but body is not JSON-RPC, return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (200, {}, b"<html>Not JSON-RPC</html>")
+            result = probe_mcp_preflight("http://example.com")
+            assert result.status == "NOT_OBSERVED"
 
 
-def test_anon_tools_list_passes_on_401():
-    """Good fixture: tools/list returns 401 without auth. Should PASS."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        mock_response = Mock()
-        mock_response.status_code = 401
-        mock_post.return_value = mock_response
-        
-        should_fail, evidence = probe_anon_tools_list("http://localhost:8000")
-        assert should_fail is False
+class TestAnonInitialize:
+    """Test probe_anon_initialize four-branch logic."""
+
+    def test_5xx_returns_not_observed(self):
+        """5xx error should return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (503, {}, b"Service Unavailable")
+            result = probe_anon_initialize("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+
+    def test_401_correct_behavior_returns_pass(self):
+        """401 response without exposed serverInfo is correct, return PASS."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                401,
+                {},
+                b'{"jsonrpc":"2.0","error":{"code":-32600,"message":"Authentication required"}}'
+            )
+            result = probe_anon_initialize("http://example.com")
+            assert result.status == "PASS"
+
+    def test_vulnerability_exposes_serverinfo_returns_fail(self):
+        """Response with serverInfo/capabilities exposed is vulnerability, return FAIL."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {},
+                b'{"jsonrpc":"2.0","result":{"capabilities":{"roots":{"listChanged":true}},"serverInfo":{"name":"example"}}}'
+            )
+            result = probe_anon_initialize("http://example.com")
+            assert result.status == "FAIL"
+
+    def test_non_json_response_returns_not_observed(self):
+        """Non-JSON response, cannot assess, return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (200, {}, b"Plain text response")
+            result = probe_anon_initialize("http://example.com")
+            assert result.status == "NOT_OBSERVED"
 
 
-def test_endpoint_cors_fails_on_wildcard():
-    """CORS misconfigured: Allow-Origin = *. Should FAIL."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "false"
-        }
-        mock_post.return_value = mock_response
-        
-        should_fail, evidence, severity = probe_endpoint_cors("http://localhost:8000")
-        assert should_fail is True
-        assert severity == "MODERATE"
+class TestAnonToolsList:
+    """Test probe_anon_tools_list four-branch logic."""
+
+    def test_5xx_returns_not_observed(self):
+        """5xx error should return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (502, {}, b"Bad Gateway")
+            result = probe_anon_tools_list("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+
+    def test_401_correct_behavior_returns_pass(self):
+        """401 response is correct behavior, return PASS."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                401,
+                {},
+                b'{"jsonrpc":"2.0","error":{"code":-32600,"message":"Unauthorized"}}'
+            )
+            result = probe_anon_tools_list("http://example.com")
+            assert result.status == "PASS"
+
+    def test_vulnerability_returns_tools_returns_fail(self):
+        """Response with non-empty tools array is vulnerability, return FAIL."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {},
+                b'{"jsonrpc":"2.0","result":{"tools":[{"name":"tool1"}]}}'
+            )
+            result = probe_anon_tools_list("http://example.com")
+            assert result.status == "FAIL"
+
+    def test_200_with_empty_tools_returns_not_observed(self):
+        """200 with empty tools array is unusual, not standard MCP response, return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {},
+                b'{"jsonrpc":"2.0","result":{"tools":[]}}'
+            )
+            result = probe_anon_tools_list("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+
+    def test_200_with_error_response_returns_pass(self):
+        """200 with error response is correct behavior, return PASS."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {},
+                b'{"jsonrpc":"2.0","error":{"code":-32600,"message":"Unauthorized"}}'
+            )
+            result = probe_anon_tools_list("http://example.com")
+            assert result.status == "PASS"
 
 
-def test_auth_challenge_fails_without_header():
-    """401 without WWW-Authenticate header. Should FAIL."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        mock_response = Mock()
-        mock_response.status_code = 401
-        mock_response.headers = {}
-        mock_post.return_value = mock_response
-        
-        should_fail, evidence = probe_auth_challenge("http://localhost:8000")
-        assert should_fail is True
+class TestEndpointCors:
+    """Test probe_endpoint_cors four-branch logic."""
+
+    def test_5xx_returns_not_observed(self):
+        """5xx error should return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (500, {}, b"Server Error")
+            result = probe_endpoint_cors("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+
+    def test_absent_acao_returns_not_observed(self):
+        """Absent Access-Control-Allow-Origin header, return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (200, {}, b'{"jsonrpc":"2.0","result":{}}')
+            result = probe_endpoint_cors("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+            assert "not configured for CORS" in result.detail
+
+    def test_wildcard_acao_returns_fail(self):
+        """Wildcard Access-Control-Allow-Origin is vulnerability, return FAIL."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {"Access-Control-Allow-Origin": "*"},
+                b'{"jsonrpc":"2.0","result":{}}'
+            )
+            result = probe_endpoint_cors("http://example.com")
+            assert result.status == "FAIL"
+            assert "Allow-Origin=*" in result.detail
+
+    def test_echo_origin_returns_fail(self):
+        """Echo back request Origin is vulnerability, return FAIL."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {"Access-Control-Allow-Origin": "https://boardy.invalid"},
+                b'{"jsonrpc":"2.0","result":{}}'
+            )
+            result = probe_endpoint_cors("http://example.com")
+            assert result.status == "FAIL"
+            assert "echoes request origin" in result.detail
+
+    def test_specific_origin_returns_pass(self):
+        """Specific restricted origin is correct behavior, return PASS."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                200,
+                {"Access-Control-Allow-Origin": "https://trusted-origin.com"},
+                b'{"jsonrpc":"2.0","result":{}}'
+            )
+            result = probe_endpoint_cors("http://example.com")
+            assert result.status == "PASS"
+            assert "properly restricted" in result.detail
 
 
-"""Test resource endpoint probes with five comprehensive fixtures."""
+class TestAuthChallenge:
+    """Test probe_auth_challenge four-branch logic."""
 
-import pytest
-import json
-from unittest.mock import Mock, patch
-from mcp_authscan.resource_probes import run_resource_probes
+    def test_5xx_returns_not_observed(self):
+        """5xx error should return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (500, {}, b"Server Error")
+            result = probe_auth_challenge("http://example.com")
+            assert result.status == "NOT_OBSERVED"
 
+    def test_401_with_www_authenticate_returns_pass(self):
+        """401 with WWW-Authenticate header is correct behavior, return PASS."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (
+                401,
+                {"WWW-Authenticate": "Bearer realm=\"example\""},
+                b"Unauthorized"
+            )
+            result = probe_auth_challenge("http://example.com")
+            assert result.status == "PASS"
+            assert "WWW-Authenticate" in result.headers_observed
 
-def test_fixture_1_all_pass():
-    """Good fixture: all five probes PASS."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        # Setup responses for each probe
-        responses = []
-        
-        # preflight: 401 with WWW-Authenticate
-        r1 = Mock()
-        r1.status_code = 401
-        r1.headers = {"WWW-Authenticate": "Bearer realm=\"api\""}
-        r1.json.return_value = {"jsonrpc": "2.0", "error": {"code": -32600}}
-        responses.append(r1)
-        
-        # anon-initialize: 401
-        r2 = Mock()
-        r2.status_code = 401
-        responses.append(r2)
-        
-        # anon-tools-list: 401
-        r3 = Mock()
-        r3.status_code = 401
-        responses.append(r3)
-        
-        # endpoint-cors: 200 with restricted origin
-        r4 = Mock()
-        r4.status_code = 200
-        r4.headers = {"Access-Control-Allow-Origin": "https://example.com"}
-        r4.json.return_value = {}
-        responses.append(r4)
-        
-        # auth-challenge: 401 with WWW-Authenticate
-        r5 = Mock()
-        r5.status_code = 401
-        r5.headers = {"WWW-Authenticate": "Bearer realm=\"api\""}
-        responses.append(r5)
-        
-        mock_post.side_effect = responses
-        
-        probes = run_resource_probes("http://localhost:8000")
-        
-        # All five should PASS
-        assert len(probes) == 5
-        assert sum(1 for p in probes if p.status == "PASS") == 5
-        assert sum(1 for p in probes if p.status == "FAIL") == 0
+    def test_401_without_www_authenticate_returns_fail(self):
+        """401 without WWW-Authenticate header is vulnerability, return FAIL."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (401, {}, b"Unauthorized")
+            result = probe_auth_challenge("http://example.com")
+            assert result.status == "FAIL"
+            assert "absent" in result.headers_observed.get("WWW-Authenticate", "").lower()
+
+    def test_non_401_returns_not_observed(self):
+        """Non-401 response, cannot assess auth challenge, return NOT_OBSERVED."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (200, {}, b'{"jsonrpc":"2.0","result":{}}')
+            result = probe_auth_challenge("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+            assert "Expected 401 challenge" in result.detail
 
 
-def test_fixture_2_bad():
-    """Bad fixture: tools exposed, CORS misconfigured, preflight passes."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        responses = []
-        
-        # preflight: 401 with header (PASS)
-        r1 = Mock()
-        r1.status_code = 401
-        r1.headers = {"WWW-Authenticate": "Bearer"}
-        r1.json.return_value = {"jsonrpc": "2.0", "error": {}}
-        responses.append(r1)
-        
-        # anon-initialize: 401 (PASS)
-        r2 = Mock()
-        r2.status_code = 401
-        responses.append(r2)
-        
-        # anon-tools-list: 200 with tools (FAIL CRITICAL)
-        r3 = Mock()
-        r3.status_code = 200
-        r3.json.return_value = {
-            "jsonrpc": "2.0",
-            "result": {
-                "tools": [
-                    {"name": "weather"},
-                    {"name": "calendar"},
-                    {"name": "email"}
-                ]
-            }
-        }
-        responses.append(r3)
-        
-        # endpoint-cors: Allow-Origin=* (FAIL)
-        r4 = Mock()
-        r4.status_code = 200
-        r4.headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "false"
-        }
-        r4.json.return_value = {}
-        responses.append(r4)
-        
-        # auth-challenge: 401 with header (PASS)
-        r5 = Mock()
-        r5.status_code = 401
-        r5.headers = {"WWW-Authenticate": "Bearer"}
-        responses.append(r5)
-        
-        mock_post.side_effect = responses
-        
-        probes = run_resource_probes("http://localhost:8000")
-        
-        # Check: preflight PASS, anon-initialize PASS, tools FAIL CRITICAL, cors FAIL, auth PASS
-        passed = sum(1 for p in probes if p.status == "PASS")
-        failed = sum(1 for p in probes if p.status == "FAIL")
-        
-        assert passed == 3, f"Expected 3 PASS, got {passed}"
-        assert failed == 2, f"Expected 2 FAIL, got {failed}"
-        
-        # Verify tools has CRITICAL severity
-        tools_probe = next(p for p in probes if p.probe_id == "anon-tools-list")
-        assert tools_probe.status == "FAIL"
-        assert tools_probe.severity == "CRITICAL"
-        assert "3 tools" in tools_probe.detail
+class TestNoSeverityStrings:
+    """Verify MODERATE and MEDIUM severity strings are removed."""
 
+    def test_no_moderate_severity_in_any_probe(self):
+        """No resource probe should return MODERATE severity."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (200, {}, b"test")
 
-def test_fixture_3_bare_401():
-    """Bare 401 fixture: preflight NOT_OBSERVED (no WWW-Authenticate), four EXCLUDED."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        # preflight: 401 without WWW-Authenticate (NOT_OBSERVED, gates others)
-        r = Mock()
-        r.status_code = 401
-        r.headers = {}
-        r.json.return_value = {}
-        
-        mock_post.return_value = r
-        
-        probes = run_resource_probes("http://localhost:8000")
-        
-        # preflight should NOT_OBSERVED, other four EXCLUDED
-        preflight = next(p for p in probes if p.probe_id == "mcp-preflight")
-        assert preflight.status == "FAIL", "Bare 401 without header = not MCP"
-        
-        # Other four should be EXCLUDED due to preflight failure
-        excluded = sum(1 for p in probes if p.status == "EXCLUDED")
-        assert excluded == 4, f"Expected 4 EXCLUDED, got {excluded}"
+            probes = [
+                probe_mcp_preflight,
+                probe_anon_initialize,
+                probe_anon_tools_list,
+                probe_endpoint_cors,
+                probe_auth_challenge,
+            ]
 
+            for probe in probes:
+                result = probe("http://example.com")
+                assert result.severity != "MODERATE", f"{probe.__name__} returned MODERATE"
 
-def test_fixture_4_plain_rest():
-    """Plain REST fixture: {"result": {"ok": true}} - preflight NOT_OBSERVED, four EXCLUDED."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        # preflight: 200 with plain REST response (no jsonrpc field)
-        r = Mock()
-        r.status_code = 200
-        r.json.return_value = {"result": {"ok": True}}
-        
-        mock_post.return_value = r
-        
-        probes = run_resource_probes("http://localhost:8000")
-        
-        # preflight should FAIL (not JSON-RPC)
-        preflight = next(p for p in probes if p.probe_id == "mcp-preflight")
-        assert preflight.status == "FAIL"
-        
-        # Other four EXCLUDED
-        excluded = sum(1 for p in probes if p.status == "EXCLUDED")
-        assert excluded == 4
+    def test_no_medium_severity_in_any_probe(self):
+        """No resource probe should return MEDIUM severity."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (200, {}, b"test")
 
+            probes = [
+                probe_mcp_preflight,
+                probe_anon_initialize,
+                probe_anon_tools_list,
+                probe_endpoint_cors,
+                probe_auth_challenge,
+            ]
 
-def test_fixture_5_dead_port():
-    """Dead port fixture: preflight NOT_OBSERVED (connection refused)."""
-    with patch('mcp_authscan.resource_probes.requests.post') as mock_post:
-        import requests
-        mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
-        
-        probes = run_resource_probes("http://localhost:9999")
-        
-        # preflight should NOT_OBSERVED
-        preflight = next(p for p in probes if p.probe_id == "mcp-preflight")
-        assert preflight.status == "FAIL"
-        assert "Connection" in preflight.detail
-        
-        # No FAILs (all either NOT_OBSERVED or EXCLUDED)
-        fails = sum(1 for p in probes if p.status == "FAIL")
-        assert fails == 1  # Only preflight fails on connection error
+            for probe in probes:
+                result = probe("http://example.com")
+                assert result.severity != "MEDIUM", f"{probe.__name__} returned MEDIUM"

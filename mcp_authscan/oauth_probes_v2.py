@@ -202,18 +202,19 @@ def probe_token_cors(token_endpoint):
             probe_class="authserver",
             limitation="No token endpoint"
         )
-    
+
     headers = {}
     http_status = None
     body = b""
     acao = ""
-    
+    origin_sent = "https://hostile.example.com"
+
     try:
         # Check CORS on POST (the request that carries credentials)
         # Probe: POST with hostile Origin header
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-        req.add_header("Origin", "https://hostile.example.com")
+        req.add_header("Origin", origin_sent)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=invalid"
         try:
@@ -238,17 +239,25 @@ def probe_token_cors(token_endpoint):
             detail="Request failed: %s" % e
         )
     
-    # TODO(1.1.7): Check for 5xx before evaluating verdict.
+    # Check for 5xx before evaluating verdict.
     # A 5xx response means the endpoint cannot be assessed; return NOT_OBSERVED.
-    # Currently, a 503 with no ACAO header reports PASS (incorrect).
-    # This affects all probes that make HTTP requests: token-cors, token-cache-control,
-    # jwks-keys, password-grant, client-auth. See CHANGELOG.md Known Issues.
-
-    if acao == "*":
+    if http_status and http_status >= 500:
+        status = "NOT_OBSERVED"
+        severity = None
+        title = None
+        remediation = None
+    elif acao == "":
+        # Absent ACAO header: endpoint not configured for CORS, cannot assess.
+        status = "NOT_OBSERVED"
+        severity = None
+        title = None
+        remediation = None
+    elif acao == "*" or acao == origin_sent:
+        # Wildcard or echo: both are CORS misconfigurations
         status = "FAIL"
         severity = "MEDIUM"
-        title = "Wildcard CORS origin on OAuth token endpoint"
-        remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it"
+        title = "CORS misconfiguration on OAuth token endpoint"
+        remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it (not * or request origin)"
     else:
         status = "PASS"
         severity = None
