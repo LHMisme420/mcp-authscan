@@ -2310,7 +2310,7 @@ def main():
         report_lines.append("MCP-AUTHSCAN SECURITY REPORT")
         report_lines.append("=" * 80)
         report_lines.append("")
-        report_lines.append("Scanner: mcp-authscan v" + VERSION)
+        report_lines.append(f"Scanner: mcp-authscan v{VERSION} ({commit_hash})")
         report_lines.append(f"Scan Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
         report_lines.append("Repository: https://github.com/LHMisme420/mcp-authscan")
         report_lines.append("")
