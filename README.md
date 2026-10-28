@@ -28,15 +28,20 @@ Only point this at systems you own or are permitted to test.
 
 ## Install
 
-Python 3.11 or newer, including for the standalone scanner.
+Python 3.11 or newer.
 
+```bash
+pip install mcp-authscan
+```
+
+Or from source:
 ```bash
 git clone https://github.com/LHMisme420/mcp-authscan.git
 cd mcp-authscan
-pip install -e ./mcp_authscan
+pip install -e .
 ```
 
-Packaging metadata lives in mcp_authscan/pyproject.toml; the repository root is the web project. Build distributions with python -m build ./mcp_authscan --outdir ./dist.
+Build from source: `python -m build`
 
 ## Run
 
