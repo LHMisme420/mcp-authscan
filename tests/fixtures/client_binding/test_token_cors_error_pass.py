@@ -33,6 +33,11 @@ def run_fixture_server(port):
     except:
         pass
 
+# Allow private targets for this fixture
+sys.path.insert(0, '/home/lhmisme/mcp-authscan')
+import mcp_authscan.monolith
+mcp_authscan.monolith.ALLOW_PRIVATE_TARGETS = True
+
 # Start fixture on available port
 port = get_free_port()
 thread = threading.Thread(target=run_fixture_server, args=(port,), daemon=True)
@@ -40,7 +45,6 @@ thread.start()
 time.sleep(0.3)
 
 # Run probe
-sys.path.insert(0, '/home/lhmisme/mcp-authscan')
 from mcp_authscan.oauth_probes_v2 import probe_token_cors
 
 result = probe_token_cors(f"http://127.0.0.1:{port}/token")

@@ -16,7 +16,8 @@ class EgressRefusalError(Exception):
 def _egress_guard(request_obj, timeout=5):
     """Egress guard: enforce scope on all outbound requests.
     
-    Checks that request_obj.full_url is fetchable (globally routable, not SSRF).
+    Checks that request_obj.full_url is fetchable (globally routable, not SSRF)
+    and that the hostname is in the authorized set.
     Raises EgressRefusalError if the target is outside scope.
     Returns (status_code, headers_dict, body_bytes) on success.
     """
@@ -24,6 +25,14 @@ def _egress_guard(request_obj, timeout=5):
         assert_url_is_fetchable(request_obj.full_url)
     except ValueError as e:
         raise EgressRefusalError(str(e))
+    
+    # Check hostname against authorized set
+    from mcp_authscan.monolith import ALLOWED_HOSTS
+    from urllib.parse import urlparse
+    parsed = urlparse(request_obj.full_url)
+    hostname = (parsed.hostname or '').lower()
+    if hostname and hostname not in ALLOWED_HOSTS:
+        raise EgressRefusalError(f"host {hostname} not in authorized set: {sorted(ALLOWED_HOSTS)}")
     
     try:
         with urlopen(request_obj, timeout=timeout) as resp:
@@ -419,14 +428,6 @@ def probe_password_grant(token_endpoint):
             http_status, headers, body = _egress_guard(req)
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
-        except EgressRefusalError:
-            return record(
-                probe_id=7,
-                name="password-grant",
-                status="NOT_OBSERVED",
-                probe_class="authserver",
-                detail="Target URL outside allowed scope"
-            )
         except json.JSONDecodeError:
             http_status = 400
             response = {}
@@ -511,14 +512,6 @@ def probe_client_auth(token_endpoint):
             http_status, headers, body = _egress_guard(req)
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
-        except EgressRefusalError:
-            return record(
-                probe_id=7,
-                name="password-grant",
-                status="NOT_OBSERVED",
-                probe_class="authserver",
-                detail="Target URL outside allowed scope"
-            )
         except json.JSONDecodeError:
             http_status = 400
             response = {}

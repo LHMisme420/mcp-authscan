@@ -84,6 +84,7 @@ def validate_target_host(hostname, port):
 
 # Set from --allow-private so explicitly authorized local targets keep working.
 ALLOW_PRIVATE_TARGETS = False
+ALLOWED_HOSTS: set[str] = set()  # Authorized domains for discovery
 
 
 def is_global_address(address):
@@ -465,7 +466,7 @@ def scan_live_server(target_url):
         print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
 
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
-        from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
+        from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, EgressRefusalError, count_probes, render_probe
 
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
@@ -1993,6 +1994,7 @@ def main():
                     help="authorization basis (VRP, contract, scope document)")
     ap.add_argument("--ticket-ref", metavar="REF",
                     help="client's ticket/tracking reference")
+    ap.add_argument("--allow-host", action="append", default=[], help="authorize a host for discovery (repeatable)")
     ap.add_argument("--contact", metavar="EMAIL",
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
@@ -2005,6 +2007,11 @@ def main():
     # target-supplied discovery URLs are allowed to resolve there too.
     global ALLOW_PRIVATE_TARGETS
     ALLOW_PRIVATE_TARGETS = bool(getattr(args, "allow_private", False))
+    # Initialize allowed hosts with target host; --allow-host adds more
+    target_host = urlparse(args.target).hostname or args.target
+    ALLOWED_HOSTS = {target_host.lower()}
+    for host in getattr(args, "allow_host", []):
+        ALLOWED_HOSTS.add(host.lower())
 
     # AUTHORIZATION CHECK: refuse to run without authorization metadata
     if not args.authorized_by:
@@ -2063,6 +2070,9 @@ def main():
                 oauth_records, probe_results = oauth_result
             else:
                 raise ValueError(f"Expected (oauth_records, probe_results) tuple, got {type(oauth_result)}: {oauth_result}")
+        except EgressRefusalError as e:
+            print(f"[!] Scope enforcement: {e}", file=sys.stderr)
+            sys.exit(6)
         except Exception as e:
             print(f"[!] Internal scan error: {type(e).__name__}: {e}", file=sys.stderr)
             sys.exit(4)
