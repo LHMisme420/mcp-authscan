@@ -14,6 +14,7 @@ Output: Human-readable security report with probe results and deterministic SHA2
 from mcp_authscan import __version__
 from mcp_authscan.report_copy import render_summary, check_counts
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -2310,6 +2311,11 @@ def main():
         report_lines.append("MCP-AUTHSCAN SECURITY REPORT")
         report_lines.append("=" * 80)
         report_lines.append("")
+        # Get commit hash for lineage verification
+        try:
+            commit_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd="/home/lhmisme/mcp-authscan", text=True).strip()
+        except:
+            commit_hash = "unknown"
         report_lines.append(f"Scanner: mcp-authscan v{VERSION} ({commit_hash})")
         report_lines.append(f"Scan Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
         report_lines.append("Repository: https://github.com/LHMisme420/mcp-authscan")
