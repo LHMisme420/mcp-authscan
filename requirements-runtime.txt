@@ -10,11 +10,16 @@ certifi==2026.10.23
 idna==3.20
 pillow==13.0.0
 # Override the older setuptools bundled by the immutable Python toolchain.
-setuptools==84.2.1
+setuptools>=84.1.0
 aiohttp
 anthropic
-authlib
+authlib>=3.0.0
 redis
 reportlab>=5.1.0,<6
 werkzeug
 gunicorn
+# PDF handling: camelot 2.0.0 uses playa-pdf instead of pypdf
+camelot-py>=2.0.0,<3
+# OAuth and observability: pinned to patched versions
+oauthlib>=4.0.0
+opentelemetry-api>=1.45.1
