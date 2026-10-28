@@ -94,10 +94,11 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
                     return ProbeRecord(
                         probe_id="mcp-preflight",
                         name="mcp-preflight",
-                        status="PASS",
+                        status="FAIL",
                         http_status=status_code,
                         body_sha256=body_hash,
-                        detail="MCP endpoint responds to JSON-RPC",
+                        detail="Unauthenticated initialize succeeded (no WWW-Authenticate): endpoint accepts requests without credentials",
+                        severity="HIGH",
                         endpoint=target_url
                     )
             except (ValueError, AttributeError, TypeError, UnicodeDecodeError):
