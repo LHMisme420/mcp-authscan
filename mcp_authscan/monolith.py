@@ -2541,7 +2541,7 @@ def main():
             # Use canonical payload hash (covers probe counts, auth, and findings)
             report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time and timestamp.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time, timestamp, and server-varying headers (cf-ray, x-deno-trace-id, report-to, etc). Raw response headers preserved in JSON output for verification.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
