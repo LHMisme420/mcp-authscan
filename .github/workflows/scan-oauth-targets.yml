@@ -1,0 +1,65 @@
+name: OAuth Target Scan
+on:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install mcp-authscan
+        run: pip install -q mcp-authscan==1.1.5
+
+      - name: Print tool version
+        run: |
+          echo "=== TOOL VERSION ==="
+          python -c "import mcp_authscan; print(f'mcp-authscan version: {mcp_authscan.__version__}')" || echo "mcp-authscan==1.1.5"
+          mcp-authscan -h | grep "v1.1"
+
+      - name: Print authorization and commit context
+        run: |
+          echo "=== AUTHORIZATION ==="
+          echo "Authorized by: Heath Weaver"
+          echo "Date: October 20, 2026"
+          echo "Basis: Written authorization to test and share findings"
+          echo ""
+          echo "=== COMMIT CONTEXT ==="
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+      - name: Scan api.meant.run/mcp
+        run: |
+          echo "=== SCANNING: api.meant.run/mcp ==="
+          mcp-authscan --json \
+            --authorized-by "Heath Weaver" \
+            --auth-basis "Written authorization October 20, 2026" \
+            --contact "lhmisme2011@gmail.com" \
+            https://api.meant.run/mcp > api-meant-run.json 2>&1
+          EXIT_CODE=$?
+          echo "Exit code: $EXIT_CODE"
+          echo ""
+          echo "=== JSON OUTPUT ==="
+          cat api-meant-run.json
+          exit $EXIT_CODE
+
+      - name: Scan app.twigl.it/mcp
+        if: always()
+        run: |
+          echo "=== SCANNING: app.twigl.it/mcp ==="
+          mcp-authscan --json \
+            --authorized-by "Heath Weaver" \
+            --auth-basis "Written authorization October 20, 2026" \
+            --contact "lhmisme2011@gmail.com" \
+            https://app.twigl.it/mcp > app-twigl-it.json 2>&1
+          EXIT_CODE=$?
+          echo "Exit code: $EXIT_CODE"
+          echo ""
+          echo "=== JSON OUTPUT ==="
+          cat app-twigl-it.json
+          exit $EXIT_CODE
