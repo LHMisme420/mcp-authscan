@@ -255,7 +255,9 @@ def probe_token_cors(token_endpoint):
     elif acao == "*" or acao == origin_sent:
         # Wildcard or echo: both are CORS misconfigurations
         status = "FAIL"
-        severity = "MEDIUM"
+        # Check credentials to determine severity
+        allow_credentials = resp_headers.get("Access-Control-Allow-Credentials", "").lower() == "true"
+        severity = "CRITICAL" if allow_credentials else "HIGH"
         title = "CORS misconfiguration on OAuth token endpoint"
         remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it (not * or request origin)"
     else:
@@ -507,6 +509,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
             metadata = json.loads(resp.read().decode())
     except (HTTPError, URLError, json.JSONDecodeError) as e:
         print("[!] Cannot fetch OAuth metadata from %s: %s" % (metadata_url, e), file=sys.stderr)
+        # Return empty records list; OAuth probes will be skipped by caller
         return [], []
 
     records = []
