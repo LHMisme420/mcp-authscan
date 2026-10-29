@@ -20,6 +20,9 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 
 # Dynamic client registration (RFC 7591) and revocation switches. Defaults succeed.
 #   REGISTRATION=fail  POST /register answers 400 invalid_client_metadata (no client is created)
+#   REGISTRATION=grant_types  POST /register answers 400 invalid_client_metadata, error_description
+#                      "grant_types must be authorization_code and refresh_token", unless the request's
+#                      grant_types is exactly that set (the refusal a live server gave, t80u)
 #   REVOCATION=fail    POST /revoke answers 503 temporarily_unavailable (nothing is revoked)
 #   REVOCATION=auth    POST /revoke answers 401 invalid_client, WWW-Authenticate: Basic (client
 #                      authentication the scanner does not have; nothing is revoked)
@@ -37,6 +40,7 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 # are exactly the ones it asked for; /authorize accepts it like the static client. Each
 # registration also returns a registration_access_token, so a test can check it never leaks.
 REGISTRATION_FAIL = os.environ.get("REGISTRATION") == "fail"
+REGISTRATION_GRANT_TYPES = os.environ.get("REGISTRATION") == "grant_types"
 REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
 REVOCATION_AUTH = os.environ.get("REVOCATION") == "auth"
 REVOCATION_ABSENT = os.environ.get("REVOCATION") == "absent"
@@ -335,6 +339,14 @@ class H(BaseHTTPRequestHandler):
                 meta = json.loads(body.decode() or "{}")
             except ValueError:
                 return self._s(400, {"error": "invalid_client_metadata"})
+            if REGISTRATION_GRANT_TYPES:
+                gts = meta.get("grant_types") if isinstance(meta, dict) else None
+                if not (isinstance(gts, list) and len(gts) == 2
+                        and set(gts) == {"authorization_code", "refresh_token"}):
+                    print("REGISTER refused grant_types %r" % (gts,), file=sys.stderr, flush=True)
+                    return self._s(400, {"error": "invalid_client_metadata",
+                                         "error_description": "grant_types must be authorization_code and refresh_token"},
+                                   {"Cache-Control": "no-store"})
             uris = meta.get("redirect_uris") if isinstance(meta, dict) else None
             if not (isinstance(uris, list) and uris and all(isinstance(u, str) for u in uris)):
                 return self._s(400, {"error": "invalid_redirect_uri"})
@@ -392,7 +404,7 @@ if __name__ == "__main__":
     print("issuer=" + ISSUER + " misbehave=" + str(MISBEHAVE)
           + " pkce_plain=" + ("accept" if PKCE_PLAIN_ACCEPT else "refuse")
           + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact")
-          + " registration=" + ("fail" if REGISTRATION_FAIL else "ok")
+          + " registration=" + ("fail" if REGISTRATION_FAIL else "grant_types" if REGISTRATION_GRANT_TYPES else "ok")
           + " revocation=" + (os.environ.get("REVOCATION") or "ok")
           + " token_revocation=" + (TOKEN_REVOCATION or "as revocation")
           + " redirect_hosts=" + (",".join(REDIRECT_HOSTS) or "any")

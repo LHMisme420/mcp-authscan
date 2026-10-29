@@ -77,7 +77,7 @@ Probes 7 and 8 send GET requests to the `authorization_endpoint`. Redirects are 
 
 ### Client source for probes 7 and 8 (since probe set 2026.10.30)
 Probes 7 and 8 need a client. The scanner resolves one once per assessed authorization server, in this order, and every probe that needs a client uses the same one:
-1. **Dynamic client registration (RFC 7591).** When the metadata advertises both `authorization_endpoint` and `registration_endpoint`, the scanner sends a POST to the `registration_endpoint` with a JSON body: `client_name` "mcp-authscan", `redirect_uris` [R], `grant_types` ["authorization_code"], `response_types` ["code"], `token_endpoint_auth_method` "none". R is chosen and controlled by the scanner, from this ordered list of loopback redirects (RFC 8252), constant `REDIRECT_CANDIDATES` in the code:
+1. **Dynamic client registration (RFC 7591).** When the metadata advertises both `authorization_endpoint` and `registration_endpoint`, the scanner sends a POST to the `registration_endpoint` with a JSON body: `client_name` "mcp-authscan", `redirect_uris` [R], `grant_types` ["authorization_code", "refresh_token"] (since probe set 2026.11.01; before, ["authorization_code"] alone, which a server requiring both refuses with 400 invalid_client_metadata), `response_types` ["code"], `token_endpoint_auth_method` "none". R is chosen and controlled by the scanner, from this ordered list of loopback redirects (RFC 8252), constant `REDIRECT_CANDIDATES` in the code:
    1. `http://localhost/mcp-authscan/callback`
    2. `http://127.0.0.1/mcp-authscan/callback`
    3. `http://[::1]/mcp-authscan/callback`

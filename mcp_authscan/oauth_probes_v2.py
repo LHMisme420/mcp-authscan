@@ -138,7 +138,7 @@ def _register_once(endpoint, redirect_uri):
     req = Request(endpoint, method="POST", data=json.dumps({
         "client_name": "mcp-authscan",
         "redirect_uris": [redirect_uri],
-        "grant_types": ["authorization_code"],
+        "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
     }).encode("utf-8"))
