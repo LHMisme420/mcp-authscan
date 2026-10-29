@@ -424,9 +424,10 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                     else:
                         # 200 but not JSON-RPC - not an MCP server, continue to OAuth discovery
                         pass
-                elif resp.status == 400 or resp.status == 406 or resp.status == 405:
+                elif resp.status == 400 or resp.status == 406:
                     # 400: JSON-RPC error (malformed but MCP aware)
-                    # 405/406: Wrong method/content-type (path exists, headers wrong)
+                    # 406: Wrong content-type (path exists, headers wrong)
+                    # 405 is not accepted: the path refuses POST, so it is not an MCP endpoint
                     body = resp.read(500).decode(errors='ignore')
                     if 'jsonrpc' in body or '{' in body:
                         mcp_verified = True
@@ -436,8 +437,8 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                 # OAuth challenge - this is MCP
                 mcp_verified = True
                 print(f"[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
-            elif e.code in [400, 405, 406]:
-                # Server returned error but in JSON format - still MCP
+            elif e.code in [400, 406]:
+                # Server returned error but in JSON format - still MCP (405 does not verify)
                 body = e.fp.read(500).decode(errors='ignore') if e.fp else ""
                 if 'jsonrpc' in body or '{' in body:
                     mcp_verified = True
