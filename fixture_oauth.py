@@ -21,11 +21,20 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 # Dynamic client registration (RFC 7591) and revocation switches. Defaults succeed.
 #   REGISTRATION=fail  POST /register answers 400 invalid_client_metadata (no client is created)
 #   REVOCATION=fail    POST /revoke answers 503 temporarily_unavailable (nothing is revoked)
+#   REVOCATION=auth    POST /revoke answers 401 invalid_client, WWW-Authenticate: Basic (client
+#                      authentication the scanner does not have; nothing is revoked)
+#   REVOCATION=absent  the metadata advertises no revocation_endpoint (POST /revoke still exists)
+#   REDIRECT_HOSTS=h1,h2  POST /register answers 400 invalid_redirect_uri unless every redirect_uri
+#                      host is in the list (e.g. "localhost", or "127.0.0.1" so the scanner's first
+#                      candidate is refused and the second accepted; "none" refuses every host)
 # A registered client is a public client (token_endpoint_auth_method none) whose redirect_uris
 # are exactly the ones it asked for; /authorize accepts it like the static client. Each
 # registration also returns a registration_access_token, so a test can check it never leaks.
 REGISTRATION_FAIL = os.environ.get("REGISTRATION") == "fail"
 REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
+REVOCATION_AUTH = os.environ.get("REVOCATION") == "auth"
+REVOCATION_ABSENT = os.environ.get("REVOCATION") == "absent"
+REDIRECT_HOSTS = [h for h in os.environ.get("REDIRECT_HOSTS", "").split(",") if h]
 DCR_CLIENTS = {}   # client_id -> list of registered redirect_uris
 _DCR_SEQ = itertools.count(1)
 REVOKED = []       # one entry per accepted POST /revoke: {"client_id", "token_sent"}
@@ -77,6 +86,9 @@ AS = {
     "code_challenge_methods_supported": ["S256"],
     "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
 }
+
+if REVOCATION_ABSENT:
+    del AS["revocation_endpoint"]
 
 RES = {"resource": BASE + "/mcp", "authorization_servers": [BASE]}
 
@@ -315,6 +327,11 @@ class H(BaseHTTPRequestHandler):
             uris = meta.get("redirect_uris") if isinstance(meta, dict) else None
             if not (isinstance(uris, list) and uris and all(isinstance(u, str) for u in uris)):
                 return self._s(400, {"error": "invalid_redirect_uri"})
+            if REDIRECT_HOSTS and any(urlsplit(u).hostname not in REDIRECT_HOSTS for u in uris):
+                print("REGISTER refused redirect " + " ".join(uris), file=sys.stderr, flush=True)
+                return self._s(400, {"error": "invalid_redirect_uri",
+                                     "error_description": "redirect URI host is not on the allow-list"},
+                               {"Cache-Control": "no-store"})
             cid = "dcr-client-%d" % next(_DCR_SEQ)
             DCR_CLIENTS[cid] = list(uris)
             print("REGISTER " + cid + " " + " ".join(uris), file=sys.stderr, flush=True)
@@ -331,6 +348,9 @@ class H(BaseHTTPRequestHandler):
             if REVOCATION_FAIL:
                 print("REVOKE refused " + form.get("client_id", ""), file=sys.stderr, flush=True)
                 return self._s(503, {"error": "temporarily_unavailable"})
+            if REVOCATION_AUTH:
+                print("REVOKE unauthenticated " + form.get("client_id", ""), file=sys.stderr, flush=True)
+                return self._s(401, {"error": "invalid_client"}, {"WWW-Authenticate": 'Basic realm="fixture"'})
             cid = form.get("client_id", "")
             if form.get("token") in ISSUED_TOKENS:
                 # token revocation (RFC 7009): the token is revoked, the client stays registered
@@ -351,6 +371,7 @@ if __name__ == "__main__":
           + " pkce_plain=" + ("accept" if PKCE_PLAIN_ACCEPT else "refuse")
           + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact")
           + " registration=" + ("fail" if REGISTRATION_FAIL else "ok")
-          + " revocation=" + ("fail" if REVOCATION_FAIL else "ok")
+          + " revocation=" + (os.environ.get("REVOCATION") or "ok")
+          + " redirect_hosts=" + (",".join(REDIRECT_HOSTS) or "any")
           + " consent=" + (CONSENT or "auto") + " token_cors=" + TOKEN_CORS, flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()
