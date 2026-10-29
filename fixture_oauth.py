@@ -6,6 +6,10 @@ BASE = f"http://127.0.0.1:{PORT}"
 ISSUER = BASE + ("/" if os.environ.get("TRAILING_SLASH") == "1" else "")
 MISBEHAVE = os.environ.get("MISBEHAVE") == "1"
 
+# Registered client for success path
+REGISTERED_CLIENT = "fixture-client"
+REGISTERED_SECRET = "fixture-secret"
+
 AS = {
     "issuer": ISSUER,
     "authorization_endpoint": f"{BASE}/authorize",
@@ -51,24 +55,51 @@ class H(BaseHTTPRequestHandler):
         p = self.path.split("?")[0]
         n = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(n) if n else b""
-        self._last_body = body
 
         if p in ("/mcp", "/initialize", "/", ""):
             return self._s(401, {"error": "unauthorized"},
                            {"WWW-Authenticate": f'Bearer resource_metadata="{BASE}/resource_metadata"'})
 
         if p == "/token":
-            # Token endpoint: always returns 400 + error (realistic behavior)
-            # to test the 4xx guard. MISBEHAVE adds ACAO: * to trigger FAIL.
+            form = dict(x.split("=", 1) for x in body.decode(errors="ignore").split("&") if "=" in x)
+            grant = form.get("grant_type", "")
+            client_id = form.get("client_id", "")
+            client_secret = form.get("client_secret", "")
+            code = form.get("code", "")
+            auth = self.headers.get("Authorization", "")
+            has_basic = auth.lower().startswith("basic ")
+            has_client = bool(client_id) or has_basic
+
             if MISBEHAVE:
                 return self._s(400, {"error": "invalid_request"},
                                {"Cache-Control": "no-store", "Pragma": "no-cache",
                                 "Access-Control-Allow-Origin": "*",
                                 "Access-Control-Allow-Credentials": "true"})
-            else:
-                # Clean: 400 + error, no ACAO (tests guard accepts 4xx + error)
+
+            # RFC 6749 5.2 error responses
+            # 1. Missing client authentication → 401 invalid_client
+            if not has_client:
+                return self._s(401, {"error": "invalid_client"},
+                               {"Cache-Control": "no-store", "Pragma": "no-cache"})
+            
+            # 2. Unsupported grant type
+            if grant == "password":
+                return self._s(400, {"error": "unsupported_grant_type"},
+                               {"Cache-Control": "no-store", "Pragma": "no-cache"})
+            
+            # 3. Valid grant: authorization_code with registered client
+            if grant == "authorization_code" and client_id == REGISTERED_CLIENT and client_secret == REGISTERED_SECRET:
+                return self._s(200, {"access_token": "fixture-token", "token_type": "Bearer"},
+                               {"Cache-Control": "no-store", "Pragma": "no-cache"})
+            
+            # 4. Invalid/missing required params
+            if grant != "authorization_code":
                 return self._s(400, {"error": "invalid_request"},
                                {"Cache-Control": "no-store", "Pragma": "no-cache"})
+            
+            # 5. Bad authorization code or wrong client
+            return self._s(400, {"error": "invalid_grant"},
+                           {"Cache-Control": "no-store", "Pragma": "no-cache"})
 
         if p == "/register":
             return self._s(201, {"client_id": "test-client",
