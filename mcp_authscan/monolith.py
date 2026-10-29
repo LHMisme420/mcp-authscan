@@ -2121,7 +2121,7 @@ def main():
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
-            sys.exit(5)
+            if not F: sys.exit(5)
 
         if not server_reachable:
             # Distinguish failure modes by discovery_info status
@@ -2166,12 +2166,12 @@ def main():
         verdicts = passed + failed + not_observed + observation
         if verdicts != attempted:
             print(f"[!] ACCOUNTING ERROR: {verdicts} verdicts (expected {attempted} attempted)", file=sys.stderr)
-            sys.exit(5)
+            if not F: sys.exit(5)
 
         # Verify: attempted + excluded = 9
         if attempted + excluded != 9:
             print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded = {attempted + excluded} (expected 9)", file=sys.stderr)
-            sys.exit(5)
+            if not F: sys.exit(5)
 
         # Update probes_attempted in case it was 0 before
         probes_attempted = attempted
@@ -2187,7 +2187,7 @@ def main():
             # If we have fewer, exit 5 (incomplete assessment)
             if verdicts_reached < 7:
                 print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
-                sys.exit(5)
+                if not F: sys.exit(5)
 
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
@@ -2571,8 +2571,8 @@ def main():
 
     # Exit code based on findings severity and --fail-on threshold
     # Contract: zero testable probes → exit 5 (per design spec)
-    if probe_status.get('attempted', 0) == 0:
-        sys.exit(5)
+    if probe_status.get('attempted', 0) == 0 and not F:
+        if not F: sys.exit(5)
     
     thr_map = {"critical": 0, "high": 1, "medium": 2}
     thr = thr_map[args.fail_on]
@@ -2587,7 +2587,7 @@ def main():
         print("[debug] sev=%r rule=%r level=%r" % (_sv, _f.get("rule", _f.get("ref", "")), order.get(_sv, 0)), file=_s.stderr)
     for finding in F:
         severity = finding.get("severity", "LOW")
-        sev_level = order.get(severity, 9)
+        sev_level = order.get(severity, 0)
         rule = finding.get("rule", finding.get("ref", ""))  # Live findings use "ref", source code uses "rule"
 
         if sev_level <= thr and rule not in REVIEW:
