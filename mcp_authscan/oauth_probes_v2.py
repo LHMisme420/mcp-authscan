@@ -1,6 +1,7 @@
 """OAuth Authorization Server Assessment - Nine security probes."""
 import json
 import os
+import re
 import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
@@ -76,7 +77,12 @@ SCANNER_REDIRECT_URI = "http://127.0.0.1/mcp-authscan/callback"
 ACQUIRE_TOKEN = False
 
 HOSTILE_ORIGIN = "https://hostile.example.com"
-CONSENT_LIMITATION = "Consent requires human interaction, cannot complete unattended"
+# Named limitations of the attended exchange (PROBE_CONTRACT.md [4])
+NO_PASTE_LIMITATION = "Consent not completed: no redirect address pasted"
+REFUSED_LIMITATION = "Consent refused at the authorization server"
+WRONG_REDIRECT_LIMITATION = "Pasted address is not the registered redirect"
+STATE_LIMITATION = "Pasted address state does not match the request"
+NO_CODE_LIMITATION = "Pasted address carries no authorization code"
 
 # One entry per run_oauth_assessment: where probes 7 and 8 got their client, the redirect used,
 # and what the revocation returned. Holds no secret. scan_live_server clears it per scan.
@@ -415,6 +421,59 @@ def _revoke_tokens(metadata, client, tokens):
     return "; ".join(results)
 
 
+def _prompt_for_redirect(authorization_url, redirect_uri):
+    """Attended step: print the authorization URL to stderr and read one line from stdin.
+
+    Returns the pasted line, or None on end of input or a read failure. The line is never echoed.
+    """
+    print("\n[?] token-cors [4] attended token acquisition (--acquire-token)\n"
+          "    1. Open this URL in a browser and approve the request:\n"
+          "       %s\n"
+          "    2. The browser then goes to %s?code=... ; nothing listens there, so the page\n"
+          "       failing to load is expected.\n"
+          "    3. Copy the full address from the browser's address bar, paste it here and press Enter\n"
+          "       (an empty line skips the token-cors exchange):" % (authorization_url, redirect_uri),
+          file=sys.stderr, flush=True)
+    try:
+        line = sys.stdin.readline()
+    except Exception:
+        return None
+    return line or None
+
+
+_ERROR_CODE = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+
+
+def _code_from_pasted(pasted, redirect_uri, state):
+    """(code, limitation, why) from the pasted redirect address; code is None when limitation is set.
+
+    Nothing from the pasted line is returned in limitation or why except an OAuth error code that
+    is a plain token (letters, digits, _ . -).
+    """
+    pasted = (pasted or "").strip()
+    if not pasted:
+        return None, NO_PASTE_LIMITATION, "empty line or end of input"
+    try:
+        got, want = urlsplit(pasted), urlsplit(redirect_uri)
+        same_base = (got.scheme.lower(), got.hostname, got.port, got.path) == \
+                    (want.scheme.lower(), want.hostname, want.port, want.path)
+        params = dict(parse_qsl(got.query)) | dict(parse_qsl(got.fragment))
+    except Exception as e:
+        return None, WRONG_REDIRECT_LIMITATION, "the pasted address could not be parsed (%s)" % type(e).__name__
+    finally:
+        pasted = None
+    if not same_base:
+        return None, WRONG_REDIRECT_LIMITATION, "expected %s" % redirect_uri
+    if "error" in params:
+        err = params["error"] if _ERROR_CODE.fullmatch(params["error"]) else "(unrecognised)"
+        return None, REFUSED_LIMITATION, "error=%s" % err
+    if params.get("state") != state:
+        return None, STATE_LIMITATION, "state %s" % ("missing" if "state" not in params else "differs")
+    if not params.get("code"):
+        return None, NO_CODE_LIMITATION, None
+    return params["code"], None, None
+
+
 def _env_client():
     cid, secret, redirect = _client_creds()
     if cid and redirect:
@@ -423,11 +482,12 @@ def _env_client():
 
 
 def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
-    """token-cors [4] with --acquire-token: authorization code + PKCE S256, then the token
-    exchange carries a hostile Origin and the verdict comes from that response.
+    """token-cors [4] with --acquire-token: attended authorization code + PKCE S256, then the
+    token exchange carries a hostile Origin and the verdict comes from that response.
 
-    One authorization request; a consent page or a refusal ends the probe (no retry, no form
-    submission). Redirects are never followed and the Location is never fetched. The code,
+    The scanner sends no authorization request: it prints the authorization URL, a person
+    approves in a browser and pastes the redirect address back (one prompt, no retry). The
+    pasted address is never fetched or echoed; redirects are never followed. The code,
     verifier and tokens stay in local variables, are revoked before returning, and never
     reach the record: its body is redacted and failures are reported by exception type.
     """
@@ -454,40 +514,17 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     mode = "Acquired-token mode (--acquire-token), client %s (%s): " % (client.client_id, client.source)
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(16)
-    try:
-        response = _authorize(authorization_endpoint, {
-            "response_type": "code", "client_id": client.client_id, "redirect_uri": client.redirect_uri,
-            "state": state, "code_challenge": challenge, "code_challenge_method": "S256"})
-    except EgressRefusalError:
-        return result("NOT_OBSERVED", mode + "authorization_endpoint outside allowed scope")
-    except Exception as e:
-        return result("NOT_OBSERVED", mode + "authorization request failed: %s" % type(e).__name__)
-
-    status, headers, _ = response
-    location = headers.get("Location") if headers is not None else None
-    absolute = urljoin(authorization_endpoint, location) if location else None
-    params = {}
-    if absolute:
-        parts = urlsplit(absolute)
-        params = dict(parse_qsl(parts.query)) | dict(parse_qsl(parts.fragment))
-    recorded = {"Location": _redact_location(absolute)} if absolute else {}
-    if absolute and 300 <= status < 400 and "error" in params:
-        return result("NOT_OBSERVED", mode + "authorization refused: error=%s; no token obtained" % params["error"],
-                      http_status=status, headers=recorded)
-    if 400 <= status < 500 and _oauth_error(response[2]):
-        return result("NOT_OBSERVED", mode + "authorization refused: error=%s; no token obtained"
-                      % _oauth_error(response[2]), http_status=status)
-    to_redirect = bool(absolute) and 300 <= status < 400 and _same_uri(absolute, client.redirect_uri)
-    if status == 200 or (absolute and 300 <= status < 400 and not to_redirect
-                         and _origin(absolute) == _origin(authorization_endpoint)):
-        return result("NOT_OBSERVED", mode + CONSENT_LIMITATION + ": the authorization endpoint answered "
-                      "HTTP %d with a consent step; the scanner sent one request and did not submit consent "
-                      "or retry; no token obtained" % status, limitation=CONSENT_LIMITATION, http_status=status, headers=recorded)
-    code = params.get("code") if to_redirect else None
-    if not code or params.get("state") != state:
-        why = "no code" if not code else "state mismatch"
-        return result("NOT_OBSERVED", mode + "authorization response gave no usable code (HTTP %d, %s); no token obtained"
-                      % (status, why), http_status=status, headers=recorded)
+    sep = "&" if urlsplit(authorization_endpoint).query else "?"
+    authorization_url = authorization_endpoint + sep + urlencode({
+        "response_type": "code", "client_id": client.client_id, "redirect_uri": client.redirect_uri,
+        "code_challenge": challenge, "code_challenge_method": "S256", "state": state})
+    pasted = _prompt_for_redirect(authorization_url, client.redirect_uri)
+    code, limitation, why = _code_from_pasted(pasted, client.redirect_uri, state)
+    pasted = None
+    if limitation:
+        verifier = None
+        return result("NOT_OBSERVED", mode + limitation + (": " + why if why else "") + "; no token obtained",
+                      limitation=limitation)
 
     form = {"grant_type": "authorization_code", "code": code, "redirect_uri": client.redirect_uri,
             "client_id": client.client_id, "code_verifier": verifier}

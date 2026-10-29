@@ -1993,10 +1993,12 @@ def main():
     ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default="high",
                     help="exit 1 if findings at or above this severity are found (default: high)")
     ap.add_argument("--acquire-token", action="store_true",
-                    help="token-cors [4]: obtain a real access token (authorization code + PKCE S256, "
-                         "dynamically registered or MCPAUTHSCAN_CLIENT_ID client) and test the cross-origin "
-                         "read on the token response; the token is revoked before the report and never "
-                         "printed. Off by default")
+                    help="token-cors [4]: obtain a real access token through an attended authorization-code "
+                         "exchange (PKCE S256, dynamically registered or MCPAUTHSCAN_CLIENT_ID client): the "
+                         "scanner prints an authorization URL to stderr, you approve in a browser and paste "
+                         "the redirect address back on stdin; it then tests the cross-origin read on the "
+                         "token response. The token is revoked before the report and never printed. Off by "
+                         "default; without it the scanner never reads stdin")
     ap.add_argument("--allow-private", action="store_true",
                     help="allow scanning private/loopback targets (127.0.0.0/8, 10.0.0.0/8, etc) - opt-in for lab and staging")
 
