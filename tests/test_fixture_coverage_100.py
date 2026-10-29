@@ -122,11 +122,15 @@ class CompleteHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-def test_coverage_is_over_the_declared_probe_set():
+def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     """Declared-set rule: coverage = (PASS + FAIL) / in_scope (9), never / attempted.
 
     The handler names 127.0.0.1:9000 in its metadata, so it is served on 9000.
+    No client credentials are configured, so pkce-s256 and redirect-uri-exact are
+    EXCLUDED (prerequisite missing, never sent); no probe is NOT_IMPLEMENTED.
     """
+    for key in ("MCPAUTHSCAN_CLIENT_ID", "MCPAUTHSCAN_CLIENT_SECRET", "MCPAUTHSCAN_REDIRECT_URI"):
+        monkeypatch.delenv(key, raising=False)
     import mcp_authscan.monolith as monolith
     from mcp_authscan import oauth_probes_v2
     from mcp_authscan.counts import count_probes, coverage
@@ -144,13 +148,17 @@ def test_coverage_is_over_the_declared_probe_set():
 
     counts = count_probes(records)
     assert counts["in_scope"] == 9
-    assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == ["pkce-s256", "redirect-uri-exact"]
-    assert counts["NOT_IMPLEMENTED"] == 2 and counts["EXCLUDED"] == 0
+    assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
+    excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
+    assert set(excluded) == {"pkce-s256", "redirect-uri-exact"}
+    assert "client_id" in excluded["pkce-s256"]
+    assert excluded["redirect-uri-exact"] == "No registered redirect_uri to compare against"
+    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == 2
     assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
-    assert probe_status["not_implemented"] == 2 and probe_status["excluded"] == 0
+    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 2
     assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 9.0
-    # The two unbuilt probes stay in the denominator: a clean run cannot read 100%.
+    # The two excluded probes stay in the denominator: a run without client credentials cannot read 100%.
     assert coverage(counts) <= 7 / 9.0
 
 
