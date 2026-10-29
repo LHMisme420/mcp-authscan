@@ -1992,6 +1992,11 @@ def main():
                     help="output file for HTML/JSON report")
     ap.add_argument("--fail-on", choices=["critical", "high", "medium"], default="high",
                     help="exit 1 if findings at or above this severity are found (default: high)")
+    ap.add_argument("--acquire-token", action="store_true",
+                    help="token-cors [4]: obtain a real access token (authorization code + PKCE S256, "
+                         "dynamically registered or MCPAUTHSCAN_CLIENT_ID client) and test the cross-origin "
+                         "read on the token response; the token is revoked before the report and never "
+                         "printed. Off by default")
     ap.add_argument("--allow-private", action="store_true",
                     help="allow scanning private/loopback targets (127.0.0.0/8, 10.0.0.0/8, etc) - opt-in for lab and staging")
 
@@ -2022,6 +2027,7 @@ def main():
     # Also set it in oauth_probes_v2 module
     import mcp_authscan.oauth_probes_v2 as oauth_probes_v2
     oauth_probes_v2.ALLOW_PRIVATE_TARGETS = ALLOW_PRIVATE_TARGETS
+    oauth_probes_v2.ACQUIRE_TOKEN = bool(getattr(args, "acquire_token", False))
     # Initialize allowed hosts with target host; --allow-host adds more
     global ALLOWED_HOSTS
     target_host = urlparse(args.target).hostname or args.target

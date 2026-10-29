@@ -5,7 +5,7 @@ import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
-from ._common import record, SEVERITY_ORDER
+from ._common import record, redact_secrets, SEVERITY_ORDER
 from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl
 import base64
 import hashlib
@@ -69,6 +69,14 @@ OAUTH_PROBE_VERSION = "2.0.0"
 # scanner: a loopback address (RFC 8252) where nothing listens. Probes never follow a redirect
 # and never fetch a Location, so nothing is ever sent to it.
 SCANNER_REDIRECT_URI = "http://127.0.0.1/mcp-authscan/callback"
+
+# token-cors [4] acquired-token mode (--acquire-token). Off by default: the probe then sends one
+# POST with no authorization code. When True it obtains a real access token through one
+# authorization-code request with PKCE S256 and takes its verdict from the token response.
+ACQUIRE_TOKEN = False
+
+HOSTILE_ORIGIN = "https://hostile.example.com"
+CONSENT_LIMITATION = "Consent requires human interaction, cannot complete unattended"
 
 # One entry per run_oauth_assessment: where probes 7 and 8 got their client, the redirect used,
 # and what the revocation returned. Holds no secret. scan_live_server clears it per scan.
@@ -367,8 +375,179 @@ def probe_token_cache_control(token_endpoint):
     )
 
 
-def probe_token_cors(token_endpoint):
-    """Token endpoint must not expose credentials to cross-origin requests."""
+def _pkce_pair():
+    """(verifier, S256 challenge) for a flow that redeems its code; the verifier stays in memory."""
+    verifier = secrets.token_urlsafe(48)
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return verifier, base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _header(headers, name):
+    return next((v for k, v in (headers or {}).items() if k.lower() == name), "")
+
+
+def _revoke_tokens(metadata, client, tokens):
+    """RFC 7009 revocation of each (hint, token) at the advertised revocation_endpoint.
+
+    Returns a summary; never the token. The caller drops its references afterwards.
+    """
+    endpoint = (metadata or {}).get("revocation_endpoint")
+    if not endpoint:
+        return "not attempted: no revocation_endpoint advertised"
+    results = []
+    for hint, token in tokens:
+        form = {"token": token, "token_type_hint": hint, "client_id": client.client_id}
+        if client.secret:
+            form["client_secret"] = client.secret
+        req = Request(endpoint, method="POST", data=urlencode(form).encode("ascii"))
+        form = token = None
+        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        try:
+            status, _, body = _egress_guard(req, follow_redirects=False)
+            outcome = _status_text(status, body)
+        except EgressRefusalError:
+            outcome = "revocation_endpoint outside allowed scope"
+        except Exception as e:
+            outcome = "request failed: %s" % type(e).__name__
+        req = None
+        results.append("%s %s" % (hint, outcome))
+    return "; ".join(results)
+
+
+def _env_client():
+    cid, secret, redirect = _client_creds()
+    if cid and redirect:
+        return _Client(cid, redirect, "environment (MCPAUTHSCAN_CLIENT_ID)", secret=secret)
+    return None
+
+
+def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
+    """token-cors [4] with --acquire-token: authorization code + PKCE S256, then the token
+    exchange carries a hostile Origin and the verdict comes from that response.
+
+    One authorization request; a consent page or a refusal ends the probe (no retry, no form
+    submission). Redirects are never followed and the Location is never fetched. The code,
+    verifier and tokens stay in local variables, are revoked before returning, and never
+    reach the record: its body is redacted and failures are reported by exception type.
+    """
+    def result(status, detail, limitation=None, http_status=None, headers=None, body=b"", severity=None,
+               prerequisite_met=True):
+        return record(probe_id=4, name="token-cors", status=status, http_status=http_status,
+                      headers=headers, body=body, evidence="headers", probe_class="authserver",
+                      detail=detail, limitation=limitation, severity=severity,
+                      endpoint=token_endpoint if status == "FAIL" else None,
+                      prerequisites=["token_endpoint", "authorization_endpoint", "client"],
+                      prerequisite_met=prerequisite_met)
+
+    authorization_endpoint = (metadata or {}).get("authorization_endpoint")
+    if not authorization_endpoint:
+        return result("EXCLUDED", "Acquired-token mode (--acquire-token)",
+                      limitation="No authorization endpoint", prerequisite_met=False)
+    client = client or _env_client()
+    if client is None:
+        return result("EXCLUDED", registration_note or "Acquired-token mode (--acquire-token)",
+                      limitation=("No client to obtain a token (registration supplied none and "
+                                  "MCPAUTHSCAN_CLIENT_ID/MCPAUTHSCAN_REDIRECT_URI are not both set)"),
+                      prerequisite_met=False)
+
+    mode = "Acquired-token mode (--acquire-token), client %s (%s): " % (client.client_id, client.source)
+    verifier, challenge = _pkce_pair()
+    state = secrets.token_urlsafe(16)
+    try:
+        response = _authorize(authorization_endpoint, {
+            "response_type": "code", "client_id": client.client_id, "redirect_uri": client.redirect_uri,
+            "state": state, "code_challenge": challenge, "code_challenge_method": "S256"})
+    except EgressRefusalError:
+        return result("NOT_OBSERVED", mode + "authorization_endpoint outside allowed scope")
+    except Exception as e:
+        return result("NOT_OBSERVED", mode + "authorization request failed: %s" % type(e).__name__)
+
+    status, headers, _ = response
+    location = headers.get("Location") if headers is not None else None
+    absolute = urljoin(authorization_endpoint, location) if location else None
+    params = {}
+    if absolute:
+        parts = urlsplit(absolute)
+        params = dict(parse_qsl(parts.query)) | dict(parse_qsl(parts.fragment))
+    recorded = {"Location": _redact_location(absolute)} if absolute else {}
+    if absolute and 300 <= status < 400 and "error" in params:
+        return result("NOT_OBSERVED", mode + "authorization refused: error=%s; no token obtained" % params["error"],
+                      http_status=status, headers=recorded)
+    if 400 <= status < 500 and _oauth_error(response[2]):
+        return result("NOT_OBSERVED", mode + "authorization refused: error=%s; no token obtained"
+                      % _oauth_error(response[2]), http_status=status)
+    to_redirect = bool(absolute) and 300 <= status < 400 and _same_uri(absolute, client.redirect_uri)
+    if status == 200 or (absolute and 300 <= status < 400 and not to_redirect
+                         and _origin(absolute) == _origin(authorization_endpoint)):
+        return result("NOT_OBSERVED", mode + CONSENT_LIMITATION + ": the authorization endpoint answered "
+                      "HTTP %d with a consent step; the scanner sent one request and did not submit consent "
+                      "or retry; no token obtained" % status, limitation=CONSENT_LIMITATION, http_status=status, headers=recorded)
+    code = params.get("code") if to_redirect else None
+    if not code or params.get("state") != state:
+        why = "no code" if not code else "state mismatch"
+        return result("NOT_OBSERVED", mode + "authorization response gave no usable code (HTTP %d, %s); no token obtained"
+                      % (status, why), http_status=status, headers=recorded)
+
+    form = {"grant_type": "authorization_code", "code": code, "redirect_uri": client.redirect_uri,
+            "client_id": client.client_id, "code_verifier": verifier}
+    if client.secret:
+        form["client_secret"] = client.secret
+    req = Request(token_endpoint, method="POST", data=urlencode(form).encode("ascii"))
+    form = code = verifier = None
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("Origin", HOSTILE_ORIGIN)
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    req.add_header("Accept", "application/json")
+    try:
+        http_status, headers, body = _egress_guard(req, follow_redirects=False)
+    except EgressRefusalError:
+        return result("NOT_OBSERVED", mode + "token_endpoint outside allowed scope")
+    except Exception as e:
+        return result("NOT_OBSERVED", mode + "token request failed: %s" % type(e).__name__)
+    finally:
+        req = None
+
+    tokens = []
+    try:
+        doc = json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        doc = None
+    if isinstance(doc, dict):
+        for hint in ("access_token", "refresh_token"):
+            if isinstance(doc.get(hint), str) and doc[hint]:
+                tokens.append((hint, doc[hint]))
+    doc = None
+    recorded_body = redact_secrets(body)
+    body = None
+    obtained = any(h == "access_token" for h, _ in tokens)
+    revocation = _revoke_tokens(metadata, client, tokens) if tokens else "nothing to revoke"
+    del tokens[:]
+
+    acao = _header(headers, "access-control-allow-origin").strip()
+    acac = _header(headers, "access-control-allow-credentials").strip().lower() == "true"
+    seen = "HTTP %d token response, %s; ACAO: %s, ACAC: %s (hostile Origin sent: %s); revocation: %s" % (
+        http_status, "access token obtained" if obtained else "no access token in the response",
+        acao or "(absent)", "true" if acac else "(absent)", HOSTILE_ORIGIN, revocation)
+    severity = None
+    if 200 <= http_status < 300 and acao == "*":
+        status, severity = "FAIL", ("CRITICAL" if acac else "HIGH")
+    elif 200 <= http_status < 300 and not acao:
+        status = "PASS"
+    else:
+        status = "NOT_OBSERVED"
+    return result(status, mode + seen, http_status=http_status, headers=headers, body=recorded_body,
+                  severity=severity)
+
+
+def probe_token_cors(token_endpoint, metadata=None, client=None, registration_note=None):
+    """Token endpoint must not expose credentials to cross-origin requests.
+
+    Default: one POST with a hostile Origin and no authorization code. With ACQUIRE_TOKEN
+    (--acquire-token) and metadata given, _token_cors_acquired obtains a real token first.
+    """
+    if token_endpoint and ACQUIRE_TOKEN and metadata is not None:
+        return _token_cors_acquired(token_endpoint, metadata, client, registration_note)
     if not token_endpoint:
         return record(
             probe_id=4,
@@ -982,7 +1161,8 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     if rb:
         records.append(rb)
     records.append(probe_token_cache_control(metadata.get("token_endpoint")))
-    records.append(probe_token_cors(metadata.get("token_endpoint")))
+    records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=client,
+                                    registration_note=registration_note))
     records.append(probe_jwks_keys(metadata.get("jwks_uri")))
     records.append(probe_password_grant(metadata.get("token_endpoint")))
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))

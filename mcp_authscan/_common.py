@@ -1,9 +1,44 @@
 """Shared probe infrastructure: record factory, HTTP client, constants."""
 import hashlib
+import json
+import re
 
 
 VALID_STATUSES = {"PASS", "FAIL", "NOT_OBSERVED", "EXCLUDED", "NOT_IMPLEMENTED"}
 SEVERITY_ORDER = ("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL")
+
+# Response fields whose values are credentials. Their values are never recorded.
+SECRET_FIELDS = ("access_token", "refresh_token", "id_token", "client_secret", "registration_access_token")
+_SECRET_JSON = re.compile(r'("(?:%s)"\s*:\s*)"(?:[^"\\]|\\.)*"' % "|".join(SECRET_FIELDS))
+_SECRET_FORM = re.compile(r'((?:^|[?&#])(?:%s)=)[^&#\s]*' % "|".join(SECRET_FIELDS))
+
+
+def redact_secrets(body):
+    """body (bytes) with the value of every SECRET_FIELDS member replaced by "[redacted]".
+
+    A JSON object is re-serialised with those keys' values replaced at any depth; anything else
+    has JSON-style "key": "value" pairs and form-style key=value pairs replaced in place.
+    """
+    if not body:
+        return body or b""
+    try:
+        doc = json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        doc = None
+
+    def scrub(node):
+        if isinstance(node, dict):
+            return {k: ("[redacted]" if k in SECRET_FIELDS else scrub(v)) for k, v in node.items()}
+        if isinstance(node, list):
+            return [scrub(v) for v in node]
+        return node
+
+    if isinstance(doc, (dict, list)):
+        return json.dumps(scrub(doc)).encode("utf-8")
+    text = body.decode("utf-8", "replace")
+    text = _SECRET_JSON.sub(r'\1"[redacted]"', text)
+    text = _SECRET_FORM.sub(r"\1[redacted]", text)
+    return text.encode("utf-8")
 
 
 def record(probe_id, name, status, *, http_status=None, headers=None, body=b"",
