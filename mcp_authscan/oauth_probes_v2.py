@@ -252,6 +252,7 @@ def probe_token_cors(token_endpoint):
     http_status = None
     body = b""
     acao = ""
+    acac = ""
     origin_sent = "https://hostile.example.com"
 
     try:
@@ -274,6 +275,7 @@ def probe_token_cors(token_endpoint):
             http_status, headers, body = _egress_guard(req)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
             acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
+            acac = next((v for k, v in headers.items() if k.lower() == "access-control-allow-credentials"), "")
         except EgressRefusalError:
             return record(
                 probe_id=4,
@@ -329,7 +331,12 @@ def probe_token_cors(token_endpoint):
     elif acao == "*" or acao == origin_sent:
         # Wildcard or echo on a 2xx token response: CORS misconfiguration
         status = "FAIL"
-        severity = "CRITICAL" if sent_credentials else "HIGH"
+        # Severity from what the response allowed, not from what the scanner sent:
+        # echoed origin + Allow-Credentials true lets a hostile page read a credentialed response.
+        if acao == origin_sent and acac.strip().lower() == "true":
+            severity = "CRITICAL"
+        else:
+            severity = "HIGH"
         title = "CORS misconfiguration on OAuth token endpoint"
         remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it (not * or request origin)"
     else:
@@ -343,7 +350,11 @@ def probe_token_cors(token_endpoint):
         if http_status == 400:
             detail = f"ACAO: {acao} (on 400 error response: cross-origin requester receives error, not token)"
         else:
-            detail = f"ACAO: {acao}"
+            detail = "ACAO: %s, ACAC: %s (hostile Origin sent: %s)" % (acao, acac or "(absent)", origin_sent)
+    elif status == "PASS" and acao == "":
+        detail = "HTTP %d token response with no Access-Control-Allow-Origin header" % http_status
+    elif status == "PASS":
+        detail = "HTTP %d token response; ACAO %s does not admit hostile Origin %s" % (http_status, acao, origin_sent)
     else:
         detail = "ACAO: %s" % (acao or "(absent)")
     
@@ -462,6 +473,14 @@ def probe_password_grant(token_endpoint):
         except (json.JSONDecodeError, UnicodeDecodeError):
             response = {}
             error = ""
+    except EgressRefusalError:
+        return record(
+            probe_id=6,
+            name="password-grant",
+            status="NOT_OBSERVED",
+            probe_class="authserver",
+            detail="Target URL outside allowed scope"
+        )
     except (URLError, Exception) as e:
         return record(
             probe_id=6,
