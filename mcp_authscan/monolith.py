@@ -2315,7 +2315,9 @@ def main():
             files_excluded=files_excluded,
             probes_attempted=probes_attempted,
             probes_passed=probes_passed,
-            probes_failed=len(F),  # Number of findings = failed probes
+            # Live scan: count FAIL probe records; source scan has no records, keeps findings count
+            probes_failed=(sum(1 for r in oauth_records if r.status == "FAIL") if oauth_records else len(F)),
+            probes_not_observed=probes_not_observed,
             probes_excluded=probes_excluded,
             elapsed_seconds=elapsed_seconds,
             discovery_info=discovery_info

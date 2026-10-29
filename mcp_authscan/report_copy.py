@@ -4,7 +4,7 @@ PASS_EVIDENCE = {
     "issuer-identity": "authorization server metadata names its own issuer",
     "resource-binding": "resource metadata binds to the scanned MCP endpoint",
     "token-cache-control": "token endpoint responses are marked no-store",
-    "token-cors": "token endpoint allows cross-origin requests with credentials",
+    "token-cors": "token endpoint 2xx response did not admit the hostile origin (no Access-Control-Allow-Origin header)",
     "jwks-keys": "signing keys are asymmetric",
     "password-grant": "password grant is not supported",
     "client-auth": "client authentication is enforced before grant validation",
@@ -47,8 +47,9 @@ def render_summary(records):
 
     # NOT_OBSERVED: sent, but inconclusive
     if not_obs:
-        names = ", ".join(r.name for r in not_obs)
-        lines.append(f"NOT OBSERVED ({len(not_obs)}, sent, inconclusive): {names}")
+        lines.append(f"NOT OBSERVED ({len(not_obs)}, sent, inconclusive):")
+        for r in not_obs:
+            lines.append(f"  {r.name}: {r.detail or r.limitation or '(no reason recorded)'}")
 
     # FAILED: actual findings
     if failed:
