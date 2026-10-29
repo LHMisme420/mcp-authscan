@@ -497,7 +497,7 @@ def probe_password_grant(token_endpoint):
     if 200 <= http_status < 300 and isinstance(token, str) and token.strip() and not error:
         status = "FAIL"
         severity = "HIGH"
-    elif 400 <= http_status < 500 and error == "unsupported_grant_type":
+    elif 400 <= http_status < 500 and error in ("unsupported_grant_type", "unauthorized_client"):
         status = "PASS"
         severity = None
     else:
@@ -577,7 +577,7 @@ def probe_client_auth(token_endpoint):
     if 200 <= http_status < 300 and isinstance(token, str) and token.strip() and not error:
         status = "FAIL"
         severity = "HIGH"
-    elif 400 <= http_status < 500 and error == "invalid_client":
+    elif 400 <= http_status < 500 and error in ("invalid_client", "unauthorized_client"):
         status = "PASS"
         severity = None
     else:
