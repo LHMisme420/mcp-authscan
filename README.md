@@ -8,7 +8,7 @@ Auth scanner for live MCP servers.
 
 VATA checks the security posture of Model Context Protocol deployments. It runs in two modes.
 
-Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends real HTTP requests to that running server and records what comes back. It discovers the OAuth surface through RFC 9728 protected-resource metadata and RFC 8414 authorization-server metadata, then runs its declared set of nine authorization-server probes. All nine are implemented: issuer identity, resource binding, token endpoint Cache-Control, token endpoint CORS, JWKS key types, password grant rejection, PKCE S256 (pkce-s256), redirect URI exact match (redirect-uri-exact), and client authentication. PKCE S256 needs a client id (MCPAUTHSCAN_CLIENT_ID) and redirect URI exact match also needs the registered redirect URI (MCPAUTHSCAN_REDIRECT_URI); without them each reports EXCLUDED, with the limitation "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)" or "No registered redirect_uri to compare against". Either also reports EXCLUDED ("No authorization endpoint") when the server metadata publishes no authorization endpoint. Both send GET authorization requests, never follow a redirect, and never request a returned Location.
+Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends real HTTP requests to that running server and records what comes back. It discovers the OAuth surface through RFC 9728 protected-resource metadata and RFC 8414 authorization-server metadata, then runs its declared set of nine authorization-server probes. All nine are implemented: issuer identity, resource binding, token endpoint Cache-Control, token endpoint CORS, JWKS key types, password grant rejection, PKCE S256 (pkce-s256), redirect URI exact match (redirect-uri-exact), and client authentication. PKCE S256 needs a client id and redirect URI exact match also needs that client's registered redirect URI. The scanner takes them, in order, from dynamic client registration at the advertised registration_endpoint (with a scanner-chosen loopback redirect, http://127.0.0.1/mcp-authscan/callback, never fetched; the client is revoked through the advertised revocation_endpoint before the report prints, and the report states whether a client was registered, the redirect used and what the revocation returned), else from MCPAUTHSCAN_CLIENT_ID and MCPAUTHSCAN_REDIRECT_URI; without either each reports EXCLUDED, with the limitation "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)" or "No registered redirect_uri to compare against". Either also reports EXCLUDED ("No authorization endpoint") when the server metadata publishes no authorization endpoint. Both send GET authorization requests, never follow a redirect, and never request a returned Location.
 
 Repository scan (static). Given a GitHub repository URL, it reads the source instead of sending requests.
 
@@ -105,7 +105,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.29 are versioned separately, so adding a probe never rewrites how a past report reads.
+Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.30 are versioned separately, so adding a probe never rewrites how a past report reads.
 
 ## About
 

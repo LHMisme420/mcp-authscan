@@ -41,23 +41,39 @@ Probes 7 and 8 send GET requests to the `authorization_endpoint`. Redirects are 
 - **Refused** (an OAuth error): a 4xx whose JSON body is an object carrying `"error"`; or a 3xx whose `Location` carries `error=` in its query or fragment.
 - **Neither**: anything else, including a 3xx with no `Location`, a 3xx to another origin, a 4xx without a JSON error body, a 5xx, and a 3xx to the registered `redirect_uri` when a different one was sent (the server substituted its registered value, which does not show it accepted the one sent).
 
+### Client source for probes 7 and 8 (since probe set 2026.10.30)
+Probes 7 and 8 need a client. The scanner resolves one once per assessed authorization server, in this order, and every probe that needs a client uses the same one:
+1. **Dynamic client registration (RFC 7591).** When the metadata advertises both `authorization_endpoint` and `registration_endpoint`, the scanner sends one POST to the `registration_endpoint` with a JSON body: `client_name` "mcp-authscan", `redirect_uris` [R], `grant_types` ["authorization_code"], `response_types` ["code"], `token_endpoint_auth_method` "none". R is chosen and controlled by the scanner: `http://127.0.0.1/mcp-authscan/callback` (a loopback redirect, RFC 8252). Nothing listens there and the scanner never fetches it. Registration succeeds when the response is 2xx, its body is a JSON object with a non-empty `client_id`, and, if the body lists `redirect_uris`, R is among them exactly. The probes then use the returned `client_id` and exactly R. Any `client_secret` or `registration_access_token` in the response is held in memory only, never printed, logged, or written to the report or JSON. The registration request never follows a redirect.
+2. **Environment.** Otherwise `MCPAUTHSCAN_CLIENT_ID` and `MCPAUTHSCAN_REDIRECT_URI`.
+3. **EXCLUDED.** Otherwise the probe is EXCLUDED with the limitation below that names the missing prerequisite. When the metadata advertises an `authorization_endpoint`, the record's detail also says why registration did not supply a client: "Dynamic client registration unavailable: " followed by one of
+   - "no registration_endpoint advertised"
+   - "registration_endpoint outside allowed scope"
+   - "registration returned HTTP <status>" (plus " error=<error>" when the body carries one)
+   - "registration response carried no client_id"
+   - "registration response did not list the scanner's redirect_uri <R>"
+   - "registration request failed: <exception type>"
+
+**Revocation.** When a client was registered, the scanner revokes it after the last probe that uses it and before the report prints: one form POST to the advertised `revocation_endpoint` with `client_id`, plus `token` set to the `registration_access_token` when the registration returned one. Redirects are never followed. The result is recorded as "HTTP <status>" (plus " error=<error>" when the body carries one), "revocation_endpoint outside allowed scope", "request failed: <exception type>", or "not attempted: no revocation_endpoint advertised". A failed or skipped revocation never changes a probe verdict or the exit code; it is reported. Note: RFC 7009 defines the revocation endpoint for tokens; deleting a registered client is RFC 7592 (DELETE on `registration_client_uri`), which the scanner does not send.
+
+**Report.** The text report prints a CLIENT REGISTRATION block for each assessed authorization server: whether a client was registered (and, if not, why), the client source (registered, environment, or none), the redirect_uri used, and what the revocation returned. The JSON carries the same under `client_registration`. Server-issued client ids differ on every run, so this block is not covered by the report hash.
+
 ### [7] pkce-s256
-Three requests (`response_type=code`, `client_id`, and the registered `redirect_uri` if configured) that differ only in PKCE: **A** no `code_challenge`; **B** a fresh 43-character `code_challenge` with `code_challenge_method=S256`; **C** the same challenge with `code_challenge_method=plain`. C is sent only when A was refused and B proceeded.
+Three requests (`response_type=code`, `client_id`, and the `redirect_uri` from the client source above, if there is one) that differ only in PKCE: **A** no `code_challenge`; **B** a fresh 43-character `code_challenge` with `code_challenge_method=S256`; **C** the same challenge with `code_challenge_method=plain`. C is sent only when A was refused and B proceeded.
 - **PASS:** A refused, B proceeded, C refused. The server requires PKCE and accepts only S256.
 - **FAIL (HIGH):** A refused, B proceeded, C proceeded. The server accepted an authorization request using the PKCE plain method.
 - **NOT_OBSERVED:** any other combination, including C neither refused nor proceeded; the detail names what each request returned. Also a request error or a target outside the allowed scope.
 - **EXCLUDED** (nothing is sent; checked in this order):
   - no `authorization_endpoint` in the server metadata: limitation "No authorization endpoint".
-  - no client id (MCPAUTHSCAN_CLIENT_ID not set): limitation "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)". This exclusion is part of the contract: an authorization request cannot be built without a client id, and the probe never invents one.
+  - no client from registration and no client id in the environment (MCPAUTHSCAN_CLIENT_ID not set): limitation "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)"; the detail names why registration did not supply one. This exclusion is part of the contract: an authorization request cannot be built without a client id, and the probe never invents one.
 
 ### [8] redirect-uri-exact
-Needs the client id and the registered redirect_uri (MCPAUTHSCAN_CLIENT_ID, MCPAUTHSCAN_REDIRECT_URI). Two requests, each with a valid S256 challenge so PKCE cannot be the cause: **P** the registered `redirect_uri`; **N** the same URI with one character (`x`) appended to its path (an empty path becomes `/x`; query and fragment kept). N is sent only when P proceeded.
+Needs a client id and its registered redirect_uri, from the client source above (a registered client and R, else MCPAUTHSCAN_CLIENT_ID and MCPAUTHSCAN_REDIRECT_URI). Two requests, each with a valid S256 challenge so PKCE cannot be the cause: **P** the registered `redirect_uri`; **N** the same URI with one character (`x`) appended to its path (an empty path becomes `/x`; query and fragment kept). N is sent only when P proceeded.
 - **PASS:** P proceeded, N refused. The server accepted the registered redirect_uri and refused the same URI with one character appended to its path, so it compares redirect URIs exactly.
 - **FAIL (CRITICAL):** P proceeded, N proceeded. The server accepted a redirect_uri with one character appended to the registered path, so it does not compare redirect URIs exactly; nothing was sent to the returned Location.
 - **NOT_OBSERVED:** P refused (no baseline; the detail carries the refusal), P neither refused nor proceeded, or N neither refused nor proceeded. Also a request error or a target outside the allowed scope.
 - **EXCLUDED** (nothing is sent; checked in this order):
   - no `authorization_endpoint` in the server metadata: limitation "No authorization endpoint". This exclusion is part of the contract, as for [7]: there is nowhere to send P and N.
-  - client id or redirect_uri missing (MCPAUTHSCAN_CLIENT_ID or MCPAUTHSCAN_REDIRECT_URI not set): limitation "No registered redirect_uri to compare against".
+  - no client from registration, and client id or redirect_uri missing from the environment (MCPAUTHSCAN_CLIENT_ID or MCPAUTHSCAN_REDIRECT_URI not set): limitation "No registered redirect_uri to compare against"; the detail names why registration did not supply one.
 
 ### [9] client-auth
 - **PASS:** /token endpoint returns HTTP 401 with error `"invalid_client"` when malformed Bearer token sent (RFC 6749 §5.2)
