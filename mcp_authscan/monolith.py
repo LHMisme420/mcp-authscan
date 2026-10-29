@@ -1533,6 +1533,7 @@ def rule_authcode_replay(path, text, F):
 # Unscoped list on a repo that ALSO exposes a tenant-scoped sibling, reached from a
 # request/auth handler -> cross-tenant read. Needs repo-wide context (SCOPED_REPOS).
 SCOPED_REPOS: set[str] = set()
+SCANNED_FILES: list[str] = []  # files scan() actually read, set on every scan()
 A7_SCOPED_CALL = re.compile(
     r"(\w*(?:[Rr]epository|[Rr]epo|[Ss]tore|[Dd]ao))\."
     r"(?:findAllAccessibleTo\w*|findAccessibleTo\w*|listAccessibleTo\w*|"
@@ -1893,7 +1894,7 @@ RULES = [rule_oauth_authorize, rule_default_creds, rule_middleware_authz,
          rule_session_leak, rule_secrets_in_logs, rule_tool_output_injection]
 
 def scan(root, include_tests, exclude=()):
-    global SCOPED_REPOS
+    global SCOPED_REPOS, SCANNED_FILES
     docs = []
     for path in iter_files(root, include_tests, exclude):
         try:
@@ -1916,6 +1917,7 @@ def scan(root, include_tests, exclude=()):
             docs.append((path, path.read_text(errors="ignore")))
         except Exception:
             continue
+    SCANNED_FILES = sorted({str(path) for path, _ in docs})
     SCOPED_REPOS = set()
     for _, text in docs:
         for m in A7_SCOPED_CALL.finditer(text):
@@ -2148,6 +2150,9 @@ def main():
             # - NOT_OBSERVED: 404/5xx (endpoint doesn't exist or error)
             # - FINDINGS: vulnerabilities detected
             probes_attempted = probe_status.get('attempted', 0)
+            if not probes_attempted:
+                print(f"[!] Refused: no probes attempted against {args.target}; no report produced", file=sys.stderr)
+                sys.exit(3)
             probes_passed = probe_status['passed']
             probes_not_observed = probe_status['not_observed']
             probes_observed = probe_status.get('observation', 0)
@@ -2240,8 +2245,11 @@ def main():
             if commit_sha_long:
                 commit_sha_short = commit_sha_long[:12]
 
-            # Count unique files examined
-            files_examined = len(set(f.get("file") for f in F if f.get("file")))
+            # Count files the scanner actually read (SRC_EXT sources and DEP_NAMES manifests), not files with findings
+            files_examined = len(SCANNED_FILES)
+            if not files_examined:
+                print(f"[!] Refused: no files examined in {args.target}; no report produced", file=sys.stderr)
+                sys.exit(3)
 
             # Reconcile file counts: excluded vs. irrelevant vs. analyzed
             try:
@@ -2254,8 +2262,8 @@ def main():
                     if not file.is_file():
                         continue
 
-                    # Check file extension first
-                    if file.suffix not in SRC_EXT:
+                    # Count the same files scan() reads: SRC_EXT sources plus dependency manifests
+                    if file.suffix not in SRC_EXT and file.name not in DEP_NAMES and not file.name.startswith("requirements"):
                         continue
 
                     total_src += 1
@@ -2582,7 +2590,7 @@ def main():
 
     # Exit code based on findings severity and --fail-on threshold
     # Contract: zero testable probes → exit 5 (per design spec)
-    if probe_status.get('attempted', 0) == 0 and not F:
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get('attempted', 0) == 0 and not F:
         if not F: sys.exit(5)
     
     thr_map = {"critical": 0, "high": 1, "medium": 2}
