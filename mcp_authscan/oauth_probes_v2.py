@@ -69,7 +69,13 @@ OAUTH_PROBE_VERSION = "2.0.0"
 # Redirect URI for a dynamically registered client (RFC 7591), chosen and controlled by the
 # scanner: a loopback address (RFC 8252) where nothing listens. Probes never follow a redirect
 # and never fetch a Location, so nothing is ever sent to it.
-SCANNER_REDIRECT_URI = "http://127.0.0.1/mcp-authscan/callback"
+# Loopback redirects (RFC 8252) offered at dynamic registration, in order (PROBE_CONTRACT.md
+# "Client source"). No port: nothing listens there and the scanner never fetches them.
+REDIRECT_CANDIDATES = (
+    "http://localhost/mcp-authscan/callback",
+    "http://127.0.0.1/mcp-authscan/callback",
+    "http://[::1]/mcp-authscan/callback",
+)
 
 # token-cors [4] acquired-token mode (--acquire-token). Off by default: the probe then sends one
 # POST with no authorization code. When True it obtains a real access token through one
@@ -121,21 +127,14 @@ def _status_text(status, body):
     return "HTTP %d%s" % (status, (" error=%s" % err) if err else "")
 
 
-def _register_client(metadata):
-    """RFC 7591 registration at the advertised registration_endpoint, redirect SCANNER_REDIRECT_URI.
+def _register_once(endpoint, redirect_uri):
+    """One RFC 7591 registration POST for redirect_uri. Returns (status, doc) or (None, reason).
 
-    Returns (client, reason). client is None when no client was created; a client whose response
-    did not list SCANNER_REDIRECT_URI is returned with usable=False so it is still revoked.
-    Exceptions are reported by type only, never by message.
+    Exceptions are reported by type only, never by message. Never follows a redirect.
     """
-    if not metadata.get("authorization_endpoint"):
-        return None, "not attempted: no authorization_endpoint advertised"
-    endpoint = metadata.get("registration_endpoint")
-    if not endpoint:
-        return None, "no registration_endpoint advertised"
     req = Request(endpoint, method="POST", data=json.dumps({
         "client_name": "mcp-authscan",
-        "redirect_uris": [SCANNER_REDIRECT_URI],
+        "redirect_uris": [redirect_uri],
         "grant_types": ["authorization_code"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
@@ -149,30 +148,61 @@ def _register_client(metadata):
         return None, "registration_endpoint outside allowed scope"
     except Exception as e:
         return None, "registration request failed: %s" % type(e).__name__
-    if not 200 <= status < 300:
-        return None, "registration returned " + _status_text(status, body)
-    try:
-        doc = json.loads(body.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        doc = None
-    client_id = doc.get("client_id") if isinstance(doc, dict) else None
-    if not isinstance(client_id, str) or not client_id.strip():
-        return None, "registration response carried no client_id"
-    client = _Client(client_id, SCANNER_REDIRECT_URI, "registered",
-                     secret=doc.get("client_secret"),
-                     registration_access_token=doc.get("registration_access_token"))
-    uris = doc.get("redirect_uris")
-    if uris is not None and not (isinstance(uris, list) and SCANNER_REDIRECT_URI in uris):
-        client.usable = False
-        return client, "registration response did not list the scanner's redirect_uri %s" % SCANNER_REDIRECT_URI
-    return client, "HTTP %d, client_id %s" % (status, client_id)
+    return status, body
+
+
+def _register_client(metadata, tried=None):
+    """RFC 7591 registration at the advertised registration_endpoint, trying REDIRECT_CANDIDATES in
+    order and moving to the next only when the server answers 4xx error=invalid_redirect_uri.
+
+    Returns (client, reason). client is None when no client was created; a client whose response
+    did not list its redirect_uri is returned with usable=False so it is still revoked. When
+    tried is a list, one {"redirect_uri", "result"} entry is appended per registration request.
+    """
+    tried = [] if tried is None else tried
+    if not metadata.get("authorization_endpoint"):
+        return None, "not attempted: no authorization_endpoint advertised"
+    endpoint = metadata.get("registration_endpoint")
+    if not endpoint:
+        return None, "no registration_endpoint advertised"
+    for redirect_uri in REDIRECT_CANDIDATES:
+        status, body = _register_once(endpoint, redirect_uri)
+        if status is None:
+            tried.append({"redirect_uri": redirect_uri, "result": body})
+            return None, body
+        if not 200 <= status < 300:
+            tried.append({"redirect_uri": redirect_uri, "result": "refused, " + _status_text(status, body)})
+            if 400 <= status < 500 and _oauth_error(body) == "invalid_redirect_uri":
+                continue
+            return None, "registration returned " + _status_text(status, body)
+        try:
+            doc = json.loads(body.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            doc = None
+        client_id = doc.get("client_id") if isinstance(doc, dict) else None
+        if not isinstance(client_id, str) or not client_id.strip():
+            tried.append({"redirect_uri": redirect_uri, "result": "HTTP %d, no client_id" % status})
+            return None, "registration response carried no client_id"
+        client = _Client(client_id, redirect_uri, "registered",
+                         secret=doc.get("client_secret"),
+                         registration_access_token=doc.get("registration_access_token"))
+        uris = doc.get("redirect_uris")
+        doc = body = None
+        if uris is not None and not (isinstance(uris, list) and redirect_uri in uris):
+            client.usable = False
+            tried.append({"redirect_uri": redirect_uri, "result": "HTTP %d, response did not list it" % status})
+            return client, "registration response did not list the scanner's redirect_uri %s" % redirect_uri
+        tried.append({"redirect_uri": redirect_uri, "result": "accepted, HTTP %d" % status})
+        return client, "HTTP %d, client_id %s" % (status, client_id)
+    return None, "registration refused every redirect candidate: " + _status_text(status, body)
 
 
 def _revoke_client(metadata, client):
     """One form POST to the advertised revocation_endpoint for a registered client.
 
     Sends client_id, plus token=registration_access_token when the registration returned one.
-    Returns what came back; the client's credentials are dropped either way.
+    Returns (revoked, what came back); revoked is True only for a 2xx. The client's credentials
+    are dropped either way.
     """
     endpoint = metadata.get("revocation_endpoint")
     form = {"client_id": client.client_id}
@@ -180,7 +210,7 @@ def _revoke_client(metadata, client):
         form["token"] = client.registration_access_token
     client.secret = client.registration_access_token = None
     if not endpoint:
-        return "not attempted: no revocation_endpoint advertised"
+        return False, "not attempted: no revocation_endpoint advertised"
     req = Request(endpoint, method="POST", data=urlencode(form).encode("ascii"))
     form = None
     req.add_header("User-Agent", "mcp-authscan/2.0.0")
@@ -188,10 +218,10 @@ def _revoke_client(metadata, client):
     try:
         status, _, body = _egress_guard(req, follow_redirects=False)
     except EgressRefusalError:
-        return "revocation_endpoint outside allowed scope"
+        return False, "revocation_endpoint outside allowed scope"
     except Exception as e:
-        return "request failed: %s" % type(e).__name__
-    return _status_text(status, body)
+        return False, "request failed: %s" % type(e).__name__
+    return 200 <= status < 300, _status_text(status, body)
 
 
 class ProbeRecord:
@@ -1188,7 +1218,8 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         return [], []
 
     # Client source for probes 7 and 8: dynamic registration, else the environment, else EXCLUDED.
-    registered, registration = _register_client(metadata)
+    tried = []
+    registered, registration = _register_client(metadata, tried)
     client = registered if registered is not None and registered.usable else None
     registration_note = None if client else "Dynamic client registration unavailable: " + registration
 
@@ -1207,8 +1238,16 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_client_auth(metadata.get("token_endpoint")))
 
     # Revoke a registered client after the last probe that uses it, before anything is reported.
-    revocation = _revoke_client(metadata, registered) if registered is not None else \
-        "not applicable: no client was registered"
+    # A registered client that was not revoked is announced on the terminal now and in the report.
+    still_live = None
+    revocation = "not applicable: no client was registered"
+    if registered is not None:
+        revoked, revocation = _revoke_client(metadata, registered)
+        still_live = not revoked
+        if still_live:
+            print("[!] CLIENT STILL LIVE: client_id %s registered at %s was not revoked (%s); "
+                  "remove it on the server" % (registered.client_id, oauth_server_url, revocation),
+                  file=sys.stderr)
     if client is not None:
         source, client_id, redirect_uri = "registered", client.client_id, client.redirect_uri
     else:
@@ -1226,6 +1265,9 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "revocation": revocation,
+        "client_still_live": still_live,
+        "registered_client_id": registered.client_id if registered is not None else None,
+        "redirect_candidates_tried": tried,
     })
     registered = client = None
     return records, []

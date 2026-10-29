@@ -2409,11 +2409,19 @@ def main():
             report_lines.append(f"Authorization Server: {entry['authorization_server']}")
             report_lines.append("Client Registered: %s" % ("yes" if entry["client_registered"] else "no"))
             report_lines.append(f"Registration: {entry['registration']}")
+            for t in entry.get("redirect_candidates_tried") or []:
+                report_lines.append(f"  Redirect Candidate: {t['redirect_uri']}: {t['result']}")
             report_lines.append(f"Client Source: {entry['client_source']}")
             if entry["client_id"]:
                 report_lines.append(f"Client ID: {entry['client_id']}")
             report_lines.append(f"Redirect URI Used: {entry['redirect_uri']}")
             report_lines.append(f"Revocation: {entry['revocation']}")
+            if entry.get("client_still_live"):
+                report_lines.append("Client Status: STILL LIVE on the server (registered client_id %s was not "
+                                    "revoked; revocation: %s). Remove it on the server."
+                                    % (entry["registered_client_id"], entry["revocation"]))
+            elif entry.get("client_still_live") is False:
+                report_lines.append("Client Status: revoked")
             report_lines.append("-" * 80)
             report_lines.append("")
 
