@@ -77,6 +77,7 @@ class ScanMetadata:
         probes_failed: Optional[int] = None,
         probes_observed: Optional[int] = None,
         probes_excluded: Optional[int] = None,
+        probes_not_implemented: Optional[int] = None,
         elapsed_seconds: Optional[float] = None,
         discovery_info: Optional[dict] = None
     ):
@@ -97,6 +98,7 @@ class ScanMetadata:
         self.probes_failed = probes_failed
         self.probes_observed = probes_observed
         self.probes_excluded = probes_excluded
+        self.probes_not_implemented = probes_not_implemented
         self.elapsed_seconds = elapsed_seconds
         self.discovery_info = discovery_info
 
@@ -153,6 +155,8 @@ class ScanMetadata:
                 lines.append(f"Probes Not Observed: {self.probes_not_observed}")
             if self.probes_excluded is not None and self.probes_excluded > 0:
                 lines.append(f"Probes Excluded: {self.probes_excluded}")
+            if self.probes_not_implemented is not None and self.probes_not_implemented > 0:
+                lines.append(f"Probes Not Implemented: {self.probes_not_implemented}")
 
             # Verify accounting: attempted = passed + failed + observed + not_observed
             # All probes are attempted. NOT_OBSERVED may have unmet prerequisites but were still sent.

@@ -376,7 +376,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
     
     Probes test whether authentication properties are enforced. Each probe demonstrates a property
     and returns: PASS (property demonstrated), FAIL (property violated), NOT_OBSERVED (could not test),
-    or EXCLUDED (out of scope).
+    EXCLUDED (out of scope), or NOT_IMPLEMENTED (probe not yet built, never sent).
     """
     findings = []
     probe_status = {'passed': 0, 'not_observed': 0, 'findings': 0}
@@ -571,6 +571,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         probe_status['not_observed'] = oauth_counts.get("NOT_OBSERVED", 0)
         probe_status['observation'] = oauth_counts.get("observation", 0)
         probe_status['excluded'] = oauth_counts.get("EXCLUDED", 0)
+        probe_status['not_implemented'] = oauth_counts.get("NOT_IMPLEMENTED", 0)
         
         # If OAuth assessment failed (all counts are 0), mark all 9 probes as excluded
         if (oauth_counts.get("attempted", 0) == 0 and 
@@ -2050,6 +2051,7 @@ def main():
     probes_not_observed = 0
     probes_observed = 0
     probes_excluded = 0
+    probes_not_implemented = 0
     discovery_info = None
     repo_url = None
     branch = None
@@ -2150,13 +2152,16 @@ def main():
             probes_not_observed = probe_status['not_observed']
             probes_observed = probe_status.get('observation', 0)
             probes_excluded = probe_status.get('excluded', 0)
+            probes_not_implemented = probe_status.get('not_implemented', 0)
 
         # Verify accounting before rendering
         # Attempted = probes actually sent (may exclude those with unmet prerequisites)
-        # Excluded = probes never sent (verdict NOT_OBSERVED with prerequisite_met=False)
-        # Total probe set = 9 (always attempted + excluded = 9)
+        # Excluded = probes never sent (prerequisite_met=False)
+        # Not implemented = probes not yet built, never sent
+        # Total probe set = 9 (always attempted + excluded + not_implemented = 9)
         attempted = probe_status.get("attempted", 0)
         excluded = probe_status.get("excluded", 0)
+        not_implemented = probe_status.get("not_implemented", 0)
         passed = probe_status.get("passed", 0)
         failed = probe_status.get("failed", 0)
         not_observed = probe_status.get("not_observed", 0)
@@ -2168,9 +2173,9 @@ def main():
             print(f"[!] ACCOUNTING ERROR: {verdicts} verdicts (expected {attempted} attempted)", file=sys.stderr)
             if not F: sys.exit(5)
 
-        # Verify: attempted + excluded = 9
-        if attempted + excluded != 9:
-            print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded = {attempted + excluded} (expected 9)", file=sys.stderr)
+        # Verify: attempted + excluded + not_implemented = 9
+        if attempted + excluded + not_implemented != 9:
+            print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded + {not_implemented} not implemented = {attempted + excluded + not_implemented} (expected 9)", file=sys.stderr)
             if not F: sys.exit(5)
 
         # Update probes_attempted in case it was 0 before
@@ -2319,6 +2324,7 @@ def main():
             probes_failed=(sum(1 for r in oauth_records if r.status == "FAIL") if oauth_records else len(F)),
             probes_not_observed=probes_not_observed,
             probes_excluded=probes_excluded,
+            probes_not_implemented=probes_not_implemented,
             elapsed_seconds=elapsed_seconds,
             discovery_info=discovery_info
         )
@@ -2430,19 +2436,20 @@ def main():
         # Compute accounting and supplementary fields
     counts = {
         "in_scope": len(oauth_records),
-        "attempted": len(oauth_records) - sum(1 for r in oauth_records if r.status == "EXCLUDED"),
+        "attempted": len(oauth_records) - sum(1 for r in oauth_records if r.status in ("EXCLUDED", "NOT_IMPLEMENTED")),
         "PASS": sum(1 for r in oauth_records if r.status == "PASS"),
         "FAIL": sum(1 for r in oauth_records if r.status == "FAIL"),
         "NOT_OBSERVED": sum(1 for r in oauth_records if r.status == "NOT_OBSERVED"),
         "EXCLUDED": sum(1 for r in oauth_records if r.status == "EXCLUDED"),
+        "NOT_IMPLEMENTED": sum(1 for r in oauth_records if r.status == "NOT_IMPLEMENTED"),
     }
     canonical_payload["counts"] = counts
     canonical_payload["coverage"] = round((counts["PASS"] + counts["FAIL"]) / float(counts["attempted"]), 4) if counts["attempted"] > 0 else 0
     canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [
         "MCP protocol endpoints",
-        "PKCE S256 enforcement, needs a registered client",
-        "redirect_uri exact match, needs a registered client",
+        "PKCE S256 enforcement, probe not yet implemented",
+        "redirect_uri exact match, probe not yet implemented",
     ]
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
         canonical_payload.pop(key, None)

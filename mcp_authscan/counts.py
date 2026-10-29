@@ -20,8 +20,9 @@ def count_probes(records):
     counts = {status: sum(1 for r in records if r.status == status)
               for status in VALID_STATUSES}
     counts["in_scope"] = len(records)
-    counts["attempted"] = counts["in_scope"] - counts["EXCLUDED"]
-    assert counts["attempted"] + counts["EXCLUDED"] == counts["in_scope"]
+    # NOT_IMPLEMENTED probes are never sent: neither attempted nor excluded.
+    counts["attempted"] = counts["in_scope"] - counts["EXCLUDED"] - counts["NOT_IMPLEMENTED"]
+    assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
     assert sum(counts[s] for s in VALID_STATUSES) == counts["in_scope"]
     return counts
 

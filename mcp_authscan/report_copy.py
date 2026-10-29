@@ -43,6 +43,7 @@ def render_summary(records):
     failed = [r for r in records if r.status == "FAIL"]
     not_obs = [r for r in records if r.status == "NOT_OBSERVED"]
     excluded = [r for r in records if r.status == "EXCLUDED"]
+    not_impl = [r for r in records if r.status == "NOT_IMPLEMENTED"]
 
     # PASSED: show with evidence from PASS_EVIDENCE mapping
     if passed:
@@ -53,6 +54,11 @@ def render_summary(records):
     if excluded:
         names = ", ".join(r.name for r in excluded)
         lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent): {names}")
+
+    # NOT_IMPLEMENTED: the probe is not built yet; nothing was sent, the target blocked nothing
+    if not_impl:
+        names = ", ".join(r.name for r in not_impl)
+        lines.append(f"NOT IMPLEMENTED ({len(not_impl)}, probe not yet built, never sent): {names}")
 
     # NOT_OBSERVED: inconclusive; each probe's reason on its own line
     if not_obs:

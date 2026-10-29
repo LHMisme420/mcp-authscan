@@ -520,11 +520,9 @@ def probe_pkce_s256(metadata):
     return record(
         probe_id=7,
         name="pkce-s256",
-        status="EXCLUDED",
+        status="NOT_IMPLEMENTED",
         probe_class="authserver",
-        limitation="PKCE enforcement test requires registered client",
-        prerequisites=["registered_client"],
-        prerequisite_met=False,
+        limitation="probe not yet implemented",
     )
 
 
@@ -533,11 +531,9 @@ def probe_redirect_uri_exact(metadata):
     return record(
         probe_id=8,
         name="redirect-uri-exact",
-        status="EXCLUDED",
+        status="NOT_IMPLEMENTED",
         probe_class="authserver",
-        limitation="Redirect URI test requires registered client",
-        prerequisites=["registered_client"],
-        prerequisite_met=False,
+        limitation="probe not yet implemented",
     )
 
 
