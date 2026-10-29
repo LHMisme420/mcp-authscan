@@ -8,13 +8,13 @@ Auth scanner for live MCP servers.
 
 VATA checks the security posture of Model Context Protocol deployments. It runs in two modes.
 
-Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends real HTTP requests to that running server and records what comes back. It discovers the OAuth surface through RFC 9728 protected-resource metadata and RFC 8414 authorization-server metadata, then runs nine authorization-server probes: issuer identity, resource binding, token endpoint Cache-Control, token endpoint CORS, JWKS key types, password grant rejection, PKCE S256, redirect URI exact match, and client authentication.
+Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends real HTTP requests to that running server and records what comes back. It discovers the OAuth surface through RFC 9728 protected-resource metadata and RFC 8414 authorization-server metadata, then runs its declared set of nine authorization-server probes. Seven are implemented: issuer identity, resource binding, token endpoint Cache-Control, token endpoint CORS, JWKS key types, password grant rejection, and client authentication. Two are not built yet: PKCE S256 (pkce-s256) and redirect URI exact match (redirect-uri-exact). They send no requests and report NOT_IMPLEMENTED on every run.
 
 Repository scan (static). Given a GitHub repository URL, it reads the source instead of sending requests.
 
 ## Want your own MCP server reviewed?
 
-I run authorised, evidence-backed security reviews of MCP server deployments. You get a written report with every finding by severity, the request and response behind each one, and an explicit list of what was not tested.
+I run authorised, evidence-backed security reviews of MCP server deployments. You get a written report with every finding by severity, the request and response behind each one, and an explicit list of what was not tested, including probes not yet built.
 
 Two ways in: a single-server review at $1,750, or a full assessment at $3,500 including one retest after you fix.
 
@@ -56,14 +56,15 @@ mcp-authscan api.example.com/mcp \
 
 Every probe returns one record: status, HTTP status, the response headers captured, the body sha256, whether its prerequisite was met, and its declared limitation. A FAIL cannot be constructed without a severity and the endpoint it was observed on. EXCLUDED requires prerequisite_met: false plus a named prerequisite.
 
-Statuses are PASS, FAIL, NOT_OBSERVED and EXCLUDED.
+Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 
 - PASS: the response positively demonstrated the property.
 - FAIL: the response demonstrated the property is absent or broken.
 - NOT_OBSERVED: the request went out and the property was not demonstrated. A 404, 405, 5xx, timeout or HTML body is not a pass.
-- EXCLUDED: the probe was never sent because a prerequisite, such as a registered client, was missing.
+- EXCLUDED: a prerequisite, such as a token endpoint or metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
+- NOT_IMPLEMENTED: the probe is not built yet and sends no request. pkce-s256 and redirect-uri-exact report this on every run.
 
-Coverage is PASS plus FAIL over the in-scope set after exclusions. Excluded means never sent. Not observed means sent and not demonstrated.
+Coverage is PASS plus FAIL over the declared set of nine probes, so excluded and not-implemented probes count against it. A clean run reads 7 of 9 (0.78), and the report names the two unbuilt probes, pkce-s256 and redirect-uri-exact. Not observed means sent and not demonstrated.
 
 ## Exit codes
 
@@ -72,7 +73,7 @@ Coverage is PASS plus FAIL over the in-scope set after exclusions. Excluded mean
 - 2 authorization validation failed, no network requests made
 - 3 target unreachable
 - 4 target is not a valid MCP server
-- 5 server not assessable, coverage incomplete or zero testable probes
+- 5 server not assessable, fewer than seven probes reached a verdict or zero testable probes
 - 6 egress refused, a discovered host was not in the authorized set
 
 A FAIL at or above the threshold outranks incomplete coverage, so a run with both exits 1.
@@ -83,9 +84,9 @@ The negative control is run locally against the fixture on port 9002. It is not 
 
 ## Known limits
 
-- The nine probes assess the authorization server. They do not test the MCP resource endpoints themselves.
+- The seven implemented probes assess the authorization server. They do not test the MCP resource endpoints themselves.
 - An endpoint prober cannot verify a three-party OAuth flow. Issuer binding is enforced client-side, so the probe checks what the metadata declares, not what a client will do.
-- PKCE S256 and redirect URI exact match need a registered client and report EXCLUDED without one.
+- PKCE S256 and redirect URI exact match are not built yet. They send no requests and report NOT_IMPLEMENTED.
 - No source review, no dependency CVE check, no secrets-in-history scan.
 - Absence of a finding is not proof of safety.
 
