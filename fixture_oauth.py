@@ -89,6 +89,10 @@ AS = {
 
 if REVOCATION_ABSENT:
     del AS["revocation_endpoint"]
+# JWKS=absent: the metadata advertises no jwks_uri, as an opaque-token server such as FlowState
+# (probe 5 EXCLUDED branch). GET /jwks still answers.
+if os.environ.get("JWKS") == "absent":
+    del AS["jwks_uri"]
 
 RES = {"resource": BASE + "/mcp", "authorization_servers": [BASE]}
 
