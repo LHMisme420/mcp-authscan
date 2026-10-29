@@ -44,3 +44,21 @@ A single run of localhost:8765 demonstrates all three verdict types:
 
 - **--json flag broken**: The `--json` flag outputs stderr text instead of JSON. EXCLUDED probe details cannot be verified from JSON at this time. This requires separate investigation and fix.
 
+
+## 2026-10-29 05:59 EDT — Exit code proof
+
+Exit code behavior verified against fixture endpoints:
+
+**Rule**: fail_on=HIGH, threshold=1, order={PASS:0, FAIL:1, EXCLUDED:2}
+- Finding with severity FAIL (level 1) >= threshold (1) → findings_at_threshold=True → exit 1
+- No findings >= threshold → exit 0
+
+**Measured**:
+- Clean endpoint (realistic 4xx + no CORS): exit 0 ✓
+- Misbehave endpoint (400 + ACAO:*): exit 1 ✓
+
+**Note**: Measurement requires `$? captured before any other command`. Using 
+`echo "exit=$?"` directly captures the exit code of mcp-authscan. Piping through 
+grep or other commands, or placing echo between the tool and the $? read, 
+measures the wrong process exit code.
+

@@ -2580,6 +2580,11 @@ def main():
 
     # Check if any finding meets or exceeds the threshold
     findings_at_threshold = False
+    import sys as _s
+    print("[debug] fail_on=%r thr=%r lenF=%d" % (args.fail_on, thr, len(F)), file=_s.stderr)
+    for _f in F:
+        _sv = _f.get("severity", "LOW")
+        print("[debug] sev=%r rule=%r level=%r" % (_sv, _f.get("rule", _f.get("ref", "")), order.get(_sv, 0)), file=_s.stderr)
     for finding in F:
         severity = finding.get("severity", "LOW")
         sev_level = order.get(severity, 9)

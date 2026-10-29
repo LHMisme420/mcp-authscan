@@ -274,8 +274,14 @@ def probe_token_cors(token_endpoint):
         )
     
     # Check for error responses before evaluating verdict.
-    # 4xx: endpoint error; cannot assess CORS. Return EXCLUDED.
-    if http_status and 400 <= http_status < 500:
+    # 4xx with valid OAuth error structure is OK; exclude only on non-JSON or missing error code.
+    try:
+        body_json = json.loads(body) if body else {}
+        has_error_code = isinstance(body_json, dict) and "error" in body_json
+    except (ValueError, TypeError):
+        has_error_code = False
+    
+    if http_status and 400 <= http_status < 500 and not has_error_code:
         return record(
             probe_id=4,
             name="token-cors",
