@@ -442,8 +442,10 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                 if 'jsonrpc' in body or '{' in body:
                     mcp_verified = True
                     print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
-    except (URLError, socket.timeout) as e:
-        print(f"[!] Preflight error (network): {e}", file=sys.stderr)
+    except (URLError, socket.timeout, ConnectionError) as e:
+        # The target did not answer (refused, reset by peer, timeout): unreachable, not "not MCP".
+        print(f"[!] Target unreachable: {target_url} did not answer ({getattr(e, 'reason', e)})", file=sys.stderr)
+        return findings, False, probe_status, None, ([], [])
 
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
@@ -2083,13 +2085,19 @@ def main():
         except EgressRefusalError as e:
             print(f"[!] Scope enforcement: {e}", file=sys.stderr)
             sys.exit(6)
+        except HTTPError as e:
+            print(f"[!] Internal scan error: {type(e).__name__}: {e}", file=sys.stderr)
+            sys.exit(4)
+        except (URLError, socket.timeout, ConnectionError) as e:
+            print(f"[!] Target unreachable: {args.target} stopped answering ({getattr(e, 'reason', e)}). Scan aborted.", file=sys.stderr)
+            sys.exit(3)
         except Exception as e:
             print(f"[!] Internal scan error: {type(e).__name__}: {e}", file=sys.stderr)
             sys.exit(4)
         scan_mode = "LIVE_ENDPOINT_ASSESSMENT"
 
-        # Log discovery results (only if successful, not DISCOVERY_INCOMPLETE)
-        if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
+        # Log discovery results only when discovery actually returned OAuth endpoints
+        if discovery_info and discovery_info.get('endpoints'):
             print(f"[+] OAuth discovery successful", file=sys.stderr)
             if 'method' in discovery_info:
                 print(f"    Method: {discovery_info['method']}", file=sys.stderr)
