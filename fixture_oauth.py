@@ -71,6 +71,11 @@ class H(BaseHTTPRequestHandler):
             has_client = bool(client_id) or has_basic
 
             if MISBEHAVE:
+                if grant == "client_credentials" and client_id == REGISTERED_CLIENT and client_secret == REGISTERED_SECRET:
+                    return self._s(200, {"access_token": "fixture-token", "token_type": "Bearer"},
+                                   {"Cache-Control": "no-store", "Pragma": "no-cache",
+                                    "Access-Control-Allow-Origin": "*",
+                                    "Access-Control-Allow-Credentials": "true"})
                 return self._s(400, {"error": "invalid_request"},
                                {"Cache-Control": "no-store", "Pragma": "no-cache",
                                 "Access-Control-Allow-Origin": "*",
@@ -92,6 +97,11 @@ class H(BaseHTTPRequestHandler):
                 return self._s(200, {"access_token": "fixture-token", "token_type": "Bearer"},
                                {"Cache-Control": "no-store", "Pragma": "no-cache"})
             
+            # 3b. Valid grant: client_credentials with registered client
+            if grant == "client_credentials" and client_id == REGISTERED_CLIENT and client_secret == REGISTERED_SECRET:
+                return self._s(200, {"access_token": "fixture-token", "token_type": "Bearer"},
+                               {"Cache-Control": "no-store", "Pragma": "no-cache"})
+
             # 4. Invalid/missing required params
             if grant != "authorization_code":
                 return self._s(400, {"error": "invalid_request"},
