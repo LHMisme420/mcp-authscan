@@ -64,7 +64,7 @@ Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 - EXCLUDED: a prerequisite, such as a token endpoint or metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
 - NOT_IMPLEMENTED: the probe is not built yet and sends no request. pkce-s256 and redirect-uri-exact report this on every run.
 
-Coverage is PASS plus FAIL over the declared set of nine probes, so excluded and not-implemented probes count against it. A clean run reads 7 of 9 (0.78), and the report names the two unbuilt probes, pkce-s256 and redirect-uri-exact. Not observed means sent and not demonstrated.
+Coverage is PASS plus FAIL over the declared set of nine probes, so a run in which seven probes reach a verdict reads 7 of 9 (0.78), and the report names the two unbuilt probes, pkce-s256 and redirect-uri-exact, as NOT_IMPLEMENTED. Not observed means sent and not demonstrated.
 
 ## Exit codes
 
@@ -103,7 +103,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Tool version 1.1.8 and probe set 2026.10.28 are versioned separately, so adding a probe never rewrites how a past report reads.
+Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.28 are versioned separately, so adding a probe never rewrites how a past report reads.
 
 ## About
 
