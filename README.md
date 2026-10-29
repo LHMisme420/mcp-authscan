@@ -61,7 +61,7 @@ Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 - PASS: the response positively demonstrated the property.
 - FAIL: the response demonstrated the property is absent or broken.
 - NOT_OBSERVED: the request went out and the property was not demonstrated. A 404, 405, 5xx, timeout or HTML body is not a pass.
-- EXCLUDED: a prerequisite, such as a token endpoint or metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
+- EXCLUDED: a prerequisite, such as a token endpoint, a jwks_uri or a metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. The summary prints each EXCLUDED probe on its own line with its reason, e.g. `jwks-keys: No JWKS endpoint`. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
 - NOT_IMPLEMENTED: the probe is not built yet and sends no request. No probe in the current set reports this.
 
 Coverage is PASS plus FAIL over the declared set of nine probes, so a run in which seven probes reach a verdict reads 7 of 9 (0.78), and the report names the probes that did not reach one. Not observed means sent and not demonstrated.

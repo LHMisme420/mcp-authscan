@@ -61,7 +61,8 @@ Acquired-token mode reaches no verdict, and names why, when no token can be obta
 ### [5] jwks-keys
 - **PASS:** /jwks endpoint returns valid JWKS (keys array, at least 1 key)
 - **FAIL:** Invalid or empty JWKS
-- **NOT_OBSERVED:** Endpoint unreachable, invalid_request error
+- **NOT_OBSERVED:** `jwks_uri` outside the allowed scope (nothing sent)
+- **EXCLUDED** (prerequisite missing): no `jwks_uri` in the authorization server metadata (limitation "No JWKS endpoint", nothing sent); or the `jwks_uri` request failed or its body is not JSON (detail "Cannot reach JWKS endpoint"). A server that issues opaque access tokens and publishes no `jwks_uri` (for example FlowState, whose metadata comes from the MCP Python SDK's `build_metadata`, which never sets `jwks_uri`) stays EXCLUDED here; the scanner never infers keys from elsewhere.
 
 ### [6] password-grant
 - **PASS:** /token endpoint returns error `"unsupported_grant_type"` when password grant attempted (RFC 2.1 compliance)
@@ -130,3 +131,12 @@ For 9-probe assessment:
 - **Fail coverage:** EXCLUDED > 2 → EXIT 5 (cannot fully assess server)
 
 A server must reach verdicts on all in-scope probes to report exit 0 or 1. Insufficient coverage → EXIT 5.
+
+**Summary wording for EXCLUDED.** The report summary prints one line per EXCLUDED probe with its reason, the same way it prints NOT OBSERVED probes:
+
+```
+EXCLUDED (<n>, prerequisite missing, never sent):
+  <probe name>: <limitation>[; <detail>]
+```
+
+For example `  jwks-keys: No JWKS endpoint`. When a record has neither, the reason reads `(no reason recorded)`.
