@@ -24,7 +24,10 @@ class H(BaseHTTPRequestHandler):
         self.rfile.read(n)
         HITS.append(self.path)
         self.send_response(400)
+        self.send_header("cache-control", "no-store")
+        self.send_header("content-type", "application/json")
         self.end_headers()
+        self.wfile.write(b'{"error": "invalid_grant"}')
 def serve():
     HTTPServer(("127.0.0.1", 8765), H).serve_forever()
 class Mem:

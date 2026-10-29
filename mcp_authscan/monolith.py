@@ -25,6 +25,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
 from mcp_authscan.cors import probe_cors_urllib
+from .errors import EgressRefusalError
 
 LIVE_ENDPOINTS = {
     "/sse": "GET",
@@ -83,7 +84,6 @@ def validate_target_host(hostname, port):
 
 
 # Set from --allow-private so explicitly authorized local targets keep working.
-ALLOW_PRIVATE_TARGETS = False
 ALLOWED_HOSTS: set[str] = set()  # Authorized domains for discovery
 
 
@@ -223,14 +223,15 @@ def _direct_rfc8414_discovery(base):
             endpoints = {k: v for k, v in endpoints.items() if v}
             if endpoints:
                 print("[+] OAuth discovery successful", file=sys.stderr)
-                return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints}
+                parsed = urlparse(base)
+                return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints, "discovered_hosts": [parsed.hostname] if parsed.hostname else []}
             print("[DEBUG] No endpoints found", file=sys.stderr)
     except Exception as e:
         print(f"[DEBUG] Fallback failed: {e}", file=sys.stderr)
     return None, None
 
 
-def discover_oauth_endpoints(base_url):
+def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
 
@@ -279,9 +280,9 @@ def discover_oauth_endpoints(base_url):
                     return None, zero_auth_info
         except HTTPError as e:
             if e.code != 401:
-                # Not an OAuth server
-                print(f"[*] HTTP {e.code} - Not an OAuth server", file=sys.stderr)
-                return None, None
+                # Not an MCP server (404, 405, etc). Try direct RFC 8414 instead
+                print(f"[*] HTTP {e.code} - Not an MCP server, trying direct RFC 8414", file=sys.stderr)
+                return _direct_rfc8414_discovery(base)
 
             # Step 2: Parse 401 www-authenticate header (RFC 9728)
             www_auth = e.headers.get("www-authenticate", "")
@@ -304,7 +305,7 @@ def discover_oauth_endpoints(base_url):
 
             # Step 3: Fetch resource metadata
             try:
-                assert_url_is_fetchable(resource_url)
+                assert_url_is_fetchable(resource_url, allow_private=ALLOW_PRIVATE_TARGETS)
                 req = Request(resource_url)
                 req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
@@ -325,7 +326,7 @@ def discover_oauth_endpoints(base_url):
 
                         try:
                             oauth_metadata_url = oauth_server.rstrip("/") + "/.well-known/oauth-authorization-server"
-                            assert_url_is_fetchable(oauth_server)
+                            assert_url_is_fetchable(oauth_server, allow_private=ALLOW_PRIVATE_TARGETS)
                             req = Request(oauth_metadata_url)
                             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
@@ -369,15 +370,13 @@ def discover_oauth_endpoints(base_url):
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
     return _direct_rfc8414_discovery(base)
 
-def scan_live_server(target_url):
+def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
     Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
-    probe_status = {'passed': count, 'not_observed': count, 'findings': count}
-
-    STATUS CLASSIFICATION (per probe, per endpoint):
-    - PASSED: Server responded with 401/403 (correctly rejected unauthenticated request)
-    - NOT_OBSERVED: Server returned 404/5xx (endpoint doesn't exist or error, can't test)
-    - FINDINGS: Server returned 200/201/202 (vulnerability detected)
+    
+    Probes test whether authentication properties are enforced. Each probe demonstrates a property
+    and returns: PASS (property demonstrated), FAIL (property violated), NOT_OBSERVED (could not test),
+    or EXCLUDED (out of scope).
     """
     findings = []
     probe_status = {'passed': 0, 'not_observed': 0, 'findings': 0}
@@ -385,12 +384,6 @@ def scan_live_server(target_url):
     probe_results = []  # Track (endpoint, method, status, reason) for detailed reporting
     discovery_info = None
 
-    try:
-        p = urlparse(target_url)
-        socket.create_connection((p.hostname, p.port or 80), timeout=5)
-    except Exception as e:
-        print(f"[!] Cannot reach {target_url}: {e}", file=sys.stderr)
-        return findings, False, probe_status, discovery_info, ([], [])
 
     print(f"[*] Detected live server URL", file=sys.stderr)
     print(f"[*] Preflight: Checking if target is an MCP server...", file=sys.stderr)
@@ -421,9 +414,13 @@ def scan_live_server(target_url):
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
                     body = resp.read(500).decode(errors='ignore')
-                    if 'jsonrpc' in body:
-                        mcp_verified = True
-                        print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+                    try:
+                        json.loads(body)
+                        if 'jsonrpc' in body:
+                            mcp_verified = True
+                            print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+                    except json.JSONDecodeError:
+                            pass
                     else:
                         # 200 but not JSON-RPC - not an MCP server, continue to OAuth discovery
                         pass
@@ -445,8 +442,8 @@ def scan_live_server(target_url):
                 if 'jsonrpc' in body or '{' in body:
                     mcp_verified = True
                     print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
-    except Exception as e:
-        pass
+    except (URLError, socket.timeout) as e:
+        print(f"[!] Preflight error (network): {e}", file=sys.stderr)
 
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
@@ -464,10 +461,14 @@ def scan_live_server(target_url):
     if oauth_endpoints:
         # Use discovered OAuth endpoints
         print(f"[+] Using {len(oauth_endpoints)} discovered OAuth endpoints", file=sys.stderr)
+        # Add discovered OAuth hosts to allowed scope
+        if discovery_info and 'discovered_hosts' in discovery_info:
+            for host in discovery_info['discovered_hosts']:
+                ALLOWED_HOSTS.add(host)
+                print(f"[*] Added discovered host to allowed scope: {host}", file=sys.stderr)
+
 
         # Phase 1: Run OAuth server probes (RFC 8414 metadata assessment)
-        from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, EgressRefusalError, count_probes, render_probe
-
         oauth_server_urls = set()
         for endpoint_url in oauth_endpoints.values():
             parsed = urlparse(endpoint_url)
@@ -489,6 +490,7 @@ def scan_live_server(target_url):
                     print(f"[!] Resource metadata not fetched: {e}", file=sys.stderr)
                     pass  # Silently fail, resource_metadata_doc stays None
             
+            from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
             try:
                 records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
             except (ValueError, RuntimeError) as e:
@@ -2007,7 +2009,11 @@ def main():
     # target-supplied discovery URLs are allowed to resolve there too.
     global ALLOW_PRIVATE_TARGETS
     ALLOW_PRIVATE_TARGETS = bool(getattr(args, "allow_private", False))
+    # Also set it in oauth_probes_v2 module
+    import mcp_authscan.oauth_probes_v2 as oauth_probes_v2
+    oauth_probes_v2.ALLOW_PRIVATE_TARGETS = ALLOW_PRIVATE_TARGETS
     # Initialize allowed hosts with target host; --allow-host adds more
+    global ALLOWED_HOSTS
     target_host = urlparse(args.target).hostname or args.target
     ALLOWED_HOSTS = {target_host.lower()}
     for host in getattr(args, "allow_host", []):

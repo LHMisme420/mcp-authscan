@@ -2,18 +2,14 @@
 import json
 import sys
 from urllib.error import HTTPError, URLError
+from .errors import EgressRefusalError
 from urllib.request import Request, urlopen
 from ._common import record, SEVERITY_ORDER
 from urllib.parse import urlparse
 import socket
 from .monolith import assert_url_is_fetchable
 
-class EgressRefusalError(Exception):
-    """Raised when a URL is outside the allowed scope."""
-    pass
-
-
-def _egress_guard(request_obj, timeout=5):
+def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None):
     """Egress guard: enforce scope on all outbound requests.
     
     Checks that request_obj.full_url is fetchable (globally routable, not SSRF)
@@ -22,7 +18,7 @@ def _egress_guard(request_obj, timeout=5):
     Returns (status_code, headers_dict, body_bytes) on success.
     """
     try:
-        assert_url_is_fetchable(request_obj.full_url)
+        assert_url_is_fetchable(request_obj.full_url, allow_private=allow_private)
     except ValueError as e:
         raise EgressRefusalError(str(e))
     
@@ -104,9 +100,11 @@ def probe_issuer_identity(metadata_url, metadata):
             endpoint=metadata_url
         )
     
-    # Issuer present: check if it matches expected value
+    # Issuer present: check if it matches expected value (normalize trailing slashes)
     body = json.dumps({"issuer": issuer}).encode("utf-8")
-    if issuer == base_url:
+    issuer_norm = issuer.rstrip('/')
+    base_url_norm = base_url.rstrip('/')
+    if issuer_norm == base_url_norm:
         status = "PASS"
         severity = None
     else:
@@ -171,23 +169,21 @@ def probe_token_cache_control(token_endpoint):
             limitation="No token endpoint"
         )
     
-    http_status = None
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.data = b"grant_type=invalid"
         try:
             http_status, headers, body = _egress_guard(req)
-            cache_control = headers.get("Cache-Control", "")
         except EgressRefusalError:
             return record(
                 probe_id=3,
                 name="token-cache-control",
-                status="NOT_OBSERVED",
+                status="EXCLUDED",
                 probe_class="authserver",
-                detail="Target URL outside allowed scope"
+                limitation="Target URL outside allowed scope"
             )
-    except (URLError, Exception) as e:
+    except Exception as e:
         return record(
             probe_id=3,
             name="token-cache-control",
@@ -196,15 +192,16 @@ def probe_token_cache_control(token_endpoint):
             detail="Request failed: %s" % e
         )
     
-    # Explicit check: endpoint must actually respond (2xx-4xx status)
-    # 5xx means the endpoint didn't handle the request properly
+    # Read Cache-Control from the /token response
+    cache_control = headers.get("Cache-Control", "").lower()
+    import sys
+    print(f"[DEBUG] token-cache-control: status={http_status}, cache_control={repr(cache_control)}", file=sys.stderr)
+    
     if http_status and http_status >= 500:
         return record(
             probe_id=3,
             name="token-cache-control",
             status="NOT_OBSERVED",
-            http_status=http_status,
-            body=body,
             probe_class="authserver",
             detail="Token endpoint returned %d (server error). Cache headers cannot be evaluated." % http_status,
             endpoint=token_endpoint
@@ -353,7 +350,7 @@ def probe_jwks_keys(jwks_uri):
     try:
         req = Request(jwks_uri)
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-        status_code, headers, body = _egress_guard(req)
+        status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         jwks = json.loads(body.decode("utf-8"))
         keys = jwks.get("keys", [])
     except EgressRefusalError:
@@ -550,13 +547,13 @@ def probe_client_auth(token_endpoint):
     )
 
 
-def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url):
+def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_hosts=None, allow_private=False):
     """Complete OAuth authorization server assessment."""
     metadata_url = oauth_server_url.rstrip("/") + "/.well-known/oauth-authorization-server"
     try:
         req = Request(metadata_url)
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-        status_code, headers, body = _egress_guard(req)
+        status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         metadata = json.loads(body.decode())
     except EgressRefusalError as e:
         print("[!] OAuth server outside allowed scope: %s" % e, file=sys.stderr)

@@ -1,0 +1,10 @@
+--- a/fixture_oauth.py
++++ b/fixture_oauth.py
+@@ -19,6 +19,7 @@ class H(BaseHTTPRequestHandler):
+         p=self.path.split("?")[0]
+         if p=="/token": return self._s(200,{"access_token":"tok","expires_in":3600})
+         if p=="/mcp": return self._s(401,{"error":"unauthorized"},{"WWW-Authenticate":f'Bearer resource_metadata="{BASE}/.well-known/oauth-protected-resource/mcp"'})
++        if p=="/initialize": return self._s(401,{"error":"unauthorized"},{"WWW-Authenticate":f'Bearer resource_metadata="{BASE}/.well-known/oauth-protected-resource/mcp"'})
+         if p=="/authorize": return self._s(200,{"code":"authcode"})
+         if p=="/register": return self._s(200,{"client_id":"cid","client_secret":"cs"})
+         if p=="/revoke": return self._s(200,{})
