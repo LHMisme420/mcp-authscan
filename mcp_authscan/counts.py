@@ -28,7 +28,7 @@ def count_probes(records):
 
 
 def coverage(counts):
-    """Share of testable probes that reached a verdict. PASS and FAIL both count."""
+    """Share of the declared probe set (in_scope) that reached a verdict. PASS and FAIL both count."""
     if counts["attempted"] == 0:
         raise CoverageError("zero testable probes")
-    return (counts["PASS"] + counts["FAIL"]) / float(counts["attempted"])
+    return (counts["PASS"] + counts["FAIL"]) / float(counts["in_scope"])

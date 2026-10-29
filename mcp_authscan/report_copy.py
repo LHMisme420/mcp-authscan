@@ -71,4 +71,11 @@ def render_summary(records):
         names = ", ".join(r.name for r in failed)
         lines.append(f"FINDINGS ({len(failed)}): {names}")
 
+    # Coverage over the declared probe set, with any unbuilt probes named
+    reached = len(passed) + len(failed)
+    cov = f"Coverage: {reached} of {len(records)} declared probes reached a verdict ({reached / len(records):.2f})"
+    if not_impl:
+        cov += "; not implemented: " + ", ".join(r.name for r in not_impl)
+    lines.append(cov)
+
     return lines
