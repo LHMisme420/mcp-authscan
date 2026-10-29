@@ -541,8 +541,9 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         try:
             oauth_counts = count_probes(oauth_records)
         except RuntimeError as e:
+            # Invariant violation: a scan error (exit 4 in main), whether or not anything was found
             print(f"[!] ACCOUNTING ERROR: {e}", file=sys.stderr)
-            return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
+            raise
         
         # Extract findings from FAIL records (new architecture)
         for record in oauth_records:
@@ -2185,28 +2186,23 @@ def main():
         verdicts = passed + failed + not_observed + observation
         if verdicts != attempted:
             print(f"[!] ACCOUNTING ERROR: {verdicts} verdicts (expected {attempted} attempted)", file=sys.stderr)
-            if not F: sys.exit(5)
+            sys.exit(4)  # invariant violation is a scan error, whether or not anything was found
 
         # Verify: attempted + excluded + not_implemented = 9
         if attempted + excluded + not_implemented != 9:
             print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded + {not_implemented} not implemented = {attempted + excluded + not_implemented} (expected 9)", file=sys.stderr)
-            if not F: sys.exit(5)
+            sys.exit(4)  # invariant violation is a scan error, whether or not anything was found
 
         # Update probes_attempted in case it was 0 before
         probes_attempted = attempted
 
-        # Exit 5: Coverage rule - need at least 7 conclusive verdicts
+        # Incomplete assessment is reported, never an exit code: exit 5 means zero testable probes only.
         # Conclusive = PASS, FAIL, OBSERVATION (NOT_OBSERVED is inconclusive)
-        # If we have less than 7 conclusive verdicts, assessment is incomplete
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
             verdicts_reached = passed + failed + observation
             inconclusive = not_observed
-
-            # Require at least 7 conclusive verdicts out of the attempted probes
-            # If we have fewer, exit 5 (incomplete assessment)
             if verdicts_reached < 7:
                 print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
-                if not F: sys.exit(5)
 
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
