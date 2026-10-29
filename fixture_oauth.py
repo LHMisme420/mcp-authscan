@@ -1,4 +1,4 @@
-import json, os, sys
+import itertools, json, os, sys
 from urllib.parse import urlsplit, parse_qs, urlencode
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -17,6 +17,18 @@ REGISTERED_REDIRECT = f"{BASE}/cb"
 #   REDIRECT_MATCH=prefix  any redirect_uri starting with the registered one is accepted (probe 8 FAIL branch)
 PKCE_PLAIN_ACCEPT = os.environ.get("PKCE_PLAIN") == "accept"
 REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
+
+# Dynamic client registration (RFC 7591) and revocation switches. Defaults succeed.
+#   REGISTRATION=fail  POST /register answers 400 invalid_client_metadata (no client is created)
+#   REVOCATION=fail    POST /revoke answers 503 temporarily_unavailable (nothing is revoked)
+# A registered client is a public client (token_endpoint_auth_method none) whose redirect_uris
+# are exactly the ones it asked for; /authorize accepts it like the static client. Each
+# registration also returns a registration_access_token, so a test can check it never leaks.
+REGISTRATION_FAIL = os.environ.get("REGISTRATION") == "fail"
+REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
+DCR_CLIENTS = {}   # client_id -> list of registered redirect_uris
+_DCR_SEQ = itertools.count(1)
+REVOKED = []       # one entry per accepted POST /revoke: {"client_id", "token_sent"}
 
 # Every GET to a redirect target is counted. A scanner that never follows a
 # Location leaves these at 0; GET /_hits reports them without counting itself.
@@ -57,12 +69,17 @@ class H(BaseHTTPRequestHandler):
 
     def _authorize(self):
         q = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
-        if q.get("client_id") != REGISTERED_CLIENT:
+        cid = q.get("client_id")
+        if cid == REGISTERED_CLIENT:
+            registered = REGISTERED_REDIRECT
+        elif cid in DCR_CLIENTS:
+            registered = DCR_CLIENTS[cid][0]
+        else:
             return self._s(400, {"error": "invalid_request", "error_description": "unknown client_id"})
         if q.get("response_type") != "code":
             return self._s(400, {"error": "unsupported_response_type"})
-        redirect = q.get("redirect_uri", REGISTERED_REDIRECT)
-        if redirect != REGISTERED_REDIRECT and not (REDIRECT_PREFIX and redirect.startswith(REGISTERED_REDIRECT)):
+        redirect = q.get("redirect_uri", registered)
+        if redirect != registered and not (REDIRECT_PREFIX and redirect.startswith(registered)):
             # RFC 6749 4.1.2.1: never redirect to an unverified redirect_uri
             return self._s(400, {"error": "invalid_request",
                                  "error_description": "redirect_uri does not match the registered value"})
@@ -86,6 +103,9 @@ class H(BaseHTTPRequestHandler):
             return self._authorize()
         if p == "/_hits":
             return self._s(200, LOCATION_HITS)
+        if p == "/_clients":
+            # registered (and not revoked) dynamic clients, without any credential
+            return self._s(200, {"registered": sorted(DCR_CLIENTS), "revoked": REVOKED})
         if p.startswith("/cb"):
             LOCATION_HITS[p] = LOCATION_HITS.get(p, 0) + 1
             print("LOCATION-HIT " + p, file=sys.stderr, flush=True)
@@ -168,9 +188,39 @@ class H(BaseHTTPRequestHandler):
                            {"Cache-Control": "no-store", "Pragma": "no-cache"})
 
         if p == "/register":
-            return self._s(201, {"client_id": "test-client",
-                                 "redirect_uris": [f"{BASE}/cb"],
-                                 "token_endpoint_auth_method": "none"})
+            if REGISTRATION_FAIL:
+                print("REGISTER refused", file=sys.stderr, flush=True)
+                return self._s(400, {"error": "invalid_client_metadata",
+                                     "error_description": "registration disabled on this fixture"},
+                               {"Cache-Control": "no-store"})
+            try:
+                meta = json.loads(body.decode() or "{}")
+            except ValueError:
+                return self._s(400, {"error": "invalid_client_metadata"})
+            uris = meta.get("redirect_uris") if isinstance(meta, dict) else None
+            if not (isinstance(uris, list) and uris and all(isinstance(u, str) for u in uris)):
+                return self._s(400, {"error": "invalid_redirect_uri"})
+            cid = "dcr-client-%d" % next(_DCR_SEQ)
+            DCR_CLIENTS[cid] = list(uris)
+            print("REGISTER " + cid + " " + " ".join(uris), file=sys.stderr, flush=True)
+            return self._s(201, {"client_id": cid,
+                                 "redirect_uris": list(uris),
+                                 "grant_types": ["authorization_code"],
+                                 "response_types": ["code"],
+                                 "token_endpoint_auth_method": "none",
+                                 "registration_access_token": "fixture-rat-" + cid},
+                           {"Cache-Control": "no-store"})
+
+        if p == "/revoke":
+            form = {k: v[0] for k, v in parse_qs(body.decode(errors="ignore")).items()}
+            if REVOCATION_FAIL:
+                print("REVOKE refused " + form.get("client_id", ""), file=sys.stderr, flush=True)
+                return self._s(503, {"error": "temporarily_unavailable"})
+            cid = form.get("client_id", "")
+            DCR_CLIENTS.pop(cid, None)
+            REVOKED.append({"client_id": cid, "token_sent": bool(form.get("token"))})
+            print("REVOKE " + cid, file=sys.stderr, flush=True)
+            return self._s(200, {})
         return self._s(404, {"error": "not_found"})
 
     def log_message(self, *a):
@@ -179,5 +229,7 @@ class H(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print("issuer=" + ISSUER + " misbehave=" + str(MISBEHAVE)
           + " pkce_plain=" + ("accept" if PKCE_PLAIN_ACCEPT else "refuse")
-          + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact"), flush=True)
+          + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact")
+          + " registration=" + ("fail" if REGISTRATION_FAIL else "ok")
+          + " revocation=" + ("fail" if REVOCATION_FAIL else "ok"), flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()
