@@ -73,13 +73,13 @@ Coverage is PASS plus FAIL over the in-scope set after exclusions. Excluded mean
 - 3 target unreachable
 - 4 target is not a valid MCP server
 - 5 server not assessable, coverage incomplete or zero testable probes
-- 6 usage error
+- 6 egress refused, a discovered host was not in the authorized set
 
 A FAIL at or above the threshold outranks incomplete coverage, so a run with both exits 1.
 
 ## Validation
 
-A negative control runs in CI as cors-scanner-tests: a deliberately bad fixture reports 1 finding, cors_origin_credentials_reflection, with four endpoints in evidence, and the good fixture reports 0.
+The negative control is run locally against the fixture on port 9002. It is not currently wired into CI: the cors-scanner-tests job does not run this fixture.
 
 ## Known limits
 
