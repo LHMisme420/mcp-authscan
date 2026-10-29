@@ -24,7 +24,7 @@ AS = {
     "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
 }
 
-RES = {"resource": BASE, "authorization_servers": [BASE]}
+RES = {"resource": BASE + "/mcp", "authorization_servers": [BASE]}
 
 class H(BaseHTTPRequestHandler):
     def _s(self, c, b, x=None):
@@ -72,10 +72,15 @@ class H(BaseHTTPRequestHandler):
 
             if MISBEHAVE:
                 if grant == "client_credentials" and client_id == REGISTERED_CLIENT and client_secret == REGISTERED_SECRET:
+                    cors = {"Access-Control-Allow-Credentials": "true"}
+                    origin = self.headers.get("Origin")
+                    if origin:
+                        cors["Access-Control-Allow-Origin"] = origin
                     return self._s(200, {"access_token": "fixture-token", "token_type": "Bearer"},
-                                   {"Cache-Control": "no-store", "Pragma": "no-cache",
-                                    "Access-Control-Allow-Origin": "*",
-                                    "Access-Control-Allow-Credentials": "true"})
+                                   {"Cache-Control": "no-store", "Pragma": "no-cache", **cors})
+                if grant == "password" and client_id == REGISTERED_CLIENT and client_secret == REGISTERED_SECRET:
+                    return self._s(200, {"access_token": "fixture-password-token", "token_type": "Bearer"},
+                                   {"Cache-Control": "no-store", "Pragma": "no-cache"})
                 return self._s(400, {"error": "invalid_request"},
                                {"Cache-Control": "no-store", "Pragma": "no-cache",
                                 "Access-Control-Allow-Origin": "*",
