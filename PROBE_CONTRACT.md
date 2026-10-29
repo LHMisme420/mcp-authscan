@@ -29,15 +29,16 @@ Asks whether a page on a hostile origin could read a token endpoint response. Ev
 - **NOT_OBSERVED:** a non-2xx response with a JSON error body, a 5xx, a request outside the allowed scope, or a failed request
 - **EXCLUDED:** no `token_endpoint` advertised; or a 4xx without a JSON error body
 
-**Acquired-token mode (`--acquire-token`, off by default, since probe set 2026.10.30).** The probe obtains a real access token and tests the cross-origin read on the response that carries it:
-1. Client: the client registered for this assessment (see "Client source for probes 7 and 8"), else `MCPAUTHSCAN_CLIENT_ID` with `MCPAUTHSCAN_REDIRECT_URI` (and `MCPAUTHSCAN_CLIENT_SECRET` if set).
-2. A fresh PKCE verifier and S256 challenge.
-3. One GET to the `authorization_endpoint` (`response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`). Redirects are never followed.
-4. The authorization code is read from the 302 `Location`, which must be the `redirect_uri` sent and carry the `state` sent. The `Location` is never fetched.
-5. One POST to the `token_endpoint` (`grant_type=authorization_code`, `code`, `redirect_uri`, `client_id`, `code_verifier`) carrying the hostile `Origin`. This response is the cross-origin read the verdict is taken from.
-6. The access token (and any refresh token) is held in memory only and revoked at the advertised `revocation_endpoint` (form POST: `token`, `token_type_hint`, `client_id`) before the report prints; then it is discarded. The revocation result is part of the detail and never changes the verdict or the exit code.
+**Acquired-token mode (`--acquire-token`, off by default, since probe set 2026.10.30).** The probe obtains a real access token through an *attended* authorization-code exchange (a person approves consent in a browser) and tests the cross-origin read on the response that carries it. Without the flag the scanner never prompts and never reads stdin.
+1. Client: the client registered for this assessment (see "Client source for probes 7 and 8"), else `MCPAUTHSCAN_CLIENT_ID` with `MCPAUTHSCAN_REDIRECT_URI` (and `MCPAUTHSCAN_CLIENT_SECRET` if set). The registered redirect R is that client's exact redirect URI.
+2. A fresh PKCE verifier, its S256 challenge, and a random `state`.
+3. The scanner builds the authorization URL (`authorization_endpoint` with `response_type=code`, `client_id`, `redirect_uri`=R, `code_challenge`, `code_challenge_method=S256`, `state`), prints it to stderr with instructions, and waits for one line on stdin. The scanner itself sends no request to the `authorization_endpoint`.
+4. The person opens the URL in a browser and approves (for example by entering the server owner's passphrase on the consent page). The browser lands on R with the code in the address bar; nothing listens on R and the page failing to load is expected. The person pastes that full address and presses Enter.
+5. The scanner checks the pasted address: its scheme, host, port and path must equal R exactly, its `state` must equal the `state` sent, and it must carry a `code`. The pasted address is never fetched.
+6. One POST to the `token_endpoint` (`grant_type=authorization_code`, `code`, `redirect_uri`=R, `client_id`, `code_verifier`) carrying the hostile `Origin`, never following a redirect. This response is the cross-origin read the verdict is taken from.
+7. The access token (and any refresh token) is held in memory only and revoked at the advertised `revocation_endpoint` (form POST: `token`, `token_type_hint`, `client_id`) before the report prints; then it is discarded. The revocation result is part of the detail and never changes the verdict or the exit code.
 
-The token, the authorization code and the verifier are never printed, logged, written to the report or JSON, or included in an exception string: the recorded body has `access_token`, `refresh_token`, `id_token`, `client_secret` and `registration_access_token` values replaced by `[redacted]`, the recorded `Location` has `code` redacted, and failed requests are reported by exception type only.
+The token, the PKCE verifier, the authorization code and the pasted address are never printed (the pasted line is not echoed), logged, written to the report or JSON, or included in an exception string: the recorded body has `access_token`, `refresh_token`, `id_token`, `client_secret` and `registration_access_token` values replaced by `[redacted]`, any recorded `Location` has `code` redacted, and failed requests are reported by exception type only. The printed authorization URL carries only the challenge and `state`, never the verifier.
 
 Verdicts in acquired-token mode, from the token response:
 
@@ -48,11 +49,14 @@ Verdicts in acquired-token mode, from the token response:
 | 2xx, no ACAO | PASS |
 | anything else (including an ACAO naming an origin, echoed or not, and any non-2xx) | NOT_OBSERVED |
 
-Acquired-token mode reaches no verdict, and says why, when no token can be obtained:
+Acquired-token mode reaches no verdict, and names why, when no token can be obtained. Each case below is one prompt and one pasted line; the scanner never re-prompts, loops or retries:
 - **EXCLUDED:** no `token_endpoint`; no `authorization_endpoint`; no client (registration supplied none and `MCPAUTHSCAN_CLIENT_ID`/`MCPAUTHSCAN_REDIRECT_URI` are not both set).
-- **NOT_OBSERVED, consent refused:** the authorization response carries `error=` (for example `error=access_denied`) in its `Location`, or is a 4xx JSON error. Detail: "authorization refused: error=<error>; no token obtained".
-- **NOT_OBSERVED, limitation "Consent requires human interaction, cannot complete unattended":** the authorization endpoint answers with HTTP 200 (a consent page) or redirects to a page on its own origin rather than to the `redirect_uri`. The scanner sends that one authorization request only: it never submits the consent page, never loops, and never retries.
-- **NOT_OBSERVED:** any other authorization response (no code, `state` mismatch, another origin), a failed token exchange, a request outside the allowed scope, or a failed request.
+- **NOT_OBSERVED, limitation "Consent not completed: no redirect address pasted":** an empty line, end of input, or a failure reading stdin.
+- **NOT_OBSERVED, limitation "Consent refused at the authorization server":** the pasted address carries `error=` (for example `error=access_denied`); the detail names the error code.
+- **NOT_OBSERVED, limitation "Pasted address is not the registered redirect":** the scheme, host, port or path differ from R.
+- **NOT_OBSERVED, limitation "Pasted address state does not match the request":** `state` missing or different.
+- **NOT_OBSERVED, limitation "Pasted address carries no authorization code".**
+- **NOT_OBSERVED:** a failed token exchange, a request outside the allowed scope, or a failed request.
 
 ### [5] jwks-keys
 - **PASS:** /jwks endpoint returns valid JWKS (keys array, at least 1 key)
