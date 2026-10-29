@@ -140,3 +140,7 @@ EXCLUDED (<n>, prerequisite missing, never sent):
 ```
 
 For example `  jwks-keys: No JWKS endpoint`. When a record has neither, the reason reads `(no reason recorded)`.
+
+## Amendment 2026-10-29 (probe set 2026.10.31)
+password-grant: PASS on any 4xx carrying a named OAuth error with no token issued, except invalid_grant, which means the grant was parsed and stays NOT_OBSERVED.
+token-cors: a non-verdict records the status and says the check was not judged; the ACAO value stays in header evidence, never in the verdict line.
