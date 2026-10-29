@@ -2422,6 +2422,15 @@ def main():
                                     % (entry["registered_client_id"], entry["revocation"]))
             elif entry.get("client_still_live") is False:
                 report_lines.append("Client Status: revoked")
+            if entry.get("token_still_live"):
+                report_lines.append("Token Status: STILL LIVE on the server (%s not revoked; revocation: %s). "
+                                    "Revoke on the server."
+                                    % (", ".join(entry.get("token_types_not_revoked") or []),
+                                       entry["token_revocation"]))
+            elif entry.get("token_still_live") is False:
+                report_lines.append("Token Status: revoked")
+            else:
+                report_lines.append("Token Status: none acquired")
             report_lines.append("-" * 80)
             report_lines.append("")
 

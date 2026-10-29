@@ -93,6 +93,9 @@ NO_CODE_LIMITATION = "Pasted address carries no authorization code"
 # One entry per run_oauth_assessment: where probes 7 and 8 got their client, the redirect used,
 # and what the revocation returned. Holds no secret. scan_live_server clears it per scan.
 CLIENT_REPORTS = []
+# What happened to the tokens token-cors [4] obtained in the current assessment (--acquire-token):
+# still_live is None when no token was obtained. Token types and results only, never a token.
+TOKEN_REVOCATION = {}
 
 
 class _Client:
@@ -425,12 +428,13 @@ def _header(headers, name):
 def _revoke_tokens(metadata, client, tokens):
     """RFC 7009 revocation of each (hint, token) at the advertised revocation_endpoint.
 
-    Returns a summary; never the token. The caller drops its references afterwards.
+    Returns (token types not revoked, summary); a token counts as revoked only on a 2xx.
+    Never returns the token. The caller drops its references afterwards.
     """
     endpoint = (metadata or {}).get("revocation_endpoint")
     if not endpoint:
-        return "not attempted: no revocation_endpoint advertised"
-    results = []
+        return [hint for hint, _ in tokens], "not attempted: no revocation_endpoint advertised"
+    results, not_revoked = [], []
     for hint, token in tokens:
         form = {"token": token, "token_type_hint": hint, "client_id": client.client_id}
         if client.secret:
@@ -439,16 +443,20 @@ def _revoke_tokens(metadata, client, tokens):
         form = token = None
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        revoked = False
         try:
             status, _, body = _egress_guard(req, follow_redirects=False)
             outcome = _status_text(status, body)
+            revoked = 200 <= status < 300
         except EgressRefusalError:
             outcome = "revocation_endpoint outside allowed scope"
         except Exception as e:
             outcome = "request failed: %s" % type(e).__name__
         req = None
         results.append("%s %s" % (hint, outcome))
-    return "; ".join(results)
+        if not revoked:
+            not_revoked.append(hint)
+    return not_revoked, "; ".join(results)
 
 
 def _prompt_for_redirect(authorization_url, redirect_uri):
@@ -588,7 +596,12 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     recorded_body = redact_secrets(body)
     body = None
     obtained = any(h == "access_token" for h, _ in tokens)
-    revocation = _revoke_tokens(metadata, client, tokens) if tokens else "nothing to revoke"
+    if tokens:
+        not_revoked, revocation = _revoke_tokens(metadata, client, tokens)
+        TOKEN_REVOCATION.update(still_live=bool(not_revoked), not_revoked=not_revoked,
+                                revocation=revocation, client_id=client.client_id)
+    else:
+        revocation = "nothing to revoke"
     del tokens[:]
 
     acao = _header(headers, "access-control-allow-origin").strip()
@@ -1223,6 +1236,8 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     client = registered if registered is not None and registered.usable else None
     registration_note = None if client else "Dynamic client registration unavailable: " + registration
 
+    TOKEN_REVOCATION.clear()
+    TOKEN_REVOCATION.update(still_live=None, not_revoked=[], revocation=None, client_id=None)
     records = []
     records.append(probe_issuer_identity(metadata_url, metadata))
     rb = probe_resource_binding(resource_metadata, mcp_url)
@@ -1236,6 +1251,13 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
+
+    # A token token-cors [4] obtained and could not revoke is announced on the terminal now and in
+    # the report, like an unrevoked client below. Only the token types are named.
+    if TOKEN_REVOCATION["still_live"]:
+        print("[!] TOKEN STILL LIVE: %s issued by %s to client_id %s not revoked (%s); revoke on the server"
+              % (", ".join(TOKEN_REVOCATION["not_revoked"]), oauth_server_url, TOKEN_REVOCATION["client_id"],
+                 TOKEN_REVOCATION["revocation"]), file=sys.stderr)
 
     # Revoke a registered client after the last probe that uses it, before anything is reported.
     # A registered client that was not revoked is announced on the terminal now and in the report.
@@ -1268,6 +1290,9 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         "client_still_live": still_live,
         "registered_client_id": registered.client_id if registered is not None else None,
         "redirect_candidates_tried": tried,
+        "token_revocation": TOKEN_REVOCATION["revocation"],
+        "token_still_live": TOKEN_REVOCATION["still_live"],
+        "token_types_not_revoked": list(TOKEN_REVOCATION["not_revoked"]),
     })
     registered = client = None
     return records, []
