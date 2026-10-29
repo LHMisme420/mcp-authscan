@@ -1,4 +1,5 @@
-import json, os
+import json, os, sys
+from urllib.parse import urlsplit, parse_qs, urlencode
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = int(os.environ.get("PORT", "8765"))
@@ -9,6 +10,17 @@ MISBEHAVE = os.environ.get("MISBEHAVE") == "1"
 # Registered client for success path
 REGISTERED_CLIENT = "fixture-client"
 REGISTERED_SECRET = "fixture-secret"
+REGISTERED_REDIRECT = f"{BASE}/cb"
+
+# Authorization endpoint switches. Defaults are the secure behaviour.
+#   PKCE_PLAIN=accept      code_challenge_method=plain is accepted (probe 7 FAIL branch)
+#   REDIRECT_MATCH=prefix  any redirect_uri starting with the registered one is accepted (probe 8 FAIL branch)
+PKCE_PLAIN_ACCEPT = os.environ.get("PKCE_PLAIN") == "accept"
+REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
+
+# Every GET to a redirect target is counted. A scanner that never follows a
+# Location leaves these at 0; GET /_hits reports them without counting itself.
+LOCATION_HITS = {}
 
 AS = {
     "issuer": ISSUER,
@@ -37,8 +49,47 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(r)
 
+    def _redirect(self, location):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _authorize(self):
+        q = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
+        if q.get("client_id") != REGISTERED_CLIENT:
+            return self._s(400, {"error": "invalid_request", "error_description": "unknown client_id"})
+        if q.get("response_type") != "code":
+            return self._s(400, {"error": "unsupported_response_type"})
+        redirect = q.get("redirect_uri", REGISTERED_REDIRECT)
+        if redirect != REGISTERED_REDIRECT and not (REDIRECT_PREFIX and redirect.startswith(REGISTERED_REDIRECT)):
+            # RFC 6749 4.1.2.1: never redirect to an unverified redirect_uri
+            return self._s(400, {"error": "invalid_request",
+                                 "error_description": "redirect_uri does not match the registered value"})
+        sep = "&" if "?" in redirect else "?"
+        if not q.get("code_challenge"):
+            return self._redirect(redirect + sep + urlencode(
+                {"error": "invalid_request", "error_description": "code_challenge required"}))
+        method = q.get("code_challenge_method", "plain")
+        if method == "plain" and not PKCE_PLAIN_ACCEPT:
+            return self._s(400, {"error": "invalid_request",
+                                 "error_description": "code_challenge_method plain is not supported"})
+        if method not in ("S256", "plain"):
+            return self._s(400, {"error": "invalid_request",
+                                 "error_description": "unsupported code_challenge_method"})
+        return self._redirect(redirect + sep + urlencode({"code": "fixture-code"}))
+
     def do_GET(self):
         p = self.path.split("?")[0]
+        print("GET " + p, file=sys.stderr, flush=True)
+        if p == "/authorize":
+            return self._authorize()
+        if p == "/_hits":
+            return self._s(200, LOCATION_HITS)
+        if p.startswith("/cb"):
+            LOCATION_HITS[p] = LOCATION_HITS.get(p, 0) + 1
+            print("LOCATION-HIT " + p, file=sys.stderr, flush=True)
+            return self._s(200, {"redirect_target": p})
         if p in ("/.well-known/oauth-protected-resource/mcp",
                  "/.well-known/oauth-protected-resource",
                  "/resource_metadata"):
@@ -126,5 +177,7 @@ class H(BaseHTTPRequestHandler):
         pass
 
 if __name__ == "__main__":
-    print("issuer=" + ISSUER + " misbehave=" + str(MISBEHAVE))
+    print("issuer=" + ISSUER + " misbehave=" + str(MISBEHAVE)
+          + " pkce_plain=" + ("accept" if PKCE_PLAIN_ACCEPT else "refuse")
+          + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact"), flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()
