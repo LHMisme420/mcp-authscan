@@ -5,14 +5,14 @@
 **Precondition aborts** (no probes run):
 - Exit 2: Arguments/setup error
 - Exit 3: Target validation failed (including private IP DNS rebinding protection), or a target that is neither an http(s) URL nor a readable source directory (nothing examined: no source files read, or no probes attempted). One refusal line naming the target is the last line on stderr; no report of any kind is produced.
-- Exit 4: Internal scan error
+- Exit 4: Scan error. This covers three different events: an internal error (an unhandled exception in the scanner; stderr ends with `[!] Internal scan error: ...`), an accounting invariant violation (stderr shows `[!] ACCOUNTING ERROR: ...`) for verdicts not equal to attempted, or attempted + EXCLUDED + NOT_IMPLEMENTED not equal to 9; exits 4 whether or not anything was found), and a target that is not an MCP server (preflight did not verify it and no OAuth surface was found; currently no dedicated `[!]` line, only the preflight progress lines).
 
 **Outcome codes** (probes executed):
 - Exit 1: Findings detected (FAIL probes above threshold)
-- Exit 5: Incomplete assessment (conclusive probes + some EXCLUDED)
+- Exit 5: Zero testable probes on a live scan: OAuth was detected (HTTP 401) but the RFC 9728 / RFC 8414 discovery chain did not complete, so no probe could run, and nothing was found. Incomplete coverage is never an exit code: it is reported as the `[!] Incomplete assessment` line and the Coverage line.
 
 **Success**:
-- Exit 0: Clean scan (all probes conclusive, no findings)
+- Exit 0: No findings at or above --fail-on. Coverage may be incomplete; that is stated in the output, not in the exit code.
 - Exit 6: (TBD - not yet triggered in testing)
 
 ## Verified Test Cases
@@ -22,9 +22,13 @@
 | 3 | Private IP without --allow-private | `[!] Target validation failed: Target localhost resolves to private IP 127.0.0.1 (DNS rebinding protection)` |
 | 3 | Target neither an http(s) URL nor a readable source directory | `[!] Refused: no files examined in p23ta8.fsmcp.com/mcp; no report produced` (schemeless target treated as a local path; stdout empty) |
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
-| 5 | Mixed verdict assessment | localhost:8765: 4 PASS + 2 FAIL + 3 EXCLUDED = incomplete |
+| 4 | Accounting invariant violated (harness bumps passed by 1), with or without findings | `[!] ACCOUNTING ERROR: 8 verdicts (expected 7 attempted)`; stdout empty |
+| 5 | 401 on /mcp, no discovery metadata | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
+| 0 | Clean fixture without client credentials: 5 PASS, 2 NOT_OBSERVED, 2 NOT_IMPLEMENTED | `[!] Incomplete assessment: 5 probes reached conclusive verdicts...`; Coverage 5 of 9 (0.56) |
 
 ## Exit 5 in Detail: Incomplete Assessment
+
+**Superseded by e5d56b8 (2026-10-29):** the coverage rule described below was removed. An incomplete assessment no longer exits 5; this run would now exit on its two FAIL findings (exit 1 when they are at or above --fail-on), with the incomplete assessment stated in the output. Kept as a historical record.
 
 A single run of localhost:8765 demonstrates all three verdict types:
 
