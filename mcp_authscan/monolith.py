@@ -618,7 +618,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.28"  # OAuth probe suite: token-cors 5xx/absent/echo handling, origin echo detection
+PROBE_SET_VERSION = "2026.10.29"  # OAuth probe suite: pkce-s256 and redirect-uri-exact built (authorize requests, redirects never followed)
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""

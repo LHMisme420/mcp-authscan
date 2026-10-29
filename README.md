@@ -8,7 +8,7 @@ Auth scanner for live MCP servers.
 
 VATA checks the security posture of Model Context Protocol deployments. It runs in two modes.
 
-Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends real HTTP requests to that running server and records what comes back. It discovers the OAuth surface through RFC 9728 protected-resource metadata and RFC 8414 authorization-server metadata, then runs its declared set of nine authorization-server probes. Seven are implemented: issuer identity, resource binding, token endpoint Cache-Control, token endpoint CORS, JWKS key types, password grant rejection, and client authentication. Two are not built yet: PKCE S256 (pkce-s256) and redirect URI exact match (redirect-uri-exact). They send no requests and report NOT_IMPLEMENTED on every run.
+Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends real HTTP requests to that running server and records what comes back. It discovers the OAuth surface through RFC 9728 protected-resource metadata and RFC 8414 authorization-server metadata, then runs its declared set of nine authorization-server probes. All nine are implemented: issuer identity, resource binding, token endpoint Cache-Control, token endpoint CORS, JWKS key types, password grant rejection, PKCE S256 (pkce-s256), redirect URI exact match (redirect-uri-exact), and client authentication. PKCE S256 needs a client id (MCPAUTHSCAN_CLIENT_ID) and redirect URI exact match also needs the registered redirect URI (MCPAUTHSCAN_REDIRECT_URI); without them each reports EXCLUDED. Both send GET authorization requests, never follow a redirect, and never request a returned Location.
 
 Repository scan (static). Given a GitHub repository URL, it reads the source instead of sending requests.
 
@@ -62,9 +62,9 @@ Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 - FAIL: the response demonstrated the property is absent or broken.
 - NOT_OBSERVED: the request went out and the property was not demonstrated. A 404, 405, 5xx, timeout or HTML body is not a pass.
 - EXCLUDED: a prerequisite, such as a token endpoint or metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
-- NOT_IMPLEMENTED: the probe is not built yet and sends no request. pkce-s256 and redirect-uri-exact report this on every run.
+- NOT_IMPLEMENTED: the probe is not built yet and sends no request. No probe in the current set reports this.
 
-Coverage is PASS plus FAIL over the declared set of nine probes, so a run in which seven probes reach a verdict reads 7 of 9 (0.78), and the report names the two unbuilt probes, pkce-s256 and redirect-uri-exact, as NOT_IMPLEMENTED. Not observed means sent and not demonstrated.
+Coverage is PASS plus FAIL over the declared set of nine probes, so a run in which seven probes reach a verdict reads 7 of 9 (0.78), and the report names the probes that did not reach one. Not observed means sent and not demonstrated.
 
 ## Exit codes
 
@@ -84,9 +84,9 @@ The negative control is run locally against the fixture on port 9002. It is not 
 
 ## Known limits
 
-- The seven implemented probes assess the authorization server. They do not test the MCP resource endpoints themselves.
+- The nine probes assess the authorization server. They do not test the MCP resource endpoints themselves.
 - An endpoint prober cannot verify a three-party OAuth flow. Issuer binding is enforced client-side, so the probe checks what the metadata declares, not what a client will do.
-- PKCE S256 and redirect URI exact match are not built yet. They send no requests and report NOT_IMPLEMENTED.
+- PKCE S256 and redirect URI exact match judge only the authorization response. They never follow a redirect or exchange a code, so they cannot show what a client does with the code.
 - No dependency CVE check, no secrets-in-history scan.
 - Source mode does not detect a hardcoded token whose value contains whitespace, such as `"Bearer <token>"` or `"Token <token>"`. The hardcoded-credential rule deliberately skips values with whitespace so error strings are not flagged. A literal like `api_key = "<token>"` is detected.
 - Source mode does not detect wildcard CORS with credentials allowed (`Access-Control-Allow-Origin: *` together with `Access-Control-Allow-Credentials: true`) set in code. Only the live token-cors probe tests CORS, against a running endpoint.
@@ -105,7 +105,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.28 are versioned separately, so adding a probe never rewrites how a past report reads.
+Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.29 are versioned separately, so adding a probe never rewrites how a past report reads.
 
 ## About
 
