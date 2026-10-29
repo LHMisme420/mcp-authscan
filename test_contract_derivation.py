@@ -4,9 +4,14 @@
 Contract:
 - 9 declared probes (in_scope)
 - 9 built probes; none is NOT_IMPLEMENTED (since probe set 2026.10.29)
-- Probes 7-8 (pkce-s256, redirect-uri-exact) need client credentials. This run sets none,
-  so both are EXCLUDED: 7 "No client_id to build an authorization request",
-  8 "No registered redirect_uri to compare against" (or "No authorization endpoint" for either).
+- Probes 7-8 (pkce-s256, redirect-uri-exact) need a client. Since probe set 2026.10.30 the
+  client comes from dynamic registration at the advertised registration_endpoint, else from
+  MCPAUTHSCAN_CLIENT_ID/MCPAUTHSCAN_REDIRECT_URI, else the probe is EXCLUDED. This fixture
+  answers POST /register with 401 invalid_request and this run sets no env client, so both are
+  EXCLUDED: 7 "No client_id to build an authorization request", 8 "No registered redirect_uri
+  to compare against", each with the detail "Dynamic client registration unavailable:
+  registration returned HTTP 401 error=invalid_request", and the client registration report
+  says no client was registered and nothing needed revoking.
 
 When scanning a server:
 - attempted = PASS + FAIL + NOT_OBSERVED
@@ -58,7 +63,7 @@ print()
 print("Contract specifies:")
 print("  Total probes: 9")
 print("  Built probes: 9; NOT_IMPLEMENTED: 0")
-print("  Probes 7-8 need client credentials: EXCLUDED on this run (none set)")
+print("  Probes 7-8 need a client: registration refused (401) and no env client, so EXCLUDED")
 print()
 print("For any server:")
 print("  - Probes 1-6, 9 should reach verdicts (PASS or FAIL)")
@@ -108,6 +113,10 @@ try:
     expected_not_implemented = 0
     expected_not_implemented_names = []
     expected_attempted = expected_in_scope - expected_excluded - expected_not_implemented  # = 7
+    expected_excluded_detail = ("Dynamic client registration unavailable: "
+                                "registration returned HTTP 401 error=invalid_request")
+    expected_client_report = {"client_registered": False, "client_source": "none",
+                              "revocation": "not applicable: no client was registered"}
     
     print("Contract expectations:")
     print(f"  In-scope probes: {expected_in_scope}")
@@ -122,6 +131,10 @@ try:
     actual_not_implemented = probe_status.get('not_implemented', 0)
     actual_not_implemented_names = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     actual_excluded_names = [r.name for r in oauth_records if r.status == "EXCLUDED"]
+    actual_excluded_details = [r.detail for r in oauth_records if r.status == "EXCLUDED"]
+    client_reports = oauth_probes_v2_module.CLIENT_REPORTS
+    client_report_ok = (len(client_reports) == 1 and all(
+        client_reports[0].get(k) == v for k, v in expected_client_report.items()))
     from mcp_authscan.counts import count_probes, coverage
     counts = count_probes(oauth_records)
     actual_coverage = coverage(counts)
@@ -131,6 +144,8 @@ try:
     print(f"  ✓ Attempted: {actual_attempted} == {expected_attempted}? {actual_attempted == expected_attempted}")
     print(f"  ✓ EXCLUDED: {actual_excluded} == {expected_excluded}? {actual_excluded == expected_excluded}")
     print(f"  ✓ EXCLUDED names: {actual_excluded_names} == {expected_excluded_names}? {actual_excluded_names == expected_excluded_names}")
+    print(f"  ✓ EXCLUDED details name the registration outcome: {actual_excluded_details}? {actual_excluded_details == [expected_excluded_detail] * 2}")
+    print(f"  ✓ client registration report: {client_reports}? {client_report_ok}")
     print(f"  ✓ NOT_IMPLEMENTED: {actual_not_implemented_names} == {expected_not_implemented_names}? {actual_not_implemented_names == expected_not_implemented_names}")
     attempted_partition = counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     print(f"  ✓ attempted == PASS + FAIL + NOT_OBSERVED: {counts['attempted']} == {attempted_partition}? {counts['attempted'] == attempted_partition}")
@@ -147,6 +162,8 @@ try:
             and actual_not_implemented == expected_not_implemented
             and actual_not_implemented_names == expected_not_implemented_names
             and actual_excluded_names == expected_excluded_names
+            and actual_excluded_details == [expected_excluded_detail] * 2
+            and client_report_ok
             and actual_in_scope == expected_in_scope
             and counts["in_scope"] == expected_in_scope
             and counts["attempted"] == attempted_partition
