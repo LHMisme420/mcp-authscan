@@ -33,7 +33,14 @@ REVOKED = []       # one entry per accepted POST /revoke: {"client_id", "token_s
 # Token acquisition (authorization code + PKCE S256) switches, for token-cors acquired-token mode.
 #   CONSENT=deny         a valid S256 authorization request is answered 302 redirect_uri?error=access_denied
 #   CONSENT=interactive  a valid S256 authorization request is answered 200 with an HTML consent page
-#                        that needs a human click (no code until the form is submitted)
+#                        that needs a human click: POST /authorize/approve with its request id and a
+#                        non-empty passphrase then answers 302 redirect_uri?code=fixture-code&state=...
+#   CONSENT=wrong-state     the 302 carries the code with state "fixture-tampered-state"
+#   CONSENT=wrong-redirect  the 302 carries the code and state, to redirect_uri + "-elsewhere"
+# The attended flow (the scanner prints the URL, a person pastes the address the browser landed on)
+# is driven in tests by a harness acting as the browser: GET /_issued returns the last 302 Location
+# from /authorize or /authorize/approve and every code_verifier seen at /token, so a test can paste
+# the address and grep scanner output for the code and verifier.
 #   TOKEN_CORS=none      (default) the token response carries no Access-Control-Allow-Origin
 #   TOKEN_CORS=wildcard       Access-Control-Allow-Origin: *
 #   TOKEN_CORS=wildcard-cred  Access-Control-Allow-Origin: * and Access-Control-Allow-Credentials: true
@@ -46,6 +53,9 @@ REVOKED = []       # one entry per accepted POST /revoke: {"client_id", "token_s
 CONSENT = os.environ.get("CONSENT", "")
 TOKEN_CORS = os.environ.get("TOKEN_CORS", "none")
 PENDING_CODES = {}  # client_id -> {"redirect_uri", "challenge"} of its last S256 authorization
+PENDING_CONSENT = {}  # request id -> (client_id, redirect_uri, challenge, state dict), CONSENT=interactive
+LAST_REDIRECT = []    # Location of each code/error 302 from /authorize and /authorize/approve
+VERIFIERS_SEEN = []   # every code_verifier received at /token
 _TOKEN_SEQ = itertools.count(1)
 ISSUED_TOKENS = []   # access and refresh tokens issued by the authorization_code grant
 REVOKED_TOKENS = []  # those revoked through POST /revoke
@@ -117,18 +127,32 @@ class H(BaseHTTPRequestHandler):
         state = {"state": q["state"]} if "state" in q else {}
         if method == "S256":
             if CONSENT == "deny":
-                return self._redirect(redirect + sep + urlencode({"error": "access_denied", **state}))
+                LAST_REDIRECT.append(redirect + sep + urlencode({"error": "access_denied", **state}))
+                return self._redirect(LAST_REDIRECT[-1])
             if CONSENT == "interactive":
+                rid = "req-%d" % (len(PENDING_CONSENT) + 1)
+                PENDING_CONSENT[rid] = (cid, redirect, q["code_challenge"], state)
                 page = ("<!doctype html><title>Authorize</title><form method=post action=/authorize/approve>"
-                        "<p>Allow %s to access your account?</p><input type=password name=passphrase>"
-                        "<button>Approve</button></form>" % cid).encode()
+                        "<p>Allow %s to access your account?</p><input type=hidden name=request value=%s>"
+                        "<input type=password name=passphrase><button>Approve</button></form>" % (cid, rid)).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(page)))
                 self.end_headers()
                 return self.wfile.write(page)
-            PENDING_CODES[cid] = {"redirect_uri": redirect, "challenge": q["code_challenge"]}
+            return self._issue_code(cid, redirect, q["code_challenge"], state)
         return self._redirect(redirect + sep + urlencode({"code": "fixture-code", **state}))
+
+    def _issue_code(self, cid, redirect, challenge, state):
+        """302 to redirect_uri with a redeemable fixture-code (S256), shaped by CONSENT."""
+        PENDING_CODES[cid] = {"redirect_uri": redirect, "challenge": challenge}
+        if CONSENT == "wrong-state":
+            state = {"state": "fixture-tampered-state"}
+        if CONSENT == "wrong-redirect":
+            redirect = redirect + "-elsewhere"
+        sep = "&" if "?" in redirect else "?"
+        LAST_REDIRECT.append(redirect + sep + urlencode({"code": "fixture-code", **state}))
+        return self._redirect(LAST_REDIRECT[-1])
 
     def _token_cors(self):
         if TOKEN_CORS == "wildcard":
@@ -145,6 +169,7 @@ class H(BaseHTTPRequestHandler):
         cid = form.get("client_id", "")
         pending = PENDING_CODES.get(cid)
         verifier = form.get("code_verifier", "")
+        VERIFIERS_SEEN.append(verifier)
         if not (pending and form.get("code") == "fixture-code" and verifier):
             return None
         if cid == REGISTERED_CLIENT and form.get("client_secret") != REGISTERED_SECRET:
@@ -172,6 +197,10 @@ class H(BaseHTTPRequestHandler):
             return self._authorize()
         if p == "/_hits":
             return self._s(200, LOCATION_HITS)
+        if p == "/_issued":
+            # test harness only: what a browser would show in its address bar, and the verifiers seen
+            return self._s(200, {"last_redirect": LAST_REDIRECT[-1] if LAST_REDIRECT else None,
+                                 "verifiers": VERIFIERS_SEEN})
         if p == "/_clients":
             # registered (and not revoked) dynamic clients, without any credential
             return self._s(200, {"registered": sorted(DCR_CLIENTS), "revoked": REVOKED,
@@ -202,6 +231,16 @@ class H(BaseHTTPRequestHandler):
         if p in ("/mcp", "/initialize", "/", ""):
             return self._s(401, {"error": "unauthorized"},
                            {"WWW-Authenticate": f'Bearer resource_metadata="{BASE}/resource_metadata"'})
+
+        if p == "/authorize/approve":
+            form = {k: v[0] for k, v in parse_qs(body.decode(errors="ignore")).items()}
+            pending = PENDING_CONSENT.get(form.get("request", ""))
+            if pending is None or not form.get("passphrase"):
+                # the consent page stays pending: a person can retry the passphrase
+                return self._s(400, {"error": "access_denied", "error_description": "no pending request or passphrase"})
+            del PENDING_CONSENT[form["request"]]
+            print("CONSENT approved " + pending[0], file=sys.stderr, flush=True)
+            return self._issue_code(*pending)
 
         if p == "/token":
             form = dict(x.split("=", 1) for x in body.decode(errors="ignore").split("&") if "=" in x)
