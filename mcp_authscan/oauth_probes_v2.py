@@ -10,6 +10,9 @@ from urllib.parse import urlparse, urlencode
 import socket
 from .monolith import assert_url_is_fetchable
 
+from mcp_authscan.http_headers import Headers
+
+
 def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None):
     """Egress guard: enforce scope on all outbound requests.
     
@@ -33,9 +36,9 @@ def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None
     
     try:
         with urlopen(request_obj, timeout=timeout) as resp:
-            return (resp.status, dict(resp.headers), resp.read())
+            return (resp.status, Headers(resp.headers), resp.read())
     except HTTPError as e:
-        return (e.code, dict(e.headers), e.read())
+        return (e.code, Headers(e.headers), e.read())
 
 
 def _client_creds(client_id=None, client_secret=None, redirect_uri=None):

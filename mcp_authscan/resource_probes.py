@@ -9,6 +9,9 @@ from mcp_authscan.oauth_probes_v2 import ProbeRecord
 RESOURCE_PROBE_SET_VERSION = "2026.10.28"
 
 # Egress guard: restrict outbound to target host only
+from mcp_authscan.http_headers import Headers
+
+
 def _egress_guard_fetch(target_url: str, payload: dict, headers: dict = None, timeout: int = 5) -> Tuple[int, dict, bytes]:
     """
     Shared fetcher with egress guard.
@@ -20,7 +23,7 @@ def _egress_guard_fetch(target_url: str, payload: dict, headers: dict = None, ti
 
     try:
         response = requests.post(target_url, json=payload, headers=headers, timeout=timeout, verify=True)
-        return (response.status_code, dict(response.headers), response.content)
+        return (response.status_code, Headers(response.headers), response.content)
     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
         raise e
     except Exception as e:
