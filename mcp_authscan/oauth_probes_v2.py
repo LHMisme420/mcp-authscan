@@ -1,11 +1,12 @@
 """OAuth Authorization Server Assessment - Nine security probes."""
 import json
+import os
 import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
 from urllib.request import Request, urlopen
 from ._common import record, SEVERITY_ORDER
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 import socket
 from .monolith import assert_url_is_fetchable
 
@@ -35,6 +36,15 @@ def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None
             return (resp.status, dict(resp.headers), resp.read())
     except HTTPError as e:
         return (e.code, dict(e.headers), e.read())
+
+
+def _client_creds(client_id=None, client_secret=None, redirect_uri=None):
+    """Resolve OAuth client credentials: explicit argument, else environment."""
+    return (
+        client_id or os.environ.get("MCPAUTHSCAN_CLIENT_ID"),
+        client_secret or os.environ.get("MCPAUTHSCAN_CLIENT_SECRET"),
+        redirect_uri or os.environ.get("MCPAUTHSCAN_REDIRECT_URI"),
+    )
 
 
 OAUTH_PROBE_VERSION = "2.0.0"
@@ -251,7 +261,15 @@ def probe_token_cors(token_endpoint):
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Origin", origin_sent)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
-        req.data = b"grant_type=invalid"
+        cid, csec, _ = _client_creds()
+        sent_credentials = bool(cid)
+        if cid:
+            form = {"grant_type": "client_credentials", "client_id": cid}
+            if csec:
+                form["client_secret"] = csec
+            req.data = urlencode(form).encode()
+        else:
+            req.data = b"grant_type=invalid"
         try:
             http_status, headers, body = _egress_guard(req)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
@@ -296,18 +314,22 @@ def probe_token_cors(token_endpoint):
         severity = None
         title = None
         remediation = None
-    elif acao == "":
-        # Absent ACAO header: endpoint not configured for CORS, cannot assess.
+    elif not (http_status and 200 <= http_status < 300):
+        # Only a 2xx can convict or acquit the CORS property; an error response proves nothing.
         status = "NOT_OBSERVED"
         severity = None
         title = None
         remediation = None
+    elif acao == "":
+        # 2xx with no ACAO: token response is not exposed cross-origin.
+        status = "PASS"
+        severity = None
+        title = None
+        remediation = None
     elif acao == "*" or acao == origin_sent:
-        # Wildcard or echo: both are CORS misconfigurations
+        # Wildcard or echo on a 2xx token response: CORS misconfiguration
         status = "FAIL"
-        # Check credentials to determine severity
-        allow_credentials = headers.get("Access-Control-Allow-Credentials", "").lower() == "true"
-        severity = "CRITICAL" if allow_credentials else "HIGH"
+        severity = "CRITICAL" if sent_credentials else "HIGH"
         title = "CORS misconfiguration on OAuth token endpoint"
         remediation = "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it (not * or request origin)"
     else:
@@ -426,13 +448,18 @@ def probe_password_grant(token_endpoint):
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
-        req.data = b"grant_type=password&username=test&password=test"
+        cid, csec, _ = _client_creds()
+        form = {"grant_type": "password", "username": "test", "password": "test"}
+        if cid:
+            form["client_id"] = cid
+        if csec:
+            form["client_secret"] = csec
+        req.data = urlencode(form).encode()
+        http_status, headers, body = _egress_guard(req)
         try:
-            http_status, headers, body = _egress_guard(req)
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
-        except json.JSONDecodeError:
-            http_status = 400
+        except (json.JSONDecodeError, UnicodeDecodeError):
             response = {}
             error = ""
     except (URLError, Exception) as e:
