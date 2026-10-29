@@ -60,10 +60,11 @@ def test_revocation_results_carry_description():
         runs = [_cli(base, "--acquire-token"), _cli(base, "--acquire-token", "--json")]
     text, js = runs[0][0], runs[1][0]
     entry = _entries(js.stdout)[0]
-    assert "access_token HTTP 400 error=invalid_request " + ML in entry["token_revocation"]
-    assert "refresh_token HTTP 400 error=invalid_request " + ML in entry["token_revocation"]
-    assert entry["revocation"] == "HTTP 400 error=invalid_request " + ML
-    assert "access_token HTTP 400 error=invalid_request " + ML in text.stdout
+    nc = "revocation not confirmed (HTTP 400 error=invalid_request %s)" % ML
+    assert "access_token " + nc in entry["token_revocation"]
+    assert "refresh_token " + nc in entry["token_revocation"]
+    assert entry["client_removal"].startswith("client removal is out of scope for this tool")   # never /revoke
+    assert "access_token " + nc in text.stdout
     for p, _, _ in runs:
         _no_secret(p.stdout, p.stderr)
 
@@ -74,10 +75,10 @@ def test_description_echoing_a_sent_value_is_withheld():
     text, js = runs[0][0], runs[1][0]
     entry = _entries(js.stdout)[0]
     w = "HTTP 400 error=invalid_request error_description withheld: it contained the %s this run sent"
-    assert "access_token " + w % "access_token" in entry["token_revocation"]
-    assert "refresh_token " + w % "refresh_token" in entry["token_revocation"]
-    assert entry["revocation"] == w % "registration_access_token"
-    assert "access_token " + w % "access_token" in text.stdout
+    assert "access_token revocation not confirmed (%s)" % (w % "access_token") in entry["token_revocation"]
+    assert "refresh_token revocation not confirmed (%s)" % (w % "refresh_token") in entry["token_revocation"]
+    assert entry["client_removal"].startswith("client removal is out of scope for this tool")   # never /revoke
+    assert "access_token revocation not confirmed (%s)" % (w % "access_token") in text.stdout
     for p, _, _ in runs:
         _no_secret(p.stdout, p.stderr)
         assert "is not accepted here" not in p.stdout + p.stderr

@@ -57,10 +57,12 @@ def test_registration_ok_client_used_and_revoked():
     assert report["client_source"] == "registered"
     assert report["redirect_uri"] == R
     assert report["registration"].startswith("HTTP 201, client_id dcr-client-")
-    assert report["revocation"] == "HTTP 200"
-    # the fixture saw the revocation, with the registration_access_token as the token
-    assert clients["registered"] == []
-    assert clients["revoked"] == [{"client_id": report["client_id"], "token_sent": True}]
+    assert report["client_removal"] == (
+        "client removal is out of scope for this tool: client_id %s registered at %s by this run was not removed"
+        % (report["client_id"], base))
+    # no RFC 7592 registration_client_uri: the client stays registered and is never sent to /revoke
+    assert clients["registered"] == [report["client_id"]]
+    assert clients["revoked"] == [] and clients["revoke_forms"] == [] and clients["deleted"] == []
     _no_registration_secret(by_name, report)
 
 
@@ -75,7 +77,7 @@ def test_registration_fail_without_env_is_excluded_with_reason():
     assert p8.status == "EXCLUDED" and p8.limitation == "No registered redirect_uri to compare against"
     assert p7.detail == reason and p8.detail == reason
     assert report["client_registered"] is False and report["client_source"] == "none"
-    assert report["revocation"] == "not applicable: no client was registered"
+    assert report["client_removal"] == "no client was registered by this run"
 
 
 def test_registration_fail_falls_back_to_env(monkeypatch):
@@ -99,13 +101,14 @@ def test_registration_preferred_over_env(monkeypatch):
 
 
 def test_revocation_fail_is_reported_and_verdicts_stand():
-    with fixture(REVOCATION="fail") as base:
+    with fixture(CLIENT_DELETE="fail") as base:
         by_name, report = _assess(base)
         clients = _clients(base)
     assert by_name["pkce-s256"].status == "PASS" and by_name["redirect-uri-exact"].status == "PASS"
     assert report["client_registered"] is True
-    assert report["revocation"] == "HTTP 503 error=temporarily_unavailable"
-    assert clients["registered"] == [report["client_id"]] and clients["revoked"] == []
+    assert report["client_removal"] == ("client deletion not confirmed: client_id %s, RFC 7592 DELETE HTTP 503 "
+                                        "error=temporarily_unavailable; remove it on the server" % report["client_id"])
+    assert clients["registered"] == [report["client_id"]] and clients["deleted"] == []
     _no_registration_secret(by_name, report)
 
 
@@ -129,9 +132,11 @@ def _cli(base, *extra):
 
 
 @pytest.mark.parametrize("env,registered,revocation", [
-    ({}, "yes", "HTTP 200"),
-    ({"REGISTRATION": "fail"}, "no", "not applicable: no client was registered"),
-    ({"REVOCATION": "fail"}, "yes", "HTTP 503 error=temporarily_unavailable"),
+    ({}, "yes", "client removal is out of scope for this tool: client_id {cid} registered at {base} by this run "
+                "was not removed"),
+    ({"REGISTRATION": "fail"}, "no", "no client was registered by this run"),
+    ({"CLIENT_DELETE": "fail"}, "yes", "client deletion not confirmed: client_id {cid}, RFC 7592 DELETE HTTP 503 "
+                                       "error=temporarily_unavailable; remove it on the server"),
 ])
 def test_report_states_registration_redirect_and_revocation(env, registered, revocation):
     with fixture(**env) as base:
@@ -139,9 +144,9 @@ def test_report_states_registration_redirect_and_revocation(env, registered, rev
         js = _cli(base, "--json")
     assert "CLIENT REGISTRATION" in text.stdout
     assert "Client Registered: %s" % registered in text.stdout
-    assert "Revocation: %s" % revocation in text.stdout
+    assert "Client Removal: %s" % revocation.format(cid="dcr-client-1", base=base) in text.stdout
     assert "Redirect URI Used: %s" % (R if registered == "yes" else "(none)") in text.stdout
     entry = json.loads(js.stdout)["client_registration"][0]
-    assert entry["revocation"] == revocation
+    assert entry["client_removal"] == revocation.format(cid="dcr-client-2", base=base)
     for out in (text.stdout, text.stderr, js.stdout, js.stderr):
         assert "fixture-rat" not in out

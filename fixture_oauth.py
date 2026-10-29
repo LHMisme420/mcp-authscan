@@ -34,12 +34,25 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 #   REVOCATION=auth    POST /revoke answers 401 invalid_client, WWW-Authenticate: Basic (client
 #                      authentication the scanner does not have; nothing is revoked)
 #   REVOCATION=absent  the metadata advertises no revocation_endpoint (POST /revoke still exists)
+#   REVOCATION=sdk     POST /revoke validates its form like the MCP Python SDK's RevocationRequest:
+#                      token, client_id and client_secret are each required (client_secret may be
+#                      empty); a form missing any answers 400 invalid_request whose error_description
+#                      is one "<field>: Field required" line per missing field, joined by newlines.
+#                      A complete form revokes an issued token and answers 200 for any other token
+#                      (RFC 7009 2.2), leaving every client registered
 #   TOKEN_REVOCATION=fail|auth|ok  overrides REVOCATION for a POST /revoke whose token is an issued
 #                      access or refresh token only: fail answers 503 temporarily_unavailable, auth
 #                      answers 401 invalid_client with WWW-Authenticate: Basic (the token stays
 #                      valid either way), ok revokes it. Client revocation still follows REVOCATION,
 #                      so token and client revocation can succeed or fail independently. Unset:
 #                      token revocation follows REVOCATION like client revocation.
+#   TOKEN_REVOCATION=described  for an issued token, POST /revoke answers 400 invalid_request with
+#                      error_description TOKEN_REVOCATION_DESCRIPTION (the token stays valid)
+#   CLIENT_DELETE=ok|fail  POST /register also returns registration_client_uri <BASE>/register/<id>
+#                      (RFC 7592). DELETE on it with "Authorization: Bearer <registration_access_token>"
+#                      deletes the client and answers 204 (ok), or answers 503 temporarily_unavailable
+#                      and keeps it (fail); a missing or wrong bearer answers 401 invalid_token.
+#                      Unset: no registration_client_uri is returned (RFC 7592 not advertised)
 #   REDIRECT_HOSTS=h1,h2  POST /register answers 400 invalid_redirect_uri unless every redirect_uri
 #                      host is in the list (e.g. "localhost", or "127.0.0.1" so the scanner's first
 #                      candidate is refused and the second accepted; "none" refuses every host)
@@ -55,11 +68,16 @@ REVOCATION_ECHO = os.environ.get("REVOCATION") == "echo"
 REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
 REVOCATION_AUTH = os.environ.get("REVOCATION") == "auth"
 REVOCATION_ABSENT = os.environ.get("REVOCATION") == "absent"
+REVOCATION_SDK = os.environ.get("REVOCATION") == "sdk"
 TOKEN_REVOCATION = os.environ.get("TOKEN_REVOCATION", "")
+TOKEN_REVOCATION_DESCRIPTION = "token revocation is disabled on this fixture"
+CLIENT_DELETE = os.environ.get("CLIENT_DELETE", "")
 REDIRECT_HOSTS = [h for h in os.environ.get("REDIRECT_HOSTS", "").split(",") if h]
 DCR_CLIENTS = {}   # client_id -> list of registered redirect_uris
 _DCR_SEQ = itertools.count(1)
 REVOKED = []       # one entry per accepted POST /revoke: {"client_id", "token_sent"}
+REVOKE_FORMS = []  # every POST /revoke: its field names, client_id, and what kind of token it sent
+DELETED = []       # client_ids deleted by an RFC 7592 DELETE
 
 # Token acquisition (authorization code + PKCE S256) switches, for token-cors acquired-token mode.
 #   CONSENT=deny         a valid S256 authorization request is answered 302 redirect_uri?error=access_denied
@@ -242,6 +260,7 @@ class H(BaseHTTPRequestHandler):
         if p == "/_clients":
             # registered (and not revoked) dynamic clients, without any credential
             return self._s(200, {"registered": sorted(DCR_CLIENTS), "revoked": REVOKED,
+                                 "deleted": DELETED, "revoke_forms": REVOKE_FORMS,
                                  "tokens_issued": len(ISSUED_TOKENS),
                                  "tokens_revoked": len(REVOKED_TOKENS),
                                  "tokens_outstanding": len(set(ISSUED_TOKENS) - set(REVOKED_TOKENS))})
@@ -373,18 +392,36 @@ class H(BaseHTTPRequestHandler):
             cid = "dcr-client-%d" % next(_DCR_SEQ)
             DCR_CLIENTS[cid] = list(uris)
             print("REGISTER " + cid + " " + " ".join(uris), file=sys.stderr, flush=True)
-            return self._s(201, {"client_id": cid,
-                                 "redirect_uris": list(uris),
-                                 "grant_types": ["authorization_code"],
-                                 "response_types": ["code"],
-                                 "token_endpoint_auth_method": "none",
-                                 "registration_access_token": "fixture-rat-" + cid},
-                           {"Cache-Control": "no-store"})
+            reg = {"client_id": cid,
+                   "redirect_uris": list(uris),
+                   "grant_types": ["authorization_code"],
+                   "response_types": ["code"],
+                   "token_endpoint_auth_method": "none",
+                   "registration_access_token": "fixture-rat-" + cid}
+            if CLIENT_DELETE:
+                reg["registration_client_uri"] = BASE + "/register/" + cid
+            return self._s(201, reg, {"Cache-Control": "no-store"})
 
         if p == "/revoke":
-            form = {k: v[0] for k, v in parse_qs(body.decode(errors="ignore")).items()}
+            form = {k: v[0] for k, v in parse_qs(body.decode(errors="ignore"), keep_blank_values=True).items()}
+            tok = form.get("token")
+            REVOKE_FORMS.append({"fields": sorted(form), "client_id": form.get("client_id"),
+                                 "client_secret": None if "client_secret" not in form
+                                 else ("empty" if form["client_secret"] == "" else "set"),
+                                 "token": "issued" if tok in ISSUED_TOKENS
+                                 else "registration_access_token" if (tok or "").startswith("fixture-rat-")
+                                 else "other" if tok else None})
+            if REVOCATION_SDK:
+                missing = [f for f in ("token", "client_id", "client_secret") if f not in form]
+                if missing:
+                    print("REVOKE refused (sdk validation) " + form.get("client_id", ""), file=sys.stderr, flush=True)
+                    return self._s(400, {"error": "invalid_request",
+                                         "error_description": "\n".join("%s: Field required" % f for f in missing)})
             if TOKEN_REVOCATION and form.get("token") in ISSUED_TOKENS:
                 cid = form.get("client_id", "")
+                if TOKEN_REVOCATION == "described":
+                    print("REVOKE token refused (described) " + cid, file=sys.stderr, flush=True)
+                    return self._s(400, {"error": "invalid_request", "error_description": TOKEN_REVOCATION_DESCRIPTION})
                 if TOKEN_REVOCATION == "fail":
                     print("REVOKE token refused " + cid, file=sys.stderr, flush=True)
                     return self._s(503, {"error": "temporarily_unavailable"})
@@ -413,11 +450,32 @@ class H(BaseHTTPRequestHandler):
                 REVOKED_TOKENS.append(form["token"])
                 print("REVOKE token of " + cid, file=sys.stderr, flush=True)
                 return self._s(200, {})
+            if REVOCATION_SDK:
+                # RFC 7009 2.2: an unknown token is answered 200; nothing is revoked or deleted
+                print("REVOKE unknown token (no effect) " + cid, file=sys.stderr, flush=True)
+                return self._s(200, {})
             DCR_CLIENTS.pop(cid, None)
             REVOKED.append({"client_id": cid, "token_sent": bool(form.get("token"))})
             print("REVOKE " + cid, file=sys.stderr, flush=True)
             return self._s(200, {})
         return self._s(404, {"error": "not_found"})
+
+    def do_DELETE(self):
+        # RFC 7592 client deletion at registration_client_uri (CLIENT_DELETE=ok|fail)
+        p = self.path.split("?")[0]
+        print("DELETE " + p, file=sys.stderr, flush=True)
+        cid = p[len("/register/"):] if p.startswith("/register/") else None
+        if not CLIENT_DELETE or cid not in DCR_CLIENTS:
+            return self._s(404, {"error": "not_found"})
+        if self.headers.get("Authorization", "") != "Bearer fixture-rat-" + cid:
+            return self._s(401, {"error": "invalid_token"}, {"WWW-Authenticate": 'Bearer error="invalid_token"'})
+        if CLIENT_DELETE == "fail":
+            return self._s(503, {"error": "temporarily_unavailable"})
+        DCR_CLIENTS.pop(cid)
+        DELETED.append(cid)
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def log_message(self, *a):
         pass
@@ -429,6 +487,7 @@ if __name__ == "__main__":
           + " registration=" + (os.environ.get("REGISTRATION") or "ok")
           + " revocation=" + (os.environ.get("REVOCATION") or "ok")
           + " token_revocation=" + (TOKEN_REVOCATION or "as revocation")
+          + " client_delete=" + (CLIENT_DELETE or "not advertised")
           + " redirect_hosts=" + (",".join(REDIRECT_HOSTS) or "any")
           + " consent=" + (CONSENT or "auto") + " token_cors=" + TOKEN_CORS, flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()

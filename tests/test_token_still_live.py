@@ -46,12 +46,14 @@ def _no_token(base, runs):
 
 
 @pytest.mark.parametrize("env, result, client_live", [
-    ({"TOKEN_REVOCATION": "fail"}, "access_token HTTP 503 error=temporarily_unavailable; "
-                                   "refresh_token HTTP 503 error=temporarily_unavailable", False),
-    ({"TOKEN_REVOCATION": "auth"}, "access_token HTTP 401 error=invalid_client; "
-                                   "refresh_token HTTP 401 error=invalid_client", False),
-    ({"TOKEN_REVOCATION": "fail", "REVOCATION": "auth"}, "access_token HTTP 503 error=temporarily_unavailable; "
-                                   "refresh_token HTTP 503 error=temporarily_unavailable", True),
+    ({"TOKEN_REVOCATION": "fail"}, "access_token revocation not confirmed (HTTP 503 error=temporarily_unavailable); "
+                                   "refresh_token revocation not confirmed (HTTP 503 error=temporarily_unavailable)",
+     False),
+    ({"TOKEN_REVOCATION": "auth"}, "access_token revocation not confirmed (HTTP 401 error=invalid_client); "
+                                   "refresh_token revocation not confirmed (HTTP 401 error=invalid_client)", False),
+    ({"TOKEN_REVOCATION": "fail", "REVOCATION": "auth"},
+     "access_token revocation not confirmed (HTTP 503 error=temporarily_unavailable); "
+     "refresh_token revocation not confirmed (HTTP 503 error=temporarily_unavailable)", True),
     ({"REVOCATION": "absent"}, "not attempted: no revocation_endpoint advertised", True),
 ])
 def test_unrevoked_token_is_reported_still_live(env, result, client_live):
@@ -61,16 +63,19 @@ def test_unrevoked_token_is_reported_still_live(env, result, client_live):
     text, js = runs[0][0], runs[1][0]
     for p, _, prompts in runs:
         assert prompts == 1 and p.returncode in (0, 1), p.stderr[-500:]
-        assert ("[!] TOKEN STILL LIVE: %s issued by %s to client_id " % (BOTH, base)) in p.stderr
-        assert "not revoked (%s); revoke on the server" % result in p.stderr
+        assert ("[!] token revocation not confirmed: %s issued by %s to client_id " % (BOTH, base)) in p.stderr
+        assert " (%s); revoke on the server" % result in p.stderr
+        assert "STILL LIVE" not in p.stdout + p.stderr
     assert st["tokens_outstanding"] == 8   # 4 runs x (access + refresh), none revoked
-    assert ("Token Status: STILL LIVE on the server (%s not revoked; revocation: %s). Revoke on the server."
+    assert ("Token Status: revocation not confirmed for %s (%s). Revoke on the server."
             % (BOTH, result)) in text.stdout
-    assert ("Client Status: STILL LIVE on the server" in text.stdout) is client_live
-    assert ("Client Status: revoked" in text.stdout) is (not client_live)
+    # client_live: since probe set 2026.11.02 the client never goes to /revoke, so whatever
+    # REVOCATION says, its removal is out of scope (no registration_client_uri)
+    assert ("Client Removal: client removal is out of scope for this tool: client_id dcr-client-1 registered at "
+            "%s by this run was not removed" % base) in text.stdout
     entry = _entries(js.stdout)[0]
-    assert entry["token_still_live"] is True and entry["token_revocation"] == result
-    assert entry["token_types_not_revoked"] == ["access_token", "refresh_token"]
+    assert entry["token_revocation_unconfirmed"] is True and entry["token_revocation"] == result
+    assert entry["token_types_unconfirmed"] == ["access_token", "refresh_token"]
     _no_token(base, runs)
 
 
@@ -82,11 +87,11 @@ def test_token_revoked_while_client_still_live():
     text, js = runs[0][0], runs[1][0]
     assert st["tokens_outstanding"] == 0
     assert "Token Status: revoked" in text.stdout
-    assert "TOKEN STILL LIVE" not in text.stdout + text.stderr
-    assert "[!] CLIENT STILL LIVE" in text.stderr
-    assert "Client Status: STILL LIVE on the server" in text.stdout
+    assert "token revocation not confirmed" not in text.stdout + text.stderr
+    assert "[!] client removal is out of scope for this tool: client_id dcr-client-1" in text.stderr
+    assert "Client Removal: client removal is out of scope for this tool: client_id dcr-client-1" in text.stdout
     entry = _entries(js.stdout)[0]
-    assert entry["token_still_live"] is False and entry["client_still_live"] is True
+    assert entry["token_revocation_unconfirmed"] is False and entry["client_deleted"] is False
     _no_token(base, runs)
 
 
@@ -99,7 +104,7 @@ def test_token_revoked():
     assert "Token Status: revoked" in text.stdout
     assert "STILL LIVE" not in text.stdout + text.stderr
     entry = _entries(js.stdout)[0]
-    assert entry["token_still_live"] is False
+    assert entry["token_revocation_unconfirmed"] is False
     assert entry["token_revocation"] == "access_token HTTP 200; refresh_token HTTP 200"
     _no_token(base, runs)
 
@@ -111,9 +116,9 @@ def test_no_token_acquired(extra):
         runs = [_cli(base, *extra, paste_mode="empty"), _cli(base, *extra, "--json", paste_mode="empty")]
     text, js = runs[0][0], runs[1][0]
     assert "Token Status: none acquired" in text.stdout
-    assert "TOKEN STILL LIVE" not in text.stdout + text.stderr
+    assert "token revocation not confirmed" not in text.stdout + text.stderr
     entry = _entries(js.stdout)[0]
-    assert entry["token_still_live"] is None and entry["token_revocation"] is None
+    assert entry["token_revocation_unconfirmed"] is None and entry["token_revocation"] is None
     _no_token(base, runs)
 
 
@@ -125,5 +130,6 @@ def test_token_revocation_request_exception_is_not_revoked():
     tokens = [("access_token", "fixture-acquired-token-x"), ("refresh_token", "fixture-acquired-refresh-x")]
     not_revoked, result = probes._revoke_tokens({"revocation_endpoint": dead}, client, tokens)
     assert not_revoked == ["access_token", "refresh_token"]
-    assert result.startswith("access_token request failed: ") and "refresh_token request failed: " in result
+    assert result.startswith("access_token revocation not confirmed (request failed: ")
+    assert "refresh_token revocation not confirmed (request failed: " in result
     assert "fixture-acquired" not in result

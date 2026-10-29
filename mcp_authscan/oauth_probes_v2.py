@@ -91,25 +91,30 @@ STATE_LIMITATION = "Pasted address state does not match the request"
 NO_CODE_LIMITATION = "Pasted address carries no authorization code"
 
 # One entry per run_oauth_assessment: where probes 7 and 8 got their client, the redirect used,
-# and what the revocation returned. Holds no secret. scan_live_server clears it per scan.
+# and what client removal and token revocation returned. Holds no secret. scan_live_server clears
+# it per scan.
 CLIENT_REPORTS = []
 # What happened to the tokens token-cors [4] obtained in the current assessment (--acquire-token):
-# still_live is None when no token was obtained. Token types and results only, never a token.
+# unconfirmed is None when no token was obtained. Token types and results only, never a token.
 TOKEN_REVOCATION = {}
 
 
 class _Client:
     """A client for authorization requests. secret and registration_access_token stay in memory
-    only; repr never shows them."""
-    __slots__ = ("client_id", "redirect_uri", "source", "usable", "secret", "registration_access_token")
+    only; repr never shows them. registration_client_uri is the RFC 7592 client configuration
+    endpoint, when the registration returned one."""
+    __slots__ = ("client_id", "redirect_uri", "source", "usable", "secret", "registration_access_token",
+                 "registration_client_uri")
 
-    def __init__(self, client_id, redirect_uri, source, usable=True, secret=None, registration_access_token=None):
+    def __init__(self, client_id, redirect_uri, source, usable=True, secret=None, registration_access_token=None,
+                 registration_client_uri=None):
         self.client_id = client_id
         self.redirect_uri = redirect_uri
         self.source = source
         self.usable = usable
         self.secret = secret
         self.registration_access_token = registration_access_token
+        self.registration_client_uri = registration_client_uri
 
     def __repr__(self):
         return "<client %s source=%s>" % (self.client_id, self.source)
@@ -212,7 +217,8 @@ def _register_client(metadata, tried=None):
             return None, "registration response carried no client_id"
         client = _Client(client_id, redirect_uri, "registered",
                          secret=doc.get("client_secret"),
-                         registration_access_token=doc.get("registration_access_token"))
+                         registration_access_token=doc.get("registration_access_token"),
+                         registration_client_uri=doc.get("registration_client_uri"))
         uris = doc.get("redirect_uris")
         doc = body = None
         if uris is not None and not (isinstance(uris, list) and redirect_uri in uris):
@@ -224,36 +230,41 @@ def _register_client(metadata, tried=None):
     return None, "registration refused every redirect candidate: " + _status_text(status, body)
 
 
-def _revoke_client(metadata, client):
-    """One form POST to the advertised revocation_endpoint for a registered client.
+def _remove_client(oauth_server_url, client):
+    """Remove a client this run registered, after the last probe that uses it.
 
-    Sends client_id, plus token=registration_access_token when the registration returned one.
-    Returns (revoked, what came back); revoked is True only for a 2xx. The client's credentials
+    RFC 7592 DELETE on registration_client_uri with "Authorization: Bearer
+    <registration_access_token>", only when the registration returned both; the RFC 7009
+    revocation_endpoint is never used for a client. Otherwise client removal is out of scope.
+    Returns (deleted, what happened); deleted is True only for a 2xx. The client's credentials
     are dropped either way.
     """
-    endpoint = metadata.get("revocation_endpoint")
-    form = {"client_id": client.client_id}
-    if client.registration_access_token:
-        form["token"] = client.registration_access_token
-    sent = {"registration_access_token": client.registration_access_token, "client_secret": client.secret}
+    uri, rat = client.registration_client_uri, client.registration_access_token
+    sent = {"registration_access_token": rat, "client_secret": client.secret}
     client.secret = client.registration_access_token = None
-    if not endpoint:
-        return False, "not attempted: no revocation_endpoint advertised"
-    req = Request(endpoint, method="POST", data=urlencode(form).encode("ascii"))
-    form = None
+    if not (isinstance(uri, str) and uri and isinstance(rat, str) and rat):
+        rat = sent = None
+        return False, ("client removal is out of scope for this tool: client_id %s registered at %s by this run "
+                       "was not removed" % (client.client_id, oauth_server_url))
+    req = Request(uri, method="DELETE")
     req.add_header("User-Agent", "mcp-authscan/2.0.0")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    req.add_header("Authorization", "Bearer " + rat)
+    rat = None
     try:
         status, _, body = _egress_guard(req, follow_redirects=False)
     except EgressRefusalError:
-        return False, "revocation_endpoint outside allowed scope"
+        status, outcome = None, "registration_client_uri outside allowed scope"
     except Exception as e:
-        return False, "request failed: %s" % type(e).__name__
+        status, outcome = None, "request failed: %s" % type(e).__name__
     finally:
         req = None
-    revoked, result = 200 <= status < 300, _status_text(status, body, sent)
+    if status is not None:
+        outcome = _status_text(status, body, sent)
     sent = None
-    return revoked, result
+    if status is not None and 200 <= status < 300:
+        return True, "deleted: client_id %s, RFC 7592 DELETE %s" % (client.client_id, outcome)
+    return False, ("client deletion not confirmed: client_id %s, RFC 7592 DELETE %s; remove it on the server"
+                   % (client.client_id, outcome))
 
 
 class ProbeRecord:
@@ -457,7 +468,9 @@ def _header(headers, name):
 def _revoke_tokens(metadata, client, tokens, sent=None):
     """RFC 7009 revocation of each (hint, token) at the advertised revocation_endpoint.
 
-    Returns (token types not revoked, summary); a token counts as revoked only on a 2xx.
+    The form is token, token_type_hint, client_id and client_secret (empty for a public client).
+    Returns (token types whose revocation is not confirmed, summary); a token counts as revoked
+    only on a 2xx, and any other result reads "<hint> revocation not confirmed (...)".
     Never returns the token. sent names other values this run sent (code, code_verifier): an
     error_description containing any of them, a token or the client's credentials is withheld.
     The caller drops its references afterwards.
@@ -469,9 +482,8 @@ def _revoke_tokens(metadata, client, tokens, sent=None):
                 registration_access_token=client.registration_access_token, **(sent or {}))
     results, not_revoked = [], []
     for hint, token in tokens:
-        form = {"token": token, "token_type_hint": hint, "client_id": client.client_id}
-        if client.secret:
-            form["client_secret"] = client.secret
+        form = {"token": token, "token_type_hint": hint, "client_id": client.client_id,
+                "client_secret": client.secret or ""}
         req = Request(endpoint, method="POST", data=urlencode(form).encode("ascii"))
         form = token = None
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
@@ -486,8 +498,10 @@ def _revoke_tokens(metadata, client, tokens, sent=None):
         except Exception as e:
             outcome = "request failed: %s" % type(e).__name__
         req = None
-        results.append("%s %s" % (hint, outcome))
-        if not revoked:
+        if revoked:
+            results.append("%s %s" % (hint, outcome))
+        else:
+            results.append("%s revocation not confirmed (%s)" % (hint, outcome))
             not_revoked.append(hint)
     sent = None
     return not_revoked, "; ".join(results)
@@ -633,7 +647,7 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     obtained = any(h == "access_token" for h, _ in tokens)
     if tokens:
         not_revoked, revocation = _revoke_tokens(metadata, client, tokens, sent)
-        TOKEN_REVOCATION.update(still_live=bool(not_revoked), not_revoked=not_revoked,
+        TOKEN_REVOCATION.update(unconfirmed=bool(not_revoked), not_revoked=not_revoked,
                                 revocation=revocation, client_id=client.client_id)
     else:
         revocation = "nothing to revoke"
@@ -1273,7 +1287,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     registration_note = None if client else "Dynamic client registration unavailable: " + registration
 
     TOKEN_REVOCATION.clear()
-    TOKEN_REVOCATION.update(still_live=None, not_revoked=[], revocation=None, client_id=None)
+    TOKEN_REVOCATION.update(unconfirmed=None, not_revoked=[], revocation=None, client_id=None)
     records = []
     records.append(probe_issuer_identity(metadata_url, metadata))
     rb = probe_resource_binding(resource_metadata, mcp_url)
@@ -1288,24 +1302,23 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
 
-    # A token token-cors [4] obtained and could not revoke is announced on the terminal now and in
-    # the report, like an unrevoked client below. Only the token types are named.
-    if TOKEN_REVOCATION["still_live"]:
-        print("[!] TOKEN STILL LIVE: %s issued by %s to client_id %s not revoked (%s); revoke on the server"
+    # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
+    # terminal now and in the report. Only the token types are named. It does not change the
+    # verdict or the exit code.
+    if TOKEN_REVOCATION["unconfirmed"]:
+        print("[!] token revocation not confirmed: %s issued by %s to client_id %s (%s); revoke on the server"
               % (", ".join(TOKEN_REVOCATION["not_revoked"]), oauth_server_url, TOKEN_REVOCATION["client_id"],
                  TOKEN_REVOCATION["revocation"]), file=sys.stderr)
 
-    # Revoke a registered client after the last probe that uses it, before anything is reported.
-    # A registered client that was not revoked is announced on the terminal now and in the report.
-    still_live = None
-    revocation = "not applicable: no client was registered"
+    # Remove a client this run registered after the last probe that uses it, before anything is
+    # reported (RFC 7592 when advertised, else out of scope); a client that was not deleted is
+    # announced on the terminal now and in the report. A client from the environment is not ours.
+    deleted = None
+    removal = "no client was registered by this run"
     if registered is not None:
-        revoked, revocation = _revoke_client(metadata, registered)
-        still_live = not revoked
-        if still_live:
-            print("[!] CLIENT STILL LIVE: client_id %s registered at %s was not revoked (%s); "
-                  "remove it on the server" % (registered.client_id, oauth_server_url, revocation),
-                  file=sys.stderr)
+        deleted, removal = _remove_client(oauth_server_url, registered)
+        if not deleted:
+            print("[!] " + removal, file=sys.stderr)
     if client is not None:
         source, client_id, redirect_uri = "registered", client.client_id, client.redirect_uri
     else:
@@ -1322,13 +1335,13 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         "client_source": source,
         "client_id": client_id,
         "redirect_uri": redirect_uri,
-        "revocation": revocation,
-        "client_still_live": still_live,
+        "client_removal": removal,
+        "client_deleted": deleted,
         "registered_client_id": registered.client_id if registered is not None else None,
         "redirect_candidates_tried": tried,
         "token_revocation": TOKEN_REVOCATION["revocation"],
-        "token_still_live": TOKEN_REVOCATION["still_live"],
-        "token_types_not_revoked": list(TOKEN_REVOCATION["not_revoked"]),
+        "token_revocation_unconfirmed": TOKEN_REVOCATION["unconfirmed"],
+        "token_types_unconfirmed": list(TOKEN_REVOCATION["not_revoked"]),
     })
     registered = client = None
     return records, []

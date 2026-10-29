@@ -34,4 +34,5 @@ def test_grant_types_rule_server_registers_the_client():
     assert report["client_source"] == "registered" and report["redirect_uri"] == R
     assert by_name["pkce-s256"].status == "PASS", by_name["pkce-s256"].detail
     assert by_name["redirect-uri-exact"].status == "PASS", by_name["redirect-uri-exact"].detail
-    assert report["client_still_live"] is False
+    assert report["client_removal"] == ("client removal is out of scope for this tool: client_id %s registered "
+                                        "at %s by this run was not removed" % (report["client_id"], base))

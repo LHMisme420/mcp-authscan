@@ -11,7 +11,7 @@ Contract:
   EXCLUDED: 7 "No client_id to build an authorization request", 8 "No registered redirect_uri
   to compare against", each with the detail "Dynamic client registration unavailable:
   registration returned HTTP 401 error=invalid_request", and the client registration report
-  says no client was registered and nothing needed revoking.
+  says no client was registered by this run (probe set 2026.11.02).
 
 When scanning a server:
 - attempted = PASS + FAIL + NOT_OBSERVED
@@ -116,8 +116,8 @@ try:
     expected_excluded_detail = ("Dynamic client registration unavailable: "
                                 "registration returned HTTP 401 error=invalid_request")
     expected_client_report = {"client_registered": False, "client_source": "none",
-                              "revocation": "not applicable: no client was registered",
-                              "client_still_live": None,
+                              "client_removal": "no client was registered by this run",
+                              "client_deleted": None,
                               # a 401 is not a redirect refusal: only the first candidate is tried
                               "redirect_candidates_tried": [
                                   {"redirect_uri": "http://localhost/mcp-authscan/callback",

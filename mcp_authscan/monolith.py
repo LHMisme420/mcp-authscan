@@ -621,7 +621,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.11.01"  # 2026.11.01: dynamic registration asks for grant_types authorization_code and refresh_token. OAuth probe suite: probes 7-8 take a dynamically registered client first (RFC 7591), then the environment
+PROBE_SET_VERSION = "2026.11.02"  # 2026.11.02: token revocation always sends client_secret (empty for a public client) and a non-2xx reads "revocation not confirmed"; a registered client is removed only by RFC 7592 DELETE when registration_client_uri and registration_access_token were returned, else client removal is out of scope (never the RFC 7009 endpoint). 2026.11.01: dynamic registration asks for grant_types authorization_code and refresh_token. OAuth probe suite: probes 7-8 take a dynamically registered client first (RFC 7591), then the environment
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2402,7 +2402,7 @@ def main():
             report_lines.append("-" * 80)
             report_lines.append("")
 
-        # Where probes 7 and 8 got their client, and what the revocation returned (no secrets kept)
+        # Where probes 7 and 8 got their client, client removal and token revocation (no secrets kept)
         for entry in oauth_probes_v2.CLIENT_REPORTS:
             report_lines.append("CLIENT REGISTRATION")
             report_lines.append("-" * 80)
@@ -2415,19 +2415,12 @@ def main():
             if entry["client_id"]:
                 report_lines.append(f"Client ID: {entry['client_id']}")
             report_lines.append(f"Redirect URI Used: {entry['redirect_uri']}")
-            report_lines.append(f"Revocation: {entry['revocation']}")
-            if entry.get("client_still_live"):
-                report_lines.append("Client Status: STILL LIVE on the server (registered client_id %s was not "
-                                    "revoked; revocation: %s). Remove it on the server."
-                                    % (entry["registered_client_id"], entry["revocation"]))
-            elif entry.get("client_still_live") is False:
-                report_lines.append("Client Status: revoked")
-            if entry.get("token_still_live"):
-                report_lines.append("Token Status: STILL LIVE on the server (%s not revoked; revocation: %s). "
-                                    "Revoke on the server."
-                                    % (", ".join(entry.get("token_types_not_revoked") or []),
+            report_lines.append(f"Client Removal: {entry['client_removal']}")
+            if entry.get("token_revocation_unconfirmed"):
+                report_lines.append("Token Status: revocation not confirmed for %s (%s). Revoke on the server."
+                                    % (", ".join(entry.get("token_types_unconfirmed") or []),
                                        entry["token_revocation"]))
-            elif entry.get("token_still_live") is False:
+            elif entry.get("token_revocation_unconfirmed") is False:
                 report_lines.append("Token Status: revoked")
             else:
                 report_lines.append("Token Status: none acquired")

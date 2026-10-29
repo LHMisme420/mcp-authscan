@@ -226,7 +226,7 @@ def test_revocation_failure_reported_verdict_stands(acquire, browser):
     with fixture(REVOCATION="fail") as base:
         r = _token_cors(base)
     assert r.status == "PASS", r.detail
-    assert "revocation: access_token HTTP 503 error=temporarily_unavailable" in r.detail
+    assert "revocation: access_token revocation not confirmed (HTTP 503 error=temporarily_unavailable)" in r.detail
     _clean(r)
 
 
