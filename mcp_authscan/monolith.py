@@ -881,7 +881,7 @@ CRED_CONTEXT = re.compile(r"(admin|account|identity|password|credential|passwd|s
 CRED_PLACEHOLDER = re.compile(
     r"(\.\.\.|<[^>]+>|\$\{|your[-_ ]?|example|redacted|changeme|xxx+|placeholder|"
     r"dummy|sample|test|doctest|foo|bar|jwt\.token\.here|token\.here|"
-    r"^[A-Z][A-Z0-9_]+$|-\d+\.\d+$)", re.I)
+    r"(?-i:^[A-Z][A-Z0-9_]+$)|-\d+\.\d+$)", re.I)  # constant-name check stays case-sensitive
 
 def _cred_value(evidence):
     """Extract the quoted value from an A2 evidence string, or '' if none."""
