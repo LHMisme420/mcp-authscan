@@ -4,11 +4,20 @@ PASS_EVIDENCE = {
     "issuer-identity": "authorization server metadata names its own issuer",
     "resource-binding": "resource metadata binds to the scanned MCP endpoint",
     "token-cache-control": "token endpoint responses are marked no-store",
-    "token-cors": "token endpoint 2xx response did not admit the hostile origin (no Access-Control-Allow-Origin header)",
+    "token-cors": "token endpoint 2xx response did not let the tested origin read it (no Access-Control-Allow-Origin header)",
     "jwks-keys": "signing keys are asymmetric",
     "password-grant": "password grant is not supported",
     "client-auth": "client authentication is enforced before grant validation",
 }
+
+def _pass_evidence(r):
+    """PASS sentence for one record; token-cors names any other origin the response allowed."""
+    if r.name == "token-cors":
+        acao = (r.headers_observed or {}).get("access-control-allow-origin", "")
+        if acao:
+            return ("token endpoint 2xx response did not let the tested origin read it "
+                    "(Access-Control-Allow-Origin named %s)" % acao)
+    return PASS_EVIDENCE.get(r.name, r.name)
 
 def check_counts(records):
     """Verify accounting: return (passed, failed, not_observed, excluded)."""
@@ -37,7 +46,7 @@ def render_summary(records):
 
     # PASSED: show with evidence from PASS_EVIDENCE mapping
     if passed:
-        evidence = "; ".join(PASS_EVIDENCE.get(r.name, r.name) for r in passed)
+        evidence = "; ".join(_pass_evidence(r) for r in passed)
         lines.append(f"PASSED ({len(passed)}): {evidence}")
 
     # EXCLUDED: never sent (prerequisite not met)
@@ -45,9 +54,9 @@ def render_summary(records):
         names = ", ".join(r.name for r in excluded)
         lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent): {names}")
 
-    # NOT_OBSERVED: sent, but inconclusive
+    # NOT_OBSERVED: inconclusive; each probe's reason on its own line
     if not_obs:
-        lines.append(f"NOT OBSERVED ({len(not_obs)}, sent, inconclusive):")
+        lines.append(f"NOT OBSERVED ({len(not_obs)}, inconclusive):")
         for r in not_obs:
             lines.append(f"  {r.name}: {r.detail or r.limitation or '(no reason recorded)'}")
 
