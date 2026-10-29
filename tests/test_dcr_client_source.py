@@ -17,7 +17,7 @@ import mcp_authscan.monolith as monolith
 from mcp_authscan import oauth_probes_v2 as probes
 from tests.test_probes_pkce_redirect import ROOT, fixture, _hits
 
-R = "http://127.0.0.1/mcp-authscan/callback"
+R = "http://localhost/mcp-authscan/callback"   # first of the contract's ordered redirect candidates
 
 
 @pytest.fixture(autouse=True)

@@ -129,7 +129,7 @@ def _probe(base, **meta):
 @pytest.mark.parametrize("consent,limitation,why", [
     ("deny", probes.REFUSED_LIMITATION, "error=access_denied"),
     ("wrong-state", probes.STATE_LIMITATION, "state differs"),
-    ("wrong-redirect", probes.WRONG_REDIRECT_LIMITATION, "expected http://127.0.0.1/mcp-authscan/callback"),
+    ("wrong-redirect", probes.WRONG_REDIRECT_LIMITATION, "expected " + probes.REDIRECT_CANDIDATES[0]),
 ])
 def test_pasted_address_rejected(acquire, browser, consent, limitation, why):
     with fixture(CONSENT=consent) as base:
@@ -172,7 +172,7 @@ def test_authorization_url_carries_challenge_not_verifier(acquire, browser):
         with urlopen(base + "/_issued", timeout=5) as resp:
             verifiers = json.loads(resp.read())["verifiers"]
     q = dict(parse_qsl(urlsplit(browser.prompts[0]).query))
-    assert q["code_challenge_method"] == "S256" and q["redirect_uri"] == "http://127.0.0.1/mcp-authscan/callback"
+    assert q["code_challenge_method"] == "S256" and q["redirect_uri"] == probes.REDIRECT_CANDIDATES[0]
     assert q["response_type"] == "code" and q["client_id"].startswith("dcr-client-") and len(q["state"]) >= 16
     assert len(verifiers) == 1 and verifiers[0] not in browser.prompts[0]
 

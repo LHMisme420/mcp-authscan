@@ -116,7 +116,12 @@ try:
     expected_excluded_detail = ("Dynamic client registration unavailable: "
                                 "registration returned HTTP 401 error=invalid_request")
     expected_client_report = {"client_registered": False, "client_source": "none",
-                              "revocation": "not applicable: no client was registered"}
+                              "revocation": "not applicable: no client was registered",
+                              "client_still_live": None,
+                              # a 401 is not a redirect refusal: only the first candidate is tried
+                              "redirect_candidates_tried": [
+                                  {"redirect_uri": "http://localhost/mcp-authscan/callback",
+                                   "result": "refused, HTTP 401 error=invalid_request"}]}
     
     print("Contract expectations:")
     print(f"  In-scope probes: {expected_in_scope}")
