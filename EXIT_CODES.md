@@ -4,7 +4,7 @@
 
 **Precondition aborts** (no probes run):
 - Exit 2: Arguments/setup error
-- Exit 3: Target validation failed (including private IP DNS rebinding protection)
+- Exit 3: Target validation failed (including private IP DNS rebinding protection), or a target that is neither an http(s) URL nor a readable source directory (nothing examined: no source files read, or no probes attempted). One refusal line naming the target is the last line on stderr; no report of any kind is produced.
 - Exit 4: Internal scan error
 
 **Outcome codes** (probes executed):
@@ -20,6 +20,7 @@
 | Code | Condition | Evidence |
 |------|-----------|----------|
 | 3 | Private IP without --allow-private | `[!] Target validation failed: Target localhost resolves to private IP 127.0.0.1 (DNS rebinding protection)` |
+| 3 | Target neither an http(s) URL nor a readable source directory | `[!] Refused: no files examined in p23ta8.fsmcp.com/mcp; no report produced` (schemeless target treated as a local path; stdout empty) |
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
 | 5 | Mixed verdict assessment | localhost:8765: 4 PASS + 2 FAIL + 3 EXCLUDED = incomplete |
 

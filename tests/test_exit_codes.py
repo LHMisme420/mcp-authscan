@@ -43,11 +43,12 @@ class ExitCodeTests(unittest.TestCase):
         result = subprocess.run(["mcp-authscan", "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
         self.assertEqual(result.returncode, 3)
 
-    def test_exit_5_zero_probes_on_no_scheme_typo(self):
-        """Exit 5 when URL lacks scheme (typo) → zero probes attempted."""
-        # User types 'app.example.com/mcp' instead of 'https://app.example.com/mcp'
-        # Scanner falls through to SOURCE_CODE_ASSESSMENT mode, finds nothing.
-        # Contract: zero testable probes → exit 5, never 0.
+    def test_exit_3_refused_when_target_neither_url_nor_readable_source(self):
+        """Exit 3, no report: target is neither an http(s) URL nor a readable source directory."""
+        # User types 'app.example.com/mcp' instead of 'https://app.example.com/mcp'.
+        # A schemeless target is treated as a local path; with nothing readable there,
+        # nothing is examined, so the scan is refused rather than reported.
+        # Contract: nothing to examine -> exit 3, no report (no text, JSON, or hash on stdout).
         result = subprocess.run(
             [sys.executable, "-m", "mcp_authscan.cli_wrapper",
              "nonexistent-dir-that-does-not-exist",
@@ -59,12 +60,11 @@ class ExitCodeTests(unittest.TestCase):
             text=True,
             timeout=10,
         )
-        self.assertEqual(result.returncode, 5, 
-            f"Expected exit 5 for zero probes, got {result.returncode}.\n"
+        self.assertEqual(result.returncode, 3,
+            f"Expected exit 3 (refused, nothing examined), got {result.returncode}.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}")
-        data = json.loads(result.stdout)
-        self.assertEqual(data["counts"]["attempted"], 0, 
-            "Expected zero probes attempted")
+        self.assertEqual(result.stdout, "",
+            "Expected no report on stdout for a refused scan")
 
 
     def test_exit_6_usage_error(self):
