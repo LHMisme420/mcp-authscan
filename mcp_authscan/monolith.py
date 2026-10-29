@@ -2385,10 +2385,10 @@ def main():
         # Add fixture disclaimer for localhost/test targets
         parsed_target = urlparse(args.target) if args.target.startswith("http") else None
         if parsed_target and parsed_target.hostname in ["127.0.0.1", "localhost", "[::1]"]:
-            report_lines.append("⚠ TEST FIXTURE DISCLAIMER")
+            report_lines.append("⚠ LOOPBACK TARGET")
             report_lines.append("-" * 80)
-            report_lines.append("This scan was run against a local test fixture (not a production server).")
-            report_lines.append("Findings demonstrate probe functionality, not evidence of real-world deployment.")
+            report_lines.append("Target is a loopback address on the machine that ran the scan.")
+            report_lines.append("Results describe that local instance only, not any deployed or hosted version.")
             report_lines.append("-" * 80)
             report_lines.append("")
 
