@@ -559,7 +559,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                     "evidence": record.detail or "",
                     "snippet": "",
                     "is_live_finding": True,
-                    "request_method": "POST",
+                    "request_method": "GET" if record.probe_id in (7, 8) else "POST",
                     "request_body": "",
                     "response_status": record.http_status or 0,
                     "response_body": record.body_excerpt or "",

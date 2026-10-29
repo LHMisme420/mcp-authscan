@@ -7,6 +7,10 @@ PASS_EVIDENCE = {
     "token-cors": "token endpoint 2xx response did not let the tested origin read it (no Access-Control-Allow-Origin header)",
     "jwks-keys": "signing keys are asymmetric",
     "password-grant": "password grant is not supported",
+    "pkce-s256": ("the server refused an authorization request without a PKCE challenge and refused one "
+                  "using the plain method, so only S256 was accepted"),
+    "redirect-uri-exact": ("the server accepted the registered redirect_uri and refused the same URI "
+                           "with one character appended to its path"),
     "client-auth": "client authentication is enforced before grant validation",
 }
 

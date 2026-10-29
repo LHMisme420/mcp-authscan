@@ -4,16 +4,28 @@ import os
 import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from ._common import record, SEVERITY_ORDER
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl
+import base64
+import hashlib
+import secrets
 import socket
 from .monolith import assert_url_is_fetchable
 
 from mcp_authscan.http_headers import Headers
 
 
-def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None):
+class _NoRedirect(HTTPRedirectHandler):
+    """Never follow a redirect: the 3xx comes back as an HTTPError carrying its Location."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECT_OPENER = build_opener(_NoRedirect)
+
+
+def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
     """Egress guard: enforce scope on all outbound requests.
     
     Checks that request_obj.full_url is fetchable (globally routable, not SSRF)
@@ -34,8 +46,9 @@ def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None
     if hostname and hostname not in ALLOWED_HOSTS:
         raise EgressRefusalError(f"host {hostname} not in authorized set: {sorted(ALLOWED_HOSTS)}")
     
+    opener = urlopen if follow_redirects else _NO_REDIRECT_OPENER.open
     try:
-        with urlopen(request_obj, timeout=timeout) as resp:
+        with opener(request_obj, timeout=timeout) as resp:
             return (resp.status, Headers(resp.headers), resp.read())
     except HTTPError as e:
         return (e.code, Headers(e.headers), e.read())
@@ -518,26 +531,245 @@ def probe_password_grant(token_endpoint):
     )
 
 
-def probe_pkce_s256(metadata):
-    """PKCE S256 must be required for authorization requests."""
+_REDACTED_PARAMS = ("code", "access_token", "id_token")
+
+
+def _redact_location(location):
+    """Location as recorded: authorization codes and tokens are replaced, never stored."""
+    if not location:
+        return location
+    parts = urlsplit(location)
+    def scrub(qs):
+        pairs = parse_qsl(qs, keep_blank_values=True)
+        if not any(k in _REDACTED_PARAMS for k, _ in pairs):
+            return qs
+        return "&".join("%s=%s" % (k, "[redacted]" if k in _REDACTED_PARAMS else v) for k, v in pairs)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, scrub(parts.query), scrub(parts.fragment)))
+
+
+def _same_uri(location, uri):
+    """Location targets uri exactly, optionally followed by its own query or fragment."""
+    if not uri:
+        return False
+    if location == uri:
+        return True
+    return location.startswith(uri + ("&" if "?" in uri else "?")) or location.startswith(uri + "#")
+
+
+def _origin(url):
+    parts = urlsplit(url)
+    return (parts.scheme.lower(), (parts.hostname or "").lower(), parts.port)
+
+
+def _authorize(authorization_endpoint, params):
+    """One authorization request. Redirects are never followed and the Location is never fetched."""
+    sep = "&" if "?" in authorization_endpoint else "?"
+    req = Request(authorization_endpoint + sep + urlencode(params), method="GET")
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    return _egress_guard(req, follow_redirects=False)
+
+
+def _classify(response, authorization_endpoint, sent_redirect_uri, registered_redirect_uri):
+    """Return (outcome, summary, recorded_location); outcome is proceeded, refused or neither.
+
+    proceeded: HTTP 200; or a 3xx whose Location is the redirect_uri that was sent, or a
+               consent page on the authorization endpoint's own origin; no error= either way.
+    refused:   a 4xx whose JSON body carries "error"; or a 3xx whose Location carries error=.
+    neither:   anything else, including a 3xx to the registered redirect_uri when a different
+               one was sent (the server substituted it; acceptance of the sent value is not shown).
+    """
+    status, headers, body = response
+    location = headers.get("Location") if headers is not None else None
+    if 300 <= status < 400:
+        if not location:
+            return "neither", "HTTP %d with no Location" % status, None
+        absolute = urljoin(authorization_endpoint, location)
+        recorded = _redact_location(absolute)
+        parts = urlsplit(absolute)
+        params = dict(parse_qsl(parts.query)) | dict(parse_qsl(parts.fragment))
+        if "error" in params:
+            return "refused", "HTTP %d, Location %s (error=%s)" % (status, recorded, params["error"]), recorded
+        if _same_uri(absolute, sent_redirect_uri):
+            return "proceeded", "HTTP %d, Location %s (the redirect_uri sent)" % (status, recorded), recorded
+        if registered_redirect_uri and _same_uri(absolute, registered_redirect_uri):
+            return ("neither", "HTTP %d, Location %s (the registered redirect_uri, not the one sent)"
+                    % (status, recorded), recorded)
+        if _origin(absolute) == _origin(authorization_endpoint):
+            return "proceeded", "HTTP %d, Location %s (consent page on the authorization server's origin)" % (status, recorded), recorded
+        return "neither", "HTTP %d, Location %s (neither the redirect_uri nor the server's own origin)" % (status, recorded), recorded
+    if status == 200:
+        return "proceeded", "HTTP 200", None
+    if 400 <= status < 500:
+        try:
+            doc = json.loads((body or b"").decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            doc = None
+        if isinstance(doc, dict) and doc.get("error"):
+            return "refused", "HTTP %d, error=%s" % (status, doc["error"]), None
+        return "neither", "HTTP %d without a JSON error body" % status, None
+    return "neither", "HTTP %d" % status, None
+
+
+def _pkce_challenge():
+    """A fresh S256 code_challenge: 43 characters, base64url of SHA-256 over a random verifier."""
+    verifier = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _verdict_record(probe_id, name, status, response, recorded_location, detail, severity, endpoint):
+    """PASS/FAIL record for an authorize probe: evidence is the deciding response's status and Location."""
+    http_status, _, body = response
     return record(
-        probe_id=7,
-        name="pkce-s256",
-        status="NOT_IMPLEMENTED",
+        probe_id=probe_id,
+        name=name,
+        status=status,
+        http_status=http_status,
+        headers={"Location": recorded_location} if recorded_location else {},
+        body=body,
+        evidence="headers",
         probe_class="authserver",
-        limitation="probe not yet implemented",
+        detail=detail,
+        severity=severity,
+        endpoint=endpoint,
     )
+
+
+def probe_pkce_s256(metadata):
+    """PKCE must be required, and S256 must be the only accepted method.
+
+    A: no code_challenge. B: S256 challenge. C: the same challenge with method plain.
+    The three requests differ only in PKCE. Redirects are never followed.
+    """
+    authorization_endpoint = (metadata or {}).get("authorization_endpoint")
+    if not authorization_endpoint:
+        return record(probe_id=7, name="pkce-s256", status="EXCLUDED", probe_class="authserver",
+                      prerequisites=["authorization_endpoint"], prerequisite_met=False,
+                      limitation="No authorization endpoint")
+    client_id, _, redirect_uri = _client_creds()
+    if not client_id:
+        return record(probe_id=7, name="pkce-s256", status="EXCLUDED", probe_class="authserver",
+                      prerequisites=["client_id"], prerequisite_met=False,
+                      limitation="No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)")
+
+    base = {"response_type": "code", "client_id": client_id}
+    if redirect_uri:
+        base["redirect_uri"] = redirect_uri
+    challenge = _pkce_challenge()
+    requests_sent = [
+        ("A (no code_challenge)", dict(base)),
+        ("B (S256)", dict(base, code_challenge=challenge, code_challenge_method="S256")),
+        ("C (plain)", dict(base, code_challenge=challenge, code_challenge_method="plain")),
+    ]
+    results = []
+
+    def summary():
+        return "; ".join("%s: %s, %s" % (label, outcome, text) for label, outcome, text, _, _ in results)
+
+    for index, (label, params) in enumerate(requests_sent):
+        if index == 2 and not (results[0][1] == "refused" and results[1][1] == "proceeded"):
+            break
+        try:
+            response = _authorize(authorization_endpoint, params)
+        except EgressRefusalError:
+            return record(probe_id=7, name="pkce-s256", status="NOT_OBSERVED", probe_class="authserver",
+                          detail="Target URL outside allowed scope", endpoint=authorization_endpoint)
+        except Exception as e:
+            return record(probe_id=7, name="pkce-s256", status="NOT_OBSERVED", probe_class="authserver",
+                          detail="Request %s failed: %s%s" % (label, e, ("; " + summary()) if results else ""),
+                          endpoint=authorization_endpoint)
+        outcome, text, recorded = _classify(response, authorization_endpoint, redirect_uri, redirect_uri)
+        results.append((label, outcome, text, response, recorded))
+
+    if len(results) < 3:
+        return record(probe_id=7, name="pkce-s256", status="NOT_OBSERVED", probe_class="authserver",
+                      detail="PKCE requirement not demonstrated (needs A refused and B proceeded): " + summary(),
+                      endpoint=authorization_endpoint)
+    _, c_outcome, _, c_response, c_location = results[2]
+    if c_outcome == "refused":
+        return _verdict_record(7, "pkce-s256", "PASS", c_response, c_location,
+                               "PKCE required and S256 the only accepted method: " + summary(),
+                               None, authorization_endpoint)
+    if c_outcome == "proceeded":
+        return _verdict_record(7, "pkce-s256", "FAIL", c_response, c_location,
+                               "The server accepted an authorization request using the PKCE plain method. "
+                               + summary() + ". Nothing was sent to the returned Location.",
+                               "HIGH", authorization_endpoint)
+    return record(probe_id=7, name="pkce-s256", status="NOT_OBSERVED", probe_class="authserver",
+                  detail="plain method neither refused nor accepted: " + summary(),
+                  endpoint=authorization_endpoint)
+
+
+def _near_match(redirect_uri):
+    """The registered redirect_uri with one character appended to its path."""
+    parts = urlsplit(redirect_uri)
+    path = parts.path or "/"
+    return urlunsplit((parts.scheme, parts.netloc, path + "x", parts.query, parts.fragment))
 
 
 def probe_redirect_uri_exact(metadata):
-    """Redirect URI must match exactly. Substring matches are forbidden."""
-    return record(
-        probe_id=8,
-        name="redirect-uri-exact",
-        status="NOT_IMPLEMENTED",
-        probe_class="authserver",
-        limitation="probe not yet implemented",
-    )
+    """redirect_uri must match the registered value exactly.
+
+    P: the registered redirect_uri. N: the same URI with one character appended to its path.
+    Both carry a valid S256 challenge so PKCE cannot be the cause. Redirects are never followed.
+    """
+    authorization_endpoint = (metadata or {}).get("authorization_endpoint")
+    if not authorization_endpoint:
+        return record(probe_id=8, name="redirect-uri-exact", status="EXCLUDED", probe_class="authserver",
+                      prerequisites=["authorization_endpoint"], prerequisite_met=False,
+                      limitation="No authorization endpoint")
+    client_id, _, redirect_uri = _client_creds()
+    if not client_id or not redirect_uri:
+        return record(probe_id=8, name="redirect-uri-exact", status="EXCLUDED", probe_class="authserver",
+                      prerequisites=["client_id", "redirect_uri"], prerequisite_met=False,
+                      limitation="No registered redirect_uri to compare against")
+
+    near = _near_match(redirect_uri)
+    results = []
+
+    def summary():
+        return "; ".join("%s: %s, %s" % (label, outcome, text) for label, outcome, text, _, _ in results)
+
+    for label, sent in (("P (registered redirect_uri)", redirect_uri), ("N (%s)" % near, near)):
+        if results and results[0][1] != "proceeded":
+            break
+        params = {"response_type": "code", "client_id": client_id, "redirect_uri": sent,
+                  "code_challenge": _pkce_challenge(), "code_challenge_method": "S256"}
+        try:
+            response = _authorize(authorization_endpoint, params)
+        except EgressRefusalError:
+            return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
+                          detail="Target URL outside allowed scope", endpoint=authorization_endpoint)
+        except Exception as e:
+            return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
+                          detail="Request %s failed: %s%s" % (label, e, ("; " + summary()) if results else ""),
+                          endpoint=authorization_endpoint)
+        outcome, text, recorded = _classify(response, authorization_endpoint, sent, redirect_uri)
+        results.append((label, outcome, text, response, recorded))
+
+    p_outcome = results[0][1]
+    if p_outcome == "refused":
+        return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
+                      detail="No baseline: the registered redirect_uri was refused: " + summary(),
+                      endpoint=authorization_endpoint)
+    if p_outcome != "proceeded":
+        return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
+                      detail="No baseline: the registered redirect_uri neither proceeded nor was refused: " + summary(),
+                      endpoint=authorization_endpoint)
+    _, n_outcome, _, n_response, n_location = results[1]
+    if n_outcome == "refused":
+        return _verdict_record(8, "redirect-uri-exact", "PASS", n_response, n_location,
+                               "Exact redirect_uri match enforced: " + summary(),
+                               None, authorization_endpoint)
+    if n_outcome == "proceeded":
+        return _verdict_record(8, "redirect-uri-exact", "FAIL", n_response, n_location,
+                               "The server accepted a redirect_uri with one character appended to the registered "
+                               "path, so it does not compare redirect URIs exactly. " + summary()
+                               + ". Nothing was sent to the returned Location.",
+                               "CRITICAL", authorization_endpoint)
+    return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
+                  detail="Near-match redirect_uri neither refused nor accepted: " + summary(),
+                  endpoint=authorization_endpoint)
 
 
 def probe_client_auth(token_endpoint):
