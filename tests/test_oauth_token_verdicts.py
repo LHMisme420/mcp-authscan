@@ -51,3 +51,9 @@ class TokenVerdictTests(unittest.TestCase):
                 record = self.evaluate(probe, 403, {'access_token': 'synthetic-error-marker'})
                 self.assertEqual(record.status, 'NOT_OBSERVED')
                 self.assertIsNone(record.severity)
+import pytest
+@pytest.fixture(autouse=True)
+def _allow_test_host(monkeypatch):
+    monkeypatch.setattr("mcp_authscan.monolith.ALLOWED_HOSTS", {"test.com"})
+    monkeypatch.setattr("mcp_authscan.oauth_probes_v2.assert_url_is_fetchable", lambda *a, **k: None)
+    monkeypatch.setattr("mcp_authscan.monolith.ALLOWED_HOSTS", {"fixture.example.test"})

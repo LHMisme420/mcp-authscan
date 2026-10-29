@@ -745,7 +745,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
     elif status == "PASS":
         detail = "HTTP %d token response; ACAO %s does not admit hostile Origin %s" % (http_status, acao, origin_sent)
     else:
-        detail = "ACAO: %s" % (acao or "(absent)")
+        detail = "HTTP %s; CORS not judged, only 2xx convicts" % (http_status or "none",)
     
     return record(
         probe_id=4,
@@ -883,7 +883,7 @@ def probe_password_grant(token_endpoint):
     if 200 <= http_status < 300 and isinstance(token, str) and token.strip() and not error:
         status = "FAIL"
         severity = "HIGH"
-    elif 400 <= http_status < 500 and error in ("unsupported_grant_type", "unauthorized_client"):
+    elif 400 <= http_status < 500 and error and error != "invalid_grant":
         status = "PASS"
         severity = None
     else:

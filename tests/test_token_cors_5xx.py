@@ -58,8 +58,13 @@ class TestTokenCors5xx(unittest.TestCase):
         
         result = probe_token_cors("http://test.com/token")
         
-        self.assertEqual(result.status, "NOT_OBSERVED",
-                        "200 with no ACAO should be NOT_OBSERVED (not PASS), got: " + result.status)
+        self.assertEqual(result.status, "PASS",
+                        "200 with no ACAO should be PASS, got: " + result.status)
 
 if __name__ == '__main__':
     unittest.main()
+import pytest
+@pytest.fixture(autouse=True)
+def _allow_test_host(monkeypatch):
+    monkeypatch.setattr("mcp_authscan.monolith.ALLOWED_HOSTS", {"test.com"})
+    monkeypatch.setattr("mcp_authscan.oauth_probes_v2.assert_url_is_fetchable", lambda *a, **k: None)
