@@ -2196,13 +2196,12 @@ def main():
         # Update probes_attempted in case it was 0 before
         probes_attempted = attempted
 
-        # Incomplete assessment is reported, never an exit code: exit 5 means zero testable probes only.
-        # Conclusive = PASS, FAIL, OBSERVATION (NOT_OBSERVED is inconclusive)
-        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT":
-            verdicts_reached = passed + failed + observation
-            inconclusive = not_observed
-            if verdicts_reached < 7:
-                print(f"[!] Incomplete assessment: {verdicts_reached} probes reached conclusive verdicts. {inconclusive} NOT_OBSERVED (inconclusive), {excluded} excluded.", file=sys.stderr)
+        # Incomplete assessment is printed, never an exit code: exit 5 means zero testable probes only.
+        # Incomplete means a probe tried to observe its property and could not (NOT_OBSERVED).
+        # EXCLUDED (prerequisite absent on this server) is named in the report, not warned on here.
+        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and not_observed > 0:
+            not_observed_names = [r.name for r in oauth_records if r.status == "NOT_OBSERVED"]
+            print(f"[!] Incomplete assessment: {not_observed} probe(s) tried and could not observe their property (NOT_OBSERVED): {', '.join(not_observed_names)}", file=sys.stderr)
 
     else:
         print(f"[*] Scanning source code directory", file=sys.stderr)
