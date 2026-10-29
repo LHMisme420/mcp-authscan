@@ -1,7 +1,9 @@
 """token-cors [4] acquired-token mode (--acquire-token), PROBE_CONTRACT.md [4], probe set 2026.10.30.
 
-Local fixture only (fixture_oauth.py): TOKEN_CORS=none|wildcard|wildcard-cred|echo,
-CONSENT=deny|interactive, REGISTRATION=fail, REVOCATION=fail. Every test also checks the
+Attended exchange: the person at the browser is simulated (Browser/_browse act on the printed
+URL against the local fixture and paste the address landed on). Local fixture only
+(fixture_oauth.py): TOKEN_CORS=none|wildcard|wildcard-cred|echo,
+CONSENT=deny|interactive|wrong-state|wrong-redirect, REGISTRATION=fail, REVOCATION=fail. Every test also checks the
 token never leaves memory: it is revoked at the fixture, and no scanner output, record,
 exception string or report contains it.
 """
@@ -35,16 +37,45 @@ def acquire(monkeypatch):
     monkeypatch.setattr(probes, "ACQUIRE_TOKEN", True)
 
 
-@pytest.fixture
-def authorize_calls(monkeypatch):
-    calls = []
-    real = probes._authorize
+class Browser:
+    """The person at the browser: opens the printed URL, approves (entering a passphrase on a
+    consent page), and pastes the address the browser lands on. Never follows that address."""
 
-    def counting(endpoint, params):
-        calls.append(dict(params))
-        return real(endpoint, params)
-    monkeypatch.setattr(probes, "_authorize", counting)
-    return calls
+    def __init__(self, paste=None):
+        self.prompts, self.paste = [], paste
+
+    def __call__(self, authorization_url, redirect_uri):
+        self.prompts.append(authorization_url)
+        if self.paste is not None:
+            return self.paste
+        return _browse(authorization_url)
+
+
+def _browse(url):
+    import re
+    from urllib.error import HTTPError
+    from urllib.parse import urlencode, urlsplit
+    from urllib.request import Request
+    def go(req):
+        try:
+            with probes._NO_REDIRECT_OPENER.open(req, timeout=5) as r:
+                return r.status, r.headers, r.read()
+        except HTTPError as e:
+            return e.code, e.headers, e.read()
+    st, h, b = go(Request(url))
+    if st == 200 and b"/authorize/approve" in b:
+        rid = re.search(rb"name=request value=([\w-]+)", b).group(1).decode()
+        p = urlsplit(url)
+        st, h, b = go(Request("%s://%s/authorize/approve" % (p.scheme, p.netloc),
+                              data=urlencode({"request": rid, "passphrase": "typed"}).encode()))
+    return (h.get("Location") or "") + "\n"
+
+
+@pytest.fixture
+def browser(monkeypatch):
+    b = Browser()
+    monkeypatch.setattr(probes, "_prompt_for_redirect", b)
+    return b
 
 
 def _state(base):
@@ -73,7 +104,7 @@ def _clean(r):
     ("wildcard-cred", "FAIL", "CRITICAL"),
     ("echo", "NOT_OBSERVED", None),
 ])
-def test_cors_variants(acquire, cors, status, severity):
+def test_cors_variants(acquire, browser, cors, status, severity):
     with fixture(TOKEN_CORS=cors) as base:
         r = _token_cors(base)
         st = _state(base)
@@ -89,39 +120,71 @@ def test_cors_variants(acquire, cors, status, severity):
     _clean(r)
 
 
-def test_consent_refused(acquire, authorize_calls):
-    with fixture(CONSENT="deny") as base:
-        r = probes.probe_token_cors(base + "/token", metadata={
-            "authorization_endpoint": base + "/authorize", "token_endpoint": base + "/token",
-            "revocation_endpoint": base + "/revoke"}, client=_registered(base))
+def _probe(base, **meta):
+    return probes.probe_token_cors(base + "/token", metadata={
+        "authorization_endpoint": base + "/authorize", "token_endpoint": base + "/token",
+        "revocation_endpoint": base + "/revoke", **meta}, client=_registered(base))
+
+
+@pytest.mark.parametrize("consent,limitation,why", [
+    ("deny", probes.REFUSED_LIMITATION, "error=access_denied"),
+    ("wrong-state", probes.STATE_LIMITATION, "state differs"),
+    ("wrong-redirect", probes.WRONG_REDIRECT_LIMITATION, "expected http://127.0.0.1/mcp-authscan/callback"),
+])
+def test_pasted_address_rejected(acquire, browser, consent, limitation, why):
+    with fixture(CONSENT=consent) as base:
+        r = _probe(base)
         st = _state(base)
         assert _hits(base) == {}
-    assert r.status == "NOT_OBSERVED"
-    assert "authorization refused: error=access_denied; no token obtained" in r.detail
-    assert len(authorize_calls) == 1
+    assert r.status == "NOT_OBSERVED" and r.limitation == limitation
+    assert "%s: %s; no token obtained" % (limitation, why) in r.detail
+    assert len(browser.prompts) == 1          # one prompt, no retry
     assert st["tokens_issued"] == 0
     _clean(r)
 
 
-def test_interactive_consent_is_named_limitation_without_retry(acquire, authorize_calls):
-    with fixture(CONSENT="interactive") as base:
-        r = probes.probe_token_cors(base + "/token", metadata={
-            "authorization_endpoint": base + "/authorize", "token_endpoint": base + "/token"},
-            client=_registered(base))
+@pytest.mark.parametrize("paste", ["\n", "EOF", "   \n"])
+def test_empty_paste_or_eof(acquire, monkeypatch, paste):
+    b = Browser(paste=paste)
+    monkeypatch.setattr(probes, "_prompt_for_redirect", lambda url, redirect: b(url, redirect) if paste != "EOF"
+                        else b.prompts.append(url))   # _prompt_for_redirect returns None at end of input
+    with fixture() as base:
+        r = _probe(base)
         st = _state(base)
-        assert _hits(base) == {}
-    assert r.status == "NOT_OBSERVED"
-    assert r.limitation == "Consent requires human interaction, cannot complete unattended"
-    assert "Consent requires human interaction, cannot complete unattended" in r.detail
-    assert "did not submit consent or retry" in r.detail
-    assert len(authorize_calls) == 1          # one request, no loop, no retry
-    assert st["tokens_issued"] == 0
+    assert r.status == "NOT_OBSERVED" and r.limitation == probes.NO_PASTE_LIMITATION
+    assert len(b.prompts) == 1 and st["tokens_issued"] == 0
 
 
-def test_interactive_consent_in_full_assessment(acquire):
+def test_no_code_in_pasted_address(acquire, monkeypatch):
+    with fixture() as base:
+        b = Browser(paste=None)
+        monkeypatch.setattr(probes, "_prompt_for_redirect",
+                            lambda url, redirect: "%s?state=%s\n" % (redirect, dict(
+                                __import__("urllib.parse").parse.parse_qsl(url.split("?", 1)[1]))["state"]))
+        r = _probe(base)
+    assert r.status == "NOT_OBSERVED" and r.limitation == probes.NO_CODE_LIMITATION
+
+
+def test_authorization_url_carries_challenge_not_verifier(acquire, browser):
+    from urllib.parse import parse_qsl, urlsplit
+    with fixture() as base:
+        _probe(base)
+        with urlopen(base + "/_issued", timeout=5) as resp:
+            verifiers = json.loads(resp.read())["verifiers"]
+    q = dict(parse_qsl(urlsplit(browser.prompts[0]).query))
+    assert q["code_challenge_method"] == "S256" and q["redirect_uri"] == "http://127.0.0.1/mcp-authscan/callback"
+    assert q["response_type"] == "code" and q["client_id"].startswith("dcr-client-") and len(q["state"]) >= 16
+    assert len(verifiers) == 1 and verifiers[0] not in browser.prompts[0]
+
+
+def test_interactive_consent_approved_in_browser(acquire, browser):
+    """The consent page needs a person (passphrase); the attended flow completes it."""
     with fixture(CONSENT="interactive") as base:
         r = _token_cors(base)
-    assert r.status == "NOT_OBSERVED" and r.limitation == probes.CONSENT_LIMITATION
+        st = _state(base)
+    assert r.status == "PASS", r.detail
+    assert len(browser.prompts) == 1 and st["tokens_issued"] == 2 and st["tokens_outstanding"] == 0
+    _clean(r)
 
 
 def _registered(base):
@@ -132,7 +195,7 @@ def _registered(base):
     return client
 
 
-def test_env_client_when_registration_fails(acquire, monkeypatch):
+def test_env_client_when_registration_fails(acquire, browser, monkeypatch):
     with fixture(REGISTRATION="fail", TOKEN_CORS="wildcard") as base:
         monkeypatch.setenv("MCPAUTHSCAN_CLIENT_ID", "fixture-client")
         monkeypatch.setenv("MCPAUTHSCAN_CLIENT_SECRET", "fixture-secret")
@@ -146,7 +209,7 @@ def test_env_client_when_registration_fails(acquire, monkeypatch):
     _clean(r)
 
 
-def test_excluded_without_any_client(acquire):
+def test_excluded_without_any_client(acquire, browser):
     with fixture(REGISTRATION="fail") as base:
         r = _token_cors(base)
         st = _state(base)
@@ -155,9 +218,10 @@ def test_excluded_without_any_client(acquire):
     assert r.detail == ("Dynamic client registration unavailable: "
                         "registration returned HTTP 400 error=invalid_client_metadata")
     assert st["tokens_issued"] == 0
+    assert browser.prompts == []             # no client: no prompt
 
 
-def test_revocation_failure_reported_verdict_stands(acquire):
+def test_revocation_failure_reported_verdict_stands(acquire, browser):
     with fixture(REVOCATION="fail") as base:
         r = _token_cors(base)
     assert r.status == "PASS", r.detail
@@ -165,7 +229,7 @@ def test_revocation_failure_reported_verdict_stands(acquire):
     _clean(r)
 
 
-def test_exception_strings_are_sanitized(acquire, monkeypatch):
+def test_exception_strings_are_sanitized(acquire, browser, monkeypatch):
     real = probes._egress_guard
 
     def boom(req, *a, **kw):
@@ -181,24 +245,56 @@ def test_exception_strings_are_sanitized(acquire, monkeypatch):
     _clean(r)
 
 
-def test_off_by_default(authorize_calls):
+def test_off_by_default(monkeypatch):
     assert probes.ACQUIRE_TOKEN is False
+    prompts = []
+    monkeypatch.setattr(probes, "_prompt_for_redirect", lambda *a: prompts.append(a) or "")
     with fixture(TOKEN_CORS="wildcard-cred") as base:
         r = probes.probe_token_cors(base + "/token", metadata={
             "authorization_endpoint": base + "/authorize", "token_endpoint": base + "/token"},
             client=_registered(base))
         st = _state(base)
-    assert authorize_calls == [] and st["tokens_issued"] == 0
+    assert prompts == [] and st["tokens_issued"] == 0
     assert "Acquired-token mode" not in (r.detail or "")
 
 
-def _cli(base, *extra):
+def _cli(base, *extra, paste_mode="browser"):
+    """Run the CLI; with --acquire-token act as the person: read the printed URL from stderr,
+    browse it, and write the landed-on address to stdin (or an empty line / EOF).
+    Returns (proc-like, pasted)."""
+    import re
+    import threading
     env = {k: v for k, v in os.environ.items() if not k.startswith("MCPAUTHSCAN_")}
-    return subprocess.run(
+    p = subprocess.Popen(
         [sys.executable, "-c", "import sys; from mcp_authscan.cli_wrapper import main; sys.exit(main())",
          base + "/mcp", "--allow-private", "--authorized-by", "X", "--auth-basis", "x",
          "--contact", "x@x.com", *extra],
-        cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
+        cwd=str(ROOT), env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    err, urls, ready = [], [], threading.Event()
+
+    def pump():
+        for line in p.stderr:
+            err.append(line)
+            m = re.search(r"(http://\S+/authorize\?\S+)", line)
+            if m:
+                urls.append(m.group(1))
+            if "empty line skips" in line:
+                ready.set()
+        ready.set()
+    t = threading.Thread(target=pump)
+    t.start()
+    pasted = ""
+    if "--acquire-token" in extra:
+        ready.wait(60)
+        if paste_mode == "browser" and urls:
+            pasted = _browse(urls[0])
+        if paste_mode != "eof":
+            p.stdin.write(pasted or "\n")
+    p.stdin.close()
+    out = p.stdout.read()
+    p.wait(60)
+    t.join(60)
+    return subprocess.CompletedProcess(p.args, p.returncode, out, "".join(err)), pasted.strip(), len(urls)
 
 
 def test_help_lists_acquire_token():
@@ -210,17 +306,49 @@ def test_help_lists_acquire_token():
 
 @pytest.mark.parametrize("env", [{}, {"TOKEN_CORS": "wildcard"}, {"TOKEN_CORS": "wildcard-cred"},
                                  {"TOKEN_CORS": "echo"}, {"CONSENT": "deny"}, {"CONSENT": "interactive"},
+                                 {"CONSENT": "wrong-state"}, {"CONSENT": "wrong-redirect"},
                                  {"REVOCATION": "fail"}])
-def test_token_absent_from_all_cli_output(env):
-    """grep every byte the CLI writes (text, --json, --sarif, --html) for the fixture's token."""
+def test_token_verifier_code_absent_from_all_cli_output(env):
+    """grep every byte the CLI writes (text, --json, --sarif, --html) for the fixture's token,
+    every PKCE verifier the fixture saw, the code and the pasted address."""
     with fixture(**env) as base:
         runs = [_cli(base, "--acquire-token", *fmt) for fmt in ((), ("--json",), ("--sarif",), ("--html",))]
         st = _state(base)
+        with urlopen(base + "/_issued", timeout=5) as resp:
+            verifiers = json.loads(resp.read())["verifiers"]
         assert _hits(base) == {}
-    for p in runs:
+    for p, pasted, prompts in runs:
         assert p.returncode in (0, 1), p.stderr[-500:]
+        assert prompts == 1
+        assert pasted
         _no_secret(p.stdout, p.stderr)
+        for v in verifiers + [pasted]:
+            assert v not in p.stdout and v not in p.stderr
+    token_issued = not env or "TOKEN_CORS" in env or env == {"CONSENT": "interactive"} or "REVOCATION" in env
+    assert len(verifiers) == (4 if token_issued else 0)
+    assert st["tokens_issued"] == (8 if token_issued else 0)   # 4 runs x (access + refresh)
     # REVOCATION=fail: the fixture refuses revocation, so its tokens stay outstanding there
     assert st["tokens_outstanding"] == (8 if env == {"REVOCATION": "fail"} else 0)
-    if not env or "TOKEN_CORS" in env:
-        assert st["tokens_issued"] == 8   # 4 runs x (access + refresh), all revoked
+
+
+@pytest.mark.parametrize("mode", ["empty", "eof"])
+def test_cli_empty_paste_or_eof(mode):
+    with fixture() as base:
+        p, _, prompts = _cli(base, "--acquire-token", paste_mode=mode)
+        st = _state(base)
+    assert p.returncode == 0 and prompts == 1 and st["tokens_issued"] == 0
+    assert "Consent not completed: no redirect address pasted" in p.stdout + p.stderr
+
+
+def test_plain_scan_never_prompts_or_reads_stdin():
+    """Without --acquire-token: stdin is an open pipe nobody writes to; the scan must finish."""
+    with fixture() as base:
+        env = {k: v for k, v in os.environ.items() if not k.startswith("MCPAUTHSCAN_")}
+        p = subprocess.Popen(
+            [sys.executable, "-c", "import sys; from mcp_authscan.cli_wrapper import main; sys.exit(main())",
+             base + "/mcp", "--allow-private", "--authorized-by", "X", "--auth-basis", "x", "--contact", "x@x.com"],
+            cwd=str(ROOT), env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        out, err = p.communicate(timeout=60)   # stdin left open until communicate closes it at the end
+        st = _state(base)
+    assert p.returncode == 0
+    assert "[?]" not in err and "/authorize?" not in err and st["tokens_issued"] == 0
