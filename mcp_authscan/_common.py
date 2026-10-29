@@ -53,7 +53,9 @@ def record(probe_id, name, status, *, http_status=None, headers=None, body=b"",
     if not prerequisite_met and status != "EXCLUDED":
         raise ValueError(
             "probe %s: unmet prerequisite must be EXCLUDED, got %s" % (probe_id, status))
-    body = body or b""
+    # Credentials in a response (e.g. a token issued by the server) are never recorded:
+    # the excerpt and its sha256 are taken over the redacted body.
+    body = redact_secrets(body or b"")
     if status in ("PASS", "FAIL"):
         if http_status is None:
             raise ValueError("probe %s: %s needs a real http status" % (probe_id, status))
