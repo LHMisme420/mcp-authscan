@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Test server: 100% coverage (7/7 verdicts). Probes 7-8 excluded (need authorization flow); probes 1-6,9 reach verdicts."""
+"""Test server: clean complete fixture. Probes 1-6, 9 are built and target verdicts; probes 7-8 are NOT_IMPLEMENTED
+(not yet built, never sent), not EXCLUDED. Coverage is over the declared set of 9, so the most this fixture can read is 7/9."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
+import threading
 
 class CompleteHandler(BaseHTTPRequestHandler):
     """Minimal complete OAuth server - all endpoints working."""
@@ -119,6 +121,38 @@ class CompleteHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         pass
+
+def test_coverage_is_over_the_declared_probe_set():
+    """Declared-set rule: coverage = (PASS + FAIL) / in_scope (9), never / attempted.
+
+    The handler names 127.0.0.1:9000 in its metadata, so it is served on 9000.
+    """
+    import mcp_authscan.monolith as monolith
+    from mcp_authscan import oauth_probes_v2
+    from mcp_authscan.counts import count_probes, coverage
+
+    # Same flags main() sets for --allow-private and a discovered host.
+    monolith.ALLOW_PRIVATE_TARGETS = True
+    oauth_probes_v2.ALLOW_PRIVATE_TARGETS = True
+    server = HTTPServer(("127.0.0.1", 9000), CompleteHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        _, _, probe_status, _, (records, _) = monolith.scan_live_server("http://127.0.0.1:9000/mcp")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    counts = count_probes(records)
+    assert counts["in_scope"] == 9
+    assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == ["pkce-s256", "redirect-uri-exact"]
+    assert counts["NOT_IMPLEMENTED"] == 2 and counts["EXCLUDED"] == 0
+    assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
+    assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
+    assert probe_status["not_implemented"] == 2 and probe_status["excluded"] == 0
+    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 9.0
+    # The two unbuilt probes stay in the denominator: a clean run cannot read 100%.
+    assert coverage(counts) <= 7 / 9.0
+
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000

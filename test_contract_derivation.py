@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Test that derives expected probe counts from contract and verifies against actual run.
 
-Updated Contract (from PROBE_CONTRACT.md):
-- 9 total probes
-- 7 in-scope (probes 1-6, 9: issuer-identity, resource-binding, token-cache-control, token-cors, jwks-keys, password-grant, client-auth)
-- 2 excluded/out-of-scope (probes 7-8: pkce-s256, redirect-uri-exact) -> EXCLUDED expected
+Contract:
+- 9 declared probes (in_scope)
+- 7 built probes (1-6, 9: issuer-identity, resource-binding, token-cache-control, token-cors, jwks-keys, password-grant, client-auth)
+- 2 unbuilt probes (7-8: pkce-s256, redirect-uri-exact) -> NOT_IMPLEMENTED, never sent; not EXCLUDED
 
 When scanning a server:
-- All 9 probes are defined (attempted in the contract sense)
-- Probes 7-8 are EXCLUDED (unmet prerequisites)
+- attempted = PASS + FAIL + NOT_OBSERVED
+- attempted + EXCLUDED + NOT_IMPLEMENTED = in_scope (9)
+- coverage = (PASS + FAIL) / in_scope, the declared set, not the probes that ran
 - Probes 1-6, 9 should reach verdicts (PASS or FAIL depending on vulnerability)
 """
 import sys
@@ -46,19 +47,21 @@ print("=" * 70)
 print()
 print("Contract specifies:")
 print("  Total probes: 9")
-print("  In-scope probes (testable on any server): 7 (probes 1-6, 9)")
-print("  Out-of-scope/EXCLUDED probes (requires client flow): 2 (probes 7-8)")
+print("  Built probes (testable on any server): 7 (probes 1-6, 9)")
+print("  NOT_IMPLEMENTED probes (not yet built, never sent): 2 (probes 7-8)")
 print()
 print("For any server:")
 print("  - Probes 1-6, 9 should reach verdicts (PASS or FAIL)")
-print("  - Probes 7-8 should be EXCLUDED (unmet prerequisites)")
+print("  - Probes 7-8 should be NOT_IMPLEMENTED (not EXCLUDED)")
 print()
 print("Expected counts dict:")
 print("  in_scope: 9")
-print("  attempted: 7 (in_scope - excluded)")
+print("  attempted: 7 (in_scope - excluded - not_implemented = PASS + FAIL + NOT_OBSERVED)")
 print("  PASS: variable (depends on compliance)")
 print("  FAIL: variable (depends on vulnerabilities)")
-print("  EXCLUDED: 2 (probes 7-8)")
+print("  EXCLUDED: 0")
+print("  NOT_IMPLEMENTED: 2 (probes 7-8)")
+print("  coverage: (PASS + FAIL) / 9")
 print("  NOT_OBSERVED: variable (depends on endpoint availability)")
 print()
 
@@ -90,31 +93,50 @@ try:
     
     # Derive from contract
     expected_in_scope = 9
-    expected_excluded = 2
-    expected_attempted = expected_in_scope - expected_excluded  # = 7
+    expected_excluded = 0
+    expected_not_implemented = 2
+    expected_not_implemented_names = ["pkce-s256", "redirect-uri-exact"]
+    expected_attempted = expected_in_scope - expected_excluded - expected_not_implemented  # = 7
     
     print("Contract expectations:")
     print(f"  In-scope probes: {expected_in_scope}")
-    print(f"  Attempted: {expected_attempted} (in_scope - excluded)")
+    print(f"  Attempted: {expected_attempted} (in_scope - excluded - not_implemented)")
     print(f"  EXCLUDED: {expected_excluded}")
+    print(f"  NOT_IMPLEMENTED: {expected_not_implemented} {expected_not_implemented_names}")
     print()
     
     # Verify against actual
     actual_attempted = probe_status.get('attempted', 0)
     actual_excluded = probe_status.get('excluded', 0)
+    actual_not_implemented = probe_status.get('not_implemented', 0)
+    actual_not_implemented_names = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
+    from mcp_authscan.counts import count_probes, coverage
+    counts = count_probes(oauth_records)
+    actual_coverage = coverage(counts)
+    expected_coverage = (counts["PASS"] + counts["FAIL"]) / float(expected_in_scope)
     
     print("Verification:")
     print(f"  ✓ Attempted: {actual_attempted} == {expected_attempted}? {actual_attempted == expected_attempted}")
     print(f"  ✓ EXCLUDED: {actual_excluded} == {expected_excluded}? {actual_excluded == expected_excluded}")
+    print(f"  ✓ NOT_IMPLEMENTED: {actual_not_implemented_names} == {expected_not_implemented_names}? {actual_not_implemented_names == expected_not_implemented_names}")
+    attempted_partition = counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
+    print(f"  ✓ attempted == PASS + FAIL + NOT_OBSERVED: {counts['attempted']} == {attempted_partition}? {counts['attempted'] == attempted_partition}")
+    print(f"  ✓ coverage over declared set: {actual_coverage:.4f} == {expected_coverage:.4f}? {actual_coverage == expected_coverage}")
     print()
     
-    # Sanity check: attempted + excluded should equal in_scope
-    actual_in_scope = actual_attempted + actual_excluded
-    print(f"Sanity check (attempted + excluded = in_scope):")
-    print(f"  {actual_attempted} + {actual_excluded} = {actual_in_scope} (expected {expected_in_scope})")
+    # Sanity check: attempted + excluded + not_implemented should equal in_scope
+    actual_in_scope = actual_attempted + actual_excluded + actual_not_implemented
+    print(f"Sanity check (attempted + excluded + not_implemented = in_scope):")
+    print(f"  {actual_attempted} + {actual_excluded} + {actual_not_implemented} = {actual_in_scope} (expected {expected_in_scope})")
     print()
     
-    if actual_attempted == expected_attempted and actual_excluded == expected_excluded:
+    if (actual_attempted == expected_attempted and actual_excluded == expected_excluded
+            and actual_not_implemented == expected_not_implemented
+            and actual_not_implemented_names == expected_not_implemented_names
+            and actual_in_scope == expected_in_scope
+            and counts["in_scope"] == expected_in_scope
+            and counts["attempted"] == attempted_partition
+            and actual_coverage == expected_coverage):
         print("✓ SUCCESS: Actual counts match contract derivation!")
     else:
         print("✗ FAILURE: Actual counts do NOT match contract!")

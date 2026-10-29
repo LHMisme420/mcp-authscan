@@ -40,6 +40,12 @@ A single run of localhost:8765 demonstrates all three verdict types:
 **Outcome:** Findings exist (2 FAIL), but assessment incomplete (3 probes blocked by missing prerequisites)  
 **Note:** If all 9 probes could run with these same 2 FAIL results, exit would be 1, not 5.
 
+**Since 98ddd03 (2026-10-29):** the localhost:8765 run above predates the NOT_IMPLEMENTED label. [7] pkce-s256 and
+[8] redirect-uri-exact are not yet built: they are now reported NOT_IMPLEMENTED (never sent), not EXCLUDED, and
+carry no prerequisites. The accounting is attempted = PASS + FAIL + NOT_OBSERVED, and
+attempted + EXCLUDED + NOT_IMPLEMENTED = 9. Coverage is (PASS + FAIL) / 9, the declared set, so a clean run reads
+7/9 (0.78) with both unbuilt probes named. Exit codes are unchanged by this: a clean run still exits 0.
+
 ## Known Issues
 
 - **--json flag broken**: The `--json` flag outputs stderr text instead of JSON. EXCLUDED probe details cannot be verified from JSON at this time. This requires separate investigation and fix.
