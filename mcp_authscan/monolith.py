@@ -383,6 +383,9 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
     oauth_records = []  # Initialize at function start - every return path will have this
     probe_results = []  # Track (endpoint, method, status, reason) for detailed reporting
     discovery_info = None
+    # Client registration entries are per scan; drop any left by an earlier scan in this process.
+    from mcp_authscan import oauth_probes_v2 as _oauth_probes
+    del _oauth_probes.CLIENT_REPORTS[:]
 
 
     print(f"[*] Detected live server URL", file=sys.stderr)
@@ -618,7 +621,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.29"  # OAuth probe suite: pkce-s256 and redirect-uri-exact built (authorize requests, redirects never followed)
+PROBE_SET_VERSION = "2026.10.30"  # OAuth probe suite: probes 7-8 take a dynamically registered client first (RFC 7591), then the environment
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2391,6 +2394,21 @@ def main():
             report_lines.append("-" * 80)
             report_lines.append("")
 
+        # Where probes 7 and 8 got their client, and what the revocation returned (no secrets kept)
+        for entry in oauth_probes_v2.CLIENT_REPORTS:
+            report_lines.append("CLIENT REGISTRATION")
+            report_lines.append("-" * 80)
+            report_lines.append(f"Authorization Server: {entry['authorization_server']}")
+            report_lines.append("Client Registered: %s" % ("yes" if entry["client_registered"] else "no"))
+            report_lines.append(f"Registration: {entry['registration']}")
+            report_lines.append(f"Client Source: {entry['client_source']}")
+            if entry["client_id"]:
+                report_lines.append(f"Client ID: {entry['client_id']}")
+            report_lines.append(f"Redirect URI Used: {entry['redirect_uri']}")
+            report_lines.append(f"Revocation: {entry['revocation']}")
+            report_lines.append("-" * 80)
+            report_lines.append("")
+
         report_lines.append("FINDINGS SUMMARY")
         report_lines.append("-" * 80)
         for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
@@ -2469,6 +2487,8 @@ def main():
     payload_json = json.dumps(canonical_payload, sort_keys=True)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
     canonical_payload["report_hash"] = payload_hash
+    # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
+    canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
 
     if args.html:
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html", canonical_payload)
@@ -2582,7 +2602,7 @@ def main():
             # Use canonical payload hash (covers probe counts, auth, and findings)
             report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time, timestamp, server-varying headers, tool version, scope statement, and finding detail text (cf-ray, x-deno-trace-id, report-to, etc). Raw response headers preserved in JSON output for verification.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time, timestamp, server-varying headers, tool version, scope statement, client registration block, and finding detail text (cf-ray, x-deno-trace-id, report-to, etc). Raw response headers preserved in JSON output for verification.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:

@@ -65,6 +65,120 @@ def _client_creds(client_id=None, client_secret=None, redirect_uri=None):
 
 OAUTH_PROBE_VERSION = "2.0.0"
 
+# Redirect URI for a dynamically registered client (RFC 7591), chosen and controlled by the
+# scanner: a loopback address (RFC 8252) where nothing listens. Probes never follow a redirect
+# and never fetch a Location, so nothing is ever sent to it.
+SCANNER_REDIRECT_URI = "http://127.0.0.1/mcp-authscan/callback"
+
+# One entry per run_oauth_assessment: where probes 7 and 8 got their client, the redirect used,
+# and what the revocation returned. Holds no secret. scan_live_server clears it per scan.
+CLIENT_REPORTS = []
+
+
+class _Client:
+    """A client for authorization requests. secret and registration_access_token stay in memory
+    only; repr never shows them."""
+    __slots__ = ("client_id", "redirect_uri", "source", "usable", "secret", "registration_access_token")
+
+    def __init__(self, client_id, redirect_uri, source, usable=True, secret=None, registration_access_token=None):
+        self.client_id = client_id
+        self.redirect_uri = redirect_uri
+        self.source = source
+        self.usable = usable
+        self.secret = secret
+        self.registration_access_token = registration_access_token
+
+    def __repr__(self):
+        return "<client %s source=%s>" % (self.client_id, self.source)
+
+
+def _oauth_error(body):
+    """The "error" string of a JSON error body, else None."""
+    try:
+        doc = json.loads((body or b"").decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    err = doc.get("error") if isinstance(doc, dict) else None
+    return err if isinstance(err, str) and err else None
+
+
+def _status_text(status, body):
+    err = _oauth_error(body)
+    return "HTTP %d%s" % (status, (" error=%s" % err) if err else "")
+
+
+def _register_client(metadata):
+    """RFC 7591 registration at the advertised registration_endpoint, redirect SCANNER_REDIRECT_URI.
+
+    Returns (client, reason). client is None when no client was created; a client whose response
+    did not list SCANNER_REDIRECT_URI is returned with usable=False so it is still revoked.
+    Exceptions are reported by type only, never by message.
+    """
+    if not metadata.get("authorization_endpoint"):
+        return None, "not attempted: no authorization_endpoint advertised"
+    endpoint = metadata.get("registration_endpoint")
+    if not endpoint:
+        return None, "no registration_endpoint advertised"
+    req = Request(endpoint, method="POST", data=json.dumps({
+        "client_name": "mcp-authscan",
+        "redirect_uris": [SCANNER_REDIRECT_URI],
+        "grant_types": ["authorization_code"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "none",
+    }).encode("utf-8"))
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json")
+    try:
+        status, _, body = _egress_guard(req, follow_redirects=False)
+    except EgressRefusalError:
+        return None, "registration_endpoint outside allowed scope"
+    except Exception as e:
+        return None, "registration request failed: %s" % type(e).__name__
+    if not 200 <= status < 300:
+        return None, "registration returned " + _status_text(status, body)
+    try:
+        doc = json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        doc = None
+    client_id = doc.get("client_id") if isinstance(doc, dict) else None
+    if not isinstance(client_id, str) or not client_id.strip():
+        return None, "registration response carried no client_id"
+    client = _Client(client_id, SCANNER_REDIRECT_URI, "registered",
+                     secret=doc.get("client_secret"),
+                     registration_access_token=doc.get("registration_access_token"))
+    uris = doc.get("redirect_uris")
+    if uris is not None and not (isinstance(uris, list) and SCANNER_REDIRECT_URI in uris):
+        client.usable = False
+        return client, "registration response did not list the scanner's redirect_uri %s" % SCANNER_REDIRECT_URI
+    return client, "HTTP %d, client_id %s" % (status, client_id)
+
+
+def _revoke_client(metadata, client):
+    """One form POST to the advertised revocation_endpoint for a registered client.
+
+    Sends client_id, plus token=registration_access_token when the registration returned one.
+    Returns what came back; the client's credentials are dropped either way.
+    """
+    endpoint = metadata.get("revocation_endpoint")
+    form = {"client_id": client.client_id}
+    if client.registration_access_token:
+        form["token"] = client.registration_access_token
+    client.secret = client.registration_access_token = None
+    if not endpoint:
+        return "not attempted: no revocation_endpoint advertised"
+    req = Request(endpoint, method="POST", data=urlencode(form).encode("ascii"))
+    form = None
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        status, _, body = _egress_guard(req, follow_redirects=False)
+    except EgressRefusalError:
+        return "revocation_endpoint outside allowed scope"
+    except Exception as e:
+        return "request failed: %s" % type(e).__name__
+    return _status_text(status, body)
+
 
 class ProbeRecord:
     """Single probe result with full evidence trail."""
@@ -635,22 +749,28 @@ def _verdict_record(probe_id, name, status, response, recorded_location, detail,
     )
 
 
-def probe_pkce_s256(metadata):
+def probe_pkce_s256(metadata, client=None, registration_note=None):
     """PKCE must be required, and S256 must be the only accepted method.
 
     A: no code_challenge. B: S256 challenge. C: the same challenge with method plain.
     The three requests differ only in PKCE. Redirects are never followed.
+    client: a registered client (run_oauth_assessment); None reads the environment.
+    registration_note: why registration supplied no client, recorded as detail if EXCLUDED.
     """
     authorization_endpoint = (metadata or {}).get("authorization_endpoint")
     if not authorization_endpoint:
         return record(probe_id=7, name="pkce-s256", status="EXCLUDED", probe_class="authserver",
                       prerequisites=["authorization_endpoint"], prerequisite_met=False,
                       limitation="No authorization endpoint")
-    client_id, _, redirect_uri = _client_creds()
+    if client is not None:
+        client_id, redirect_uri = client.client_id, client.redirect_uri
+    else:
+        client_id, _, redirect_uri = _client_creds()
     if not client_id:
         return record(probe_id=7, name="pkce-s256", status="EXCLUDED", probe_class="authserver",
                       prerequisites=["client_id"], prerequisite_met=False,
-                      limitation="No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)")
+                      limitation="No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)",
+                      detail=registration_note)
 
     base = {"response_type": "code", "client_id": client_id}
     if redirect_uri:
@@ -707,22 +827,28 @@ def _near_match(redirect_uri):
     return urlunsplit((parts.scheme, parts.netloc, path + "x", parts.query, parts.fragment))
 
 
-def probe_redirect_uri_exact(metadata):
+def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
     """redirect_uri must match the registered value exactly.
 
     P: the registered redirect_uri. N: the same URI with one character appended to its path.
     Both carry a valid S256 challenge so PKCE cannot be the cause. Redirects are never followed.
+    client: a registered client (run_oauth_assessment); None reads the environment.
+    registration_note: why registration supplied no client, recorded as detail if EXCLUDED.
     """
     authorization_endpoint = (metadata or {}).get("authorization_endpoint")
     if not authorization_endpoint:
         return record(probe_id=8, name="redirect-uri-exact", status="EXCLUDED", probe_class="authserver",
                       prerequisites=["authorization_endpoint"], prerequisite_met=False,
                       limitation="No authorization endpoint")
-    client_id, _, redirect_uri = _client_creds()
+    if client is not None:
+        client_id, redirect_uri = client.client_id, client.redirect_uri
+    else:
+        client_id, _, redirect_uri = _client_creds()
     if not client_id or not redirect_uri:
         return record(probe_id=8, name="redirect-uri-exact", status="EXCLUDED", probe_class="authserver",
                       prerequisites=["client_id", "redirect_uri"], prerequisite_met=False,
-                      limitation="No registered redirect_uri to compare against")
+                      limitation="No registered redirect_uri to compare against",
+                      detail=registration_note)
 
     near = _near_match(redirect_uri)
     results = []
@@ -845,6 +971,11 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         print("[!] Cannot fetch OAuth metadata from %s: %s" % (metadata_url, e), file=sys.stderr)
         return [], []
 
+    # Client source for probes 7 and 8: dynamic registration, else the environment, else EXCLUDED.
+    registered, registration = _register_client(metadata)
+    client = registered if registered is not None and registered.usable else None
+    registration_note = None if client else "Dynamic client registration unavailable: " + registration
+
     records = []
     records.append(probe_issuer_identity(metadata_url, metadata))
     rb = probe_resource_binding(resource_metadata, mcp_url)
@@ -854,10 +985,32 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_token_cors(metadata.get("token_endpoint")))
     records.append(probe_jwks_keys(metadata.get("jwks_uri")))
     records.append(probe_password_grant(metadata.get("token_endpoint")))
-    records.append(probe_pkce_s256(metadata))
-    records.append(probe_redirect_uri_exact(metadata))
+    records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
+    records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
-    
+
+    # Revoke a registered client after the last probe that uses it, before anything is reported.
+    revocation = _revoke_client(metadata, registered) if registered is not None else \
+        "not applicable: no client was registered"
+    if client is not None:
+        source, client_id, redirect_uri = "registered", client.client_id, client.redirect_uri
+    else:
+        env_id, _, env_redirect = _client_creds()
+        if env_id:
+            source, client_id = "environment (MCPAUTHSCAN_CLIENT_ID)", env_id
+            redirect_uri = env_redirect or "(none: MCPAUTHSCAN_REDIRECT_URI not set)"
+        else:
+            source, client_id, redirect_uri = "none", None, "(none)"
+    CLIENT_REPORTS.append({
+        "authorization_server": oauth_server_url,
+        "client_registered": registered is not None,
+        "registration": registration,
+        "client_source": source,
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "revocation": revocation,
+    })
+    registered = client = None
     return records, []
 
 
