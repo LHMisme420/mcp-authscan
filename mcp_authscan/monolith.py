@@ -2463,8 +2463,6 @@ def main():
     canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [
         "MCP protocol endpoints",
-        "PKCE S256 enforcement, probe not yet implemented",
-        "redirect_uri exact match, probe not yet implemented",
     ]
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
         canonical_payload.pop(key, None)
