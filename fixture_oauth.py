@@ -1,4 +1,4 @@
-import itertools, json, os, sys
+import base64, hashlib, itertools, json, os, sys
 from urllib.parse import urlsplit, parse_qs, urlencode
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -29,6 +29,26 @@ REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
 DCR_CLIENTS = {}   # client_id -> list of registered redirect_uris
 _DCR_SEQ = itertools.count(1)
 REVOKED = []       # one entry per accepted POST /revoke: {"client_id", "token_sent"}
+
+# Token acquisition (authorization code + PKCE S256) switches, for token-cors acquired-token mode.
+#   CONSENT=deny         a valid S256 authorization request is answered 302 redirect_uri?error=access_denied
+#   CONSENT=interactive  a valid S256 authorization request is answered 200 with an HTML consent page
+#                        that needs a human click (no code until the form is submitted)
+#   TOKEN_CORS=none      (default) the token response carries no Access-Control-Allow-Origin
+#   TOKEN_CORS=wildcard       Access-Control-Allow-Origin: *
+#   TOKEN_CORS=wildcard-cred  Access-Control-Allow-Origin: * and Access-Control-Allow-Credentials: true
+#   TOKEN_CORS=echo           the request Origin echoed, with Access-Control-Allow-Credentials: true
+# With CONSENT unset, a valid S256 request (any client) gets 302 redirect_uri?code=fixture-code, plus
+# the state that was sent. The code is redeemable once, at POST /token with grant_type
+# authorization_code, the same client_id and redirect_uri, and a code_verifier whose S256 is the
+# challenge. The access token issued is "fixture-acquired-token-<n>" so a test can grep all
+# scanner output for it. POST /revoke with that token revokes it (and leaves the client alone).
+CONSENT = os.environ.get("CONSENT", "")
+TOKEN_CORS = os.environ.get("TOKEN_CORS", "none")
+PENDING_CODES = {}  # client_id -> {"redirect_uri", "challenge"} of its last S256 authorization
+_TOKEN_SEQ = itertools.count(1)
+ISSUED_TOKENS = []   # access and refresh tokens issued by the authorization_code grant
+REVOKED_TOKENS = []  # those revoked through POST /revoke
 
 # Every GET to a redirect target is counted. A scanner that never follows a
 # Location leaves these at 0; GET /_hits reports them without counting itself.
@@ -94,7 +114,56 @@ class H(BaseHTTPRequestHandler):
         if method not in ("S256", "plain"):
             return self._s(400, {"error": "invalid_request",
                                  "error_description": "unsupported code_challenge_method"})
-        return self._redirect(redirect + sep + urlencode({"code": "fixture-code"}))
+        state = {"state": q["state"]} if "state" in q else {}
+        if method == "S256":
+            if CONSENT == "deny":
+                return self._redirect(redirect + sep + urlencode({"error": "access_denied", **state}))
+            if CONSENT == "interactive":
+                page = ("<!doctype html><title>Authorize</title><form method=post action=/authorize/approve>"
+                        "<p>Allow %s to access your account?</p><input type=password name=passphrase>"
+                        "<button>Approve</button></form>" % cid).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(page)))
+                self.end_headers()
+                return self.wfile.write(page)
+            PENDING_CODES[cid] = {"redirect_uri": redirect, "challenge": q["code_challenge"]}
+        return self._redirect(redirect + sep + urlencode({"code": "fixture-code", **state}))
+
+    def _token_cors(self):
+        if TOKEN_CORS == "wildcard":
+            return {"Access-Control-Allow-Origin": "*"}
+        if TOKEN_CORS == "wildcard-cred":
+            return {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Credentials": "true"}
+        if TOKEN_CORS == "echo" and self.headers.get("Origin"):
+            return {"Access-Control-Allow-Origin": self.headers.get("Origin"),
+                    "Access-Control-Allow-Credentials": "true"}
+        return {}
+
+    def _redeem_code(self, form):
+        """authorization_code + PKCE S256 grant; None when the request is not one."""
+        cid = form.get("client_id", "")
+        pending = PENDING_CODES.get(cid)
+        verifier = form.get("code_verifier", "")
+        if not (pending and form.get("code") == "fixture-code" and verifier):
+            return None
+        if cid == REGISTERED_CLIENT and form.get("client_secret") != REGISTERED_SECRET:
+            return None
+        if cid != REGISTERED_CLIENT and cid not in DCR_CLIENTS:
+            return None
+        if form.get("redirect_uri") != pending["redirect_uri"]:
+            return None
+        s256 = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        if s256 != pending["challenge"]:
+            return None
+        del PENDING_CODES[cid]
+        n = next(_TOKEN_SEQ)
+        access, refresh = "fixture-acquired-token-%d" % n, "fixture-acquired-refresh-%d" % n
+        ISSUED_TOKENS.extend([access, refresh])
+        print("TOKEN issued to " + cid + " cors=" + TOKEN_CORS, file=sys.stderr, flush=True)
+        return self._s(200, {"access_token": access, "token_type": "Bearer", "expires_in": 3600,
+                             "refresh_token": refresh},
+                       {"Cache-Control": "no-store", "Pragma": "no-cache", **self._token_cors()})
 
     def do_GET(self):
         p = self.path.split("?")[0]
@@ -105,7 +174,10 @@ class H(BaseHTTPRequestHandler):
             return self._s(200, LOCATION_HITS)
         if p == "/_clients":
             # registered (and not revoked) dynamic clients, without any credential
-            return self._s(200, {"registered": sorted(DCR_CLIENTS), "revoked": REVOKED})
+            return self._s(200, {"registered": sorted(DCR_CLIENTS), "revoked": REVOKED,
+                                 "tokens_issued": len(ISSUED_TOKENS),
+                                 "tokens_revoked": len(REVOKED_TOKENS),
+                                 "tokens_outstanding": len(set(ISSUED_TOKENS) - set(REVOKED_TOKENS))})
         if p.startswith("/cb"):
             LOCATION_HITS[p] = LOCATION_HITS.get(p, 0) + 1
             print("LOCATION-HIT " + p, file=sys.stderr, flush=True)
@@ -133,6 +205,10 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/token":
             form = dict(x.split("=", 1) for x in body.decode(errors="ignore").split("&") if "=" in x)
+            if form.get("grant_type") == "authorization_code" and "code_verifier" in form:
+                redeemed = self._redeem_code({k: v[0] for k, v in parse_qs(body.decode(errors="ignore")).items()})
+                if redeemed is not None:
+                    return redeemed
             grant = form.get("grant_type", "")
             client_id = form.get("client_id", "")
             client_secret = form.get("client_secret", "")
@@ -217,6 +293,11 @@ class H(BaseHTTPRequestHandler):
                 print("REVOKE refused " + form.get("client_id", ""), file=sys.stderr, flush=True)
                 return self._s(503, {"error": "temporarily_unavailable"})
             cid = form.get("client_id", "")
+            if form.get("token") in ISSUED_TOKENS:
+                # token revocation (RFC 7009): the token is revoked, the client stays registered
+                REVOKED_TOKENS.append(form["token"])
+                print("REVOKE token of " + cid, file=sys.stderr, flush=True)
+                return self._s(200, {})
             DCR_CLIENTS.pop(cid, None)
             REVOKED.append({"client_id": cid, "token_sent": bool(form.get("token"))})
             print("REVOKE " + cid, file=sys.stderr, flush=True)
@@ -231,5 +312,6 @@ if __name__ == "__main__":
           + " pkce_plain=" + ("accept" if PKCE_PLAIN_ACCEPT else "refuse")
           + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact")
           + " registration=" + ("fail" if REGISTRATION_FAIL else "ok")
-          + " revocation=" + ("fail" if REVOCATION_FAIL else "ok"), flush=True)
+          + " revocation=" + ("fail" if REVOCATION_FAIL else "ok")
+          + " consent=" + (CONSENT or "auto") + " token_cors=" + TOKEN_CORS, flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()
