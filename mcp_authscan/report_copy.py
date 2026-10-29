@@ -54,10 +54,12 @@ def render_summary(records):
         evidence = "; ".join(_pass_evidence(r) for r in passed)
         lines.append(f"PASSED ({len(passed)}): {evidence}")
 
-    # EXCLUDED: never sent (prerequisite not met)
+    # EXCLUDED: never sent (prerequisite not met); each probe's reason on its own line
     if excluded:
-        names = ", ".join(r.name for r in excluded)
-        lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent): {names}")
+        lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent):")
+        for r in excluded:
+            reason = "; ".join(x for x in (r.limitation, r.detail) if x)
+            lines.append(f"  {r.name}: {reason or '(no reason recorded)'}")
 
     # NOT_IMPLEMENTED: the probe is not built yet; nothing was sent, the target blocked nothing
     if not_impl:
