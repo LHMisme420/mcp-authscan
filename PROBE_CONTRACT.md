@@ -20,10 +20,39 @@ Each probe defines when it reaches a PASS verdict (compliance confirmed) vs FAIL
 - **NOT_OBSERVED:** Endpoint unreachable, no response, or invalid_request error
 
 ### [4] token-cors
-- **PASS:** /token endpoint returns `Access-Control-Allow-Origin` header (CORS working)
-- **FAIL:** None (CORS headers are observations, not failures)
-- **OBSERVATION:** CORS headers absent or restricted
-- **NOT_OBSERVED:** Endpoint unreachable
+Asks whether a page on a hostile origin could read a token endpoint response. Every request carries `Origin: https://hostile.example.com` and never follows a redirect. There are two modes.
+
+**Default mode (no flag).** One POST to the `token_endpoint`: `grant_type=client_credentials` with `MCPAUTHSCAN_CLIENT_ID` (and `MCPAUTHSCAN_CLIENT_SECRET` if set) when the environment supplies a client, otherwise `grant_type=invalid`.
+- **PASS:** a 2xx response with no `Access-Control-Allow-Origin` (ACAO), or with an ACAO naming some other origin
+- **FAIL (HIGH):** a 2xx response with ACAO `*`, or ACAO echoing the hostile origin
+- **FAIL (CRITICAL):** a 2xx response echoing the hostile origin with `Access-Control-Allow-Credentials: true`
+- **NOT_OBSERVED:** a non-2xx response with a JSON error body, a 5xx, a request outside the allowed scope, or a failed request
+- **EXCLUDED:** no `token_endpoint` advertised; or a 4xx without a JSON error body
+
+**Acquired-token mode (`--acquire-token`, off by default, since probe set 2026.10.30).** The probe obtains a real access token and tests the cross-origin read on the response that carries it:
+1. Client: the client registered for this assessment (see "Client source for probes 7 and 8"), else `MCPAUTHSCAN_CLIENT_ID` with `MCPAUTHSCAN_REDIRECT_URI` (and `MCPAUTHSCAN_CLIENT_SECRET` if set).
+2. A fresh PKCE verifier and S256 challenge.
+3. One GET to the `authorization_endpoint` (`response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`). Redirects are never followed.
+4. The authorization code is read from the 302 `Location`, which must be the `redirect_uri` sent and carry the `state` sent. The `Location` is never fetched.
+5. One POST to the `token_endpoint` (`grant_type=authorization_code`, `code`, `redirect_uri`, `client_id`, `code_verifier`) carrying the hostile `Origin`. This response is the cross-origin read the verdict is taken from.
+6. The access token (and any refresh token) is held in memory only and revoked at the advertised `revocation_endpoint` (form POST: `token`, `token_type_hint`, `client_id`) before the report prints; then it is discarded. The revocation result is part of the detail and never changes the verdict or the exit code.
+
+The token, the authorization code and the verifier are never printed, logged, written to the report or JSON, or included in an exception string: the recorded body has `access_token`, `refresh_token`, `id_token`, `client_secret` and `registration_access_token` values replaced by `[redacted]`, the recorded `Location` has `code` redacted, and failed requests are reported by exception type only.
+
+Verdicts in acquired-token mode, from the token response:
+
+| Token response | Verdict |
+|---|---|
+| 2xx, ACAO `*`, no `Access-Control-Allow-Credentials: true` | FAIL (HIGH) |
+| 2xx, ACAO `*`, `Access-Control-Allow-Credentials: true` | FAIL (CRITICAL) |
+| 2xx, no ACAO | PASS |
+| anything else (including an ACAO naming an origin, echoed or not, and any non-2xx) | NOT_OBSERVED |
+
+Acquired-token mode reaches no verdict, and says why, when no token can be obtained:
+- **EXCLUDED:** no `token_endpoint`; no `authorization_endpoint`; no client (registration supplied none and `MCPAUTHSCAN_CLIENT_ID`/`MCPAUTHSCAN_REDIRECT_URI` are not both set).
+- **NOT_OBSERVED, consent refused:** the authorization response carries `error=` (for example `error=access_denied`) in its `Location`, or is a 4xx JSON error. Detail: "authorization refused: error=<error>; no token obtained".
+- **NOT_OBSERVED, limitation "Consent requires human interaction, cannot complete unattended":** the authorization endpoint answers with HTTP 200 (a consent page) or redirects to a page on its own origin rather than to the `redirect_uri`. The scanner sends that one authorization request only: it never submits the consent page, never loops, and never retries.
+- **NOT_OBSERVED:** any other authorization response (no code, `state` mismatch, another origin), a failed token exchange, a request outside the allowed scope, or a failed request.
 
 ### [5] jwks-keys
 - **PASS:** /jwks endpoint returns valid JWKS (keys array, at least 1 key)
