@@ -67,7 +67,8 @@ def test_registration_ok_client_used_and_revoked():
 def test_registration_fail_without_env_is_excluded_with_reason():
     with fixture(REGISTRATION="fail") as base:
         by_name, report = _assess(base)
-    reason = "Dynamic client registration unavailable: registration returned HTTP 400 error=invalid_client_metadata"
+    reason = ("Dynamic client registration unavailable: registration returned HTTP 400 error=invalid_client_metadata"
+              ' error_description="registration disabled on this fixture"')
     p7, p8 = by_name["pkce-s256"], by_name["redirect-uri-exact"]
     assert p7.status == "EXCLUDED" and p7.limitation == \
         "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)"

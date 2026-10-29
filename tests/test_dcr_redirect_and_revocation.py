@@ -18,7 +18,8 @@ LOCALHOST, LOOPBACK4, LOOPBACK6 = (
     "http://127.0.0.1/mcp-authscan/callback",
     "http://[::1]/mcp-authscan/callback",
 )
-REFUSED = "refused, HTTP 400 error=invalid_redirect_uri"
+REFUSED = ('refused, HTTP 400 error=invalid_redirect_uri'
+           ' error_description="redirect URI host is not on the allow-list"')
 
 
 def test_candidates_are_one_ordered_constant_localhost_first():
@@ -47,7 +48,8 @@ def test_no_candidate_accepted_falls_back_to_env_then_excluded(monkeypatch):
         env_by_name, env_report = _assess(base)
     assert [t["redirect_uri"] for t in report["redirect_candidates_tried"]] == [LOCALHOST, LOOPBACK4, LOOPBACK6]
     assert all(t["result"] == REFUSED for t in report["redirect_candidates_tried"])
-    assert report["registration"] == "registration refused every redirect candidate: HTTP 400 error=invalid_redirect_uri"
+    assert report["registration"] == ("registration refused every redirect candidate: HTTP 400 error=invalid_redirect_uri"
+                                      ' error_description="redirect URI host is not on the allow-list"')
     assert report["client_registered"] is False and report["client_still_live"] is None
     for name in ("pkce-s256", "redirect-uri-exact"):
         assert by_name[name].status == "EXCLUDED"
@@ -60,7 +62,7 @@ def test_non_redirect_refusal_does_not_try_next_candidate():
     with fixture(REGISTRATION="fail") as base:
         _, report = _assess(base)
     assert [(t["redirect_uri"], t["result"]) for t in report["redirect_candidates_tried"]] == \
-        [(LOCALHOST, "refused, HTTP 400 error=invalid_client_metadata")]
+        [(LOCALHOST, 'refused, HTTP 400 error=invalid_client_metadata error_description="registration disabled on this fixture"')]
 
 
 @pytest.mark.parametrize("env,revocation", [

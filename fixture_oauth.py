@@ -23,7 +23,14 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 #   REGISTRATION=grant_types  POST /register answers 400 invalid_client_metadata, error_description
 #                      "grant_types must be authorization_code and refresh_token", unless the request's
 #                      grant_types is exactly that set (the refusal a live server gave, t80u)
+#   REGISTRATION=multiline  POST /register answers 400 invalid_client_metadata whose error_description
+#                      spans two lines (MULTILINE_DESCRIPTION), as an SDK validation error does
 #   REVOCATION=fail    POST /revoke answers 503 temporarily_unavailable (nothing is revoked)
+#   REVOCATION=described  POST /revoke answers 400 invalid_request with the two-line
+#                      MULTILINE_DESCRIPTION (nothing is revoked)
+#   REVOCATION=echo    POST /revoke answers 400 invalid_request whose error_description quotes the
+#                      token it was sent (an issued token or the registration_access_token), so a test
+#                      can check the scanner withholds it (nothing is revoked)
 #   REVOCATION=auth    POST /revoke answers 401 invalid_client, WWW-Authenticate: Basic (client
 #                      authentication the scanner does not have; nothing is revoked)
 #   REVOCATION=absent  the metadata advertises no revocation_endpoint (POST /revoke still exists)
@@ -41,6 +48,10 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 # registration also returns a registration_access_token, so a test can check it never leaks.
 REGISTRATION_FAIL = os.environ.get("REGISTRATION") == "fail"
 REGISTRATION_GRANT_TYPES = os.environ.get("REGISTRATION") == "grant_types"
+REGISTRATION_MULTILINE = os.environ.get("REGISTRATION") == "multiline"
+MULTILINE_DESCRIPTION = "first line of the refusal\nsecond line of the refusal"
+REVOCATION_DESCRIBED = os.environ.get("REVOCATION") == "described"
+REVOCATION_ECHO = os.environ.get("REVOCATION") == "echo"
 REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
 REVOCATION_AUTH = os.environ.get("REVOCATION") == "auth"
 REVOCATION_ABSENT = os.environ.get("REVOCATION") == "absent"
@@ -339,6 +350,10 @@ class H(BaseHTTPRequestHandler):
                 meta = json.loads(body.decode() or "{}")
             except ValueError:
                 return self._s(400, {"error": "invalid_client_metadata"})
+            if REGISTRATION_MULTILINE:
+                print("REGISTER refused (multi-line description)", file=sys.stderr, flush=True)
+                return self._s(400, {"error": "invalid_client_metadata", "error_description": MULTILINE_DESCRIPTION},
+                               {"Cache-Control": "no-store"})
             if REGISTRATION_GRANT_TYPES:
                 gts = meta.get("grant_types") if isinstance(meta, dict) else None
                 if not (isinstance(gts, list) and len(gts) == 2
@@ -379,6 +394,13 @@ class H(BaseHTTPRequestHandler):
                 REVOKED_TOKENS.append(form["token"])
                 print("REVOKE token of " + cid, file=sys.stderr, flush=True)
                 return self._s(200, {})
+            if REVOCATION_DESCRIBED:
+                print("REVOKE refused (multi-line description) " + form.get("client_id", ""), file=sys.stderr, flush=True)
+                return self._s(400, {"error": "invalid_request", "error_description": MULTILINE_DESCRIPTION})
+            if REVOCATION_ECHO:
+                print("REVOKE refused (echoes the token) " + form.get("client_id", ""), file=sys.stderr, flush=True)
+                return self._s(400, {"error": "invalid_request",
+                                     "error_description": "token %s is not accepted here" % form.get("token", "")})
             if REVOCATION_FAIL:
                 print("REVOKE refused " + form.get("client_id", ""), file=sys.stderr, flush=True)
                 return self._s(503, {"error": "temporarily_unavailable"})
@@ -404,7 +426,7 @@ if __name__ == "__main__":
     print("issuer=" + ISSUER + " misbehave=" + str(MISBEHAVE)
           + " pkce_plain=" + ("accept" if PKCE_PLAIN_ACCEPT else "refuse")
           + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact")
-          + " registration=" + ("fail" if REGISTRATION_FAIL else "grant_types" if REGISTRATION_GRANT_TYPES else "ok")
+          + " registration=" + (os.environ.get("REGISTRATION") or "ok")
           + " revocation=" + (os.environ.get("REVOCATION") or "ok")
           + " token_revocation=" + (TOKEN_REVOCATION or "as revocation")
           + " redirect_hosts=" + (",".join(REDIRECT_HOSTS) or "any")

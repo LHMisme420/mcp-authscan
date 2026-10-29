@@ -216,7 +216,8 @@ def test_excluded_without_any_client(acquire, browser):
     assert r.status == "EXCLUDED"
     assert r.limitation.startswith("No client to obtain a token")
     assert r.detail == ("Dynamic client registration unavailable: "
-                        "registration returned HTTP 400 error=invalid_client_metadata")
+                        "registration returned HTTP 400 error=invalid_client_metadata"
+                        ' error_description="registration disabled on this fixture"')
     assert st["tokens_issued"] == 0
     assert browser.prompts == []             # no client: no prompt
 

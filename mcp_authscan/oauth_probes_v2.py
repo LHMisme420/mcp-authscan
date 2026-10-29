@@ -125,9 +125,33 @@ def _oauth_error(body):
     return err if isinstance(err, str) and err else None
 
 
-def _status_text(status, body):
+def _oauth_description(body):
+    """The "error_description" string of a JSON error body, else None."""
+    try:
+        doc = json.loads((body or b"").decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    desc = doc.get("error_description") if isinstance(doc, dict) else None
+    return desc if isinstance(desc, str) and desc else None
+
+
+def _status_text(status, body, sent=None):
+    """"HTTP <status>[ error=<code>][ error_description="<verbatim>"]", on one line.
+
+    A newline in the description is written as the two characters \\n. sent maps a name
+    (access_token, client_secret, ...) to a value this run sent; a description containing any
+    of them is withheld and the first such name is reported instead, never the value.
+    """
     err = _oauth_error(body)
-    return "HTTP %d%s" % (status, (" error=%s" % err) if err else "")
+    text = "HTTP %d%s" % (status, (" error=%s" % err) if err else "")
+    desc = _oauth_description(body)
+    if desc is None:
+        return text
+    leaked = next((name for name, value in (sent or {}).items()
+                   if isinstance(value, str) and value and value in desc), None)
+    if leaked:
+        return text + " error_description withheld: it contained the %s this run sent" % leaked
+    return text + ' error_description="%s"' % desc.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
 
 
 def _register_once(endpoint, redirect_uri):
@@ -211,6 +235,7 @@ def _revoke_client(metadata, client):
     form = {"client_id": client.client_id}
     if client.registration_access_token:
         form["token"] = client.registration_access_token
+    sent = {"registration_access_token": client.registration_access_token, "client_secret": client.secret}
     client.secret = client.registration_access_token = None
     if not endpoint:
         return False, "not attempted: no revocation_endpoint advertised"
@@ -224,7 +249,11 @@ def _revoke_client(metadata, client):
         return False, "revocation_endpoint outside allowed scope"
     except Exception as e:
         return False, "request failed: %s" % type(e).__name__
-    return 200 <= status < 300, _status_text(status, body)
+    finally:
+        req = None
+    revoked, result = 200 <= status < 300, _status_text(status, body, sent)
+    sent = None
+    return revoked, result
 
 
 class ProbeRecord:
@@ -425,15 +454,19 @@ def _header(headers, name):
     return next((v for k, v in (headers or {}).items() if k.lower() == name), "")
 
 
-def _revoke_tokens(metadata, client, tokens):
+def _revoke_tokens(metadata, client, tokens, sent=None):
     """RFC 7009 revocation of each (hint, token) at the advertised revocation_endpoint.
 
     Returns (token types not revoked, summary); a token counts as revoked only on a 2xx.
-    Never returns the token. The caller drops its references afterwards.
+    Never returns the token. sent names other values this run sent (code, code_verifier): an
+    error_description containing any of them, a token or the client's credentials is withheld.
+    The caller drops its references afterwards.
     """
     endpoint = (metadata or {}).get("revocation_endpoint")
     if not endpoint:
         return [hint for hint, _ in tokens], "not attempted: no revocation_endpoint advertised"
+    sent = dict(tokens, client_secret=client.secret,
+                registration_access_token=client.registration_access_token, **(sent or {}))
     results, not_revoked = [], []
     for hint, token in tokens:
         form = {"token": token, "token_type_hint": hint, "client_id": client.client_id}
@@ -446,7 +479,7 @@ def _revoke_tokens(metadata, client, tokens):
         revoked = False
         try:
             status, _, body = _egress_guard(req, follow_redirects=False)
-            outcome = _status_text(status, body)
+            outcome = _status_text(status, body, sent)
             revoked = 200 <= status < 300
         except EgressRefusalError:
             outcome = "revocation_endpoint outside allowed scope"
@@ -456,6 +489,7 @@ def _revoke_tokens(metadata, client, tokens):
         results.append("%s %s" % (hint, outcome))
         if not revoked:
             not_revoked.append(hint)
+    sent = None
     return not_revoked, "; ".join(results)
 
 
@@ -569,6 +603,7 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     if client.secret:
         form["client_secret"] = client.secret
     req = Request(token_endpoint, method="POST", data=urlencode(form).encode("ascii"))
+    sent = {"code": code, "code_verifier": verifier}   # only to withhold an echoing error_description
     form = code = verifier = None
     req.add_header("User-Agent", "mcp-authscan/2.0.0")
     req.add_header("Origin", HOSTILE_ORIGIN)
@@ -597,12 +632,13 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     body = None
     obtained = any(h == "access_token" for h, _ in tokens)
     if tokens:
-        not_revoked, revocation = _revoke_tokens(metadata, client, tokens)
+        not_revoked, revocation = _revoke_tokens(metadata, client, tokens, sent)
         TOKEN_REVOCATION.update(still_live=bool(not_revoked), not_revoked=not_revoked,
                                 revocation=revocation, client_id=client.client_id)
     else:
         revocation = "nothing to revoke"
     del tokens[:]
+    sent = None
 
     acao = _header(headers, "access-control-allow-origin").strip()
     acac = _header(headers, "access-control-allow-credentials").strip().lower() == "true"
