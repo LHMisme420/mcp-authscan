@@ -88,6 +88,8 @@ The negative control is run locally against the fixture on port 9002. It is not 
 - An endpoint prober cannot verify a three-party OAuth flow. Issuer binding is enforced client-side, so the probe checks what the metadata declares, not what a client will do.
 - PKCE S256 and redirect URI exact match are not built yet. They send no requests and report NOT_IMPLEMENTED.
 - No source review, no dependency CVE check, no secrets-in-history scan.
+- Source mode does not detect a hardcoded token whose value contains whitespace, such as `"Bearer <token>"` or `"Token <token>"`. The hardcoded-credential rule deliberately skips values with whitespace so error strings are not flagged. A literal like `api_key = "<token>"` is detected.
+- Source mode does not detect wildcard CORS with credentials allowed (`Access-Control-Allow-Origin: *` together with `Access-Control-Allow-Credentials: true`) set in code. Only the live token-cors probe tests CORS, against a running endpoint.
 - Absence of a finding is not proof of safety.
 
 A version string is a claim. A response from the running server is a receipt.
