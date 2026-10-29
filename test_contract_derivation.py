@@ -3,8 +3,10 @@
 
 Contract:
 - 9 declared probes (in_scope)
-- 7 built probes (1-6, 9: issuer-identity, resource-binding, token-cache-control, token-cors, jwks-keys, password-grant, client-auth)
-- 2 unbuilt probes (7-8: pkce-s256, redirect-uri-exact) -> NOT_IMPLEMENTED, never sent; not EXCLUDED
+- 9 built probes; none is NOT_IMPLEMENTED (since probe set 2026.10.29)
+- Probes 7-8 (pkce-s256, redirect-uri-exact) need client credentials. This run sets none,
+  so both are EXCLUDED: 7 "No client_id to build an authorization request",
+  8 "No registered redirect_uri to compare against" (or "No authorization endpoint" for either).
 
 When scanning a server:
 - attempted = PASS + FAIL + NOT_OBSERVED
@@ -12,9 +14,14 @@ When scanning a server:
 - coverage = (PASS + FAIL) / in_scope, the declared set, not the probes that ran
 - Probes 1-6, 9 should reach verdicts (PASS or FAIL depending on vulnerability)
 """
+import os
 import sys
 import time
 import threading
+
+# This derivation is for a run without client credentials; ignore any set in the shell.
+for _var in ("MCPAUTHSCAN_CLIENT_ID", "MCPAUTHSCAN_CLIENT_SECRET", "MCPAUTHSCAN_REDIRECT_URI"):
+    os.environ.pop(_var, None)
 
 # Force use of local source
 sys.path.insert(0, '/home/claude/lhmisme420/mcp-authscan')
@@ -22,6 +29,9 @@ sys.path.insert(0, '/home/claude/lhmisme420/mcp-authscan')
 # MUST SET BEFORE IMPORTING monolith to affect the global
 import mcp_authscan.monolith as monolith_module
 monolith_module.ALLOW_PRIVATE_TARGETS = True
+# main() sets the same flag on oauth_probes_v2, which has no module default; mirror it here.
+import mcp_authscan.oauth_probes_v2 as oauth_probes_v2_module
+oauth_probes_v2_module.ALLOW_PRIVATE_TARGETS = True
 
 from mcp_authscan.monolith import scan_live_server
 
@@ -47,20 +57,20 @@ print("=" * 70)
 print()
 print("Contract specifies:")
 print("  Total probes: 9")
-print("  Built probes (testable on any server): 7 (probes 1-6, 9)")
-print("  NOT_IMPLEMENTED probes (not yet built, never sent): 2 (probes 7-8)")
+print("  Built probes: 9; NOT_IMPLEMENTED: 0")
+print("  Probes 7-8 need client credentials: EXCLUDED on this run (none set)")
 print()
 print("For any server:")
 print("  - Probes 1-6, 9 should reach verdicts (PASS or FAIL)")
-print("  - Probes 7-8 should be NOT_IMPLEMENTED (not EXCLUDED)")
+print("  - Probes 7-8 should be EXCLUDED (no client credentials), never NOT_IMPLEMENTED")
 print()
 print("Expected counts dict:")
 print("  in_scope: 9")
 print("  attempted: 7 (in_scope - excluded - not_implemented = PASS + FAIL + NOT_OBSERVED)")
 print("  PASS: variable (depends on compliance)")
 print("  FAIL: variable (depends on vulnerabilities)")
-print("  EXCLUDED: 0")
-print("  NOT_IMPLEMENTED: 2 (probes 7-8)")
+print("  EXCLUDED: 2 (probes 7-8, no client credentials)")
+print("  NOT_IMPLEMENTED: 0")
 print("  coverage: (PASS + FAIL) / 9")
 print("  NOT_OBSERVED: variable (depends on endpoint availability)")
 print()
@@ -93,9 +103,10 @@ try:
     
     # Derive from contract
     expected_in_scope = 9
-    expected_excluded = 0
-    expected_not_implemented = 2
-    expected_not_implemented_names = ["pkce-s256", "redirect-uri-exact"]
+    expected_excluded = 2
+    expected_excluded_names = ["pkce-s256", "redirect-uri-exact"]
+    expected_not_implemented = 0
+    expected_not_implemented_names = []
     expected_attempted = expected_in_scope - expected_excluded - expected_not_implemented  # = 7
     
     print("Contract expectations:")
@@ -110,6 +121,7 @@ try:
     actual_excluded = probe_status.get('excluded', 0)
     actual_not_implemented = probe_status.get('not_implemented', 0)
     actual_not_implemented_names = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
+    actual_excluded_names = [r.name for r in oauth_records if r.status == "EXCLUDED"]
     from mcp_authscan.counts import count_probes, coverage
     counts = count_probes(oauth_records)
     actual_coverage = coverage(counts)
@@ -118,6 +130,7 @@ try:
     print("Verification:")
     print(f"  ✓ Attempted: {actual_attempted} == {expected_attempted}? {actual_attempted == expected_attempted}")
     print(f"  ✓ EXCLUDED: {actual_excluded} == {expected_excluded}? {actual_excluded == expected_excluded}")
+    print(f"  ✓ EXCLUDED names: {actual_excluded_names} == {expected_excluded_names}? {actual_excluded_names == expected_excluded_names}")
     print(f"  ✓ NOT_IMPLEMENTED: {actual_not_implemented_names} == {expected_not_implemented_names}? {actual_not_implemented_names == expected_not_implemented_names}")
     attempted_partition = counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     print(f"  ✓ attempted == PASS + FAIL + NOT_OBSERVED: {counts['attempted']} == {attempted_partition}? {counts['attempted'] == attempted_partition}")
@@ -133,6 +146,7 @@ try:
     if (actual_attempted == expected_attempted and actual_excluded == expected_excluded
             and actual_not_implemented == expected_not_implemented
             and actual_not_implemented_names == expected_not_implemented_names
+            and actual_excluded_names == expected_excluded_names
             and actual_in_scope == expected_in_scope
             and counts["in_scope"] == expected_in_scope
             and counts["attempted"] == attempted_partition
