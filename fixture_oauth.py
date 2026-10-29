@@ -24,6 +24,12 @@ REDIRECT_PREFIX = os.environ.get("REDIRECT_MATCH") == "prefix"
 #   REVOCATION=auth    POST /revoke answers 401 invalid_client, WWW-Authenticate: Basic (client
 #                      authentication the scanner does not have; nothing is revoked)
 #   REVOCATION=absent  the metadata advertises no revocation_endpoint (POST /revoke still exists)
+#   TOKEN_REVOCATION=fail|auth|ok  overrides REVOCATION for a POST /revoke whose token is an issued
+#                      access or refresh token only: fail answers 503 temporarily_unavailable, auth
+#                      answers 401 invalid_client with WWW-Authenticate: Basic (the token stays
+#                      valid either way), ok revokes it. Client revocation still follows REVOCATION,
+#                      so token and client revocation can succeed or fail independently. Unset:
+#                      token revocation follows REVOCATION like client revocation.
 #   REDIRECT_HOSTS=h1,h2  POST /register answers 400 invalid_redirect_uri unless every redirect_uri
 #                      host is in the list (e.g. "localhost", or "127.0.0.1" so the scanner's first
 #                      candidate is refused and the second accepted; "none" refuses every host)
@@ -34,6 +40,7 @@ REGISTRATION_FAIL = os.environ.get("REGISTRATION") == "fail"
 REVOCATION_FAIL = os.environ.get("REVOCATION") == "fail"
 REVOCATION_AUTH = os.environ.get("REVOCATION") == "auth"
 REVOCATION_ABSENT = os.environ.get("REVOCATION") == "absent"
+TOKEN_REVOCATION = os.environ.get("TOKEN_REVOCATION", "")
 REDIRECT_HOSTS = [h for h in os.environ.get("REDIRECT_HOSTS", "").split(",") if h]
 DCR_CLIENTS = {}   # client_id -> list of registered redirect_uris
 _DCR_SEQ = itertools.count(1)
@@ -349,6 +356,17 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/revoke":
             form = {k: v[0] for k, v in parse_qs(body.decode(errors="ignore")).items()}
+            if TOKEN_REVOCATION and form.get("token") in ISSUED_TOKENS:
+                cid = form.get("client_id", "")
+                if TOKEN_REVOCATION == "fail":
+                    print("REVOKE token refused " + cid, file=sys.stderr, flush=True)
+                    return self._s(503, {"error": "temporarily_unavailable"})
+                if TOKEN_REVOCATION == "auth":
+                    print("REVOKE token unauthenticated " + cid, file=sys.stderr, flush=True)
+                    return self._s(401, {"error": "invalid_client"}, {"WWW-Authenticate": 'Basic realm="fixture"'})
+                REVOKED_TOKENS.append(form["token"])
+                print("REVOKE token of " + cid, file=sys.stderr, flush=True)
+                return self._s(200, {})
             if REVOCATION_FAIL:
                 print("REVOKE refused " + form.get("client_id", ""), file=sys.stderr, flush=True)
                 return self._s(503, {"error": "temporarily_unavailable"})
@@ -376,6 +394,7 @@ if __name__ == "__main__":
           + " redirect_match=" + ("prefix" if REDIRECT_PREFIX else "exact")
           + " registration=" + ("fail" if REGISTRATION_FAIL else "ok")
           + " revocation=" + (os.environ.get("REVOCATION") or "ok")
+          + " token_revocation=" + (TOKEN_REVOCATION or "as revocation")
           + " redirect_hosts=" + (",".join(REDIRECT_HOSTS) or "any")
           + " consent=" + (CONSENT or "auto") + " token_cors=" + TOKEN_CORS, flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()
