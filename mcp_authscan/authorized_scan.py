@@ -205,7 +205,7 @@ def main(argv=None):
         if destination:
             destination.close()
     if any(result["status"] == "incomplete" for result in results):
-        return 2
+        return 5
     return 1 if report["finding_count"] else 0
 
 

@@ -170,7 +170,7 @@ class AuthorizedScanTests(unittest.TestCase):
             self.assertEqual(len(EndpointHandler.requests_seen), 2)
 
     def test_cli_exit_codes_for_findings_and_incomplete_scan(self):
-        for path, expected in (("/private", 1), ("/redirect", 2)):
+        for path, expected in (("/private", 1), ("/redirect", 5)):
             with self.subTest(path=path), contextlib.redirect_stdout(io.StringIO()), \
                     contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(main(["--authorized", "--target", self.base + path]), expected)
