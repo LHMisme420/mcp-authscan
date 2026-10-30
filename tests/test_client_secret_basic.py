@@ -1,4 +1,4 @@
-"""client_secret_basic at the token and revocation endpoints (probe set 2026.11.03,
+"""client_secret_basic at the token and revocation endpoints (probe set 2026.10.30.1,
 PROBE_CONTRACT.md "Client authentication at the token endpoint").
 
 A client whose registration response says token_endpoint_auth_method client_secret_basic, an

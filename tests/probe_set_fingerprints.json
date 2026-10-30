@@ -1,0 +1,16 @@
+{
+ "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never edit or reuse a recorded one. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
+ "stamps": {
+  "2026.10.30.1": {
+   "fingerprint": "8fdd050d83d1774bea521f80e7be941395b2a6d85a24c9aabc4d9601f00b4a33",
+   "components": {
+    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "3fcb3390d59907a52699a528ec418992c5fe262998c5df0693603832f0b591d2",
+    "report_accounting": "3842e79c9959ad1250fd85f5ad5f490539a23007741a65dd4f7f662feaab2ebe"
+   },
+   "changed": "2026-10-30, commit f1d4fb3 (client_secret_basic at the token endpoint and revocation; shipped on the branch as 2026.11.03)"
+  }
+ }
+}

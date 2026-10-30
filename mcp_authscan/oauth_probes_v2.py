@@ -126,14 +126,14 @@ CLIENT_SECRET_POST = "client_secret_post"
 
 
 def _token_auth_method(client=None, metadata=None):
-    """How a client authenticates at the token and revocation endpoints (since probe set 2026.11.03).
+    """How a client authenticates at the token and revocation endpoints (since probe set 2026.10.30.1).
 
     "client_secret_basic" (HTTP Basic, RFC 6749 2.3.1) or "client_secret_post" (client_secret in
     the form body). In order: for a registered client, the token_endpoint_auth_method its
     registration response returned; for a client from the environment,
     MCPAUTHSCAN_TOKEN_ENDPOINT_AUTH_METHOD when it names one of the two; then the metadata, Basic
     when token_endpoint_auth_methods_supported lists client_secret_basic and not
-    client_secret_post; otherwise client_secret_post, as before 2026.11.03.
+    client_secret_post; otherwise client_secret_post, as before 2026.10.30.1.
     """
     registered = client is not None and client.source == "registered"
     if registered and isinstance(client.auth_method, str):

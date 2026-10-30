@@ -621,7 +621,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.11.03"  # 2026.11.03: a client whose token_endpoint_auth_method is client_secret_basic (registration response; else MCPAUTHSCAN_TOKEN_ENDPOINT_AUTH_METHOD for an environment client; else metadata advertising basic and not post) authenticates with HTTP Basic (RFC 6749 2.3.1) at the token exchange, the environment-client token-cors and password-grant requests, and revocation, never with client_secret in the body. 2026.11.02: token revocation always sends client_secret (empty for a public client) and a non-2xx reads "revocation not confirmed"; a registered client is removed only by RFC 7592 DELETE when registration_client_uri and registration_access_token were returned, else client removal is out of scope (never the RFC 7009 endpoint). 2026.11.01: dynamic registration asks for grant_types authorization_code and refresh_token. OAuth probe suite: probes 7-8 take a dynamically registered client first (RFC 7591), then the environment
+PROBE_SET_VERSION = "2026.10.30.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""

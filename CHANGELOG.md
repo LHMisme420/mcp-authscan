@@ -6,6 +6,32 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Probe set stamps
+`PROBE_SET_VERSION` (reported as `probe_set_version`) names the probe set that produced a report.
+From 2026.10.30.1 a stamp is `YYYY.MM.DD.N`: the America/New_York date the probe set changed and a
+per-day counter starting at 1, so two probe sets changed on one day get distinct stamps.
+`tests/test_probe_set_stamp.py` fails when the probe set changes and the stamp does not
+(fingerprints in `tests/probe_set_fingerprints.json`, computed by `tests/probe_set_fingerprint.py`).
+
+Earlier stamps used the date alone. Five of them were mis-dated: each took the calendar day after
+the previous stamp instead of the day its probe set changed. Commit times are America/New_York.
+
+| Stamp | Commit | Committed | Change |
+|---|---|---|---|
+| 1.1.0 | tags v1.1.3 to v1.1.5 | 2026-10-25 to 2026-10-26 | semver-style stamp, replaced by dates |
+| 2026.10.28 | d4372c9 (tags v1.1.6 to v1.1.8) | 2026-10-28 08:27 | correctly dated: resource probes hardened to four-branch verdicts |
+| 2026.10.29 | 39bd45e | 2026-10-29 12:17 | correctly dated: contract rules for pkce-s256 and redirect-uri-exact |
+| 2026.10.30 | 4a75f7c | 2026-10-29 13:26 | **mis-dated**: probes 7-8 take a dynamically registered client first, environment client as fallback, tokens revoked before the report |
+| 2026.10.31 | a68c144 | 2026-10-29 15:40 | **mis-dated**: password-grant PASS on any named 4xx OAuth error except invalid_grant; token-cors non-verdict wording |
+| 2026.11.01 | 07d77a0 | 2026-10-29 17:31 | **mis-dated**: dynamic registration asks for grant_types authorization_code and refresh_token |
+| 2026.11.02 | a4612ef | 2026-10-29 18:19 | **mis-dated**: revocation always sends client_secret (empty for a public client) and a non-2xx reads "revocation not confirmed"; client removal only by RFC 7592 DELETE |
+| 2026.11.03 | f1d4fb3 | 2026-10-30 02:37 | **mis-dated**, never on main or in a release: client_secret_basic (HTTP Basic, RFC 6749 2.3.1) at the token exchange, environment-client token-cors and password-grant, and revocation |
+| 2026.10.30.1 | this change | 2026-10-30 | the 2026.11.03 probe set re-stamped under the new scheme; no probe changed |
+
+No release tag (v1.1.4 to v1.1.8) carries a future-dated stamp. Reports already produced keep
+their stamp: read 2026.10.30, 2026.10.31, 2026.11.01 and 2026.11.02 as four successive probe sets
+of 2026-10-29. The old date-only 2026.10.30 and the new 2026.10.30.1 are different probe sets.
+
 ### Terminology
 - Probes 7-8 (pkce-s256, redirect-uri-exact) have **unmet prerequisites** (require 
   registered client to test), so they return EXCLUDED status. This is distinct from
