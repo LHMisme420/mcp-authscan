@@ -13,7 +13,7 @@ Output: Human-readable security report with probe results and deterministic SHA2
 """
 from mcp_authscan import __version__
 from mcp_authscan.report_copy import render_summary, check_counts
-from mcp_authscan.counts import coverage, CoverageError
+from mcp_authscan.counts import count_probes, coverage, CoverageError
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 import subprocess
 from datetime import datetime, timezone
@@ -2508,16 +2508,12 @@ def main():
         canonical_payload["commit_sha"] = commit_sha_long
 
     # Hash the canonical payload (this is what the report signature covers)
-        # Compute accounting and supplementary fields
-    counts = {
-        "in_scope": len(oauth_records),
-        "attempted": len(oauth_records) - sum(1 for r in oauth_records if r.status in ("EXCLUDED", "NOT_IMPLEMENTED")),
-        "PASS": sum(1 for r in oauth_records if r.status == "PASS"),
-        "FAIL": sum(1 for r in oauth_records if r.status == "FAIL"),
-        "NOT_OBSERVED": sum(1 for r in oauth_records if r.status == "NOT_OBSERVED"),
-        "EXCLUDED": sum(1 for r in oauth_records if r.status == "EXCLUDED"),
-        "NOT_IMPLEMENTED": sum(1 for r in oauth_records if r.status == "NOT_IMPLEMENTED"),
-    }
+    # Counts from count_probes(), the same function the printed summary counts with. Its keys come
+    # from a set, so their order varies per process; fix the JSON order to the one reports always had.
+    counts = count_probes(oauth_records)
+    _COUNT_KEYS = ("in_scope", "attempted", "PASS", "FAIL", "NOT_OBSERVED", "EXCLUDED", "NOT_IMPLEMENTED")
+    assert set(counts) == set(_COUNT_KEYS), sorted(counts)
+    counts = {k: counts[k] for k in _COUNT_KEYS}
     canonical_payload["counts"] = counts
     # Coverage over the testable probes (in_scope - EXCLUDED), from counts.coverage() like the printed line
     zero_testable = False
