@@ -85,6 +85,23 @@ def validate_target_host(hostname, port):
     return addresses[0]
 
 
+_BARE_HOST_PORT = re.compile(
+    r"^(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*)"
+    r":[0-9]{1,5}(?:/.*)?$")
+
+
+def missing_scheme(target):
+    """Refuse a scheme-less HOST:PORT[/path] target instead of silently scanning it as a directory.
+
+    HOST is a hostname, an IPv4 address or an [IPv6] literal; PORT is 1-5 digits. A target that
+    contains "://" or exists on disk is never refused here, so source-mode paths keep working.
+    """
+    if "://" in target or os.path.exists(target):
+        return
+    if _BARE_HOST_PORT.match(target):
+        raise ValueError(f"target {target} has no scheme; did you mean https://{target} ?")
+
+
 # Set from --allow-private so explicitly authorized local targets keep working.
 ALLOWED_HOSTS: set[str] = set()  # Authorized domains for discovery
 
@@ -2083,17 +2100,20 @@ def main():
     oauth_records = []  # Initialize for all paths
     probe_results = []
 
-    if args.target.startswith("http://") or args.target.startswith("https://"):
-        # Validate target host if --allow-private not set (opt-in DNS rebinding protection)
-        if not args.allow_private:
-            try:
-                p = urlparse(args.target)
-                if p.hostname:
-                    validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
-            except ValueError as e:
-                print(f"[!] Target validation failed: {e}", file=sys.stderr)
-                sys.exit(3)
+    is_http_target = args.target.startswith("http://") or args.target.startswith("https://")
+    # Target validation, one refusal path (exit 3): a scheme-less host:port, and a private
+    # address when --allow-private is not set (opt-in DNS rebinding protection)
+    try:
+        missing_scheme(args.target)
+        if is_http_target and not args.allow_private:
+            p = urlparse(args.target)
+            if p.hostname:
+                validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
+    except ValueError as e:
+        print(f"[!] Target validation failed: {e}", file=sys.stderr)
+        sys.exit(3)
 
+    if is_http_target:
         try:
             result_tuple = scan_live_server(args.target)
             F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
