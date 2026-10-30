@@ -27,8 +27,17 @@ def count_probes(records):
     return counts
 
 
+def testable(counts):
+    """Probes that could be tested: the declared set less the EXCLUDED ones (prerequisite missing)."""
+    return counts["in_scope"] - counts["EXCLUDED"]
+
+
 def coverage(counts):
-    """Share of the declared probe set (in_scope) that reached a verdict. PASS and FAIL both count."""
-    if counts["attempted"] == 0:
+    """Share of the testable probes (in_scope - EXCLUDED) that reached a verdict. PASS and FAIL both count.
+
+    The single source for the JSON coverage field and the printed Coverage line. Raises
+    CoverageError when nothing was testable; the caller routes that to exit 5, never to 0.
+    """
+    if counts["attempted"] == 0 or testable(counts) <= 0:
         raise CoverageError("zero testable probes")
-    return (counts["PASS"] + counts["FAIL"]) / float(counts["in_scope"])
+    return (counts["PASS"] + counts["FAIL"]) / float(testable(counts))

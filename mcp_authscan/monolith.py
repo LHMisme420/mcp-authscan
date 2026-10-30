@@ -13,6 +13,7 @@ Output: Human-readable security report with probe results and deterministic SHA2
 """
 from mcp_authscan import __version__
 from mcp_authscan.report_copy import render_summary, check_counts
+from mcp_authscan.counts import coverage, CoverageError
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 import subprocess
 from datetime import datetime, timezone
@@ -622,7 +623,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.30.4"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.10.30.5"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2498,8 +2499,14 @@ def main():
         "NOT_IMPLEMENTED": sum(1 for r in oauth_records if r.status == "NOT_IMPLEMENTED"),
     }
     canonical_payload["counts"] = counts
-    # Coverage over the declared probe set (in_scope), not over the probes that ran
-    canonical_payload["coverage"] = round((counts["PASS"] + counts["FAIL"]) / float(counts["in_scope"]), 4) if counts["in_scope"] > 0 else 0
+    # Coverage over the testable probes (in_scope - EXCLUDED), from counts.coverage() like the printed line
+    zero_testable = False
+    try:
+        canonical_payload["coverage"] = round(coverage(counts), 4)
+    except CoverageError:
+        # Zero testable probes: no coverage number at all; routed to exit 5 below
+        canonical_payload["coverage"] = None
+        zero_testable = True
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [
@@ -2642,7 +2649,7 @@ def main():
 
     # Exit code based on findings severity and --fail-on threshold
     # Contract: zero testable probes → exit 5 (per design spec)
-    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get('attempted', 0) == 0 and not F:
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and (probe_status.get('attempted', 0) == 0 or zero_testable) and not F:
         if not F: sys.exit(5)
     
     thr_map = {"critical": 0, "high": 1, "medium": 2}

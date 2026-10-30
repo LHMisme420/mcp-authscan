@@ -44,6 +44,17 @@
     "report_accounting": "3842e79c9959ad1250fd85f5ad5f490539a23007741a65dd4f7f662feaab2ebe"
    },
    "changed": "2026-10-30, refactor: _apply_client_secret is the one place the token exchange, token-cors and password-grant place the client secret; no request or verdict changed"
+  },
+  "2026.10.30.5": {
+   "fingerprint": "e220e05fe1b2087f041fe57f6b1485f31e06d2fb97fac8dbf328e8dd463002df",
+   "components": {
+    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "c052c37c18c5668621d5be8ac1c8af9d3821ee07c221668a7d03ffbee1a991de",
+    "report_accounting": "7c02d27e3423996efd2268df27cc9376a8ee0c071563ec45de22874ab967b846"
+   },
+   "changed": "coverage denominator is testable (in_scope - EXCLUDED); JSON and printed line both from counts.coverage(); zero testable -> exit 5"
   }
  }
 }

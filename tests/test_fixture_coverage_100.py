@@ -123,7 +123,7 @@ class CompleteHandler(BaseHTTPRequestHandler):
         pass
 
 def test_coverage_is_over_the_declared_probe_set(monkeypatch):
-    """Declared-set rule: coverage = (PASS + FAIL) / in_scope (9), never / attempted.
+    """Testable rule: coverage = (PASS + FAIL) / (in_scope - EXCLUDED), here 9 - 2 = 7.
 
     The handler names 127.0.0.1:9000 in its metadata, so it is served on 9000.
     No client credentials are configured, so pkce-s256 and redirect-uri-exact are
@@ -157,9 +157,9 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
     assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 2
-    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 9.0
-    # The two excluded probes stay in the denominator: a run without client credentials cannot read 100%.
-    assert coverage(counts) <= 7 / 9.0
+    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 7.0
+    # The two excluded probes leave the denominator: they name their prerequisite instead.
+    assert coverage(counts) <= 1.0
 
 
 if __name__ == "__main__":

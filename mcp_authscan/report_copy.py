@@ -1,4 +1,5 @@
 """Data-driven report generation from OAuth probe records."""
+from .counts import count_probes, coverage, testable, CoverageError
 
 PASS_EVIDENCE = {
     "issuer-identity": "authorization server metadata names its own issuer",
@@ -77,9 +78,15 @@ def render_summary(records):
         names = ", ".join(r.name for r in failed)
         lines.append(f"FINDINGS ({len(failed)}): {names}")
 
-    # Coverage over the declared probe set, with any unbuilt probes named
-    reached = len(passed) + len(failed)
-    cov = f"Coverage: {reached} of {len(records)} declared probes reached a verdict ({reached / len(records):.2f})"
+    # Coverage over the testable probes (in_scope - EXCLUDED), the same counts.coverage() the JSON uses
+    counts = count_probes(records)
+    reached = counts["PASS"] + counts["FAIL"]
+    try:
+        cov = f"Coverage: {reached} of {testable(counts)} testable probes reached a verdict ({coverage(counts):.2f})"
+    except CoverageError:
+        cov = "Coverage: no testable probes; not assessable (exit 5)"
+    if excluded:
+        cov += f", {len(excluded)} excluded ({', '.join(r.name for r in excluded)}, prerequisite named)"
     if not_impl:
         cov += "; not implemented: " + ", ".join(r.name for r in not_impl)
     lines.append(cov)
