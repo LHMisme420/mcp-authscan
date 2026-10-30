@@ -324,3 +324,63 @@ class AcquiredVerdictContract(unittest.TestCase):
                 self.assertEqual(exp["token_revocation_populated"],
                                  bool(regs[0].get("token_revocation")),
                                  "token_revocation populated")
+
+
+# Plain mode (no --acquire-token) against the same 9004 server as the acquired entry above.
+# The server requires client authentication at the token endpoint, so the plain token-cors probe
+# (no client credentials) gets 401 invalid_client and only a 2xx reaches a verdict: token-cors is
+# NOT_OBSERVED and coverage is 8 of 9 (README "Known limits"). Both 9004 entries must hold.
+PLAIN_FULL_FIXTURES = {
+    9004: "test_fixture_full_authserver.py",
+}
+
+PLAIN_FULL_EXPECTED = {
+    9004: {
+        "verdicts": {
+            "issuer-identity": "PASS",
+            "resource-binding": "PASS",
+            "token-cache-control": "PASS",
+            "token-cors": "NOT_OBSERVED",
+            "jwks-keys": "PASS",
+            "password-grant": "PASS",
+            "pkce-s256": "PASS",
+            "redirect-uri-exact": "PASS",
+            "client-auth": "PASS",
+        },
+        "coverage": round(8 / 9, 4),
+        "excluded": 0,
+        "exit_code": 0,
+    },
+}
+
+
+def scan_plain(port):
+    """Run the scanner without --acquire-token, stdin closed. Returns (returncode, report or None)."""
+    url = "http://127.0.0.1:%d/mcp" % port
+    cmd = [sys.executable, str(ROOT / "mcp_authscan.py"), url, "--json"] + AUTH
+    r = subprocess.run(cmd, cwd=str(ROOT), stdin=subprocess.DEVNULL, capture_output=True,
+                       text=True, timeout=180)
+    i = r.stdout.find("{")
+    return r.returncode, (json.loads(r.stdout[i:]) if i >= 0 else None)
+
+
+class PlainFullAuthServerContract(unittest.TestCase):
+
+    def test_plain_mode_token_cors_not_observed_eight_of_nine(self):
+        for port, filename in PLAIN_FULL_FIXTURES.items():
+            exp = PLAIN_FULL_EXPECTED[port]
+            with self.subTest(port=port):
+                p = start_fixture(port, filename)
+                try:
+                    rc, report = scan_plain(port)
+                finally:
+                    p.terminate()
+                    p.wait(timeout=5)
+                self.assertIsNotNone(report, "no JSON report on stdout")
+                got = {}
+                collect(report, got)
+                diff = {k: (want, got.get(k)) for k, want in exp["verdicts"].items() if got.get(k) != want}
+                self.assertEqual({}, diff, "expected vs got: %s" % diff)
+                self.assertEqual(exp["coverage"], report.get("coverage"), "coverage")
+                self.assertEqual(exp["excluded"], report["counts"]["EXCLUDED"], "excluded")
+                self.assertEqual(exp["exit_code"], rc, "exit code")
