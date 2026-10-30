@@ -2466,7 +2466,8 @@ def main():
     varying_headers = {
                 "date", "etag", "set-cookie", "server", "x-powered-by", "x-frame-options",
                 "cf-ray", "x-deno-trace-id", "report-to", "x-trace-id", "x-request-id",
-                "via", "age", "x-cache", "content-length"
+                "via", "age", "x-cache", "content-length",
+                "expires", "alt-svc", "connection", "x-cloud-trace-context", "pragma"
             }
     for record in oauth_records:
         probe = record.as_dict()
@@ -2528,6 +2529,7 @@ def main():
         canonical_payload.pop(key, None)
     
     payload_json = json.dumps(canonical_payload, sort_keys=True)
+    payload_json = re.sub(r"client [A-Za-z0-9_-]{16,} \(registered\)", "client [client] (registered)", payload_json)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
     canonical_payload["report_hash"] = payload_hash
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
