@@ -64,7 +64,7 @@ Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 - EXCLUDED: a prerequisite, such as a token endpoint, a jwks_uri or a metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. The summary prints each EXCLUDED probe on its own line with its reason, e.g. `jwks-keys: No JWKS endpoint`. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
 - NOT_IMPLEMENTED: the probe is not built yet and sends no request. No probe in the current set reports this.
 
-Coverage is PASS plus FAIL over the declared set of nine probes, so a run in which seven probes reach a verdict reads 7 of 9 (0.78), and the report names the probes that did not reach one. Not observed means sent and not demonstrated.
+Coverage is PASS plus FAIL over the testable probes, the declared nine less any EXCLUDED (prerequisite missing, never sent). A run without client credentials excludes pkce-s256 and redirect-uri-exact, so when the other seven reach a verdict it reads 7 of 7 testable (1.00), 2 excluded, and the report names each excluded probe with its missing prerequisite. Zero testable probes give no coverage figure and exit 5. Not observed means sent and not demonstrated.
 
 ## Exit codes
 
