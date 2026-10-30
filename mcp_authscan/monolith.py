@@ -417,16 +417,9 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
                     body = resp.read(500).decode(errors='ignore')
-                    try:
-                        json.loads(body)
-                        if 'jsonrpc' in body:
-                            mcp_verified = True
-                            print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
-                    except json.JSONDecodeError:
-                            pass
-                    else:
-                        # 200 but not JSON-RPC - not an MCP server, continue to OAuth discovery
-                        pass
+                    if 'jsonrpc' in body:
+                        mcp_verified = True
+                        print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
                 elif resp.status == 400 or resp.status == 406:
                     # 400: JSON-RPC error (malformed but MCP aware)
                     # 406: Wrong content-type (path exists, headers wrong)
@@ -601,7 +594,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         # Discovery failed - STOP, don't fallback to guessing
         # Report DISCOVERY_INCOMPLETE with forensic details
         print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-        print(f"[!] The preflight detected OAuth (401) but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print(f"[!] The preflight detected OAuth but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
         print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
@@ -2145,7 +2138,7 @@ def main():
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
-            print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
+            print(f"[!] OAuth detected but discovery chain failed. Cannot complete scan.", file=sys.stderr)
             if not F: sys.exit(5)
 
         if not server_reachable:
