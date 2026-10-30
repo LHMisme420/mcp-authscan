@@ -622,7 +622,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.30.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.10.30.3"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2033,6 +2033,7 @@ def main():
     import mcp_authscan.oauth_probes_v2 as oauth_probes_v2
     oauth_probes_v2.ALLOW_PRIVATE_TARGETS = ALLOW_PRIVATE_TARGETS
     oauth_probes_v2.ACQUIRE_TOKEN = bool(getattr(args, "acquire_token", False))
+    oauth_probes_v2.ATTENDED_WAIT_SECONDS = 0.0
     _common.VERBOSE = bool(getattr(args, "verbose", False))
     # Initialize allowed hosts with target host; --allow-host adds more
     global ALLOWED_HOSTS
@@ -2228,7 +2229,8 @@ def main():
         probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'findings': 0}
         discovery_info = None
 
-    elapsed_seconds = time.time() - scan_start_time
+    # Excludes the attended --acquire-token wait on stdin: Elapsed Time describes the scan.
+    elapsed_seconds = max(0.0, time.time() - scan_start_time - oauth_probes_v2.ATTENDED_WAIT_SECONDS)
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 

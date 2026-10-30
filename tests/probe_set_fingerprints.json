@@ -22,6 +22,17 @@
     "report_accounting": "3842e79c9959ad1250fd85f5ad5f490539a23007741a65dd4f7f662feaab2ebe"
    },
    "changed": "2026-10-30, fix: [DEBUG] lines behind --verbose (token-cache-control debug print gated; no verdict changed)"
+  },
+  "2026.10.30.3": {
+   "fingerprint": "5e633ca88b7dec5ae706eff36726c480b182332c6fddde7d286734bb023b41b8",
+   "components": {
+    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "77a66c251b1f3820453cf4ad6e5ce1bc719b7fdc96c4bf0af14313613e6204a9",
+    "report_accounting": "3842e79c9959ad1250fd85f5ad5f490539a23007741a65dd4f7f662feaab2ebe"
+   },
+   "changed": "2026-10-30, fix: Elapsed Time excludes the attended --acquire-token stdin wait (ATTENDED_WAIT_SECONDS); no verdict changed"
   }
  }
 }

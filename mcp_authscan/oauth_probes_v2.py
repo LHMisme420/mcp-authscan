@@ -12,6 +12,7 @@ import base64
 import hashlib
 import secrets
 import socket
+import time
 from .monolith import assert_url_is_fetchable
 
 from mcp_authscan.http_headers import Headers
@@ -81,6 +82,9 @@ REDIRECT_CANDIDATES = (
 # POST with no authorization code. When True it obtains a real access token through one
 # authorization-code request with PKCE S256 and takes its verdict from the token response.
 ACQUIRE_TOKEN = False
+# Seconds this run spent waiting on stdin at the attended --acquire-token step; monolith.main()
+# subtracts it from the reported Elapsed Time, which describes the scan, not the operator.
+ATTENDED_WAIT_SECONDS = 0.0
 
 HOSTILE_ORIGIN = "https://hostile.example.com"
 # Named limitations of the attended exchange (PROBE_CONTRACT.md [4])
@@ -571,10 +575,14 @@ def _prompt_for_redirect(authorization_url, redirect_uri):
           "    3. Copy the full address from the browser's address bar, paste it here and press Enter\n"
           "       (an empty line skips the token-cors exchange):" % (authorization_url, redirect_uri),
           file=sys.stderr, flush=True)
+    global ATTENDED_WAIT_SECONDS
+    waited_from = time.monotonic()
     try:
         line = sys.stdin.readline()
     except Exception:
         return None
+    finally:
+        ATTENDED_WAIT_SECONDS += time.monotonic() - waited_from
     return line or None
 
 

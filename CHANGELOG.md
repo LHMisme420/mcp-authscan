@@ -28,6 +28,7 @@ the previous stamp instead of the day its probe set changed. Commit times are Am
 | 2026.11.03 | f1d4fb3 | 2026-10-30 02:37 | **mis-dated**, never on main or in a release: client_secret_basic (HTTP Basic, RFC 6749 2.3.1) at the token exchange, environment-client token-cors and password-grant, and revocation |
 | 2026.10.30.1 | this change | 2026-10-30 | the 2026.11.03 probe set re-stamped under the new scheme; no probe changed |
 | 2026.10.30.2 | commit adding this row | 2026-10-30 | [DEBUG] stderr lines (discovery endpoints, token-cache-control) only with --verbose; no verdict changed |
+| 2026.10.30.3 | commit adding this row | 2026-10-30 | Elapsed Time excludes the attended --acquire-token wait on stdin; no verdict changed |
 
 No release tag (v1.1.4 to v1.1.8) carries a future-dated stamp. Reports already produced keep
 their stamp: read 2026.10.30, 2026.10.31, 2026.11.01 and 2026.11.02 as four successive probe sets
