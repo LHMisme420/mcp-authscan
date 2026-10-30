@@ -20,7 +20,7 @@
 | Code | Condition | Evidence |
 |------|-----------|----------|
 | 3 | Private IP without --allow-private | `[!] Target validation failed: Target localhost resolves to private IP 127.0.0.1 (DNS rebinding protection)` |
-| 3 | Scheme-less host:port target that is not an existing path | `[!] Target validation failed: target example.com:443 has no scheme; did you mean https://example.com:443 ?` (stdout empty). A scheme-less target without a port, e.g. `example.com/mcp`, is still read as a local path: `[!] Refused: no files examined in example.com/mcp; no report produced` |
+| 3 | Target that is neither an existing path nor a URL with a scheme (`://`), e.g. `example.com:443`, `example.com/mcp`, `localhost`, `nosuchdir` | `[!] Target validation failed: Target is neither an existing path nor a URL with a scheme. For a live endpoint use https://host/path. For source mode, pass a path that exists.` (stdout empty). An existing directory with no source files keeps `[!] Refused: no files examined in <dir>; no report produced` |
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
 | 4 | Accounting invariant violated (harness bumps passed by 1), with or without findings | `[!] ACCOUNTING ERROR: 8 verdicts (expected 7 attempted)`; stdout empty |
 | 5 | 401 on /mcp, no discovery metadata | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |

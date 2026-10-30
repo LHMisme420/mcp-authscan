@@ -1,9 +1,13 @@
-"""A scheme-less host:port target is refused (exit 3) naming the missing scheme; it never
-silently falls into source mode. Real source-mode paths keep their previous behaviour.
+"""A target that is neither an existing path nor a URL with a scheme is refused (exit 3, stdout
+empty) with one message that names both readings; the tool never guesses which one was meant.
 
-Rule (monolith.missing_scheme): the target has no "://", does not exist on disk, and is
-HOST:PORT[/path] where HOST is a hostname, IPv4 address or [IPv6] literal and PORT is 1-5
-digits. An existing path always wins, so a directory literally named "h:80" still scans.
+Rule (monolith.missing_scheme), three branches and no heuristics:
+  * the target contains "://"      -> URL handling, unchanged;
+  * the target exists on disk      -> source mode, unchanged (an existing directory with no
+                                      source files keeps its "no files examined" refusal);
+  * anything else                  -> the refusal below.
+There is deliberately no dot, port, leading-slash or host-vs-path test, so "localhost", bare
+names, "./missing" and "/abs/missing" all get the same message as "example.com:443".
 """
 import os
 import subprocess
@@ -15,6 +19,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 AUTH = ["--authorized-by", "Fixture runner", "--auth-basis", "Local test fixture",
         "--contact", "fixture@example.test"]
+NEITHER = ("[!] Target validation failed: Target is neither an existing path nor a URL with a "
+           "scheme. For a live endpoint use https://host/path. For source mode, pass a path that "
+           "exists.")
 
 
 def _run(target, cwd):
@@ -31,30 +38,59 @@ def test_bare_host_port_is_refused_naming_the_scheme(target, tmp_path):
     proc = _run(target, tmp_path)
     assert proc.returncode == 3, (proc.returncode, proc.stderr)
     last = proc.stderr.strip().splitlines()[-1]
-    assert last == ("[!] Target validation failed: target %s has no scheme; did you mean https://%s ?"
-                    % (target, target)), last
+    assert last == NEITHER, last
     assert "Scanning source code directory" not in proc.stderr
     assert proc.stdout == ""
 
 
+@pytest.mark.parametrize("target", ["example.com:443", "127.0.0.1:9002", "[::1]:9002",
+                                    "localhost:8080/mcp", "example.com/mcp", "example.com",
+                                    "localhost/mcp", "localhost", "nosuchdir", "/abs/missing",
+                                    "./missing"])
+def test_neither_path_nor_url_gets_the_one_message(target, tmp_path):
+    assert not os.path.exists(os.path.join(str(tmp_path), target))
+    proc = _run(target, tmp_path)
+    assert proc.returncode == 3, (proc.returncode, proc.stderr)
+    assert proc.stdout == ""
+    last = proc.stderr.strip().splitlines()[-1]
+    assert last == NEITHER, last
+    assert "Scanning source code directory" not in proc.stderr
+    assert "no files examined" not in proc.stderr
+    assert "did you mean" not in proc.stderr
+
+
 def _srcdir(path):
-    path.mkdir()
+    path.mkdir(parents=True)
     (path / "app.py").write_text("import os\nprint(os.getcwd())\n")
     return path
 
 
-@pytest.mark.parametrize("form", ["absolute", "relative", "dot", "colon-named"])
+@pytest.mark.parametrize("form", ["absolute", "relative", "dot", "colon-named", "dotted",
+                                  "localhost-named", "nested", "file"])
 def test_existing_directory_still_runs_source_mode(form, tmp_path):
-    name = "h:80" if form == "colon-named" else "srcdir"
+    name = {"colon-named": "h:80", "dotted": "example.com", "localhost-named": "localhost",
+            "nested": "outer/inner"}.get(form, "srcdir")
     d = _srcdir(tmp_path / name)
-    target = {"absolute": str(d), "relative": name, "dot": "./" + name, "colon-named": name}[form]
+    target = {"absolute": str(d), "relative": name, "dot": "./" + name, "colon-named": name,
+              "dotted": name, "localhost-named": name, "nested": name,
+              "file": name + "/app.py"}[form]
     proc = _run(target, tmp_path)
     assert proc.returncode == 0, (proc.returncode, proc.stderr)
     assert "Scanning source code directory" in proc.stderr
-    assert "has no scheme" not in proc.stderr
+    assert "neither an existing path" not in proc.stderr
 
 
 def test_missing_relative_directory_keeps_its_refusal(tmp_path):
     proc = _run("nosuchdir", tmp_path)
     assert proc.returncode == 3
-    assert proc.stderr.strip().splitlines()[-1] == "[!] Refused: no files examined in nosuchdir; no report produced"
+    assert proc.stderr.strip().splitlines()[-1] == NEITHER
+
+
+def test_existing_empty_directory_keeps_no_files_examined(tmp_path):
+    (tmp_path / "emptydir").mkdir()
+    proc = _run("emptydir", tmp_path)
+    assert proc.returncode == 3, (proc.returncode, proc.stderr)
+    assert proc.stdout == ""
+    assert proc.stderr.strip().splitlines()[-1] == \
+        "[!] Refused: no files examined in emptydir; no report produced"
+    assert "neither an existing path" not in proc.stderr
