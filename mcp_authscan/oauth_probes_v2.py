@@ -137,7 +137,7 @@ def _token_auth_method(client=None, metadata=None):
     """
     registered = client is not None and client.source == "registered"
     if registered and isinstance(client.auth_method, str):
-        return CLIENT_SECRET_BASIC if client.auth_method == CLIENT_SECRET_BASIC else CLIENT_SECRET_POST
+        return CLIENT_SECRET_BASIC if client.auth_method == CLIENT_SECRET_BASIC else client.auth_method or CLIENT_SECRET_POST
     if not registered:
         chosen = (os.environ.get("MCPAUTHSCAN_TOKEN_ENDPOINT_AUTH_METHOD") or "").strip()
         if chosen in (CLIENT_SECRET_BASIC, CLIENT_SECRET_POST):
@@ -612,6 +612,24 @@ def _code_from_pasted(pasted, redirect_uri, state):
     return params["code"], None, None
 
 
+def _code_from_authorization_endpoint(authorization_url, redirect_uri, state):
+    req = Request(authorization_url, method="GET")
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    try:
+        http_status, headers, body = _egress_guard(req, follow_redirects=False)
+    except EgressRefusalError:
+        return None, "authorization_endpoint outside allowed scope", None
+    except Exception as e:
+        return None, "authorization request failed: %s" % type(e).__name__, None
+    location = _header(headers, "location").strip()
+    if not location:
+        return None, (
+            "authorization endpoint did not redirect (HTTP %d); "
+            "interactive consent likely required" % http_status), None
+    return _code_from_pasted(location, redirect_uri, state)
+
+    return _code_from_pasted(location, redirect_uri, state)
+
 def _env_client():
     cid, secret, redirect = _client_creds()
     if cid and redirect:
@@ -649,8 +667,8 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
                                   "MCPAUTHSCAN_CLIENT_ID/MCPAUTHSCAN_REDIRECT_URI are not both set)"),
                       prerequisite_met=False)
 
-    mode = "Acquired-token mode (--acquire-token), client %s (%s%s): " % (
-        client.client_id, client.source,
+    mode = "Acquired-token mode (--acquire-token), client (%s%s): " % (
+        client.source,
         ", client_secret_basic" if client.secret and _token_auth_method(client, metadata) == CLIENT_SECRET_BASIC
         else "")
     verifier, challenge = _pkce_pair()
@@ -659,9 +677,12 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     authorization_url = authorization_endpoint + sep + urlencode({
         "response_type": "code", "client_id": client.client_id, "redirect_uri": client.redirect_uri,
         "code_challenge": challenge, "code_challenge_method": "S256", "state": state})
-    pasted = _prompt_for_redirect(authorization_url, client.redirect_uri)
-    code, limitation, why = _code_from_pasted(pasted, client.redirect_uri, state)
-    pasted = None
+    if ACQUIRE_TOKEN:
+        pasted = _prompt_for_redirect(authorization_url, client.redirect_uri)
+        code, limitation, why = _code_from_pasted(pasted, client.redirect_uri, state)
+        pasted = None
+    else:
+        code, limitation, why = _code_from_authorization_endpoint(authorization_url, client.redirect_uri, state)
     if limitation:
         verifier = None
         return result("NOT_OBSERVED", mode + limitation + (": " + why if why else "") + "; no token obtained",
@@ -669,7 +690,7 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
 
     form = {"grant_type": "authorization_code", "code": code, "redirect_uri": client.redirect_uri,
             "client_id": client.client_id, "code_verifier": verifier}
-    if client.secret:
+    if client.secret and client.auth_method != "none":
         form["client_secret"] = client.secret
     req = Request(token_endpoint, method="POST")
     basic = _basic_client_auth(req, form, client.client_id, client.secret, _token_auth_method(client, metadata))
@@ -734,7 +755,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
     Default: one POST with a hostile Origin and no authorization code. With ACQUIRE_TOKEN
     (--acquire-token) and metadata given, _token_cors_acquired obtains a real token first.
     """
-    if token_endpoint and ACQUIRE_TOKEN and metadata is not None:
+    if token_endpoint and metadata is not None and (client or _env_client()):
         return _token_cors_acquired(token_endpoint, metadata, client, registration_note)
     if not token_endpoint:
         return record(

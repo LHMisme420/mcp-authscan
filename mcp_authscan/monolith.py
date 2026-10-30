@@ -2443,7 +2443,7 @@ def main():
     varying_headers = {
                 "date", "etag", "set-cookie", "server", "x-powered-by", "x-frame-options",
                 "cf-ray", "x-deno-trace-id", "report-to", "x-trace-id", "x-request-id",
-                "via", "age", "x-cache", "content-length"
+                "via", "age", "x-cache", "content-length", "expires", "x-cloud-trace-context"
             }
     for record in oauth_records:
         probe = record.as_dict()
