@@ -90,6 +90,7 @@ The negative control is run locally against the fixture on port 9002. It is not 
 - No dependency CVE check, no secrets-in-history scan.
 - Source mode does not detect a hardcoded token whose value contains whitespace, such as `"Bearer <token>"` or `"Token <token>"`. The hardcoded-credential rule deliberately skips values with whitespace so error strings are not flagged. A literal like `api_key = "<token>"` is detected.
 - Source mode does not detect wildcard CORS with credentials allowed (`Access-Control-Allow-Origin: *` together with `Access-Control-Allow-Credentials: true`) set in code. Only the live token-cors probe tests CORS, against a running endpoint.
+- Without `--acquire-token`, a server that properly requires client authentication at its token endpoint reports token-cors NOT_OBSERVED. The plain token-cors probe sends no client credentials, such a server answers 401 invalid_client, and only a 2xx token response can reach a verdict. A full token-cors verdict on such a server needs an attended `--acquire-token` run (PROBE_CONTRACT.md [4]). The converse also holds: a token-cors FAIL from a plain run means the server returned a 2xx token response to a request that carried no client authentication.
 - Absence of a finding is not proof of safety.
 
 A version string is a claim. A response from the running server is a receipt.
