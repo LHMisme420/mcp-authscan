@@ -11,6 +11,17 @@
     "report_accounting": "3842e79c9959ad1250fd85f5ad5f490539a23007741a65dd4f7f662feaab2ebe"
    },
    "changed": "2026-10-30, commit f1d4fb3 (client_secret_basic at the token endpoint and revocation; shipped on the branch as 2026.11.03)"
+  },
+  "2026.10.30.2": {
+   "fingerprint": "cc991101b8bef74b4e3f1a924a21e3f864ef030096cbf382e69ce2900f3dee13",
+   "components": {
+    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "8923389a553b33c156c9dbd292c6f095f39eb0c5da364b4edfff6ac74525f23e",
+    "report_accounting": "3842e79c9959ad1250fd85f5ad5f490539a23007741a65dd4f7f662feaab2ebe"
+   },
+   "changed": "2026-10-30, fix: [DEBUG] lines behind --verbose (token-cache-control debug print gated; no verdict changed)"
   }
  }
 }

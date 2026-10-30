@@ -2,6 +2,17 @@
 import hashlib
 import json
 import re
+import sys
+
+
+# Set from --verbose / -v by monolith.main(); [DEBUG] lines go to stderr only when True.
+VERBOSE = False
+
+
+def debug(message):
+    """Print a [DEBUG] line to stderr, only when the run was started with --verbose."""
+    if VERBOSE:
+        print("[DEBUG] " + message, file=sys.stderr)
 
 
 VALID_STATUSES = {"PASS", "FAIL", "NOT_OBSERVED", "EXCLUDED", "NOT_IMPLEMENTED"}

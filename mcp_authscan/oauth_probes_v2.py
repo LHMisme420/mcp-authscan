@@ -6,7 +6,7 @@ import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
-from ._common import record, redact_secrets, SEVERITY_ORDER
+from ._common import record, redact_secrets, SEVERITY_ORDER, debug
 from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl, quote_plus
 import base64
 import hashlib
@@ -468,8 +468,7 @@ def probe_token_cache_control(token_endpoint):
     
     # Read Cache-Control from the /token response
     cache_control = headers.get("Cache-Control", "").lower()
-    import sys
-    print(f"[DEBUG] token-cache-control: status={http_status}, cache_control={repr(cache_control)}", file=sys.stderr)
+    debug(f"token-cache-control: status={http_status}, cache_control={repr(cache_control)}")
     
     if http_status and http_status >= 500:
         return record(

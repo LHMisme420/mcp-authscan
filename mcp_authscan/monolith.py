@@ -26,6 +26,7 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
 from mcp_authscan.cors import probe_cors_urllib
 from .errors import EgressRefusalError
+from mcp_authscan import _common
 
 LIVE_ENDPOINTS = {
     "/sse": "GET",
@@ -225,9 +226,9 @@ def _direct_rfc8414_discovery(base):
                 print("[+] OAuth discovery successful", file=sys.stderr)
                 parsed = urlparse(base)
                 return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints, "discovered_hosts": [parsed.hostname] if parsed.hostname else []}
-            print("[DEBUG] No endpoints found", file=sys.stderr)
+            _common.debug("No endpoints found")
     except Exception as e:
-        print(f"[DEBUG] Fallback failed: {e}", file=sys.stderr)
+        _common.debug(f"Fallback failed: {e}")
     return None, None
 
 
@@ -462,7 +463,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
 
     # Perform RFC 9728 → RFC 8414 discovery
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
-    print(f"[DEBUG] oauth_endpoints={oauth_endpoints}", file=sys.stderr)
+    _common.debug(f"oauth_endpoints={oauth_endpoints}")
 
     if oauth_endpoints:
         # Use discovered OAuth endpoints
@@ -621,7 +622,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.30.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.10.30.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -1983,6 +1984,8 @@ def main():
 
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
+    ap.add_argument("--verbose", "-v", action="store_true",
+                    help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
     ap.add_argument("--sarif", action="store_true", help="emit SARIF 2.1.0 (GitHub code scanning)")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
@@ -2030,6 +2033,7 @@ def main():
     import mcp_authscan.oauth_probes_v2 as oauth_probes_v2
     oauth_probes_v2.ALLOW_PRIVATE_TARGETS = ALLOW_PRIVATE_TARGETS
     oauth_probes_v2.ACQUIRE_TOKEN = bool(getattr(args, "acquire_token", False))
+    _common.VERBOSE = bool(getattr(args, "verbose", False))
     # Initialize allowed hosts with target host; --allow-host adds more
     global ALLOWED_HOSTS
     target_host = urlparse(args.target).hostname or args.target
