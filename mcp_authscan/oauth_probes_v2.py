@@ -781,15 +781,15 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         req.add_header("Origin", origin_sent)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         cid, csec, _ = _client_creds()
-        sent_credentials = bool(cid)
+        sent_credentials = False
         if cid:
             form = {"grant_type": "client_credentials", "client_id": cid}
             if csec:
                 form["client_secret"] = csec
             _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
-            req.data = urlencode(form).encode()
-        else:
-            req.data = b"grant_type=invalid"
+            sent_credentials = bool(csec) or req.has_header("Authorization"); req.data = urlencode(form).encode()
+        if not sent_credentials:
+            return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", limitation="No client credential could be registered")
         try:
             http_status, headers, body = _egress_guard(req)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
@@ -841,9 +841,9 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         severity = None
         title = None
         remediation = None
-    elif acao == "":
-        # 2xx with no ACAO: token response is not exposed cross-origin.
-        status = "PASS"
+    elif acao == "" and not sent_credentials:
+        # 2xx with no ACAO and no credential sent: proves nothing about a credentialed response
+        status = "EXCLUDED"
         severity = None
         title = None
         remediation = None
@@ -870,8 +870,8 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
             detail = f"ACAO: {acao} (on 400 error response: cross-origin requester receives error, not token)"
         else:
             detail = "ACAO: %s, ACAC: %s (hostile Origin sent: %s)" % (acao, acac or "(absent)", origin_sent)
-    elif status == "PASS" and acao == "":
-        detail = "HTTP %d token response with no Access-Control-Allow-Origin header" % http_status
+    elif status == "EXCLUDED" and acao == "":
+        detail = "HTTP %d 2xx with no ACAO and no credential sent; CORS on a credentialed response not assessed" % http_status
     elif status == "PASS":
         detail = "HTTP %d token response; ACAO %s does not admit hostile Origin %s" % (http_status, acao, origin_sent)
     else:

@@ -23,7 +23,7 @@ FIXTURES = {
 EXPECTED = {
     9002: {
         "token-cache-control": "PASS",
-        "token-cors": "FAIL",
+        "token-cors": "EXCLUDED",
         "password-grant": "FAIL",
         "pkce-s256": "EXCLUDED",
         "redirect-uri-exact": "EXCLUDED",
@@ -58,7 +58,7 @@ FIXTURES = {
 EXPECTED = {
     9002: {
         "token-cache-control": "PASS",
-        "token-cors": "FAIL",
+        "token-cors": "EXCLUDED",
         "password-grant": "FAIL",
         "pkce-s256": "EXCLUDED",
         "redirect-uri-exact": "EXCLUDED",
@@ -327,9 +327,9 @@ class AcquiredVerdictContract(unittest.TestCase):
 
 
 # Plain mode (no --acquire-token) against the same 9004 server as the acquired entry above.
-# The server requires client authentication at the token endpoint, so the plain token-cors probe
-# (no client credentials) gets 401 invalid_client and only a 2xx reaches a verdict: token-cors is
-# NOT_OBSERVED and coverage is 8 of 9 (README "Known limits"). Both 9004 entries must hold.
+# Registration runs in plain mode too, so the token-cors probe does carry a client credential and
+# a 2xx reaches a verdict: token-cors is judged on the token response and PASSES. Coverage 9 of 9.
+# Both 9004 entries must hold.
 PLAIN_FULL_FIXTURES = {
     9004: "test_fixture_full_authserver.py",
 }
@@ -340,14 +340,14 @@ PLAIN_FULL_EXPECTED = {
             "issuer-identity": "PASS",
             "resource-binding": "PASS",
             "token-cache-control": "PASS",
-            "token-cors": "NOT_OBSERVED",
+            "token-cors": "PASS",
             "jwks-keys": "PASS",
             "password-grant": "PASS",
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
         },
-        "coverage": round(8 / 9, 4),
+        "coverage": 1.0,
         "excluded": 0,
         "exit_code": 0,
     },
