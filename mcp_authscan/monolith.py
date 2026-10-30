@@ -2514,7 +2514,13 @@ def main():
     elif args.sarif:
         print(json.dumps(to_sarif(F, args.target), indent=2))
     elif args.json:
-        print(json.dumps(canonical_payload, indent=2))
+        report_json = json.dumps(canonical_payload, indent=2)
+        if args.output:
+            # --output is documented as the HTML/JSON report file; stdout keeps the report too.
+            with open(args.output, "w", encoding="utf-8") as fh:
+                fh.write(report_json + "\n")
+            print(f"[+] JSON report saved to {args.output}", file=sys.stderr)
+        print(report_json)
     else:
         # Text output with optional authorization header
         # Check for discovery incomplete status
