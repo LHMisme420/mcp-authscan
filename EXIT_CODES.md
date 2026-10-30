@@ -24,7 +24,7 @@
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
 | 4 | Accounting invariant violated (harness bumps passed by 1), with or without findings | `[!] ACCOUNTING ERROR: 8 verdicts (expected 7 attempted)`; stdout empty |
 | 5 | 401 on /mcp, no discovery metadata | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
-| 0 | Clean fixture without client credentials: 5 PASS, 2 NOT_OBSERVED, 2 NOT_IMPLEMENTED | `[!] Incomplete assessment: 5 probes reached conclusive verdicts...`; Coverage 5 of 9 (0.56) |
+| 0 | Clean fixture without client credentials: 5 PASS, 2 NOT_OBSERVED, 2 NOT_IMPLEMENTED | `[!] Incomplete assessment: 5 probes reached conclusive verdicts...`; Coverage 5 of 9 testable (0.56): nothing EXCLUDED, and NOT_IMPLEMENTED stays in the testable count |
 
 ## Exit 5 in Detail: Incomplete Assessment
 
@@ -48,8 +48,9 @@ A single run of localhost:8765 demonstrates all three verdict types:
 **Since 98ddd03 (2026-10-29):** the localhost:8765 run above predates the NOT_IMPLEMENTED label. [7] pkce-s256 and
 [8] redirect-uri-exact are not yet built: they are now reported NOT_IMPLEMENTED (never sent), not EXCLUDED, and
 carry no prerequisites. The accounting is attempted = PASS + FAIL + NOT_OBSERVED, and
-attempted + EXCLUDED + NOT_IMPLEMENTED = 9. Coverage is (PASS + FAIL) / 9, the declared set, so a clean run reads
-7/9 (0.78) with both unbuilt probes named. Exit codes are unchanged by this: a clean run still exits 0.
+attempted + EXCLUDED + NOT_IMPLEMENTED = 9. Coverage is (PASS + FAIL) / testable, testable = 9 - EXCLUDED; NOT_IMPLEMENTED is
+not excluded, so that clean run read 7 of 9 testable (0.78) with both unbuilt probes named. Since 7-8 are built and EXCLUDED
+without a client, a clean run reads 7 of 7 testable (1.00) with both named as excluded. Exit codes are unchanged by this: a clean run still exits 0.
 
 ## Known Issues
 

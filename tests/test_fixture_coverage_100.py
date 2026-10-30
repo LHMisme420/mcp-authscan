@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Test server: clean complete fixture. Probes 1-6, 9 are built and target verdicts; probes 7-8 are NOT_IMPLEMENTED
-(not yet built, never sent), not EXCLUDED. Coverage is over the declared set of 9, so the most this fixture can read is 7/9."""
+(not yet built, never sent), not EXCLUDED. Coverage is over the testable probes (9 less EXCLUDED); without a client 7-8 are EXCLUDED today, so the most this fixture can read is 7/7."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
