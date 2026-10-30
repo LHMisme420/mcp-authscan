@@ -610,6 +610,8 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                 "response_body": "",
                 "response_preview": "MCP endpoint accessible without authentication",
                 "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+                "remediation": "Enable authentication on the MCP endpoint (OAuth 2.1 with a registered client) and reject unauthenticated /initialize requests with 401.",
+                "snippet": "",
             })
 
         # Discovery failed - STOP, don't fallback to guessing
@@ -2136,12 +2138,22 @@ def main():
         # Check for zero-auth vulnerability
         if discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
             print(f"[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
-            _sev = F[-1].get("severity", "LOW") if F else "LOW"
-            _levels = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-            _thr = str(getattr(args, "fail_on", "critical")).upper()
-            if _levels.get(_sev, 3) <= _levels.get(_thr, 0):
-                print("[!] Exiting 1: zero-auth finding meets the fail-on threshold", file=sys.stderr)
-                sys.exit(1)
+            print("")
+            print("=" * 80)
+            print("REPORT: LIVE ENDPOINT ASSESSMENT")
+            print("=" * 80)
+            print("Target:", args.target)
+            print("Authorized by:", args.authorized_by)
+            print("Auth basis:", args.auth_basis)
+            print("OAuth probes: not run (no authorization server published)")
+            print("Findings:", len(F))
+            for _f in F:
+                print("")
+                print("[%s] %s  %s" % (_f.get("severity"), _f.get("rule"), _f.get("title")))
+                print("  Evidence:", _f.get("evidence"))
+                print("  Interpretation:", _f.get("interpretation"))
+                print("  Remediation:", _f.get("remediation"))
+            sys.exit(1)
             findings = [{
                 "rule": "ZERO-AUTH",
                 "severity": "CRITICAL",
@@ -2158,6 +2170,8 @@ def main():
                 "response_body": "",
                 "response_preview": "HTTP 200 - MCP endpoint accessible",
                 "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+                "remediation": "Enable authentication on the MCP endpoint (OAuth 2.1 with a registered client) and reject unauthenticated /initialize requests with 401.",
+                "snippet": "",
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
