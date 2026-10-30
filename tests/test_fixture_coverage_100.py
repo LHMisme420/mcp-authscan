@@ -126,7 +126,7 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     """Declared-set rule: coverage = (PASS + FAIL) / in_scope (9), never / attempted.
 
     The handler names 127.0.0.1:9000 in its metadata, so it is served on 9000.
-    No client credentials are configured, so pkce-s256 and redirect-uri-exact are
+    No client credentials are configured, so pkce-s256, redirect-uri-exact and token-cors are
     EXCLUDED (prerequisite missing, never sent); no probe is NOT_IMPLEMENTED.
     """
     for key in ("MCPAUTHSCAN_CLIENT_ID", "MCPAUTHSCAN_CLIENT_SECRET", "MCPAUTHSCAN_REDIRECT_URI"):
@@ -150,15 +150,15 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     assert counts["in_scope"] == 9
     assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
     excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
-    assert set(excluded) == {"pkce-s256", "redirect-uri-exact"}
+    assert set(excluded) == {"pkce-s256", "redirect-uri-exact", "token-cors"}
     assert "client_id" in excluded["pkce-s256"]
     assert excluded["redirect-uri-exact"] == "No registered redirect_uri to compare against"
-    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == 2
+    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == 3
     assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
-    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 2
+    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 3
     assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 9.0
-    # The two excluded probes stay in the denominator: a run without client credentials cannot read 100%.
+    # All three excluded probes stay in the denominator: a run without client credentials cannot read 100%.
     assert coverage(counts) <= 7 / 9.0
 
 
