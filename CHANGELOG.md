@@ -63,6 +63,11 @@ of 2026-10-29. The old date-only 2026.10.30 and the new 2026.10.30.1 are differe
 - `CONTRIBUTING.md`, `CODEOWNERS`, and an "Authorization — read before you scan"
   section in the README.
 
+### Changed
+- Source-mode JSON now writes `"coverage": null` (was `0`): no probe ran, so coverage does not apply, and null is
+  the honest value. A live run with zero testable probes also writes null and exits 5. The text, HTML, SARIF and
+  compliance-PDF renderers never print it (checked with a null payload); the text report prints no coverage number.
+
 ### Fixed
 - Auth-finding accuracy: a `200` on an MCP path is now a zero-auth finding
   unless it is a human-facing HTML web page (SPA/docs catch-all). This fixes
