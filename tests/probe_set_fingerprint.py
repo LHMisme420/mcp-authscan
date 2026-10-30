@@ -10,9 +10,10 @@ Covered (see CHANGELOG.md "Probe set stamps"):
   code             normalized AST of every package-internal definition reachable from
                    run_oauth_assessment and count_probes (oauth_probes_v2, _common, counts,
                    errors, http_headers and the monolith helpers they import), docstrings removed
-  report_accounting  the counts and coverage assignments in monolith.main
-Not covered: everything else in monolith.main (CLI flags, exit codes, report rendering, findings
-built from FAIL records), render_probe, and resource_probes.py (not run by the scanner).
+Not covered: monolith.main (CLI flags, exit codes, report rendering, findings built from FAIL
+records, and the report accounting: its counts and coverage assignments), counts.coverage(),
+render_probe, and resource_probes.py (not run by the scanner). Report accounting is how a report
+adds up the records, not which probes run or what they decide, so it never needs a new stamp.
 
 Normalization: comments and whitespace are not in the AST; docstrings, line/column positions,
 expression contexts, Constant.kind and type comments are dropped, and fields that are None or
@@ -162,24 +163,6 @@ def _vocabulary():
             for n in ("VALID_STATUSES", "SEVERITY_ORDER")}
 
 
-def _report_accounting():
-    main = _Module("monolith").defs["main"]
-    picked = []
-    for node in ast.walk(main):
-        if isinstance(node, ast.Assign) and len(node.targets) == 1:
-            t = node.targets[0]
-            if isinstance(t, ast.Name) and t.id == "counts":
-                picked.append(node)
-            elif isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name) \
-                    and t.value.id == "canonical_payload":
-                s = t.slice.value if type(t.slice).__name__ == "Index" else t.slice
-                key = _value(s)
-                if key in ("counts", "coverage", "not_implemented"):
-                    picked.append(node)
-    picked.sort(key=lambda n: (n.lineno, n.col_offset))
-    return [_canon(n) for n in picked]
-
-
 def components():
     closure = _closure()
     oauth = _Module("oauth_probes_v2")
@@ -188,7 +171,6 @@ def components():
         "probe_records": _probe_records(closure),
         "vocabulary": _vocabulary(),
         "code": {k: _canon(closure[k]) for k in sorted(closure)},
-        "report_accounting": _report_accounting(),
     }
     return {k: hashlib.sha256(json.dumps(v, sort_keys=True).encode("utf-8")).hexdigest()
             for k, v in parts.items()}, parts
@@ -203,5 +185,4 @@ if __name__ == "__main__":
     fp, hashes = fingerprint()
     _, parts = components()
     print(json.dumps({"fingerprint": fp, "components": hashes, "probe_order": parts["probe_order"],
-                      "code_definitions": sorted(parts["code"]),
-                      "report_accounting_statements": len(parts["report_accounting"])}, indent=1))
+                      "code_definitions": sorted(parts["code"])}, indent=1))
