@@ -138,21 +138,6 @@ def start_fixture(port, filename):
             time.sleep(0.05)
     raise RuntimeError("fixture did not start on %d" % port)
 
-def start_fixture(port, filename):
-    cmd = [sys.executable, str(ROOT / "tests" / filename), str(port)]
-    p = subprocess.Popen(cmd, cwd=str(ROOT),
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.PIPE)
-    for _ in range(100):
-        if p.poll() is not None:
-            raise RuntimeError(p.stderr.read().decode())
-        try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.1).close()
-            return p
-        except OSError:
-            time.sleep(0.05)
-    raise RuntimeError("fixture did not start on %d" % port)
-
 def scan_verdicts(port):
     url = "http://127.0.0.1:%d/mcp" % port
     cmd = [sys.executable, str(ROOT / "mcp_authscan.py"), url, "--json"] + AUTH
