@@ -32,3 +32,15 @@ def test_cli_prints_client_probe_reasons_when_registration_refused():
     assert ("  pkce-s256: No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set); "
             "Dynamic client registration unavailable: registration refused every redirect candidate: "
             "HTTP 400 error=invalid_redirect_uri") in out
+
+
+def test_jwks_fetch_failure_is_not_observed(monkeypatch):
+    from urllib.error import URLError
+    from mcp_authscan import oauth_probes_v2
+
+    def boom(*args, **kwargs):
+        raise URLError("connection refused")
+
+    monkeypatch.setattr(oauth_probes_v2, "_egress_guard", boom)
+    r = probe_jwks_keys("http://127.0.0.1:9/jwks")
+    assert r.status == "NOT_OBSERVED"

@@ -923,9 +923,9 @@ def probe_jwks_keys(jwks_uri):
         return record(
             probe_id=5,
             name="jwks-keys",
-            status="EXCLUDED",
+            status="NOT_OBSERVED",
             probe_class="authserver",
-            detail="Cannot reach JWKS endpoint"
+            detail="JWKS fetch failed: %s" % str(e),
         )
     
     # Explicit check: keys must be asymmetric (RSA, EC, etc)
