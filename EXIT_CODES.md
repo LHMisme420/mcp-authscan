@@ -9,11 +9,11 @@
 
 **Outcome codes** (probes executed):
 - Exit 1: Findings detected (FAIL probes above threshold)
-- Exit 5: Zero testable probes on a live scan: OAuth was detected (HTTP 401) but the RFC 9728 / RFC 8414 discovery chain did not complete, so no probe could run, and nothing was found. Incomplete coverage is never an exit code: it is reported as the `[!] Incomplete assessment` line and the Coverage line.
+- Exit 5: Any in-scope probe with no verdict (NOT_OBSERVED). EXCLUDED does not count.
 
 **Success**:
-- Exit 0: No findings at or above --fail-on. Coverage may be incomplete; that is stated in the output, not in the exit code.
-- Exit 6: (TBD - not yet triggered in testing)
+- Exit 0: No findings at or above --fail-on, and no in-scope probe left without a verdict.
+- Exit 6: Refused to send a request to a host outside the authorized set.
 
 ## Verified Test Cases
 
@@ -23,12 +23,12 @@
 | 3 | Target neither an http(s) URL nor a readable source directory | `[!] Refused: no files examined in p23ta8.fsmcp.com/mcp; no report produced` (schemeless target treated as a local path; stdout empty) |
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
 | 4 | Accounting invariant violated (harness bumps passed by 1), with or without findings | `[!] ACCOUNTING ERROR: 8 verdicts (expected 7 attempted)`; stdout empty |
-| 5 | 401 on /mcp, no discovery metadata | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
+| 5 | Any in-scope probe without a verdict | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
 | 0 | Clean fixture without client credentials: 5 PASS, 2 NOT_OBSERVED, 2 NOT_IMPLEMENTED | `[!] Incomplete assessment: 5 probes reached conclusive verdicts...`; Coverage 5 of 9 (0.56) |
 
 ## Exit 5 in Detail: Incomplete Assessment
 
-**Superseded by e5d56b8 (2026-10-29):** the coverage rule described below was removed. An incomplete assessment no longer exits 5; this run would now exit on its two FAIL findings (exit 1 when they are at or above --fail-on), with the incomplete assessment stated in the output. Kept as a historical record.
+*Superseded 2026-10-30:* exit 5 now fires on NOT_OBSERVED only; excluded probes print and count but do not gate.
 
 A single run of localhost:8765 demonstrates all three verdict types:
 
