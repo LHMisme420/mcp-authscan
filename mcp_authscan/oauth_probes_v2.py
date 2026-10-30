@@ -7,7 +7,7 @@ from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from ._common import record, redact_secrets, SEVERITY_ORDER
-from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl
+from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl, quote_plus
 import base64
 import hashlib
 import secrets
@@ -104,10 +104,11 @@ class _Client:
     only; repr never shows them. registration_client_uri is the RFC 7592 client configuration
     endpoint, when the registration returned one."""
     __slots__ = ("client_id", "redirect_uri", "source", "usable", "secret", "registration_access_token",
-                 "registration_client_uri")
+                 "registration_client_uri", "auth_method")
 
     def __init__(self, client_id, redirect_uri, source, usable=True, secret=None, registration_access_token=None,
-                 registration_client_uri=None):
+                 registration_client_uri=None, auth_method=None):
+        self.auth_method = auth_method   # token_endpoint_auth_method from the registration response
         self.client_id = client_id
         self.redirect_uri = redirect_uri
         self.source = source
@@ -118,6 +119,51 @@ class _Client:
 
     def __repr__(self):
         return "<client %s source=%s>" % (self.client_id, self.source)
+
+
+CLIENT_SECRET_BASIC = "client_secret_basic"
+CLIENT_SECRET_POST = "client_secret_post"
+
+
+def _token_auth_method(client=None, metadata=None):
+    """How a client authenticates at the token and revocation endpoints (since probe set 2026.11.03).
+
+    "client_secret_basic" (HTTP Basic, RFC 6749 2.3.1) or "client_secret_post" (client_secret in
+    the form body). In order: for a registered client, the token_endpoint_auth_method its
+    registration response returned; for a client from the environment,
+    MCPAUTHSCAN_TOKEN_ENDPOINT_AUTH_METHOD when it names one of the two; then the metadata, Basic
+    when token_endpoint_auth_methods_supported lists client_secret_basic and not
+    client_secret_post; otherwise client_secret_post, as before 2026.11.03.
+    """
+    registered = client is not None and client.source == "registered"
+    if registered and isinstance(client.auth_method, str):
+        return CLIENT_SECRET_BASIC if client.auth_method == CLIENT_SECRET_BASIC else CLIENT_SECRET_POST
+    if not registered:
+        chosen = (os.environ.get("MCPAUTHSCAN_TOKEN_ENDPOINT_AUTH_METHOD") or "").strip()
+        if chosen in (CLIENT_SECRET_BASIC, CLIENT_SECRET_POST):
+            return chosen
+    supported = (metadata or {}).get("token_endpoint_auth_methods_supported")
+    if isinstance(supported, list) and CLIENT_SECRET_BASIC in supported and CLIENT_SECRET_POST not in supported:
+        return CLIENT_SECRET_BASIC
+    return CLIENT_SECRET_POST
+
+
+def _basic_client_auth(req, form, client_id, secret, method):
+    """With method client_secret_basic, a client_id and a secret: send the secret only in
+    "Authorization: Basic base64(form-urlencoded client_id ":" form-urlencoded secret)"
+    (RFC 6749 2.3.1) and drop client_secret from form. Otherwise change nothing.
+
+    Returns the header value, only so the caller can withhold an error_description echoing it,
+    or None. The value is never printed, logged or recorded (records keep response headers only).
+    """
+    if method != CLIENT_SECRET_BASIC or not secret or not client_id:
+        return None
+    form.pop("client_secret", None)
+    pair = "%s:%s" % (quote_plus(client_id), quote_plus(secret))
+    value = "Basic " + base64.b64encode(pair.encode("utf-8")).decode("ascii")
+    req.add_header("Authorization", value)
+    pair = None
+    return value
 
 
 def _oauth_error(body):
@@ -218,7 +264,8 @@ def _register_client(metadata, tried=None):
         client = _Client(client_id, redirect_uri, "registered",
                          secret=doc.get("client_secret"),
                          registration_access_token=doc.get("registration_access_token"),
-                         registration_client_uri=doc.get("registration_client_uri"))
+                         registration_client_uri=doc.get("registration_client_uri"),
+                         auth_method=doc.get("token_endpoint_auth_method"))
         uris = doc.get("redirect_uris")
         doc = body = None
         if uris is not None and not (isinstance(uris, list) and redirect_uri in uris):
@@ -478,13 +525,18 @@ def _revoke_tokens(metadata, client, tokens, sent=None):
     endpoint = (metadata or {}).get("revocation_endpoint")
     if not endpoint:
         return [hint for hint, _ in tokens], "not attempted: no revocation_endpoint advertised"
-    sent = dict(tokens, client_secret=client.secret,
-                registration_access_token=client.registration_access_token, **(sent or {}))
+    extra = sent or {}
+    sent = dict(tokens, client_secret=client.secret, registration_access_token=client.registration_access_token)
+    sent.update(extra)   # may repeat client_secret (the token exchange withholds it too)
+    extra = None
     results, not_revoked = [], []
+    method = _token_auth_method(client, metadata)
     for hint, token in tokens:
         form = {"token": token, "token_type_hint": hint, "client_id": client.client_id,
                 "client_secret": client.secret or ""}
-        req = Request(endpoint, method="POST", data=urlencode(form).encode("ascii"))
+        req = Request(endpoint, method="POST")
+        sent["Authorization header"] = _basic_client_auth(req, form, client.client_id, client.secret, method)
+        req.data = urlencode(form).encode("ascii")
         form = token = None
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -597,7 +649,10 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
                                   "MCPAUTHSCAN_CLIENT_ID/MCPAUTHSCAN_REDIRECT_URI are not both set)"),
                       prerequisite_met=False)
 
-    mode = "Acquired-token mode (--acquire-token), client %s (%s): " % (client.client_id, client.source)
+    mode = "Acquired-token mode (--acquire-token), client %s (%s%s): " % (
+        client.client_id, client.source,
+        ", client_secret_basic" if client.secret and _token_auth_method(client, metadata) == CLIENT_SECRET_BASIC
+        else "")
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(16)
     sep = "&" if urlsplit(authorization_endpoint).query else "?"
@@ -616,9 +671,12 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
             "client_id": client.client_id, "code_verifier": verifier}
     if client.secret:
         form["client_secret"] = client.secret
-    req = Request(token_endpoint, method="POST", data=urlencode(form).encode("ascii"))
-    sent = {"code": code, "code_verifier": verifier}   # only to withhold an echoing error_description
-    form = code = verifier = None
+    req = Request(token_endpoint, method="POST")
+    basic = _basic_client_auth(req, form, client.client_id, client.secret, _token_auth_method(client, metadata))
+    req.data = urlencode(form).encode("ascii")
+    # only to withhold an echoing error_description
+    sent = {"code": code, "code_verifier": verifier, "client_secret": client.secret, "Authorization header": basic}
+    form = code = verifier = basic = None
     req.add_header("User-Agent", "mcp-authscan/2.0.0")
     req.add_header("Origin", HOSTILE_ORIGIN)
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -707,6 +765,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
             form = {"grant_type": "client_credentials", "client_id": cid}
             if csec:
                 form["client_secret"] = csec
+            _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
             req.data = urlencode(form).encode()
         else:
             req.data = b"grant_type=invalid"
@@ -883,7 +942,7 @@ def probe_jwks_keys(jwks_uri):
     )
 
 
-def probe_password_grant(token_endpoint):
+def probe_password_grant(token_endpoint, metadata=None):
     """Password grant is deprecated. Server must not accept it."""
     if not token_endpoint:
         return record(
@@ -904,6 +963,7 @@ def probe_password_grant(token_endpoint):
             form["client_id"] = cid
         if csec:
             form["client_secret"] = csec
+        _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
         req.data = urlencode(form).encode()
         http_status, headers, body = _egress_guard(req)
         try:
@@ -1297,7 +1357,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=client,
                                     registration_note=registration_note))
     records.append(probe_jwks_keys(metadata.get("jwks_uri")))
-    records.append(probe_password_grant(metadata.get("token_endpoint")))
+    records.append(probe_password_grant(metadata.get("token_endpoint"), metadata=metadata))
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))

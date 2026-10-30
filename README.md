@@ -106,7 +106,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.11.02 are versioned separately, so adding a probe never rewrites how a past report reads.
+Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.11.03 are versioned separately, so adding a probe never rewrites how a past report reads.
 
 ## About
 

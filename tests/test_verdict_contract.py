@@ -186,10 +186,31 @@ def collect(n, out):
 # the authorization code, so neither it nor the scanner's raw output goes into any message.
 ACQUIRED_FIXTURES = {
     9004: "test_fixture_full_authserver.py",
+    9005: "test_fixture_basic_only_authserver.py",
 }
 
 ACQUIRED_EXPECTED = {
     9004: {
+        "verdicts": {
+            "issuer-identity": "PASS",
+            "resource-binding": "PASS",
+            "token-cache-control": "PASS",
+            "token-cors": "PASS",
+            "jwks-keys": "PASS",
+            "password-grant": "PASS",
+            "pkce-s256": "PASS",
+            "redirect-uri-exact": "PASS",
+            "client-auth": "PASS",
+        },
+        "coverage": 1.0,
+        "excluded": 0,
+        "exit_code": 0,
+        "token_revocation_populated": True,
+    },
+    # 9005: the 9004 server accepting client_secret_basic only. A client registered with
+    # token_endpoint_auth_method client_secret_basic must send HTTP Basic (RFC 6749 2.3.1) at the
+    # token exchange and at revocation; a secret in the body is refused like no credentials.
+    9005: {
         "verdicts": {
             "issuer-identity": "PASS",
             "resource-binding": "PASS",

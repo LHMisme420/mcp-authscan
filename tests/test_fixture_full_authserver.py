@@ -13,6 +13,10 @@ import sys
 import time
 
 BASE = "http://127.0.0.1:9004"  # set from the port argument in __main__
+# Token endpoint client authentication methods accepted at /token, /revoke and /device, and
+# advertised in the metadata. The basic-only variant (test_fixture_basic_only_authserver.py)
+# narrows this to client_secret_basic; 9004 accepts both.
+ACCEPTED_AUTH_METHODS = ("client_secret_basic", "client_secret_post")
 
 CLIENTS = {}   # client_id -> {"secret", "redirect_uris", "rat"}
 CODES = {}     # code -> {"client_id", "redirect_uri", "challenge"}
@@ -27,6 +31,8 @@ def _client_auth(headers, form):
     has_basic = auth.startswith("Basic ")
     has_post = "client_secret" in form
     if has_basic == has_post:
+        return None
+    if ("client_secret_basic" if has_basic else "client_secret_post") not in ACCEPTED_AUTH_METHODS:
         return None
     if has_basic:
         try:
@@ -109,7 +115,7 @@ class FullAuthServerHandler(BaseHTTPRequestHandler):
                 "jwks_uri": BASE + "/jwks",
                 "response_types_supported": ["code"],
                 "grant_types_supported": ["authorization_code", "refresh_token"],
-                "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
+                "token_endpoint_auth_methods_supported": list(ACCEPTED_AUTH_METHODS),
                 "code_challenge_methods_supported": ["S256"],
             })
         elif path == "/jwks":
