@@ -1,0 +1,12 @@
+name: contract-tests
+on: [push, pull_request]
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e . pytest
+      - run: python3 -m pytest tests/test_verdict_contract.py tests/test_probe_set_stamp.py tests/test_client_secret_basic.py -q
