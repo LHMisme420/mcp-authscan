@@ -6,14 +6,14 @@ is required.
 From the repository root, install the CLI with:
 
 ```bash
-pip install -e ./mcp_authscan
+pip install -e .
 mcp-authscan --help
 ```
 
 Build release distributions from the repository root with:
 
 ```bash
-python -m build ./mcp_authscan --outdir ./dist
+python3 -m build --outdir ./dist
 ```
 
 For usage, authorization requirements, examples, and the web application, see

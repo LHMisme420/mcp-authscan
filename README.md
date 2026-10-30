@@ -22,7 +22,7 @@ I only scan servers I hold written permission to test. Email lhmisme2011@gmail.c
 
 ## Authorized use
 
-Every scan needs an authorization basis. The CLI refuses to start without --authorized-by and --auth-basis, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
+Every scan needs an authorization basis. The CLI refuses to start without --authorized-by, --auth-basis and --contact, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
 
 Only point this at systems you own or are permitted to test.
 
@@ -41,12 +41,12 @@ cd mcp-authscan
 pip install -e .
 ```
 
-Build from source: `python -m build`
+Build from source: `python3 -m build`
 
 ## Run
 
 ```bash
-mcp-authscan api.example.com/mcp \
+mcp-authscan https://api.example.com/mcp \
   --authorized-by "Your Name" \
   --auth-basis "written consent" \
   --contact "you@example.com"

@@ -11,10 +11,12 @@ authorized to test.
 
 ```bash
 pip install mcp-authscan
-mcp-authscan scan https://your-mcp-server --fail-on high
+mcp-authscan https://your-mcp-server --fail-on high \
+  --authorized-by "Your Name" --auth-basis "written consent" --contact "you@example.com"
 ```
-Exit code: `0` clean, `1` a finding at/above the threshold, `2` a target
-couldn't be scanned. That exit code is what gates your pipeline.
+Exit code: `0` clean, `1` a FAIL at/above the threshold, `2` authorization
+validation failed (nothing sent), `3` target unreachable, `4` not a valid MCP
+server (see EXIT_CODES.md). That exit code is what gates your pipeline.
 
 ## 2. GitHub Actions
 
@@ -35,18 +37,20 @@ jobs:
       - run: pip install mcp-authscan
       - name: Scan MCP servers
         run: |
-          mcp-authscan scan \
-            --targets mcp-targets.txt \
-            --format sarif \
-            --output results.sarif \
-            --fail-on high
+          mcp-authscan https://your-mcp-server \
+            --sarif \
+            --fail-on high \
+            --authorized-by "Your Name" \
+            --auth-basis "written consent" \
+            --contact "you@example.com" > results.sarif
       - name: Upload results to code scanning
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
 ```
-`mcp-targets.txt` is one URL per line (`#` comments allowed). Findings show up
+SARIF goes to stdout (`--output` does not apply to `--sarif`). The CLI scans one
+target per run; there is no `--targets` fleet mode. Findings show up
 in the repo's **Security → Code scanning** tab via the SARIF upload.
 
 ## 3. GitLab CI
@@ -56,27 +60,28 @@ mcp-authscan:
   image: python:3.12-slim
   script:
     - pip install mcp-authscan
-    - mcp-authscan scan --targets mcp-targets.txt --fail-on high
+    - mcp-authscan https://your-mcp-server --fail-on high --authorized-by "Your Name" --auth-basis "written consent" --contact "you@example.com"
 ```
 
 ## 4. Local one-off / pre-commit
 
 ```bash
 # scan a single server
-mcp-authscan scan https://your-mcp-server
+mcp-authscan https://your-mcp-server \
+  --authorized-by "Your Name" --auth-basis "written consent" --contact "you@example.com"
 
-# scan a fleet, JSON report for your own tooling
-mcp-authscan scan --targets mcp-targets.txt --format json -o report.json
+# JSON report for your own tooling (also printed to stdout)
+mcp-authscan https://your-mcp-server --json -o report.json \
+  --authorized-by "Your Name" --auth-basis "written consent" --contact "you@example.com"
 ```
 
 ## Options worth knowing
 
-- `--checks all` — add the opt-in RCE-precondition checks (unauthenticated MCP
-  config endpoint; missing Host/Origin validation).
-- `-H "X-Research: your-tag"` — attach an identifying header some bug-bounty
-  programs require on all testing traffic (repeatable).
-- `--fail-on {none,info,low,medium,high,critical}` — tune how strict the gate is.
-- `--concurrency N` — parallelism for fleet scans.
+- `--fail-on {critical,high,medium}` — tune how strict the gate is (default high).
+- `--json`, `--sarif`, `--html` — output format; `-o FILE` names the JSON or HTML file.
+- `--allow-host HOST` — authorize an extra host for discovery (repeatable).
+- `--acquire-token` — attended OAuth consent so the token-bearing probes run.
+- `mcp-authscan --help` lists every option.
 
 ## No live server to try it on?
 
@@ -85,5 +90,6 @@ Run a reference MCP server locally and scan `localhost` — fully safe:
 # in one shell
 npx -y supergateway --stdio "npx -y @modelcontextprotocol/server-filesystem /tmp" --port 8000
 # in another
-mcp-authscan scan http://localhost:8000
+mcp-authscan http://localhost:8000 \
+  --authorized-by "Your Name" --auth-basis "written consent" --contact "you@example.com"
 ```

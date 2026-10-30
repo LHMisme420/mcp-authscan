@@ -12,7 +12,7 @@ use synthetic or local targets (see `research/mcp_stdio_rce/`).
 
 ```bash
 pip install -r requirements-dev.txt   # ruff, mypy, coverage + runtime deps
-pip install -e ./mcp_authscan          # the mcp-authscan CLI
+pip install -e .                       # the mcp-authscan CLI
 ```
 
 ## Before you open a PR
