@@ -591,17 +591,38 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             # Discovery did not establish an OAuth surface either. Do not
             # misreport an HTML/non-MCP target as a verified OAuth challenge.
             return findings, False, probe_status, preflight_info, ([], [])
+        zero_auth = bool(discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED")
+        if zero_auth:
+            print("[!] ZERO-AUTH: no authorization server published, OAuth probes cannot run", file=sys.stderr)
+            findings.append({
+                "rule": "ZERO-AUTH",
+                "severity": "CRITICAL",
+                "title": "Unauthenticated MCP endpoint",
+                "evidence": "POST /initialize responded with HTTP 200 without authentication",
+                "confidence": "HIGH",
+                "file": target_url,
+                "line": 0,
+                "ref": "ZERO-AUTH",
+                "is_live_finding": True,
+                "request_method": "POST",
+                "request_body": "",
+                "response_status": 200,
+                "response_body": "",
+                "response_preview": "MCP endpoint accessible without authentication",
+                "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+            })
+
         # Discovery failed - STOP, don't fallback to guessing
-        # Report DISCOVERY_INCOMPLETE with forensic details
-        print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-        print(f"[!] The preflight detected OAuth but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
-        print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
+        if not zero_auth:
+            print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
+            print(f"[!] The preflight detected OAuth but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+            print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
         discovery_incomplete = {
-            "status": "DISCOVERY_INCOMPLETE",
+            "status": "ZERO_AUTH_DETECTED" if zero_auth else "DISCOVERY_INCOMPLETE",
             "preflight_verified": True,
-            "preflight_status": 401,
+            "preflight_status": 200 if zero_auth else 401,
             "discovery_attempted": True,
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
             "message": "OAuth server detected but endpoint discovery chain incomplete"
@@ -2115,13 +2136,19 @@ def main():
         # Check for zero-auth vulnerability
         if discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
             print(f"[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
+            _sev = F[-1].get("severity", "LOW") if F else "LOW"
+            _levels = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+            _thr = str(getattr(args, "fail_on", "critical")).upper()
+            if _levels.get(_sev, 3) <= _levels.get(_thr, 0):
+                print("[!] Exiting 1: zero-auth finding meets the fail-on threshold", file=sys.stderr)
+                sys.exit(1)
             findings = [{
                 "rule": "ZERO-AUTH",
                 "severity": "CRITICAL",
                 "title": "Unauthenticated MCP endpoint",
                 "evidence": "POST /initialize responded with HTTP 200 without authentication",
                 "confidence": "HIGH",
-                "file": target_url,
+                "file": discovery_info.get("target_url") or discovery_info.get("target") or "",
                 "line": 0,
                 "ref": "ZERO-AUTH",
                 "is_live_finding": True,
