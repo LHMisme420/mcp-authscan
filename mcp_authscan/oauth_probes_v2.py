@@ -170,6 +170,21 @@ def _basic_client_auth(req, form, client_id, secret, method):
     return value
 
 
+def _apply_client_secret(req, form, client_id, secret, client=None, metadata=None):
+    """The one place a token-endpoint request (acquired-mode token exchange, default-mode
+    token-cors, password-grant) gets its client secret: the method is _token_auth_method(client,
+    metadata); Basic puts it in the Authorization header (via _basic_client_auth), anything else
+    puts client_secret in form. Without a secret nothing is added. Returns the Basic header value
+    or None, only so the caller can withhold an echoing error_description.
+
+    Revocation does not use this: it always sends client_secret, empty for a public client
+    (PROBE_CONTRACT.md, probe set 2026.11.02).
+    """
+    if secret:
+        form["client_secret"] = secret
+    return _basic_client_auth(req, form, client_id, secret, _token_auth_method(client, metadata))
+
+
 def _oauth_error(body):
     """The "error" string of a JSON error body, else None."""
     try:
@@ -676,10 +691,8 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
 
     form = {"grant_type": "authorization_code", "code": code, "redirect_uri": client.redirect_uri,
             "client_id": client.client_id, "code_verifier": verifier}
-    if client.secret:
-        form["client_secret"] = client.secret
     req = Request(token_endpoint, method="POST")
-    basic = _basic_client_auth(req, form, client.client_id, client.secret, _token_auth_method(client, metadata))
+    basic = _apply_client_secret(req, form, client.client_id, client.secret, client=client, metadata=metadata)
     req.data = urlencode(form).encode("ascii")
     # only to withhold an echoing error_description
     sent = {"code": code, "code_verifier": verifier, "client_secret": client.secret, "Authorization header": basic}
@@ -770,9 +783,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         sent_credentials = bool(cid)
         if cid:
             form = {"grant_type": "client_credentials", "client_id": cid}
-            if csec:
-                form["client_secret"] = csec
-            _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
+            _apply_client_secret(req, form, cid, csec, metadata=metadata)
             req.data = urlencode(form).encode()
         else:
             req.data = b"grant_type=invalid"
@@ -968,9 +979,7 @@ def probe_password_grant(token_endpoint, metadata=None):
         form = {"grant_type": "password", "username": "test", "password": "test"}
         if cid:
             form["client_id"] = cid
-        if csec:
-            form["client_secret"] = csec
-        _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
+        _apply_client_secret(req, form, cid, csec, metadata=metadata)
         req.data = urlencode(form).encode()
         http_status, headers, body = _egress_guard(req)
         try:
