@@ -22,6 +22,7 @@ AUTH = [
 def fixture(filename, port):
     # Refuse to target an unrelated service already using the fixture port.
     with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind(('127.0.0.1', port))
     process = subprocess.Popen(
         [sys.executable, str(ROOT / 'tests' / filename), str(port)],

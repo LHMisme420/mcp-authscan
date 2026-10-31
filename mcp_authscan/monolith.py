@@ -2682,6 +2682,8 @@ def main():
 
     if findings_at_threshold:
         sys.exit(1)
+    elif scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("not_observed", 0) > 0:
+        sys.exit(5)
     else:
         sys.exit(0)
 
