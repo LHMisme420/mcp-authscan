@@ -2711,7 +2711,8 @@ def main():
             print("=" * 80)
             print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: elapsed time, timestamp, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
-            print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition} | exit code: {exit_code}")
+            extra = " (no finding at or above --fail-on)" if exit_condition == "clean" else ""
+            print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
