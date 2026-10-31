@@ -909,6 +909,9 @@ def probe_jwks_keys(jwks_uri):
         req = Request(jwks_uri)
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        if not (200 <= status_code < 300):
+            return record(probe_id=5, name="jwks-keys", status="NOT_OBSERVED", http_status=status_code, probe_class="authserver", detail="JWKS HTTP %s; keys not assessed" % status_code)
+
         jwks = json.loads(body.decode("utf-8"))
         keys = jwks.get("keys", [])
     except EgressRefusalError:
@@ -954,7 +957,7 @@ def probe_jwks_keys(jwks_uri):
         probe_id=5,
         name="jwks-keys",
         status=status,
-        http_status=200,
+        http_status=status,
         body=body,
         probe_class="authserver",
         detail=detail,
