@@ -1349,6 +1349,17 @@ def probe_client_auth(token_endpoint):
     )
 
 
+def _apply_server_error_rule(records):
+    """A server error convicts and acquits nothing: a 5xx clears any PASS or FAIL."""
+    for r in records:
+        st = getattr(r, "http_status", None)
+        if isinstance(st, int) and st >= 500 and getattr(r, "status", "") in ("PASS", "FAIL"):
+            r.status = "NOT_OBSERVED"
+            r.severity = None
+            r.detail = "%s; HTTP %d server error, nothing judged" % (r.detail or "", st)
+    return records
+
+
 def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_hosts=None, allow_private=False):
     """Complete OAuth authorization server assessment."""
     metadata_url = oauth_server_url.rstrip("/") + "/.well-known/oauth-authorization-server"
@@ -1385,6 +1396,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
+    _apply_server_error_rule(records)
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the
