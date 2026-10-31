@@ -68,12 +68,12 @@ Coverage is PASS plus FAIL over the declared set of nine probes, so a run in whi
 
 ## Exit codes
 
-- 0 clean, no FAIL at or above --fail-on (default high)
+- 0 clean, no FAIL at or above --fail-on and no in-scope probe without a verdict
 - 1 FAIL at or above --fail-on
 - 2 authorization validation failed, no network requests made
 - 3 target unreachable
 - 4 target is not a valid MCP server
-- 5 server not assessable, fewer than seven probes reached a verdict or zero testable probes
+- 5 incomplete coverage, at least one in-scope probe with no verdict (NOT_OBSERVED)
 - 6 egress refused, a discovered host was not in the authorized set
 
 A FAIL at or above the threshold outranks incomplete coverage, so a run with both exits 1.

@@ -341,7 +341,7 @@ class H(BaseHTTPRequestHandler):
                                {"Cache-Control": "no-store", "Pragma": "no-cache"})
             
             # 3. Valid grant: authorization_code with registered client
-            if grant == "authorization_code" and client_id == REGISTERED_CLIENT and client_secret == REGISTERED_SECRET:
+            if grant == "authorization_code" and client_id in DCR_CLIENTS :
                 return self._s(200, {"access_token": "fixture-token", "token_type": "Bearer"},
                                {"Cache-Control": "no-store", "Pragma": "no-cache"})
             

@@ -43,6 +43,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         n = int(self.headers.get("content-length", 0))
         self.rfile.read(n)
+        if "/mcp" in self.path:
+            self.send_response(401)
+            self.send_header("www-authenticate", "Bearer resource_metadata=\"http://127.0.0.1:8765/.well-known/oauth-protected-resource\"")
+            self.end_headers()
+            return
         self.send_response(400)
         self.send_header("cache-control", "no-store")
         self.send_header("content-type", "application/json")
