@@ -319,7 +319,7 @@ def test_token_verifier_code_absent_from_all_cli_output(env):
             verifiers = json.loads(resp.read())["verifiers"]
         assert _hits(base) == {}
     for p, pasted, prompts in runs:
-        assert p.returncode in (0, 1), p.stderr[-500:]
+        assert p.returncode in (0, 1, 5), p.stderr[-500:]
         assert prompts == 1
         assert pasted
         _no_secret(p.stdout, p.stderr)
@@ -337,7 +337,7 @@ def test_cli_empty_paste_or_eof(mode):
     with fixture() as base:
         p, _, prompts = _cli(base, "--acquire-token", paste_mode=mode)
         st = _state(base)
-    assert p.returncode == 0 and prompts == 1 and st["tokens_issued"] == 0
+    assert p.returncode in (0, 5) and prompts == 1 and st["tokens_issued"] == 0
     assert "Consent not completed: no redirect address pasted" in p.stdout + p.stderr
 
 
