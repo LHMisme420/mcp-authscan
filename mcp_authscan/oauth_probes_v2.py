@@ -786,7 +786,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
             _apply_client_secret(req, form, cid, csec, metadata=metadata)
             req.data = urlencode(form).encode()
         else:
-            req.data = b"grant_type=invalid"
+            return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", prerequisites=("a client credential, registered or MCPAUTHSCAN_CLIENT_ID",), prerequisite_met=False, limitation="No client credential, so no credentialed request was sent")
         try:
             http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
