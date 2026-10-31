@@ -16,7 +16,7 @@ RISK_RANK = {
 
 EXIT_OK = 0
 EXIT_FINDINGS = 1   # a finding met/exceeded the --fail-on threshold
-EXIT_SCAN_ERROR = 2  # a target could not be scanned (and nothing worse happened)
+EXIT_SCAN_ERROR = 4  # a target could not be scanned (and nothing worse happened)
 
 
 def parse_headers(raw):
