@@ -2008,7 +2008,7 @@ def generate_html_report(findings, target, output_file, payload=None):
         '<h2>Not tested</h2><ul>', gap, '</ul>',
         '<h2>Findings</h2>', body,
         '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
-        '<p>This hash seals the payload printed by --json for this run.</p></footer>',
+        '<p>Hash covers: %s.</p><p>Evidence and remediation text are outside the hash.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
         '</div></body></html>',
     ])
 
@@ -2563,9 +2563,25 @@ def main():
     canonical_payload["exit_condition"] = exit_condition
     canonical_payload["exit_code"] = exit_code
     canonical_payload["fail_on"] = args.fail_on
-    payload_json = json.dumps(canonical_payload, sort_keys=True)
+    # The hash covers the verdict structure only. Evidence and detail prose can carry
+    # values the server generates per run, so it is excluded by construction here
+    # rather than redacted case by case.
+    HASHED_KEYS = (
+        "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage",
+        "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
+        "exit_code", "fail_on", "authorization",
+    )
+    hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
+    if isinstance(hashed.get("probes"), list):
+        hashed["probes"] = sorted(str(p) for p in hashed["probes"])
+    hashed["findings"] = sorted(
+        ({k: f[k] for k in ("severity", "rule", "title", "endpoint") if k in f} for f in F),
+        key=lambda d: json.dumps(d, sort_keys=True),
+    )
+    payload_json = json.dumps(hashed, sort_keys=True)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
     canonical_payload["report_hash"] = payload_hash
+    canonical_payload["hash_covers"] = sorted(hashed)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
 

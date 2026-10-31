@@ -134,3 +134,31 @@ class HtmlReportGuardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             monolith.generate_html_report([], 'http://127.0.0.1:9000/mcp', str(out))
         self.assertFalse(out.exists(), 'Refused call still wrote a page')
+
+
+class HashCoverageTests(unittest.TestCase):
+    def payload(self, port, extra=None):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / 'mcp_authscan.py'),
+             'http://127.0.0.1:%d/mcp' % port, *AUTH, '--json', *(extra or [])],
+            cwd=ROOT, capture_output=True, text=True, timeout=45,
+        )
+        self.assertEqual(result.returncode, 0, 'Expected 0, got %d' % result.returncode)
+        text = result.stdout
+        return json.loads(text[text.find('{'):])
+
+    def test_hash_stable_across_runs(self):
+        with fixture('test_fixture_coverage_100.py', 9000):
+            self.assertEqual(self.payload(9000)['report_hash'], self.payload(9000)['report_hash'])
+
+    def test_evidence_text_outside_hash(self):
+        with fixture('test_fixture_coverage_100.py', 9000):
+            covers = self.payload(9000)['hash_covers']
+            self.assertIn('findings', covers)
+            self.assertNotIn('evidence', covers)
+
+    def test_supplied_scope_changes_hash(self):
+        with fixture('test_fixture_coverage_100.py', 9000):
+            first = self.payload(9000, ['--scope', 'first'])['report_hash']
+            second = self.payload(9000, ['--scope', 'second'])['report_hash']
+            self.assertNotEqual(first, second)
