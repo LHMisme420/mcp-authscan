@@ -124,6 +124,7 @@ def is_global_address(address):
     return ip.is_global
 
 
+ALLOW_PRIVATE_TARGETS = False
 def assert_url_is_fetchable(url, allow_private=None):
     """Refuse to fetch a URL that could reach the scanner's own network.
 
