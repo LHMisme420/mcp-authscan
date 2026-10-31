@@ -53,3 +53,5 @@ print("Status: %s" % result.status)
 print("Severity: %s" % result.severity)
 print("Detail: %s" % result.detail)
 print("Expected: status=EXCLUDED (cannot assess on 404)")
+
+mcp_authscan.monolith.ALLOW_PRIVATE_TARGETS = False

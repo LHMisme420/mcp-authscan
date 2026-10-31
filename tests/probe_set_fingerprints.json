@@ -50,6 +50,16 @@
     "code": "70756c2a2c82192e6b9c1fef3e975b209dd0c0e3dcaf6d68af7c22cf87f87eb8"
    },
    "changed": "2026-10-31, the shared 5xx rule is applied once to every oauth probe record, so a 5xx on any probe reads NOT_OBSERVED"
+  },
+  "2026.10.31.2": {
+   "fingerprint": "f520f1702064a49f2bca76669a37b49f7a47aa818cd3f62f52e863fcb9677599",
+   "components": {
+    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "8cfc3c8f3c3bf813ec45348845bee0e4690715e448a0446023826bd2f600f03b"
+   },
+   "changed": "2026-10-31, monolith ALLOW_PRIVATE_TARGETS defaults to false so the egress guard fails closed for callers other than main"
   }
  },
  "withdrawn": {

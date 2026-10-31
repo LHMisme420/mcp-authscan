@@ -136,8 +136,8 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     from mcp_authscan.counts import count_probes, coverage
 
     # Same flags main() sets for --allow-private and a discovered host.
-    monolith.ALLOW_PRIVATE_TARGETS = True
-    oauth_probes_v2.ALLOW_PRIVATE_TARGETS = True
+    monkeypatch.setattr(monolith, "ALLOW_PRIVATE_TARGETS", True, raising=False)
+    monkeypatch.setattr(oauth_probes_v2, "ALLOW_PRIVATE_TARGETS", True, raising=False)
     server = HTTPServer(("127.0.0.1", 9000), CompleteHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
