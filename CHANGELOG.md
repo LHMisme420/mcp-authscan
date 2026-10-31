@@ -33,6 +33,7 @@ the previous stamp instead of the day its probe set changed. Commit times are Am
 | 2026.10.31.1 | commit adding this row | 2026-10-31 | the shared 5xx rule is applied once to every oauth probe record, so a 5xx on any probe reads NOT_OBSERVED |
 | 2026.10.30.4 | commit adding this row | 2026-10-30 | _apply_client_secret: one helper places the client secret for the token exchange, default token-cors and password-grant; requests and verdicts unchanged |
 | 2026.10.30.5 | f707170 | 2026-10-30 | **withdrawn**: issued by f707170 for a report-arithmetic change, same probe set as .4; any report carrying .5 ran the .4 probe set. The change it was issued for: Coverage is PASS+FAIL over testable probes (in_scope - EXCLUDED), was over in_scope; JSON and text share counts.coverage(); zero testable exits 5 |
+| 2026.10.31.3 | 38ed39d | 2026-10-31 05:50 | probe 10 cross-tenant added and parked behind MCPAUTHSCAN_CROSS_TENANT, declared set stays nine; token-cors on a plain scan EXCLUDED naming the missing client credential |
 
 The fingerprint no longer hashes report accounting (the counts and coverage assignments in
 `monolith.main`); every recorded fingerprint was recomputed without it, and the current stamp is
