@@ -13,6 +13,7 @@ Output: Human-readable security report with probe results and deterministic SHA2
 """
 from mcp_authscan import __version__
 from mcp_authscan.report_copy import render_summary, check_counts
+from mcp_authscan.counts import count_probes, coverage, CoverageError
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 import subprocess
 from datetime import datetime, timezone
@@ -26,6 +27,7 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
 from mcp_authscan.cors import probe_cors_urllib
 from .errors import EgressRefusalError
+from mcp_authscan import _common
 
 LIVE_ENDPOINTS = {
     "/sse": "GET",
@@ -81,6 +83,19 @@ def validate_target_host(hostname, port):
                 f"(DNS rebinding protection)"
             )
     return addresses[0]
+
+
+def missing_scheme(target):
+    """Refuse a target that is neither an existing path nor a URL with a scheme.
+
+    Three branches, no heuristics: a target containing "://" goes to URL handling, a target that
+    exists on disk goes to source mode, and anything else is refused with one message naming both
+    readings. There is no dot, port or leading-slash test: the tool does not guess intent.
+    """
+    if "://" in target or os.path.exists(target):
+        return
+    raise ValueError("Target is neither an existing path nor a URL with a scheme. For a live "
+                     "endpoint use https://host/path. For source mode, pass a path that exists.")
 
 
 # Set from --allow-private so explicitly authorized local targets keep working.
@@ -225,9 +240,9 @@ def _direct_rfc8414_discovery(base):
                 print("[+] OAuth discovery successful", file=sys.stderr)
                 parsed = urlparse(base)
                 return endpoints, {"method": "RFC 8414 direct", "endpoints": endpoints, "discovered_hosts": [parsed.hostname] if parsed.hostname else []}
-            print("[DEBUG] No endpoints found", file=sys.stderr)
+            _common.debug("No endpoints found")
     except Exception as e:
-        print(f"[DEBUG] Fallback failed: {e}", file=sys.stderr)
+        _common.debug(f"Fallback failed: {e}")
     return None, None
 
 
@@ -417,9 +432,16 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
                     body = resp.read(500).decode(errors='ignore')
-                    if 'jsonrpc' in body:
-                        mcp_verified = True
-                        print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+                    try:
+                        json.loads(body)
+                        if 'jsonrpc' in body:
+                            mcp_verified = True
+                            print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
+                    except json.JSONDecodeError:
+                            pass
+                    else:
+                        # 200 but not JSON-RPC - not an MCP server, continue to OAuth discovery
+                        pass
                 elif resp.status == 400 or resp.status == 406:
                     # 400: JSON-RPC error (malformed but MCP aware)
                     # 406: Wrong content-type (path exists, headers wrong)
@@ -455,7 +477,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
 
     # Perform RFC 9728 → RFC 8414 discovery
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
-    print(f"[DEBUG] oauth_endpoints={oauth_endpoints}", file=sys.stderr)
+    _common.debug(f"oauth_endpoints={oauth_endpoints}")
 
     if oauth_endpoints:
         # Use discovered OAuth endpoints
@@ -591,40 +613,17 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             # Discovery did not establish an OAuth surface either. Do not
             # misreport an HTML/non-MCP target as a verified OAuth challenge.
             return findings, False, probe_status, preflight_info, ([], [])
-        zero_auth = bool(discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED")
-        if zero_auth:
-            print("[!] ZERO-AUTH: no authorization server published, OAuth probes cannot run", file=sys.stderr)
-            findings.append({
-                "rule": "ZERO-AUTH",
-                "severity": "CRITICAL",
-                "title": "Unauthenticated MCP endpoint",
-                "evidence": "POST /initialize responded with HTTP 200 without authentication",
-                "confidence": "HIGH",
-                "file": target_url,
-                "line": 0,
-                "ref": "ZERO-AUTH",
-                "is_live_finding": True,
-                "request_method": "POST",
-                "request_body": "",
-                "response_status": 200,
-                "response_body": "",
-                "response_preview": "MCP endpoint accessible without authentication",
-                "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
-                "remediation": "Enable authentication on the MCP endpoint (OAuth 2.1 with a registered client) and reject unauthenticated /initialize requests with 401.",
-                "snippet": "",
-            })
-
         # Discovery failed - STOP, don't fallback to guessing
-        if not zero_auth:
-            print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-            print(f"[!] The preflight detected OAuth but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
-            print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
+        # Report DISCOVERY_INCOMPLETE with forensic details
+        print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
+        print(f"[!] The preflight detected OAuth (401) but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
         discovery_incomplete = {
-            "status": "ZERO_AUTH_DETECTED" if zero_auth else "DISCOVERY_INCOMPLETE",
+            "status": "DISCOVERY_INCOMPLETE",
             "preflight_verified": True,
-            "preflight_status": 200 if zero_auth else 401,
+            "preflight_status": 401,
             "discovery_attempted": True,
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
             "message": "OAuth server detected but endpoint discovery chain incomplete"
@@ -637,7 +636,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.30.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.10.30.4"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -1999,6 +1998,8 @@ def main():
 
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
+    ap.add_argument("--verbose", "-v", action="store_true",
+                    help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
     ap.add_argument("--sarif", action="store_true", help="emit SARIF 2.1.0 (GitHub code scanning)")
     ap.add_argument("--include-tests", action="store_true", help="also scan test files")
@@ -2046,6 +2047,8 @@ def main():
     import mcp_authscan.oauth_probes_v2 as oauth_probes_v2
     oauth_probes_v2.ALLOW_PRIVATE_TARGETS = ALLOW_PRIVATE_TARGETS
     oauth_probes_v2.ACQUIRE_TOKEN = bool(getattr(args, "acquire_token", False))
+    oauth_probes_v2.ATTENDED_WAIT_SECONDS = 0.0
+    _common.VERBOSE = bool(getattr(args, "verbose", False))
     # Initialize allowed hosts with target host; --allow-host adds more
     global ALLOWED_HOSTS
     target_host = urlparse(args.target).hostname or args.target
@@ -2093,17 +2096,20 @@ def main():
     oauth_records = []  # Initialize for all paths
     probe_results = []
 
-    if args.target.startswith("http://") or args.target.startswith("https://"):
-        # Validate target host if --allow-private not set (opt-in DNS rebinding protection)
-        if not args.allow_private:
-            try:
-                p = urlparse(args.target)
-                if p.hostname:
-                    validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
-            except ValueError as e:
-                print(f"[!] Target validation failed: {e}", file=sys.stderr)
-                sys.exit(3)
+    is_http_target = args.target.startswith("http://") or args.target.startswith("https://")
+    # Target validation, one refusal path (exit 3): neither an existing path nor a URL, and a private
+    # address when --allow-private is not set (opt-in DNS rebinding protection)
+    try:
+        missing_scheme(args.target)
+        if is_http_target and not args.allow_private:
+            p = urlparse(args.target)
+            if p.hostname:
+                validate_target_host(p.hostname, p.port or (443 if args.target.startswith("https") else 80))
+    except ValueError as e:
+        print(f"[!] Target validation failed: {e}", file=sys.stderr)
+        sys.exit(3)
 
+    if is_http_target:
         try:
             result_tuple = scan_live_server(args.target)
             F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
@@ -2138,29 +2144,13 @@ def main():
         # Check for zero-auth vulnerability
         if discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
             print(f"[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
-            print("")
-            print("=" * 80)
-            print("REPORT: LIVE ENDPOINT ASSESSMENT")
-            print("=" * 80)
-            print("Target:", args.target)
-            print("Authorized by:", args.authorized_by)
-            print("Auth basis:", args.auth_basis)
-            print("OAuth probes: not run (no authorization server published)")
-            print("Findings:", len(F))
-            for _f in F:
-                print("")
-                print("[%s] %s  %s" % (_f.get("severity"), _f.get("rule"), _f.get("title")))
-                print("  Evidence:", _f.get("evidence"))
-                print("  Interpretation:", _f.get("interpretation"))
-                print("  Remediation:", _f.get("remediation"))
-            sys.exit(1)
             findings = [{
                 "rule": "ZERO-AUTH",
                 "severity": "CRITICAL",
                 "title": "Unauthenticated MCP endpoint",
                 "evidence": "POST /initialize responded with HTTP 200 without authentication",
                 "confidence": "HIGH",
-                "file": discovery_info.get("target_url") or discovery_info.get("target") or "",
+                "file": target_url,
                 "line": 0,
                 "ref": "ZERO-AUTH",
                 "is_live_finding": True,
@@ -2170,8 +2160,6 @@ def main():
                 "response_body": "",
                 "response_preview": "HTTP 200 - MCP endpoint accessible",
                 "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
-                "remediation": "Enable authentication on the MCP endpoint (OAuth 2.1 with a registered client) and reject unauthenticated /initialize requests with 401.",
-                "snippet": "",
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
@@ -2179,7 +2167,7 @@ def main():
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
-            print(f"[!] OAuth detected but discovery chain failed. Cannot complete scan.", file=sys.stderr)
+            print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
             if not F: sys.exit(5)
 
         if not server_reachable:
@@ -2258,7 +2246,8 @@ def main():
         probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'findings': 0}
         discovery_info = None
 
-    elapsed_seconds = time.time() - scan_start_time
+    # Excludes the attended --acquire-token wait on stdin: Elapsed Time describes the scan.
+    elapsed_seconds = max(0.0, time.time() - scan_start_time - oauth_probes_v2.ATTENDED_WAIT_SECONDS)
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
 
@@ -2477,7 +2466,7 @@ def main():
     varying_headers = {
                 "date", "etag", "set-cookie", "server", "x-powered-by", "x-frame-options",
                 "cf-ray", "x-deno-trace-id", "report-to", "x-trace-id", "x-request-id",
-                "via", "age", "x-cache", "content-length", "expires", "x-cloud-trace-context"
+                "via", "age", "x-cache", "content-length"
             }
     for record in oauth_records:
         probe = record.as_dict()
@@ -2515,19 +2504,21 @@ def main():
         canonical_payload["commit_sha"] = commit_sha_long
 
     # Hash the canonical payload (this is what the report signature covers)
-        # Compute accounting and supplementary fields
-    counts = {
-        "in_scope": len(oauth_records),
-        "attempted": len(oauth_records) - sum(1 for r in oauth_records if r.status in ("EXCLUDED", "NOT_IMPLEMENTED")),
-        "PASS": sum(1 for r in oauth_records if r.status == "PASS"),
-        "FAIL": sum(1 for r in oauth_records if r.status == "FAIL"),
-        "NOT_OBSERVED": sum(1 for r in oauth_records if r.status == "NOT_OBSERVED"),
-        "EXCLUDED": sum(1 for r in oauth_records if r.status == "EXCLUDED"),
-        "NOT_IMPLEMENTED": sum(1 for r in oauth_records if r.status == "NOT_IMPLEMENTED"),
-    }
+    # Counts from count_probes(), the same function the printed summary counts with. Its keys come
+    # from a set, so their order varies per process; fix the JSON order to the one reports always had.
+    counts = count_probes(oauth_records)
+    _COUNT_KEYS = ("in_scope", "attempted", "PASS", "FAIL", "NOT_OBSERVED", "EXCLUDED", "NOT_IMPLEMENTED")
+    assert set(counts) == set(_COUNT_KEYS), sorted(counts)
+    counts = {k: counts[k] for k in _COUNT_KEYS}
     canonical_payload["counts"] = counts
-    # Coverage over the testable probes (in_scope - EXCLUDED), not over the probes that ran
-    canonical_payload["coverage"] = round((counts["PASS"] + counts["FAIL"]) / float(counts["in_scope"] - counts["EXCLUDED"]), 4) if counts["in_scope"] - counts["EXCLUDED"] > 0 else 0
+    # Coverage over the testable probes (in_scope - EXCLUDED), from counts.coverage() like the printed line
+    zero_testable = False
+    try:
+        canonical_payload["coverage"] = round(coverage(counts), 4)
+    except CoverageError:
+        # Zero testable probes: no coverage number at all; routed to exit 5 below
+        canonical_payload["coverage"] = None
+        zero_testable = True
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [
@@ -2548,7 +2539,13 @@ def main():
     elif args.sarif:
         print(json.dumps(to_sarif(F, args.target), indent=2))
     elif args.json:
-        print(json.dumps(canonical_payload, indent=2))
+        report_json = json.dumps(canonical_payload, indent=2)
+        if args.output:
+            # --output is documented as the HTML/JSON report file; stdout keeps the report too.
+            with open(args.output, "w", encoding="utf-8") as fh:
+                fh.write(report_json + "\n")
+            print(f"[+] JSON report saved to {args.output}", file=sys.stderr)
+        print(report_json)
     else:
         # Text output with optional authorization header
         # Check for discovery incomplete status
@@ -2664,7 +2661,7 @@ def main():
 
     # Exit code based on findings severity and --fail-on threshold
     # Contract: zero testable probes → exit 5 (per design spec)
-    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get('attempted', 0) == 0 and not F:
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and (probe_status.get('attempted', 0) == 0 or zero_testable) and not F:
         if not F: sys.exit(5)
     
     thr_map = {"critical": 0, "high": 1, "medium": 2}

@@ -16,7 +16,7 @@ Contract:
 When scanning a server:
 - attempted = PASS + FAIL + NOT_OBSERVED
 - attempted + EXCLUDED + NOT_IMPLEMENTED = in_scope (9)
-- coverage = (PASS + FAIL) / in_scope, the declared set, not the probes that ran
+- coverage = (PASS + FAIL) / (in_scope - EXCLUDED), the testable probes, not the declared set
 - Probes 1-6, 9 should reach verdicts (PASS or FAIL depending on vulnerability)
 """
 import os
@@ -76,7 +76,7 @@ print("  PASS: variable (depends on compliance)")
 print("  FAIL: variable (depends on vulnerabilities)")
 print("  EXCLUDED: 2 (probes 7-8, no client credentials)")
 print("  NOT_IMPLEMENTED: 0")
-print("  coverage: (PASS + FAIL) / 9")
+print("  coverage: (PASS + FAIL) / (9 - 2 excluded) = (PASS + FAIL) / 7")
 print("  NOT_OBSERVED: variable (depends on endpoint availability)")
 print()
 
@@ -143,7 +143,7 @@ try:
     from mcp_authscan.counts import count_probes, coverage
     counts = count_probes(oauth_records)
     actual_coverage = coverage(counts)
-    expected_coverage = (counts["PASS"] + counts["FAIL"]) / float(expected_in_scope)
+    expected_coverage = (counts["PASS"] + counts["FAIL"]) / float(expected_in_scope - expected_excluded)
     
     print("Verification:")
     print(f"  ✓ Attempted: {actual_attempted} == {expected_attempted}? {actual_attempted == expected_attempted}")
@@ -154,7 +154,7 @@ try:
     print(f"  ✓ NOT_IMPLEMENTED: {actual_not_implemented_names} == {expected_not_implemented_names}? {actual_not_implemented_names == expected_not_implemented_names}")
     attempted_partition = counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     print(f"  ✓ attempted == PASS + FAIL + NOT_OBSERVED: {counts['attempted']} == {attempted_partition}? {counts['attempted'] == attempted_partition}")
-    print(f"  ✓ coverage over declared set: {actual_coverage:.4f} == {expected_coverage:.4f}? {actual_coverage == expected_coverage}")
+    print(f"  ✓ coverage over testable set: {actual_coverage:.4f} == {expected_coverage:.4f}? {actual_coverage == expected_coverage}")
     print()
     
     # Sanity check: attempted + excluded + not_implemented should equal in_scope

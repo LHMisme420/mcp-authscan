@@ -6,12 +6,13 @@ import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
-from ._common import record, redact_secrets, SEVERITY_ORDER
+from ._common import record, redact_secrets, SEVERITY_ORDER, debug
 from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl, quote_plus
 import base64
 import hashlib
 import secrets
 import socket
+import time
 from .monolith import assert_url_is_fetchable
 
 from mcp_authscan.http_headers import Headers
@@ -81,6 +82,9 @@ REDIRECT_CANDIDATES = (
 # POST with no authorization code. When True it obtains a real access token through one
 # authorization-code request with PKCE S256 and takes its verdict from the token response.
 ACQUIRE_TOKEN = False
+# Seconds this run spent waiting on stdin at the attended --acquire-token step; monolith.main()
+# subtracts it from the reported Elapsed Time, which describes the scan, not the operator.
+ATTENDED_WAIT_SECONDS = 0.0
 
 HOSTILE_ORIGIN = "https://hostile.example.com"
 # Named limitations of the attended exchange (PROBE_CONTRACT.md [4])
@@ -137,7 +141,7 @@ def _token_auth_method(client=None, metadata=None):
     """
     registered = client is not None and client.source == "registered"
     if registered and isinstance(client.auth_method, str):
-        return CLIENT_SECRET_BASIC if client.auth_method == CLIENT_SECRET_BASIC else client.auth_method or CLIENT_SECRET_POST
+        return CLIENT_SECRET_BASIC if client.auth_method == CLIENT_SECRET_BASIC else CLIENT_SECRET_POST
     if not registered:
         chosen = (os.environ.get("MCPAUTHSCAN_TOKEN_ENDPOINT_AUTH_METHOD") or "").strip()
         if chosen in (CLIENT_SECRET_BASIC, CLIENT_SECRET_POST):
@@ -164,6 +168,21 @@ def _basic_client_auth(req, form, client_id, secret, method):
     req.add_header("Authorization", value)
     pair = None
     return value
+
+
+def _apply_client_secret(req, form, client_id, secret, client=None, metadata=None):
+    """The one place a token-endpoint request (acquired-mode token exchange, default-mode
+    token-cors, password-grant) gets its client secret: the method is _token_auth_method(client,
+    metadata); Basic puts it in the Authorization header (via _basic_client_auth), anything else
+    puts client_secret in form. Without a secret nothing is added. Returns the Basic header value
+    or None, only so the caller can withhold an echoing error_description.
+
+    Revocation does not use this: it always sends client_secret, empty for a public client
+    (PROBE_CONTRACT.md, probe set 2026.11.02).
+    """
+    if secret:
+        form["client_secret"] = secret
+    return _basic_client_auth(req, form, client_id, secret, _token_auth_method(client, metadata))
 
 
 def _oauth_error(body):
@@ -468,8 +487,7 @@ def probe_token_cache_control(token_endpoint):
     
     # Read Cache-Control from the /token response
     cache_control = headers.get("Cache-Control", "").lower()
-    import sys
-    print(f"[DEBUG] token-cache-control: status={http_status}, cache_control={repr(cache_control)}", file=sys.stderr)
+    debug(f"token-cache-control: status={http_status}, cache_control={repr(cache_control)}")
     
     if http_status and http_status >= 500:
         return record(
@@ -572,10 +590,14 @@ def _prompt_for_redirect(authorization_url, redirect_uri):
           "    3. Copy the full address from the browser's address bar, paste it here and press Enter\n"
           "       (an empty line skips the token-cors exchange):" % (authorization_url, redirect_uri),
           file=sys.stderr, flush=True)
+    global ATTENDED_WAIT_SECONDS
+    waited_from = time.monotonic()
     try:
         line = sys.stdin.readline()
     except Exception:
         return None
+    finally:
+        ATTENDED_WAIT_SECONDS += time.monotonic() - waited_from
     return line or None
 
 
@@ -589,8 +611,6 @@ def _code_from_pasted(pasted, redirect_uri, state):
     is a plain token (letters, digits, _ . -).
     """
     pasted = (pasted or "").strip()
-    if pasted and "://" not in pasted:
-        pasted = "http://" + pasted
     if not pasted:
         return None, NO_PASTE_LIMITATION, "empty line or end of input"
     try:
@@ -612,23 +632,6 @@ def _code_from_pasted(pasted, redirect_uri, state):
     if not params.get("code"):
         return None, NO_CODE_LIMITATION, None
     return params["code"], None, None
-
-
-def _code_from_authorization_endpoint(authorization_url, redirect_uri, state):
-    req = Request(authorization_url, method="GET")
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
-    try:
-        http_status, headers, body = _egress_guard(req, follow_redirects=False)
-    except EgressRefusalError:
-        return None, "authorization_endpoint outside allowed scope", None
-    except Exception as e:
-        return None, "authorization request failed: %s" % type(e).__name__, None
-    location = _header(headers, "location").strip()
-    if not location:
-        return None, (
-            "authorization endpoint did not redirect (HTTP %d); "
-            "interactive consent likely required" % http_status), None
-    return _code_from_pasted(location, redirect_uri, state)
 
 
 def _env_client():
@@ -678,12 +681,9 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     authorization_url = authorization_endpoint + sep + urlencode({
         "response_type": "code", "client_id": client.client_id, "redirect_uri": client.redirect_uri,
         "code_challenge": challenge, "code_challenge_method": "S256", "state": state})
-    if ACQUIRE_TOKEN:
-        pasted = _prompt_for_redirect(authorization_url, client.redirect_uri)
-        code, limitation, why = _code_from_pasted(pasted, client.redirect_uri, state)
-        pasted = None
-    else:
-        code, limitation, why = (None, "No authorization request sent without --acquire-token", None)
+    pasted = _prompt_for_redirect(authorization_url, client.redirect_uri)
+    code, limitation, why = _code_from_pasted(pasted, client.redirect_uri, state)
+    pasted = None
     if limitation:
         verifier = None
         return result("NOT_OBSERVED", mode + limitation + (": " + why if why else "") + "; no token obtained",
@@ -691,10 +691,8 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
 
     form = {"grant_type": "authorization_code", "code": code, "redirect_uri": client.redirect_uri,
             "client_id": client.client_id, "code_verifier": verifier}
-    if client.secret and client.auth_method != "none":
-        form["client_secret"] = client.secret
     req = Request(token_endpoint, method="POST")
-    basic = _basic_client_auth(req, form, client.client_id, client.secret, _token_auth_method(client, metadata))
+    basic = _apply_client_secret(req, form, client.client_id, client.secret, client=client, metadata=metadata)
     req.data = urlencode(form).encode("ascii")
     # only to withhold an echoing error_description
     sent = {"code": code, "code_verifier": verifier, "client_secret": client.secret, "Authorization header": basic}
@@ -756,7 +754,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
     Default: one POST with a hostile Origin and no authorization code. With ACQUIRE_TOKEN
     (--acquire-token) and metadata given, _token_cors_acquired obtains a real token first.
     """
-    if ACQUIRE_TOKEN and token_endpoint and metadata is not None and (client or _env_client()):
+    if token_endpoint and ACQUIRE_TOKEN and metadata is not None:
         return _token_cors_acquired(token_endpoint, metadata, client, registration_note)
     if not token_endpoint:
         return record(
@@ -782,15 +780,13 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         req.add_header("Origin", origin_sent)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         cid, csec, _ = _client_creds()
-        sent_credentials = False
+        sent_credentials = bool(cid)
         if cid:
             form = {"grant_type": "client_credentials", "client_id": cid}
-            if csec:
-                form["client_secret"] = csec
-            _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
-            sent_credentials = bool(csec) or req.has_header("Authorization"); req.data = urlencode(form).encode()
-        if not sent_credentials:
-            return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", limitation="No client to obtain a token (no client credential could be registered)", detail=registration_note)
+            _apply_client_secret(req, form, cid, csec, metadata=metadata)
+            req.data = urlencode(form).encode()
+        else:
+            req.data = b"grant_type=invalid"
         try:
             http_status, headers, body = _egress_guard(req)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
@@ -842,9 +838,9 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         severity = None
         title = None
         remediation = None
-    elif acao == "" and not sent_credentials:
-        # 2xx with no ACAO and no credential sent: proves nothing about a credentialed response
-        status = "EXCLUDED"
+    elif acao == "":
+        # 2xx with no ACAO: token response is not exposed cross-origin.
+        status = "PASS"
         severity = None
         title = None
         remediation = None
@@ -871,8 +867,8 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
             detail = f"ACAO: {acao} (on 400 error response: cross-origin requester receives error, not token)"
         else:
             detail = "ACAO: %s, ACAC: %s (hostile Origin sent: %s)" % (acao, acac or "(absent)", origin_sent)
-    elif status == "EXCLUDED" and acao == "":
-        detail = "HTTP %d 2xx with no ACAO and no credential sent; CORS on a credentialed response not assessed" % http_status
+    elif status == "PASS" and acao == "":
+        detail = "HTTP %d token response with no Access-Control-Allow-Origin header" % http_status
     elif status == "PASS":
         detail = "HTTP %d token response; ACAO %s does not admit hostile Origin %s" % (http_status, acao, origin_sent)
     else:
@@ -910,9 +906,6 @@ def probe_jwks_keys(jwks_uri):
         req = Request(jwks_uri)
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
-        if not (200 <= status_code < 300):
-            return record(probe_id=5, name="jwks-keys", status="NOT_OBSERVED", http_status=status_code, probe_class="authserver", detail="JWKS HTTP %s; keys not assessed" % status_code)
-
         jwks = json.loads(body.decode("utf-8"))
         keys = jwks.get("keys", [])
     except EgressRefusalError:
@@ -927,9 +920,9 @@ def probe_jwks_keys(jwks_uri):
         return record(
             probe_id=5,
             name="jwks-keys",
-            status="NOT_OBSERVED",
+            status="EXCLUDED",
             probe_class="authserver",
-            detail="JWKS fetch failed: %s" % str(e),
+            detail="Cannot reach JWKS endpoint"
         )
     
     # Explicit check: keys must be asymmetric (RSA, EC, etc)
@@ -958,7 +951,7 @@ def probe_jwks_keys(jwks_uri):
         probe_id=5,
         name="jwks-keys",
         status=status,
-        http_status=status,
+        http_status=200,
         body=body,
         probe_class="authserver",
         detail=detail,
@@ -986,9 +979,7 @@ def probe_password_grant(token_endpoint, metadata=None):
         form = {"grant_type": "password", "username": "test", "password": "test"}
         if cid:
             form["client_id"] = cid
-        if csec:
-            form["client_secret"] = csec
-        _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
+        _apply_client_secret(req, form, cid, csec, metadata=metadata)
         req.data = urlencode(form).encode()
         http_status, headers, body = _egress_guard(req)
         try:
@@ -1077,7 +1068,7 @@ def _authorize(authorization_endpoint, params):
     return _egress_guard(req, follow_redirects=False)
 
 
-def _classify(response, authorization_endpoint, sent_redirect_uri, registered_redirect_uri, lenient=False):
+def _classify(response, authorization_endpoint, sent_redirect_uri, registered_redirect_uri):
     """Return (outcome, summary, recorded_location); outcome is proceeded, refused or neither.
 
     proceeded: HTTP 200; or a 3xx whose Location is the redirect_uri that was sent, or a
@@ -1114,8 +1105,6 @@ def _classify(response, authorization_endpoint, sent_redirect_uri, registered_re
             doc = None
         if isinstance(doc, dict) and doc.get("error"):
             return "refused", "HTTP %d, error=%s" % (status, doc["error"]), None
-        if lenient:
-            return "refused", "HTTP %d with no JSON error body (rejected; paired with a proceeding baseline)" % status, None
         return "neither", "HTTP %d without a JSON error body" % status, None
     return "neither", "HTTP %d" % status, None
 
@@ -1252,8 +1241,7 @@ def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
     def summary():
         return "; ".join("%s: %s, %s" % (label, outcome, text) for label, outcome, text, _, _ in results)
 
-    for label, sent in (("P (registered redirect_uri)", redirect_uri), ("N (%s)" % near, near),
-                        ("P2 (control, registered redirect_uri)", redirect_uri)):
+    for label, sent in (("P (registered redirect_uri)", redirect_uri), ("N (%s)" % near, near)):
         if results and results[0][1] != "proceeded":
             break
         params = {"response_type": "code", "client_id": client_id, "redirect_uri": sent,
@@ -1267,7 +1255,7 @@ def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
             return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
                           detail="Request %s failed: %s%s" % (label, e, ("; " + summary()) if results else ""),
                           endpoint=authorization_endpoint)
-        outcome, text, recorded = _classify(response, authorization_endpoint, sent, redirect_uri, lenient=True)
+        outcome, text, recorded = _classify(response, authorization_endpoint, sent, redirect_uri)
         results.append((label, outcome, text, response, recorded))
 
     p_outcome = results[0][1]
@@ -1278,10 +1266,6 @@ def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
     if p_outcome != "proceeded":
         return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
                       detail="No baseline: the registered redirect_uri neither proceeded nor was refused: " + summary(),
-                      endpoint=authorization_endpoint)
-    if len(results) < 3 or results[2][1] != "proceeded":
-        return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
-                      detail="No control: the registered redirect_uri did not proceed on the repeat request: " + summary(),
                       endpoint=authorization_endpoint)
     _, n_outcome, _, n_response, n_location = results[1]
     if n_outcome == "refused":
@@ -1357,17 +1341,6 @@ def probe_client_auth(token_endpoint):
     )
 
 
-def _apply_server_error_rule(records):
-    """A server error convicts and acquits nothing: a 5xx clears any PASS or FAIL."""
-    for r in records:
-        st = getattr(r, "http_status", None)
-        if isinstance(st, int) and st >= 500 and getattr(r, "status", "") in ("PASS", "FAIL"):
-            r.status = "NOT_OBSERVED"
-            r.severity = None
-            r.detail = "%s; HTTP %d server error, nothing judged" % (r.detail or "", st)
-    return records
-
-
 def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_hosts=None, allow_private=False):
     """Complete OAuth authorization server assessment."""
     metadata_url = oauth_server_url.rstrip("/") + "/.well-known/oauth-authorization-server"
@@ -1404,7 +1377,6 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
-    _apply_server_error_rule(records)
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the

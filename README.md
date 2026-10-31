@@ -22,7 +22,7 @@ I only scan servers I hold written permission to test. Email lhmisme2011@gmail.c
 
 ## Authorized use
 
-Every scan needs an authorization basis. The CLI refuses to start without --authorized-by and --auth-basis, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
+Every scan needs an authorization basis. The CLI refuses to start without --authorized-by, --auth-basis and --contact, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
 
 Only point this at systems you own or are permitted to test.
 
@@ -41,12 +41,12 @@ cd mcp-authscan
 pip install -e .
 ```
 
-Build from source: `python -m build`
+Build from source: `python3 -m build`
 
 ## Run
 
 ```bash
-mcp-authscan api.example.com/mcp \
+mcp-authscan https://api.example.com/mcp \
   --authorized-by "Your Name" \
   --auth-basis "written consent" \
   --contact "you@example.com"
@@ -64,7 +64,7 @@ Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 - EXCLUDED: a prerequisite, such as a token endpoint, a jwks_uri or a metadata document, was missing, or the target was outside the authorized scope, so the probe was not sent. The summary prints each EXCLUDED probe on its own line with its reason, e.g. `jwks-keys: No JWKS endpoint`. Token endpoint CORS also reports EXCLUDED for a 4xx token response with no OAuth error body.
 - NOT_IMPLEMENTED: the probe is not built yet and sends no request. No probe in the current set reports this.
 
-Coverage is PASS plus FAIL over the declared set of nine probes, so a run in which seven probes reach a verdict reads 7 of 9 (0.78), and the report names the probes that did not reach one. Not observed means sent and not demonstrated.
+Coverage is PASS plus FAIL over the testable probes, the declared nine less any EXCLUDED (prerequisite missing, never sent). A run without client credentials excludes pkce-s256 and redirect-uri-exact, so when the other seven reach a verdict it reads 7 of 7 testable (1.00), 2 excluded, and the report names each excluded probe with its missing prerequisite. Zero testable probes give no coverage figure and exit 5. Not observed means sent and not demonstrated.
 
 ## Exit codes
 
@@ -106,7 +106,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.30.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+Current source version 1.1.8 (latest PyPI release 1.1.6) and probe set 2026.10.30.4 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
 
 ## About
 

@@ -9,26 +9,26 @@
 
 **Outcome codes** (probes executed):
 - Exit 1: Findings detected (FAIL probes above threshold)
-- Exit 5: Any in-scope probe with no verdict (NOT_OBSERVED). EXCLUDED does not count.
+- Exit 5: Zero testable probes on a live scan: OAuth was detected (HTTP 401) but the RFC 9728 / RFC 8414 discovery chain did not complete, so no probe could run, and nothing was found. Incomplete coverage is never an exit code: it is reported as the `[!] Incomplete assessment` line and the Coverage line.
 
 **Success**:
-- Exit 0: No findings at or above --fail-on, and no in-scope probe left without a verdict.
-- Exit 6: Refused to send a request to a host outside the authorized set.
+- Exit 0: No findings at or above --fail-on. Coverage may be incomplete; that is stated in the output, not in the exit code.
+- Exit 6: (TBD - not yet triggered in testing)
 
 ## Verified Test Cases
 
 | Code | Condition | Evidence |
 |------|-----------|----------|
 | 3 | Private IP without --allow-private | `[!] Target validation failed: Target localhost resolves to private IP 127.0.0.1 (DNS rebinding protection)` |
-| 3 | Target neither an http(s) URL nor a readable source directory | `[!] Refused: no files examined in p23ta8.fsmcp.com/mcp; no report produced` (schemeless target treated as a local path; stdout empty) |
+| 3 | Target that is neither an existing path nor a URL with a scheme (`://`), e.g. `example.com:443`, `example.com/mcp`, `localhost`, `nosuchdir` | `[!] Target validation failed: Target is neither an existing path nor a URL with a scheme. For a live endpoint use https://host/path. For source mode, pass a path that exists.` (stdout empty). An existing directory with no source files keeps `[!] Refused: no files examined in <dir>; no report produced` |
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
 | 4 | Accounting invariant violated (harness bumps passed by 1), with or without findings | `[!] ACCOUNTING ERROR: 8 verdicts (expected 7 attempted)`; stdout empty |
-| 5 | Any in-scope probe without a verdict | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
-| 0 | Clean fixture without client credentials: 5 PASS, 2 NOT_OBSERVED, 2 NOT_IMPLEMENTED | `[!] Incomplete assessment: 5 probes reached conclusive verdicts...`; Coverage 5 of 9 (0.56) |
+| 5 | 401 on /mcp, no discovery metadata | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
+| 0 | Clean fixture without client credentials: 5 PASS, 2 NOT_OBSERVED, 2 NOT_IMPLEMENTED | `[!] Incomplete assessment: 5 probes reached conclusive verdicts...`; Coverage 5 of 9 testable (0.56): nothing EXCLUDED, and NOT_IMPLEMENTED stays in the testable count |
 
 ## Exit 5 in Detail: Incomplete Assessment
 
-*Superseded 2026-10-30:* exit 5 now fires on NOT_OBSERVED only; excluded probes print and count but do not gate.
+**Superseded by e5d56b8 (2026-10-29):** the coverage rule described below was removed. An incomplete assessment no longer exits 5; this run would now exit on its two FAIL findings (exit 1 when they are at or above --fail-on), with the incomplete assessment stated in the output. Kept as a historical record.
 
 A single run of localhost:8765 demonstrates all three verdict types:
 
@@ -48,8 +48,9 @@ A single run of localhost:8765 demonstrates all three verdict types:
 **Since 98ddd03 (2026-10-29):** the localhost:8765 run above predates the NOT_IMPLEMENTED label. [7] pkce-s256 and
 [8] redirect-uri-exact are not yet built: they are now reported NOT_IMPLEMENTED (never sent), not EXCLUDED, and
 carry no prerequisites. The accounting is attempted = PASS + FAIL + NOT_OBSERVED, and
-attempted + EXCLUDED + NOT_IMPLEMENTED = 9. Coverage is (PASS + FAIL) / 9, the declared set, so a clean run reads
-7/9 (0.78) with both unbuilt probes named. Exit codes are unchanged by this: a clean run still exits 0.
+attempted + EXCLUDED + NOT_IMPLEMENTED = 9. Coverage is (PASS + FAIL) / testable, testable = 9 - EXCLUDED; NOT_IMPLEMENTED is
+not excluded, so that clean run read 7 of 9 testable (0.78) with both unbuilt probes named. Since 7-8 are built and EXCLUDED
+without a client, a clean run reads 7 of 7 testable (1.00) with both named as excluded. Exit codes are unchanged by this: a clean run still exits 0.
 
 ## Known Issues
 

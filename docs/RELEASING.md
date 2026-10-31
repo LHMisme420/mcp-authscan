@@ -40,5 +40,5 @@ GitHub release — it just skips the PyPI upload.
 
 ```bash
 pip install mcp-authscan
-mcp-authscan scan --help
+mcp-authscan --help
 ```

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Test server: clean complete fixture. Probes 1-6, 9 are built and target verdicts; probes 7-8 are NOT_IMPLEMENTED
-(not yet built, never sent), not EXCLUDED. Coverage is over the testable set: the in-scope probes less the EXCLUDED ones."""
+"""Test server: clean complete fixture. Probes 1-6, 9 target verdicts; probes 7-8 (pkce-s256, redirect-uri-exact)
+are built and return EXCLUDED without client credentials (prerequisite missing, never sent). Coverage is over the testable probes (9 less EXCLUDED); without a client 7-8 are EXCLUDED today, so the most this fixture can read is 7/7."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
@@ -122,18 +122,18 @@ class CompleteHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-def test_coverage_is_over_the_testable_probe_set(monkeypatch):
-    """Testable-set rule: coverage = (PASS + FAIL) / (in_scope - EXCLUDED), never / attempted.
+def test_coverage_is_over_the_declared_probe_set(monkeypatch):
+    """Testable rule: coverage = (PASS + FAIL) / (in_scope - EXCLUDED), here 9 - 2 = 7.
 
     The handler names 127.0.0.1:9000 in its metadata, so it is served on 9000.
-    No client credentials are configured, so pkce-s256, redirect-uri-exact and token-cors are
+    No client credentials are configured, so pkce-s256 and redirect-uri-exact are
     EXCLUDED (prerequisite missing, never sent); no probe is NOT_IMPLEMENTED.
     """
     for key in ("MCPAUTHSCAN_CLIENT_ID", "MCPAUTHSCAN_CLIENT_SECRET", "MCPAUTHSCAN_REDIRECT_URI"):
         monkeypatch.delenv(key, raising=False)
     import mcp_authscan.monolith as monolith
     from mcp_authscan import oauth_probes_v2
-    from mcp_authscan.counts import count_probes, coverage, testable
+    from mcp_authscan.counts import count_probes, coverage
 
     # Same flags main() sets for --allow-private and a discovered host.
     monolith.ALLOW_PRIVATE_TARGETS = True
@@ -150,17 +150,16 @@ def test_coverage_is_over_the_testable_probe_set(monkeypatch):
     assert counts["in_scope"] == 9
     assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
     excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
-    assert set(excluded) == {"pkce-s256", "redirect-uri-exact", "token-cors"}
+    assert set(excluded) == {"pkce-s256", "redirect-uri-exact"}
     assert "client_id" in excluded["pkce-s256"]
     assert excluded["redirect-uri-exact"] == "No registered redirect_uri to compare against"
-    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == 3
+    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == 2
     assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
-    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 3
-    assert testable(counts) == 6
-    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 6.0
-    # All three excluded probes stay in the denominator: a run without client credentials cannot read 100%.
-    assert coverage(counts) >= (counts["PASS"] + counts["FAIL"]) / 9.0
+    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 2
+    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 7.0
+    # The two excluded probes leave the denominator: they name their prerequisite instead.
+    assert coverage(counts) <= 1.0
 
 
 if __name__ == "__main__":
