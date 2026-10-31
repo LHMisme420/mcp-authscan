@@ -1,4 +1,8 @@
-__version__ = "1.1.8"
+from importlib.metadata import version as pkgversion
+try:
+    __version__ = pkgversion("mcp-authscan")
+except Exception:
+    __version__ = "0.0.0+source"
 
 __all__ = ["MCPScanner", "SecurityReport"]
 

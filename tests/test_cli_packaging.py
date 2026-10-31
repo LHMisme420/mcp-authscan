@@ -77,7 +77,7 @@ class CliPackagingTests(unittest.TestCase):
                     "from mcp_authscan.cli_wrapper import main; "
                     "sys.argv=['mcp-authscan','--help']; main()"
                 ), str(wheel)], temp)
-                self.assertIn("v1.1.3", output)
+                self.assertIn("v" + wheel.name.split("-")[1], output)
 
             with self.subTest(distribution="wheel"):
                 wheel = build("build_wheel", source, temp / "wheels")
