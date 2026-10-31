@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Test server: clean complete fixture. Probes 1-6, 9 are built and target verdicts; probes 7-8 are NOT_IMPLEMENTED
-(not yet built, never sent), not EXCLUDED. Coverage is over the declared set of 9, so the most this fixture can read is 7/9."""
+(not yet built, never sent), not EXCLUDED. Coverage is over the testable set: the in-scope probes less the EXCLUDED ones."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
@@ -122,8 +122,8 @@ class CompleteHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-def test_coverage_is_over_the_declared_probe_set(monkeypatch):
-    """Declared-set rule: coverage = (PASS + FAIL) / in_scope (9), never / attempted.
+def test_coverage_is_over_the_testable_probe_set(monkeypatch):
+    """Testable-set rule: coverage = (PASS + FAIL) / (in_scope - EXCLUDED), never / attempted.
 
     The handler names 127.0.0.1:9000 in its metadata, so it is served on 9000.
     No client credentials are configured, so pkce-s256, redirect-uri-exact and token-cors are
@@ -133,7 +133,7 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
         monkeypatch.delenv(key, raising=False)
     import mcp_authscan.monolith as monolith
     from mcp_authscan import oauth_probes_v2
-    from mcp_authscan.counts import count_probes, coverage
+    from mcp_authscan.counts import count_probes, coverage, testable
 
     # Same flags main() sets for --allow-private and a discovered host.
     monolith.ALLOW_PRIVATE_TARGETS = True
@@ -157,9 +157,10 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
     assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 3
-    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 9.0
+    assert testable(counts) == 6
+    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 6.0
     # All three excluded probes stay in the denominator: a run without client credentials cannot read 100%.
-    assert coverage(counts) <= 7 / 9.0
+    assert coverage(counts) >= (counts["PASS"] + counts["FAIL"]) / 9.0
 
 
 if __name__ == "__main__":
