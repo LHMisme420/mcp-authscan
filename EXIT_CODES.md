@@ -26,7 +26,7 @@ Conditions recorded with the code: zero_testable_probes, finding_at_or_above_THR
 | 4 | Exception in scan_live_server | `[!] Internal scan error: NameError: name 'broken_function' is not defined` |
 | 4 | Accounting invariant violated (harness bumps passed by 1), with or without findings | `[!] ACCOUNTING ERROR: 8 verdicts (expected 7 attempted)`; stdout empty |
 | 5 | 401 on /mcp, no discovery metadata | `[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.`; stdout empty |
-| 0 | Fixture where every in-scope probe passed or was EXCLUDED with its prerequisite named | Coverage reads PASS plus FAIL over in-scope probes; header prints condition clean, exit code 0 |
+| 0 | Fixture where every in-scope probe passed or was EXCLUDED with its prerequisite named | Coverage reads PASS plus FAIL over in-scope probes; header prints condition clean (no finding at or above --fail-on), exit code 0 |
 | 1 | Fixture with a HIGH finding at --fail-on high | Header prints contract 2026.10.31.1, condition finding_at_or_above_high, exit code 1; measured 2026-10-31 |
 | 5 | Fixture where a probe ran and could not observe its property, with no finding at or above --fail-on | Incomplete assessment line names the probe; header prints condition not_observed_present, exit code 5; measured 2026-10-31 |
 
