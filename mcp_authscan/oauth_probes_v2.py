@@ -630,7 +630,6 @@ def _code_from_authorization_endpoint(authorization_url, redirect_uri, state):
             "interactive consent likely required" % http_status), None
     return _code_from_pasted(location, redirect_uri, state)
 
-    return _code_from_pasted(location, redirect_uri, state)
 
 def _env_client():
     cid, secret, redirect = _client_creds()
@@ -684,7 +683,7 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
         code, limitation, why = _code_from_pasted(pasted, client.redirect_uri, state)
         pasted = None
     else:
-        code, limitation, why = _code_from_authorization_endpoint(authorization_url, client.redirect_uri, state)
+        code, limitation, why = (None, "No authorization request sent without --acquire-token", None)
     if limitation:
         verifier = None
         return result("NOT_OBSERVED", mode + limitation + (": " + why if why else "") + "; no token obtained",
@@ -757,7 +756,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
     Default: one POST with a hostile Origin and no authorization code. With ACQUIRE_TOKEN
     (--acquire-token) and metadata given, _token_cors_acquired obtains a real token first.
     """
-    if token_endpoint and metadata is not None and (client or _env_client()):
+    if ACQUIRE_TOKEN and token_endpoint and metadata is not None and (client or _env_client()):
         return _token_cors_acquired(token_endpoint, metadata, client, registration_note)
     if not token_endpoint:
         return record(
