@@ -2062,7 +2062,7 @@ def main():
     ap.add_argument("--ticket-ref", metavar="REF",
                     help="client's ticket/tracking reference")
     ap.add_argument("--allow-host", action="append", default=[], help="authorize a host for discovery (repeatable)")
-    ap.add_argument("--contact", metavar="EMAIL",
+    ap.add_argument("--contact", metavar="EMAIL", required=True,
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
@@ -2292,7 +2292,7 @@ def main():
         if sev in findings_by_severity:
             findings_by_severity[sev] += 1
 
-    if args.authorized_by or "Heath Weaver" and args.auth_basis and args.ticket_ref and args.contact:
+    if args.authorized_by and args.auth_basis and args.contact:
         from mcp_authscan.authorization import ScanAuthorization, ScanMetadata, report_header_with_authorization
 
         auth = ScanAuthorization(
