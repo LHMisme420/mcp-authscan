@@ -2560,6 +2560,7 @@ def main():
     
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
+    canonical_payload["hash_scheme"] = HASH_SCHEME
     canonical_payload["exit_condition"] = exit_condition
     canonical_payload["exit_code"] = exit_code
     canonical_payload["fail_on"] = args.fail_on
@@ -2569,7 +2570,7 @@ def main():
     HASHED_KEYS = (
         "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage",
         "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
-        "exit_code", "fail_on", "authorization",
+        "exit_code", "fail_on", "authorization", "hash_scheme",
     )
     hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
     if isinstance(hashed.get("probes"), list):
@@ -2716,6 +2717,7 @@ def main():
 
 
 EXIT_CONTRACT = "2026.10.31.1"
+HASH_SCHEME = "verdict-v2"  # Which keys report_hash is taken over
 
 
 def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable):

@@ -162,3 +162,18 @@ class HashCoverageTests(unittest.TestCase):
             first = self.payload(9000, ['--scope', 'first'])['report_hash']
             second = self.payload(9000, ['--scope', 'second'])['report_hash']
             self.assertNotEqual(first, second)
+
+
+class HashSchemeTests(unittest.TestCase):
+    def test_payload_declares_its_hash_scheme(self):
+        with fixture('test_fixture_coverage_100.py', 9000):
+            result = subprocess.run(
+                [sys.executable, str(ROOT / 'mcp_authscan.py'),
+                 'http://127.0.0.1:9000/mcp', *AUTH, '--json'],
+                cwd=ROOT, capture_output=True, text=True, timeout=45,
+            )
+            self.assertEqual(result.returncode, 0, 'Expected 0, got %d' % result.returncode)
+            text = result.stdout
+            payload = json.loads(text[text.find('{'):])
+            self.assertEqual(payload['hash_scheme'], 'verdict-v2')
+            self.assertIn('hash_scheme', payload['hash_covers'])
