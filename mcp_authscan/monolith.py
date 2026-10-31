@@ -2020,12 +2020,6 @@ def generate_html_report(findings, target, output_file, payload=None):
 def main():
     ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
 
-    # Override argparse's default exit code for usage errors (exit 2 → exit 6)
-    def argparse_error(message):
-        ap.print_usage(sys.stderr)
-        print(f"mcp_authscan: error: {message}", file=sys.stderr)
-        sys.exit(6)
-    ap.error = argparse_error
 
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")

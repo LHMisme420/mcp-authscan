@@ -67,15 +67,27 @@ class ExitCodeTests(unittest.TestCase):
             "Expected no report on stdout for a refused scan")
 
 
-    def test_exit_6_usage_error(self):
-        """Exit 6: usage error (missing required argument)."""
+    def test_exit_2_usage_error(self):
+        """Exit 2: usage error (missing required argument)."""
         result = subprocess.run(
             [sys.executable, "-m", "mcp_authscan.cli_wrapper"],
             capture_output=True, timeout=10,
         )
-        self.assertEqual(result.returncode, 6,
-            f"Expected exit 6 for usage error, got {result.returncode}")
+        self.assertEqual(result.returncode, 2,
+            f"Expected exit 2 for usage error, got {result.returncode}")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_contact_is_required():
+    help_out = subprocess.run(["mcp-authscan", "-h"], capture_output=True).stdout
+    assert b"[--contact" not in help_out
+    result = subprocess.run(
+        ["mcp-authscan", "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test"],
+        capture_output=True,
+    )
+    assert result.returncode == 2
+    assert b"required" in result.stderr

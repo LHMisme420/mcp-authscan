@@ -95,8 +95,8 @@ class ExitCodeFixtureTests(unittest.TestCase):
         with fixture('test_fixture_coverage_incomplete.py', 9001):
             self.check_exit(5, 9001)
 
-    def test_exit_6_invalid_usage(self):
-        self.check_exit(6, 9000, AUTH + ['--fail-on', 'invalid'])
+    def test_exit_2_invalid_usage(self):
+        self.check_exit(2, 9000, AUTH + ['--fail-on', 'invalid'])
 
 
 class ScopePayloadTests(unittest.TestCase):
