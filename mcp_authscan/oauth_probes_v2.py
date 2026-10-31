@@ -589,6 +589,8 @@ def _code_from_pasted(pasted, redirect_uri, state):
     is a plain token (letters, digits, _ . -).
     """
     pasted = (pasted or "").strip()
+    if pasted and "://" not in pasted:
+        pasted = "http://" + pasted
     if not pasted:
         return None, NO_PASTE_LIMITATION, "empty line or end of input"
     try:
@@ -1076,7 +1078,7 @@ def _authorize(authorization_endpoint, params):
     return _egress_guard(req, follow_redirects=False)
 
 
-def _classify(response, authorization_endpoint, sent_redirect_uri, registered_redirect_uri):
+def _classify(response, authorization_endpoint, sent_redirect_uri, registered_redirect_uri, lenient=False):
     """Return (outcome, summary, recorded_location); outcome is proceeded, refused or neither.
 
     proceeded: HTTP 200; or a 3xx whose Location is the redirect_uri that was sent, or a
@@ -1113,6 +1115,8 @@ def _classify(response, authorization_endpoint, sent_redirect_uri, registered_re
             doc = None
         if isinstance(doc, dict) and doc.get("error"):
             return "refused", "HTTP %d, error=%s" % (status, doc["error"]), None
+        if lenient:
+            return "refused", "HTTP %d with no JSON error body (rejected; paired with a proceeding baseline)" % status, None
         return "neither", "HTTP %d without a JSON error body" % status, None
     return "neither", "HTTP %d" % status, None
 
@@ -1249,7 +1253,8 @@ def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
     def summary():
         return "; ".join("%s: %s, %s" % (label, outcome, text) for label, outcome, text, _, _ in results)
 
-    for label, sent in (("P (registered redirect_uri)", redirect_uri), ("N (%s)" % near, near)):
+    for label, sent in (("P (registered redirect_uri)", redirect_uri), ("N (%s)" % near, near),
+                        ("P2 (control, registered redirect_uri)", redirect_uri)):
         if results and results[0][1] != "proceeded":
             break
         params = {"response_type": "code", "client_id": client_id, "redirect_uri": sent,
@@ -1263,7 +1268,7 @@ def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
             return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
                           detail="Request %s failed: %s%s" % (label, e, ("; " + summary()) if results else ""),
                           endpoint=authorization_endpoint)
-        outcome, text, recorded = _classify(response, authorization_endpoint, sent, redirect_uri)
+        outcome, text, recorded = _classify(response, authorization_endpoint, sent, redirect_uri, lenient=True)
         results.append((label, outcome, text, response, recorded))
 
     p_outcome = results[0][1]
@@ -1274,6 +1279,10 @@ def probe_redirect_uri_exact(metadata, client=None, registration_note=None):
     if p_outcome != "proceeded":
         return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
                       detail="No baseline: the registered redirect_uri neither proceeded nor was refused: " + summary(),
+                      endpoint=authorization_endpoint)
+    if len(results) < 3 or results[2][1] != "proceeded":
+        return record(probe_id=8, name="redirect-uri-exact", status="NOT_OBSERVED", probe_class="authserver",
+                      detail="No control: the registered redirect_uri did not proceed on the repeat request: " + summary(),
                       endpoint=authorization_endpoint)
     _, n_outcome, _, n_response, n_location = results[1]
     if n_outcome == "refused":
