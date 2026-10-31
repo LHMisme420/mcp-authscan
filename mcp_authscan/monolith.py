@@ -2526,8 +2526,8 @@ def main():
         "NOT_IMPLEMENTED": sum(1 for r in oauth_records if r.status == "NOT_IMPLEMENTED"),
     }
     canonical_payload["counts"] = counts
-    # Coverage over the declared probe set (in_scope), not over the probes that ran
-    canonical_payload["coverage"] = round((counts["PASS"] + counts["FAIL"]) / float(counts["in_scope"]), 4) if counts["in_scope"] > 0 else 0
+    # Coverage over the testable probes (in_scope - EXCLUDED), not over the probes that ran
+    canonical_payload["coverage"] = round((counts["PASS"] + counts["FAIL"]) / float(counts["in_scope"] - counts["EXCLUDED"]), 4) if counts["in_scope"] - counts["EXCLUDED"] > 0 else 0
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [

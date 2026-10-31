@@ -195,14 +195,14 @@ ACQUIRED_EXPECTED = {
             "issuer-identity": "PASS",
             "resource-binding": "PASS",
             "token-cache-control": "PASS",
-            "token-cors": "NOT_OBSERVED",  # plain mode sends no authorization request; limitation names it
+            "token-cors": "PASS",
             "jwks-keys": "PASS",
             "password-grant": "PASS",
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
         },
-        "coverage": 0.8889,
+        "coverage": 1.0,
         "excluded": 0,
         "exit_code": 0,
         "token_revocation_populated": True,
@@ -215,14 +215,14 @@ ACQUIRED_EXPECTED = {
             "issuer-identity": "PASS",
             "resource-binding": "PASS",
             "token-cache-control": "PASS",
-            "token-cors": "NOT_OBSERVED",  # plain mode sends no authorization request; limitation names it
+            "token-cors": "PASS",
             "jwks-keys": "PASS",
             "password-grant": "PASS",
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
         },
-        "coverage": 0.8889,
+        "coverage": 1.0,
         "excluded": 0,
         "exit_code": 0,
         "token_revocation_populated": True,
@@ -340,15 +340,15 @@ PLAIN_FULL_EXPECTED = {
             "issuer-identity": "PASS",
             "resource-binding": "PASS",
             "token-cache-control": "PASS",
-            "token-cors": "NOT_OBSERVED",  # plain mode sends no authorization request; limitation names it
+            "token-cors": "EXCLUDED",  # plain mode sends no authorization request; the limitation names the missing client
             "jwks-keys": "PASS",
             "password-grant": "PASS",
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
         },
-        "coverage": 0.8889,
-        "excluded": 0,
+        "coverage": 1.0,
+        "excluded": 1,
         "exit_code": 0,
     },
 }
@@ -366,7 +366,7 @@ def scan_plain(port):
 
 class PlainFullAuthServerContract(unittest.TestCase):
 
-    def test_plain_mode_token_cors_not_observed_eight_of_nine(self):
+    def test_plain_mode_token_cors_excluded_eight_of_nine(self):
         for port, filename in PLAIN_FULL_FIXTURES.items():
             exp = PLAIN_FULL_EXPECTED[port]
             with self.subTest(port=port):
