@@ -47,3 +47,17 @@ Only one of the three produced a verdict on a server that refuses unauthenticate
 Two of four named tools. One target, local, deliberately mild. Ramparts against an open server with poisoned tool descriptions is a different test, and on that target it would likely produce results mcp-authscan cannot, because the content of tools, prompts and resources is invisible to an endpoint prober.
 
 Nothing here establishes that any tool finds fewer or more real vulnerabilities in the field. It establishes what each one assesses.
+
+## Scope: why CyberMCP and Proximity are not in this comparison
+
+Both were checked before deciding not to run them.
+
+CyberMCP is itself an MCP server: it exposes a set of security tools that an operator drives by prompting it from an IDE or chat client. Authentication bypass appears among its checks, but it is a toolkit operated by an agent rather than a command pointed at a URL, so there is no standalone run to compare.
+
+Proximity (Nova-Hunting) is a Python CLI that discovers tools, prompts and resources on a server, then applies NOVA prompt-pattern rules and optional LLM evaluation. It needs the server to hand over its surface, the same as Ramparts, so it does not assess the authorization surface either.
+
+Neither touches OAuth, so running them would add pages without changing the conclusion.
+
+## Related work
+
+A July 2026 study benchmarking runtime MCP scanners (arxiv.org/pdf/2607.11086) reports that some of the higher-precision scanners in its corpus flagged no vulnerable servers at all. Read from the published excerpt, not in full, and not used here to score any tool above.
