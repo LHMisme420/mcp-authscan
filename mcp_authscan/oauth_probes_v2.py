@@ -1420,6 +1420,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         "token_types_unconfirmed": list(TOKEN_REVOCATION["not_revoked"]),
     })
     registered = client = None
+    _apply_server_error_rule(records)
     return records, []
 
 
@@ -1432,3 +1433,14 @@ def count_probes(records):
 def render_probe(record):
     """Format probe for stderr display."""
     return "[%d] %-20s %s" % (record.probe_id, record.name, record.status)
+def _apply_server_error_rule(records):
+    """A server error convicts and acquits nothing: a 5xx clears any PASS or FAIL."""
+    for r in records:
+        st = getattr(r, "http_status", None)
+        if isinstance(st, int) and st >= 500 and getattr(r, "status", "") in ("PASS", "FAIL"):
+            r.status = "NOT_OBSERVED"
+            r.severity = None
+            r.detail = "%s; HTTP %d server error, nothing judged" % (r.detail or "", st)
+    return records
+
+
