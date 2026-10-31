@@ -669,8 +669,8 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
                                   "MCPAUTHSCAN_CLIENT_ID/MCPAUTHSCAN_REDIRECT_URI are not both set)"),
                       prerequisite_met=False)
 
-    mode = "Acquired-token mode (--acquire-token), client (%s%s): " % (
-        client.source,
+    mode = "Acquired-token mode (--acquire-token), client %s (%s%s): " % (
+        client.client_id, client.source,
         ", client_secret_basic" if client.secret and _token_auth_method(client, metadata) == CLIENT_SECRET_BASIC
         else "")
     verifier, challenge = _pkce_pair()
@@ -791,7 +791,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
             _basic_client_auth(req, form, cid, csec, _token_auth_method(None, metadata))
             sent_credentials = bool(csec) or req.has_header("Authorization"); req.data = urlencode(form).encode()
         if not sent_credentials:
-            return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", limitation="No client credential could be registered")
+            return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", limitation="No client to obtain a token (no client credential could be registered)", detail=registration_note)
         try:
             http_status, headers, body = _egress_guard(req)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
