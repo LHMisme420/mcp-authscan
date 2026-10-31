@@ -1952,40 +1952,70 @@ def scan(root, include_tests, exclude=()):
     return F
 
 def generate_html_report(findings, target, output_file, payload=None):
-    """Generate a polished HTML security report."""
-    from datetime import datetime
-    
-    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
-    findings_sorted = sorted(findings, key=lambda x: (order.get(x["severity"], 9), x.get("file", "")))
-    
-    counts = {}
-    for f in findings:
-        sev = f["severity"]
-        counts[sev] = counts.get(sev, 0) + 1
-    
-    critical = counts.get("CRITICAL", 0)
-    high = counts.get("HIGH", 0)
-    medium = counts.get("MEDIUM", 0)
-    low = counts.get("LOW", 0) + counts.get("INFO", 0)
-    
-    html_content = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>mcp-authscan Report</title><style>body{font-family:sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:1200px;margin:0 auto;background:white;border-radius:8px;padding:30px}.header{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:4px;margin-bottom:20px}.header h1{margin:0;font-size:2em}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px;margin:30px 0}.card{text-align:center;padding:20px;background:#f9f9f9;border-radius:4px}.card .num{font-size:2em;font-weight:bold}.critical{color:#e74c3c}.high{color:#e67e22}.findings{margin:20px 0}.finding{border-left:4px solid #ddd;padding:15px;margin:15px 0}.finding.critical{border-left-color:#e74c3c}.finding.high{border-left-color:#e67e22}.finding h3{margin:0 0 10px 0}</style></head><body><div class=\"container\"><div class=\"header\"><h1>🔒 mcp-authscan Report</h1><p>Target: " + target + "</p></div><div class=\"summary\"><div class=\"card\"><div class=\"num critical\">" + str(critical) + "</div><div>CRITICAL</div></div><div class=\"card\"><div class=\"num high\">" + str(high) + "</div><div>HIGH</div></div><div class=\"card\"><div class=\"num\">" + str(len(findings)) + "</div><div>Total</div></div></div><div class=\"findings\">"
-    
-    if findings_sorted:
-        for f in findings_sorted:
-            sev_class = f["severity"].lower()
-            html_content += f"<div class=\"finding {sev_class}\"><h3>{f['severity']} - {f.get('rule', 'N/A')}: {f.get('title', 'N/A')}</h3><p><strong>Evidence:</strong> {f.get('evidence', 'N/A')}</p><p><strong>Remediation:</strong> {f.get('remediation', 'N/A')}</p></div>"
+    """Render the report from the completed scan payload.
+
+    Refuses to write a page that cannot state what was tested and how much of it
+    reached a verdict, because a page like that reads as a clean result.
+    """
+    from html import escape
+
+    if not payload or 'report_hash' not in payload or not payload.get('counts'):
+        raise ValueError('HTML report requires a completed scan payload with counts and a report hash')
+
+    counts = payload['counts']
+    coverage = payload.get('coverage')
+    auth = payload.get('authorization') or {}
+
+    if coverage is None:
+        cov_text = 'not computed, zero testable probes'
     else:
-        html_content += "<p style=\"text-align:center;padding:40px;color:#666\"><h2>✅ No findings detected</h2></p>"
-    
-    if payload and payload.get('report_hash'):
-        html_content += f'<hr style="margin-top:40px"><footer style="font-size:0.85em;color:#666;padding:20px 0"><p><strong>Report Hash (SHA256):</strong><br><code>{payload["report_hash"]}</code></p></footer>'
-    
-    html_content += "</div></div></body></html>"
-    
-    with open(output_file, 'w') as f:
+        cov_text = '%.1f%% of testable probes' % (coverage * 100)
+
+    rows = [
+        ('Scope', payload.get('scope', '')),
+        ('Scan mode', payload.get('scan_mode', '')),
+        ('Probe set', payload.get('probe_set_version', '')),
+        ('Exit contract', payload.get('exit_contract', '')),
+        ('Fail on', payload.get('fail_on', '')),
+        ('Exit code', '%s (%s)' % (payload.get('exit_code'), payload.get('exit_condition', ''))),
+        ('Coverage', cov_text),
+        ('Authorised by', '%s on %s' % (auth.get('authorized_by', 'not recorded'), auth.get('date', ''))),
+        ('Basis', auth.get('basis', 'not recorded')),
+        ('Contact', auth.get('contact', 'not recorded')),
+        ('Assessed by', auth.get('assessed_by', 'not recorded')),
+    ]
+    detail = ''.join('<tr><td>%s</td><td>%s</td></tr>' % (escape(str(k)), escape(str(v))) for k, v in rows)
+    counter = ''.join('<div class="card"><div class="num">%s</div><div>%s</div></div>' % (escape(str(counts.get(k, 0))), escape(k)) for k in ('in_scope', 'attempted', 'PASS', 'FAIL', 'NOT_OBSERVED', 'EXCLUDED', 'NOT_IMPLEMENTED'))
+
+    css = '<style>body{font-family:sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:1100px;margin:0 auto;background:#fff;border-radius:8px;padding:30px}.summary{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}.card{min-width:120px;text-align:center;padding:14px;background:#f4f4f4;border-radius:4px}.num{font-size:1.6em;font-weight:bold}.finding{border-left:4px solid #ddd;padding:12px;margin:12px 0}table{border-collapse:collapse;width:100%}td{border-bottom:1px solid #eee;padding:8px;vertical-align:top}td:first-child{width:220px;color:#555}</style>'
+
+    items = payload.get('findings') or findings or []
+    if items:
+        body = ''.join('<div class="finding"><h3>%s - %s: %s</h3><p><strong>Evidence:</strong> %s</p><p><strong>Remediation:</strong> %s</p></div>' % (escape(str(f.get('severity'))), escape(str(f.get('rule', 'N/A'))), escape(str(f.get('title', 'N/A'))), escape(str(f.get('evidence', 'N/A'))), escape(str(f.get('remediation', 'N/A')))) for f in items)
+    else:
+        body = '<p>No findings at or above the reporting threshold.</p>'
+
+    not_tested = payload.get('not_tested') or []
+    gap = ''.join('<li>%s</li>' % escape(str(x)) for x in not_tested) or '<li>none recorded</li>'
+
+    html_content = ''.join([
+        '<!DOCTYPE html><html><head><meta charset=UTF-8><title>mcp-authscan Report</title>',
+        css,
+        '</head><body><div class="container">',
+        '<h1>mcp-authscan Report</h1><p>Target: %s</p>' % escape(str(target)),
+        '<div class="summary">', counter, '</div>',
+        '<h2>Run detail</h2><table>', detail, '</table>',
+        '<h2>Not tested</h2><ul>', gap, '</ul>',
+        '<h2>Findings</h2>', body,
+        '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
+        '<p>This hash seals the payload printed by --json for this run.</p></footer>',
+        '</div></body></html>',
+    ])
+
+    with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html_content)
-    
     return output_file
+
 
 def main():
     ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
@@ -2521,7 +2551,7 @@ def main():
         canonical_payload["coverage"] = None
         zero_testable = True
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
-    canonical_payload["scope"] = "OAuth authorization server configuration for %s" % args.target
+    canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [
         "MCP protocol endpoints",
     ]

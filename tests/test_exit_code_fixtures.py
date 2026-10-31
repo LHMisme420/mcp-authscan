@@ -5,6 +5,7 @@ proof_all_exit_codes.sh here: it has a foreign cwd and globally kills Python.
 """
 from contextlib import contextmanager
 from pathlib import Path
+import json
 import socket
 import subprocess
 import sys
@@ -96,3 +97,40 @@ class ExitCodeFixtureTests(unittest.TestCase):
 
     def test_exit_6_invalid_usage(self):
         self.check_exit(6, 9000, AUTH + ['--fail-on', 'invalid'])
+
+
+class ScopePayloadTests(unittest.TestCase):
+    def payload(self, port, extra):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / 'mcp_authscan.py'),
+             'http://127.0.0.1:%d/mcp' % port, *AUTH, '--json', *extra],
+            cwd=ROOT, capture_output=True, text=True, timeout=45,
+        )
+        self.assertEqual(result.returncode, 0,
+                         'Expected 0, got %d\n%s' % (result.returncode, result.stderr))
+        text = result.stdout
+        start = text.find('{')
+        self.assertGreaterEqual(start, 0, 'No JSON payload in stdout:\n' + text)
+        return json.loads(text[start:])
+
+    def test_supplied_scope_reaches_payload(self):
+        with fixture('test_fixture_coverage_100.py', 9000):
+            payload = self.payload(9000, ['--scope', 'Authorized MCP audit, fixtures only'])
+            self.assertEqual(payload['scope'], 'Authorized MCP audit, fixtures only')
+
+    def test_scope_falls_back_when_not_supplied(self):
+        with fixture('test_fixture_coverage_100.py', 9000):
+            payload = self.payload(9000, [])
+            expected = 'OAuth authorization server configuration for http://127.0.0.1:9000/mcp'
+            self.assertEqual(payload['scope'], expected)
+
+
+class HtmlReportGuardTests(unittest.TestCase):
+    def test_refuses_page_without_payload(self):
+        from mcp_authscan import monolith
+        out = ROOT / 'tests' / 'should-not-exist.html'
+        if out.exists():
+            out.unlink()
+        with self.assertRaises(ValueError):
+            monolith.generate_html_report([], 'http://127.0.0.1:9000/mcp', str(out))
+        self.assertFalse(out.exists(), 'Refused call still wrote a page')
