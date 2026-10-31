@@ -467,7 +467,7 @@ def probe_token_cache_control(token_endpoint):
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.data = b"grant_type=invalid"
         try:
-            http_status, headers, body = _egress_guard(req)
+            http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         except EgressRefusalError:
             return record(
                 probe_id=3,
@@ -788,7 +788,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         else:
             req.data = b"grant_type=invalid"
         try:
-            http_status, headers, body = _egress_guard(req)
+            http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
             acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
             acac = next((v for k, v in headers.items() if k.lower() == "access-control-allow-credentials"), "")
@@ -981,7 +981,7 @@ def probe_password_grant(token_endpoint, metadata=None):
             form["client_id"] = cid
         _apply_client_secret(req, form, cid, csec, metadata=metadata)
         req.data = urlencode(form).encode()
-        http_status, headers, body = _egress_guard(req)
+        http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         try:
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
@@ -1300,7 +1300,7 @@ def probe_client_auth(token_endpoint):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=authorization_code&code=invalid"
         try:
-            http_status, headers, body = _egress_guard(req)
+            http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
         except json.JSONDecodeError:
@@ -1377,6 +1377,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
+    records.append(probe_cross_tenant(mcp_url))
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the
@@ -1444,3 +1445,52 @@ def _apply_server_error_rule(records):
     return records
 
 
+
+def probe_cross_tenant(mcp_url, tool="get_record"):
+    """A tool reading a record by id must refuse a foreign tenant record."""
+    token = os.environ.get("MCPAUTHSCAN_TENANT_TOKEN")
+    foreign = os.environ.get("MCPAUTHSCAN_FOREIGN_ID")
+    missing = [n for n in ("MCPAUTHSCAN_TENANT_TOKEN", "MCPAUTHSCAN_FOREIGN_ID") if not os.environ.get(n)]
+    if not mcp_url or missing:
+        return record(
+            probe_id=10,
+            name="cross-tenant",
+            status="EXCLUDED",
+            probe_class="authserver",
+            prerequisites=tuple(missing or ("an MCP endpoint",)),
+            prerequisite_met=False,
+            limitation="No tenant token or foreign record id supplied"
+        )
+
+    payload = json.dumps({"jsonrpc": "2.0", "id": 1, "params": {"name": tool, "arguments": {"id": foreign}}}).encode("utf-8")
+    req = Request(mcp_url, method="POST", data=payload)
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Authorization", "Bearer " + token)
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    try:
+        http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+    except HTTPError as exc:
+        http_status, body = exc.code, exc.read()
+    except URLError as exc:
+        return record(probe_id=10, name="cross-tenant", status="NOT_OBSERVED", probe_class="authserver", detail="Request failed: %s" % exc)
+    text = body.decode("utf-8", "replace")
+
+    if 200 <= http_status < 300 and "error" not in text and foreign in text:
+        status, severity, detail = "FAIL", "CRITICAL", "Returned another tenant record for a foreign id"
+    elif http_status == 403:
+        status, severity, detail = "PASS", None, "Foreign record refused with 403"
+    elif http_status == 401:
+        status, severity, detail = "NOT_OBSERVED", None, "Token rejected, object authorization not judged"
+    else:
+        status, severity, detail = "NOT_OBSERVED", None, "Unexpected response: HTTP %s" % http_status
+    return record(
+        probe_id=10,
+        name="cross-tenant",
+        status=status,
+        http_status=http_status,
+        body=body,
+        probe_class="authserver",
+        detail=detail,
+        severity=severity,
+        endpoint=mcp_url
+    )

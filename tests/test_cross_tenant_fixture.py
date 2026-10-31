@@ -66,3 +66,40 @@ def test_misbehaving_server_returns_foreign_record():
 def test_unknown_token_is_rejected():
     status, _ = run(False, "tok-x", "r-a")
     assert status == 401
+
+def probe_run(monkeypatch, misbehave, token, foreign):
+    import mcp_authscan.monolith as mo
+    import mcp_authscan.oauth_probes_v2 as probes
+    monkeypatch.setenv("MCPAUTHSCAN_TENANT_TOKEN", token)
+    monkeypatch.setenv("MCPAUTHSCAN_FOREIGN_ID", foreign)
+    monkeypatch.setattr(probes, "ALLOW_PRIVATE_TARGETS", True)
+    mo.ALLOWED_HOSTS.add("127.0.0.1")
+    port = free_port()
+    proc = start(port, misbehave)
+    try:
+        return probes.probe_cross_tenant("http://127.0.0.1:" + str(port) + "/mcp")
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)
+
+def test_probe_passes_when_foreign_record_refused(monkeypatch):
+    r = probe_run(monkeypatch, False, "tok-a", "r-b")
+    assert r.status == "PASS"
+    assert r.severity is None
+
+def test_probe_fails_when_foreign_record_returned(monkeypatch):
+    r = probe_run(monkeypatch, True, "tok-a", "r-b")
+    assert r.status == "FAIL"
+    assert r.severity == "CRITICAL"
+
+def test_probe_does_not_pass_on_unauthorised_token(monkeypatch):
+    r = probe_run(monkeypatch, False, "tok-x", "r-b")
+    assert r.status == "NOT_OBSERVED"
+
+def test_probe_excluded_without_tenant_inputs(monkeypatch):
+    import mcp_authscan.oauth_probes_v2 as probes
+    monkeypatch.delenv("MCPAUTHSCAN_TENANT_TOKEN", raising=False)
+    monkeypatch.delenv("MCPAUTHSCAN_FOREIGN_ID", raising=False)
+    r = probes.probe_cross_tenant("http://127.0.0.1/mcp")
+    assert r.status == "EXCLUDED"
+    assert "MCPAUTHSCAN_TENANT_TOKEN" in r.prerequisites
