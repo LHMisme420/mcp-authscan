@@ -40,6 +40,16 @@
     "code": "c052c37c18c5668621d5be8ac1c8af9d3821ee07c221668a7d03ffbee1a991de"
    },
    "changed": "2026-10-30, refactor: _apply_client_secret is the one place the token exchange, token-cors and password-grant place the client secret; no request or verdict changed"
+  },
+  "2026.10.31.1": {
+   "fingerprint": "4cfd489dc6805fc1b360ac29177aa93b9eb46a0b423a46b67e8c8fe4973635aa",
+   "components": {
+    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "70756c2a2c82192e6b9c1fef3e975b209dd0c0e3dcaf6d68af7c22cf87f87eb8"
+   },
+   "changed": "2026-10-31, the shared 5xx rule is applied once to every oauth probe record, so a 5xx on any probe reads NOT_OBSERVED"
   }
  },
  "withdrawn": {

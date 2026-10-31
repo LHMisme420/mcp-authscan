@@ -29,6 +29,7 @@ the previous stamp instead of the day its probe set changed. Commit times are Am
 | 2026.10.30.1 | this change | 2026-10-30 | the 2026.11.03 probe set re-stamped under the new scheme; no probe changed |
 | 2026.10.30.2 | commit adding this row | 2026-10-30 | [DEBUG] stderr lines (discovery endpoints, token-cache-control) only with --verbose; no verdict changed |
 | 2026.10.30.3 | commit adding this row | 2026-10-30 | Elapsed Time excludes the attended --acquire-token wait on stdin; no verdict changed |
+| 2026.10.31.1 | commit adding this row | 2026-10-31 | the shared 5xx rule is applied once to every oauth probe record, so a 5xx on any probe reads NOT_OBSERVED |
 | 2026.10.30.4 | commit adding this row | 2026-10-30 | _apply_client_secret: one helper places the client secret for the token exchange, default token-cors and password-grant; requests and verdicts unchanged |
 | 2026.10.30.5 | f707170 | 2026-10-30 | **withdrawn**: issued by f707170 for a report-arithmetic change, same probe set as .4; any report carrying .5 ran the .4 probe set. The change it was issued for: Coverage is PASS+FAIL over testable probes (in_scope - EXCLUDED), was over in_scope; JSON and text share counts.coverage(); zero testable exits 5 |
 
