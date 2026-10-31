@@ -1,9 +1,11 @@
 """Test token-cors probe handling of 5xx and absent ACAO."""
 
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 from mcp_authscan.oauth_probes_v2 import probe_token_cors
 
+@patch.dict(os.environ, {"MCPAUTHSCAN_CLIENT_ID": "fixture-client", "MCPAUTHSCAN_CLIENT_SECRET": "fixture-secret", "MCPAUTHSCAN_REDIRECT_URI": "http://127.0.0.1/cb"})
 class TestTokenCors5xx(unittest.TestCase):
     """Test cases for token-cors probe verdict logic."""
     
