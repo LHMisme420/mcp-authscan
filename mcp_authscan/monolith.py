@@ -2017,6 +2017,15 @@ def generate_html_report(findings, target, output_file, payload=None):
     return output_file
 
 
+def open_tee(path):
+    fh = open(path, "w", encoding="utf-8")
+    out = sys.stdout
+    t = type("T", (), {})()
+    t.write = lambda x: (out.write(x), fh.write(x), len(x))[2]
+    t.flush = lambda: (out.flush(), fh.flush())
+    return t
+
+
 def main():
     ap = argparse.ArgumentParser(description=f"VATA mcp_authscan v{VERSION}")
 
@@ -2062,6 +2071,8 @@ def main():
                     help="scan scope (what was tested)")
 
     args = ap.parse_args()
+    if args.output and not (args.html or args.json):
+        sys.stdout = open_tee(args.output)
 
     # Discovery fetches honour the same opt-in as target validation: with
     # --allow-private the operator has explicitly authorized local targets, so
