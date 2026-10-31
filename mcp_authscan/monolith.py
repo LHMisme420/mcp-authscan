@@ -8,7 +8,7 @@ for authentication, token caching, CORS, PKCE, key rotation, and other security 
 
 Scanner mode: HTTP request/response analysis against live MCP server endpoints.
 Protocol: Tests JSON-RPC /initialize endpoint for 401 (OAuth required) or 200 (zero-auth).
-Exit codes: 0=success, 1=auth failed, 2=unreachable, 3=preflight failed, 4=discovery incomplete.
+Exit codes: see EXIT_CODES.md. Contract 2026.10.31.1 is stamped into every report with the condition that fired.
 Output: Human-readable security report with probe results and deterministic SHA256 hash.
 """
 from mcp_authscan import __version__
@@ -1379,7 +1379,7 @@ def to_sarif(findings, target):
                 "version": VERSION,
                 "rules": rules,
             }},
-            "properties": {"reportSha256": hashlib.sha256(blob).hexdigest()},
+            "properties": {"reportSha256": hashlib.sha256(blob).hexdigest(), "exitContract": EXIT_CONTRACT},
             "results": results,
         }],
     }
@@ -2230,7 +2230,7 @@ def main():
         # Update probes_attempted in case it was 0 before
         probes_attempted = attempted
 
-        # Incomplete assessment is printed, never an exit code: exit 5 means zero testable probes only.
+        # Incomplete assessment names the probes that could not observe their property; the exit contract decides the code.
         # Incomplete means a probe tried to observe its property and could not (NOT_OBSERVED).
         # EXCLUDED (prerequisite absent on this server) is named in the report, not warned on here.
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and not_observed > 0:
@@ -2528,6 +2528,11 @@ def main():
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
         canonical_payload.pop(key, None)
     
+    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable)
+    canonical_payload["exit_contract"] = EXIT_CONTRACT
+    canonical_payload["exit_condition"] = exit_condition
+    canonical_payload["exit_code"] = exit_code
+    canonical_payload["fail_on"] = args.fail_on
     payload_json = json.dumps(canonical_payload, sort_keys=True)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
     canonical_payload["report_hash"] = payload_hash
@@ -2652,40 +2657,39 @@ def main():
             # Use canonical payload hash (covers probe counts, auth, and findings)
             report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization + scan mode + probe status + findings. Excludes: elapsed time, timestamp, server-varying headers, tool version, scope statement, client registration block, and finding detail text (cf-ray, x-deno-trace-id, report-to, etc). Raw response headers preserved in JSON output for verification.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: elapsed time, timestamp, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
+            print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition} | exit code: {exit_code}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
         else:
             print(f"{len(F)} finding(s).")
 
-    # Exit code based on findings severity and --fail-on threshold
-    # Contract: zero testable probes → exit 5 (per design spec)
-    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and (probe_status.get('attempted', 0) == 0 or zero_testable) and not F:
-        if not F: sys.exit(5)
-    
-    thr_map = {"critical": 0, "high": 1, "medium": 2}
-    thr = thr_map[args.fail_on]
-    REVIEW = {"A4", "A5", "A6", "B2"}  # Review-list rules warn only
+    sys.exit(exit_code)
 
-    # Check if any finding meets or exceeds the threshold
-    findings_at_threshold = False
-    for finding in F:
+
+EXIT_CONTRACT = "2026.10.31.1"
+
+
+def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable):
+    # Single source of truth for the exit contract: the report records what this returns,
+    # and the process exits with it, so a report cannot disagree with its own exit code.
+    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
+    thr = {"critical": 0, "high": 1, "medium": 2}[fail_on]
+    review = {"A4", "A5", "A6", "B2"}
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and (probe_status.get("attempted", 0) == 0 or zero_testable) and not findings:
+        return 5, "zero_testable_probes"
+    for finding in findings:
         severity = finding.get("severity", "LOW")
-        sev_level = order.get(severity, 0)
-        rule = finding.get("rule", finding.get("ref", ""))  # Live findings use "ref", source code uses "rule"
+        level = order.get(severity, 99)
+        rule = finding.get("rule", finding.get("ref", ""))
+        if level <= thr and rule not in review:
+            return 1, "finding_at_or_above_" + fail_on
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("not_observed", 0) > 0:
+        return 5, "not_observed_present"
+    return 0, "clean"
 
-        if sev_level <= thr and rule not in REVIEW:
-            findings_at_threshold = True
-            break
-
-    if findings_at_threshold:
-        sys.exit(1)
-    elif scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("not_observed", 0) > 0:
-        sys.exit(5)
-    else:
-        sys.exit(0)
 
 if __name__ == "__main__":
     main()
