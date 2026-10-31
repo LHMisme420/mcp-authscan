@@ -1,0 +1,29 @@
+{
+  "client": "REPLACE client name",
+  "target_host": "REPLACE host",
+  "assessment_id": "2026-001",
+  "issued": "2026-11-01",
+  "authorizing_party": "Name, role, company",
+  "auth_date": "2026-10-30",
+  "auth_basis": "written email authorization naming the host and endpoints",
+  "out_of_scope": [
+    "other hosts",
+    "account and billing pages"
+  ],
+  "other_non_scope": [
+    "rate limiting",
+    "load behaviour"
+  ],
+  "one_paragraph_summary": "PLAIN ENGLISH SUMMARY",
+  "top_finding": "THE ONE THAT MATTERS",
+  "fix_order": "1. X 2. Y",
+  "coverage_line": "WHAT WAS AND WAS NOT DEMONSTRATED",
+  "coverage_statement": "SEVEN OF NINE PROBES REACHED A VERDICT...",
+  "assessor_name": "Leroy H. Mason",
+  "assessor_role": "Independent AI security researcher",
+  "issued_date": "2026-11-01",
+  "repro_command": "mcp-authscan https://target/mcp",
+  "method": "POST",
+  "path": "/sse",
+  "host": "127.0.0.1:8765"
+}

@@ -89,3 +89,4 @@ dist/
 *.egg-info/
 .eggs/
 *.whl
+docs/assessments/

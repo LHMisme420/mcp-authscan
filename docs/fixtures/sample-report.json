@@ -1,0 +1,17 @@
+{
+  "tool_version": "1.1.8",
+  "probe_set_version": "1.1.8",
+  "start": "2026-10-31T00:40:00Z",
+  "end": "2026-10-31T00:40:02Z",
+  "hash": "replace-with-real-sha256",
+  "findings": [
+    {"id": "ZERO-AUTH", "title": "Zero authentication on SSE endpoint", "severity": "critical", "rule": "MCP-1", "endpoint": "http://127.0.0.1:8765/sse", "observed": "POST /initialize returned 200 without authentication", "evidence": "POST /initialize -> 200, body redacted", "architecture_impact": "Any client that can reach the host can open a session without credentials.", "remediation": "Require a bearer token on /sse.", "retest_criteria": "POST /initialize returns 401 without a token."},
+    {"id": "TOKEN-CORS", "title": "Wildcard CORS on token endpoint", "severity": "high", "rule": "OAuth-4", "endpoint": "http://127.0.0.1:8765/token", "observed": "ACAO star returned on a non-credentialed error response", "evidence": "Access-Control-Allow-Origin: *", "architecture_impact": "A cross-origin reader sees the error body of the token endpoint.", "remediation": "Allowlist origins on the token endpoint.", "retest_criteria": "No ACAO header on a cross-origin request."}
+  ],
+  "probes": [
+    {"probe": "preflight", "verdict": "PASS", "endpoint": "/sse", "note": "JSON-RPC answered"},
+    {"probe": "zero-auth", "verdict": "FAIL", "endpoint": "/sse", "note": "no authentication required"},
+    {"probe": "token-cors", "verdict": "FAIL", "endpoint": "/token", "note": "wildcard ACAO"},
+    {"probe": "pkce-s256", "verdict": "EXCLUDED", "endpoint": "/token", "note": "no registered OAuth client"}
+  ]
+}
