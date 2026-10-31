@@ -14,7 +14,7 @@ import re
 
 def get_tool_version():
     """Extract tool version from pyproject.toml."""
-    pyproject_path = Path(__file__).parent.parent / "mcp_authscan" / "pyproject.toml"
+    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
     with open(pyproject_path) as f:
         content = f.read()
     match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
@@ -25,13 +25,13 @@ def get_tool_version():
 
 def get_probe_set_version():
     """Extract probe set version from scanner config or constants."""
-    constants_path = Path(__file__).parent.parent / "mcp_authscan" / "scanner.py"
-    with open(constants_path) as f:
+    monolith_path = Path(__file__).parent.parent / "mcp_authscan" / "monolith.py"
+    with open(monolith_path) as f:
         content = f.read()
     match = re.search(r'PROBE_SET_VERSION\s*=\s*["\']([^"\']+)["\']', content)
     if match:
         return match.group(1)
-    raise ValueError("Probe set version not found in constants.py")
+    raise ValueError("Probe set version not found in monolith.py")
 
 
 class TestVersionParity:
@@ -45,7 +45,7 @@ class TestVersionParity:
     def test_probe_set_version_format(self):
         """Probe set version follows semantic versioning."""
         version = get_probe_set_version()
-        assert re.match(r'^\d+\.\d+\.\d+$', version), f"Invalid probe set version: {version}"
+        assert re.match(r'^\d{4}\.\d{2}\.\d{2}\.\d+$', version), f"Invalid probe set version: {version}"
 
     def test_versions_can_differ(self):
         """Tool and probe set versions are independent."""
