@@ -70,6 +70,16 @@
     "code": "42ab8a624a41209e21942b992f145ea26a80178feabd3e7ab1b4ccdcb14ccbfe"
    },
    "changed": "2026-10-31, probe 10 cross-tenant added and parked behind MCPAUTHSCAN_CROSS_TENANT so the declared set stays nine; token-cors on a plain scan now EXCLUDED naming the missing client credential instead of POSTing grant_type=invalid"
+  },
+  "2026.10.31.4": {
+   "fingerprint": "1b6143962b4ec4affaf56948805ab1ee5197aec933e467895b4fb88715f8fbdb",
+   "components": {
+    "probe_order": "2ad507a044ef9b5b786dc026d8cedc5d0c0094fe56409c13701566eaeb2cb770",
+    "probe_records": "411f0203c739d8161f8a27d1c4de22b5ce30df6ccee4f863a799a0ada36bf372",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "cf3255c5b288ba5af05fd44d4b8b789f9546fc8f6a4fcde6ed199b2a1211e5c1"
+   },
+   "changed": "2026-10-31, jwks-keys reports NOT_OBSERVED when the JWKS endpoint cannot be fetched instead of EXCLUDED; a failed fetch is an attempt not observed, not a missing prerequisite"
   }
  },
  "withdrawn": {

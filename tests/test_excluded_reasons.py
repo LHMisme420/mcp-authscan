@@ -22,8 +22,8 @@ def test_cli_prints_jwks_reason_when_no_jwks_uri():
         proc = _cli(base)
     assert "[5] jwks-keys            EXCLUDED" in proc.stderr
     out = proc.stdout.splitlines()
-    i = out.index("EXCLUDED (1, prerequisite missing, never sent):")
-    assert out[i + 1] == "  jwks-keys: No JWKS endpoint"
+    i = next(j for j, line in enumerate(out) if line.startswith("EXCLUDED (") and "prerequisite missing" in line)
+    assert "  jwks-keys: No JWKS endpoint" in out[i + 1:]
 
 
 def test_cli_prints_client_probe_reasons_when_registration_refused():

@@ -637,7 +637,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.10.31.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.10.31.4"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
