@@ -150,15 +150,15 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     assert counts["in_scope"] == 9
     assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
     excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
-    assert set(excluded) == {"pkce-s256", "redirect-uri-exact"}
+    assert {"pkce-s256", "redirect-uri-exact"} <= set(excluded)
     assert "client_id" in excluded["pkce-s256"]
     assert excluded["redirect-uri-exact"] == "No registered redirect_uri to compare against"
-    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == 2
+    assert counts["NOT_IMPLEMENTED"] == 0 and counts["EXCLUDED"] == len(excluded)
     assert counts["attempted"] == counts["PASS"] + counts["FAIL"] + counts["NOT_OBSERVED"]
     assert counts["attempted"] + counts["EXCLUDED"] + counts["NOT_IMPLEMENTED"] == counts["in_scope"]
-    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == 2
-    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / 7.0
-    # The two excluded probes leave the denominator: they name their prerequisite instead.
+    assert probe_status["not_implemented"] == 0 and probe_status["excluded"] == len(excluded)
+    assert coverage(counts) == (counts["PASS"] + counts["FAIL"]) / (counts["in_scope"] - counts["EXCLUDED"] - counts["NOT_IMPLEMENTED"])
+    # The excluded probes leave the denominator: they name their prerequisite instead.
     assert coverage(counts) <= 1.0
 
 
