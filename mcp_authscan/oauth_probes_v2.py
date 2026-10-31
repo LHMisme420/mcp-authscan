@@ -1377,7 +1377,8 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
-    records.append(probe_cross_tenant(mcp_url))
+    if os.environ.get("MCPAUTHSCAN_CROSS_TENANT") == "1":
+        records.append(probe_cross_tenant(mcp_url))
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the
