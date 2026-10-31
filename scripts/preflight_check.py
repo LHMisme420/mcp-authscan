@@ -55,5 +55,5 @@ def test_mcp_preflight(target_url):
             print(f"✗ Would FAIL: Unexpected status")
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "https://api.meant.run/mcp"
+    target = sys.argv[1] if len(sys.argv) > 1 else sys.exit("usage: preflight_check.py <url>")
     test_mcp_preflight(target)
