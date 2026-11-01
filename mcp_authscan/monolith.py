@@ -13,7 +13,7 @@ Output: Human-readable security report with probe results and deterministic SHA2
 """
 from mcp_authscan import __version__
 from mcp_authscan.report_copy import render_summary, check_counts
-from mcp_authscan.counts import count_probes, coverage, CoverageError
+from mcp_authscan.counts import count_probes, coverage, CoverageError, verdict_line
 import argparse, hashlib, json, re, sys, ipaddress, os, time, subprocess
 import subprocess
 from datetime import datetime, timezone
@@ -592,7 +592,6 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         probe_status['passed'] = oauth_counts.get("PASS", 0)
         probe_status['failed'] = oauth_counts.get("FAIL", 0)
         probe_status['not_observed'] = oauth_counts.get("NOT_OBSERVED", 0)
-        probe_status['observation'] = oauth_counts.get("observation", 0)
         probe_status['excluded'] = oauth_counts.get("EXCLUDED", 0)
         probe_status['not_implemented'] = oauth_counts.get("NOT_IMPLEMENTED", 0)
         
@@ -601,8 +600,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             oauth_counts.get("PASS", 0) == 0 and 
             oauth_counts.get("FAIL", 0) == 0 and
             oauth_counts.get("NOT_OBSERVED", 0) == 0):
-            probe_status['excluded'] = 9
-            probe_status['attempted'] = 0
+            probe_status["excluded"] = oauth_counts.get("EXCLUDED", 0)
         
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
@@ -1971,6 +1969,8 @@ def generate_html_report(findings, target, output_file, payload=None):
     else:
         cov_text = '%.1f%% of testable probes' % (coverage * 100)
 
+    ex = payload.get('excluded') or []
+    ex_text = ', '.join('%s (%s)' % (e.get('name'), e.get('reason') or 'reason not recorded') for e in ex) if ex else 'none'
     rows = [
         ('Scope', payload.get('scope', '')),
         ('Scan mode', payload.get('scan_mode', '')),
@@ -1978,7 +1978,9 @@ def generate_html_report(findings, target, output_file, payload=None):
         ('Exit contract', payload.get('exit_contract', '')),
         ('Fail on', payload.get('fail_on', '')),
         ('Exit code', '%s (%s)' % (payload.get('exit_code'), payload.get('exit_condition', ''))),
+        ('Verdicts', verdict_line(counts)),
         ('Coverage', cov_text),
+        ('Excluded', ex_text),
         ('Authorised by', '%s on %s' % (auth.get('authorized_by', 'not recorded'), auth.get('date', ''))),
         ('Basis', auth.get('basis', 'not recorded')),
         ('Contact', auth.get('contact', 'not recorded')),
@@ -2556,6 +2558,7 @@ def main():
         canonical_payload["coverage"] = None
         zero_testable = True
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
+    canonical_payload["excluded"] = [{"name": r.name, "reason": getattr(r, "limitation", "") or "; ".join(getattr(r, "prerequisites", ()) or ()) or "not recorded"} for r in oauth_records if r.status == "EXCLUDED"]
     canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = [
         "MCP protocol endpoints",
@@ -2576,7 +2579,7 @@ def main():
     HASHED_KEYS = (
         "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage",
         "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
-        "exit_code", "fail_on", "authorization", "hash_scheme", "run_started_at",
+        "exit_code", "fail_on", "authorization", "hash_scheme",
     )
     hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
     if isinstance(hashed.get("probes"), list):
@@ -2710,7 +2713,7 @@ def main():
             # Use canonical payload hash (covers probe counts, auth, and findings)
             report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on + run start time. Excludes: elapsed time, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
             print(f"REPORT HASH (SHA256): {report_hash}")
             extra = " (no finding at or above --fail-on)" if exit_condition == "clean" else ""
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
@@ -2724,7 +2727,7 @@ def main():
 
 
 EXIT_CONTRACT = "2026.10.31.1"
-HASH_SCHEME = "verdict-v3"  # Which keys report_hash is taken over
+HASH_SCHEME = "verdict-v2"  # Which keys report_hash is taken over
 
 
 def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable):

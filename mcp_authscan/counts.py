@@ -41,3 +41,11 @@ def coverage(counts):
     if counts["attempted"] == 0 or testable(counts) <= 0:
         raise CoverageError("zero testable probes")
     return (counts["PASS"] + counts["FAIL"]) / float(testable(counts))
+
+
+def verdict_line(counts):
+    tests = testable(counts)
+    conclusive = counts["PASS"] + counts["FAIL"]
+    return "%d PASS / %d FAIL / %d EXCLUDED / %d NOT_OBSERVED (coverage: %d of %d testable)" % (
+        counts["PASS"], counts["FAIL"], counts["EXCLUDED"], counts["NOT_OBSERVED"],
+        conclusive, tests)
