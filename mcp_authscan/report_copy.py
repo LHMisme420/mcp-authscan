@@ -89,9 +89,9 @@ def render_summary(records):
     except CoverageError:
         cov = "Coverage: no testable probes; not assessable (exit 5)"
     if excluded:
-        cov += f", {len(excluded)} excluded ({', '.join(r.name for r in excluded)}, prerequisite named)"
+        cov += f", {len(excluded)} excluded"
     if not_impl:
-        cov += "; not implemented: " + ", ".join(r.name for r in not_impl)
+        cov += f"; {len(not_impl)} not implemented"
     lines.append(cov)
 
     return lines
