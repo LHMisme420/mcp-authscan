@@ -1,6 +1,11 @@
 {
  "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
  "stamps": {
+  "2026.11.01.6": {"components": {"probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+   "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
+   "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+   "code": "dc64ed232f15d5050aa733fcc88825843e02d15cc55f59bfd03871b4d86dcb0b"},
+   "fingerprint": "2218a904e702c349534fefb592dc63cbcaef91bf336f98a93cfad781657a6290"},
   "2026.10.30.1": {
    "changed": "2026-10-30, commit f1d4fb3 (client_secret_basic at the token endpoint and revocation; shipped on the branch as 2026.11.03)",
    "components": {
