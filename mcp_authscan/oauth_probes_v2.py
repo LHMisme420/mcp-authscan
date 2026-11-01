@@ -1396,7 +1396,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_client_auth(metadata.get("token_endpoint")))
     if os.environ.get("MCPAUTHSCAN_CROSS_TENANT") == "1":
         records.append(probe_cross_tenant(mcp_url))
-    records.append(probe_token_audience(mcp_url, metadata=metadata))
+    records.append(probe_token_audience(mcp_url, metadata=metadata, client=client))
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the
@@ -1539,7 +1539,7 @@ def _revoke_audience_token(token_endpoint, token, cid, csec, metadata):
         print("[!] token revocation not confirmed: %s (%s)" % (endpoint, exc), file=sys.stderr)
 
 
-def probe_token_audience(mcp_url, metadata=None):
+def probe_token_audience(mcp_url, metadata=None, client=None):
     """A token minted for one resource must not be honoured by another."""
     metadata = metadata or {}
     token_endpoint = metadata.get("token_endpoint")
@@ -1554,7 +1554,7 @@ def probe_token_audience(mcp_url, metadata=None):
             limitation="No token endpoint advertised"
         )
 
-    cid, csec, _ = _client_creds()
+    cid, csec = (client.client_id, client.secret) if client else _client_creds()[:2]
     if not cid:
         return record(
             probe_id=11,
@@ -1603,6 +1603,11 @@ def probe_token_audience(mcp_url, metadata=None):
                       detail="Refused a token for a resource it does not serve (%s)" % error,
                       endpoint=token_endpoint)
 
+    if error in ("unsupported_grant_type", "invalid_grant"):
+        return record(probe_id=11, name="token-audience", status="EXCLUDED",
+                      probe_class="authserver", prerequisite_met=False,
+                      prerequisites=("a grant the token endpoint accepts",),
+                      limitation="No client-credentials grant (%s)" % error)
     token = payload.get("access_token")
     if not (200 <= http_status < 300 and isinstance(token, str) and token.strip()):
         return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
