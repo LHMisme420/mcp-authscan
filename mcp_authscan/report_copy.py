@@ -62,6 +62,9 @@ def render_summary(records):
             reason = "; ".join(x for x in (r.limitation, r.detail) if x)
             lines.append(f"  {r.name}: {reason or '(no reason recorded)'}")
 
+    else:
+        lines.append("EXCLUDED (0, nothing dropped)")
+
     # NOT_IMPLEMENTED: the probe is not built yet; nothing was sent, the target blocked nothing
     if not_impl:
         names = ", ".join(r.name for r in not_impl)
