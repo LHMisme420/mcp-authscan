@@ -465,7 +465,13 @@ def probe_token_cache_control(token_endpoint):
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
-        req.data = b"grant_type=invalid"
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        cid, csec, _ = _client_creds()
+        form = {"grant_type": "invalid"}
+        if cid:
+            form["client_id"] = cid
+        _apply_client_secret(req, form, cid, csec, metadata=None)
+        req.data = urlencode(form).encode()
         try:
             http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         except EgressRefusalError:
@@ -499,6 +505,21 @@ def probe_token_cache_control(token_endpoint):
             endpoint=token_endpoint
         )
     
+    error = ""
+    try:
+        error = json.loads(body.decode("utf-8")).get("error", "") or ""
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        error = ""
+    if error in ("invalid_client", "unauthorized_client"):
+        return record(
+            probe_id=3,
+            name="token-cache-control",
+            status="NOT_OBSERVED",
+            probe_class="authserver",
+            detail="No accepted client credential (%s), so no token response was produced" % error,
+            endpoint=token_endpoint
+        )
+
     if "no-store" in cache_control:
         status = "PASS"
         severity = None
@@ -1005,10 +1026,15 @@ def probe_password_grant(token_endpoint, metadata=None):
             detail="Request failed: %s" % e
         )
     
+    detail_override = None
     token = response.get("access_token")
     if 200 <= http_status < 300 and isinstance(token, str) and token.strip() and not error:
         status = "FAIL"
         severity = "HIGH"
+    elif error in ("invalid_client", "unauthorized_client"):
+        status = "NOT_OBSERVED"
+        severity = None
+        detail_override = "No accepted client credential (%s), so the grant type was never evaluated" % error
     elif 400 <= http_status < 500 and error and error != "invalid_grant":
         status = "PASS"
         severity = None
@@ -1024,7 +1050,7 @@ def probe_password_grant(token_endpoint, metadata=None):
         body=body,
         probe_class="authserver",
         detail=("Token issued using the deprecated password grant" if status == "FAIL"
-                else "Error: %s" % (error or "(none)")),
+                else detail_override or "Error: %s" % (error or "(none)")),
         severity=severity,
         endpoint=token_endpoint
     )
