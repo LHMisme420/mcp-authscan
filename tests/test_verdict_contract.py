@@ -33,68 +33,6 @@ EXPECTED = {
     },
 }
 
-import json
-import socket
-import subprocess
-import sys
-import time
-import unittest
-from pathlib import Path
-
-ROOT = Path.cwd()
-UNDECIDED = "UNDECIDED"
-
-AUTH = [
-    "--authorized-by", "Fixture runner",
-    "--auth-basis", "Local test fixture",
-    "--contact", "fixture@example.test",
-    "--allow-private",
-]
-
-FIXTURES = {
-    9002: "test_fixture_with_findings.py",
-}
-
-EXPECTED = {
-    9002: {
-        "token-cache-control": "PASS",
-        "token-cors": "EXCLUDED",
-        "password-grant": "FAIL",
-        "pkce-s256": "EXCLUDED",
-        "redirect-uri-exact": "EXCLUDED",
-        "issuer-identity": "PASS",  # issuer matches hostUNDECIDED,
-        "resource-binding": "PASS",  # resource matches endpointUNDECIDED,
-        "client-auth": "FAIL",  # token without client creds
-    },
-}
-
-class VerdictContract(unittest.TestCase):
-
-    def test_every_probe_has_a_decided_verdict(self):
-        for port, filename in FIXTURES.items():
-            exp = EXPECTED[port]
-            with self.subTest(port=port):
-                p = start_fixture(port, filename)
-                try:
-                    got = scan_verdicts(port)
-                finally:
-                    p.terminate()
-                    p.wait(timeout=5)
-                missing = [k for k in exp if k not in got]
-                self.assertEqual([], missing,
-                                 "probe never reported: %s" % missing)
-                und = [k for k, v in exp.items() if v == UNDECIDED]
-                self.assertEqual([], und,
-                                 "decide and say why: %s" % und)
-                diff = {}
-                for k, want in exp.items():
-                    if got.get(k) != want:
-                        diff[k] = (want, got.get(k))
-                self.assertEqual({}, diff,
-                                 "expected vs got: %s" % diff)
-
-
-
 class VerdictContract(unittest.TestCase):
 
     def test_every_probe_has_a_decided_verdict(self):
@@ -186,6 +124,7 @@ ACQUIRED_EXPECTED = {
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
+"token-audience": "EXCLUDED",
         },
         "coverage": 1.0,
         "excluded": 1,
@@ -206,6 +145,7 @@ ACQUIRED_EXPECTED = {
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
+"token-audience": "EXCLUDED",
         },
         "coverage": 1.0,
         "excluded": 1,
@@ -331,6 +271,7 @@ PLAIN_FULL_EXPECTED = {
             "pkce-s256": "PASS",
             "redirect-uri-exact": "PASS",
             "client-auth": "PASS",
+"token-audience": "EXCLUDED",
         },
         "coverage": 1.0,
         "excluded": 2,
