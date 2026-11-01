@@ -99,6 +99,16 @@
     "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
    },
    "fingerprint": "827834e29fc1ec5c734ef116f28f78b3bd9c980e7416fb871f291f2f14d17a4b"
+  },
+  "2026.11.01.5": {
+   "changed": "probe 6 password-grant takes the client the run resolved, falling back to the environment",
+   "components": {
+    "code": "96d0b443738317d031ea9d58f88734e6c4e0d59bf38ee78aee14e96fc21c8dd1",
+    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+    "probe_records": "bbfcca5faadde0600428486ce1344ffac5f98e12c4d8abd4a50876b3dd84484a",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+   },
+   "fingerprint": "87eec2ab6536764caf109201663538324c987ca9d93209b30ed1aceca5a795b9"
   }
  },
  "withdrawn": {

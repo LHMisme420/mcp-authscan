@@ -972,7 +972,7 @@ def probe_jwks_keys(jwks_uri):
     )
 
 
-def probe_password_grant(token_endpoint, metadata=None):
+def probe_password_grant(token_endpoint, metadata=None, client=None, registration_note=None):
     """Password grant is deprecated. Server must not accept it."""
     if not token_endpoint:
         return record(
@@ -987,11 +987,11 @@ def probe_password_grant(token_endpoint, metadata=None):
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", "mcp-authscan/2.0.0")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
-        cid, csec, _ = _client_creds()
+        cid, csec = (client.client_id, client.secret) if client else _client_creds()[:2]
         form = {"grant_type": "password", "username": "test", "password": "test"}
         if cid:
             form["client_id"] = cid
-        _apply_client_secret(req, form, cid, csec, metadata=metadata)
+        _apply_client_secret(req, form, cid, csec, client=client, metadata=metadata)
         req.data = urlencode(form).encode()
         http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         try:
@@ -1390,7 +1390,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=client,
                                     registration_note=registration_note))
     records.append(probe_jwks_keys(metadata.get("jwks_uri")))
-    records.append(probe_password_grant(metadata.get("token_endpoint"), metadata=metadata))
+    records.append(probe_password_grant(metadata.get("token_endpoint"), metadata=metadata, client=client, registration_note=registration_note))
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))

@@ -39,7 +39,7 @@ def test_default_scan_of_token_issuing_server_prints_no_token():
                  "--contact", "x@x.com", *fmt], cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
             outs.append(p)
     assert outs[0].returncode == 1          # the misbehaving fixture still has findings
-    assert "token-cors" in outs[0].stdout and "password-grant" in outs[0].stdout
+    assert "token-cors" in outs[1].stdout and "password-grant" in outs[1].stdout
     for p in outs:
         for t in TOKENS:
             assert t not in p.stdout and t not in p.stderr, t
