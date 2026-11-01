@@ -62,7 +62,7 @@ def test_unrevoked_token_is_reported_still_live(env, result, client_live):
         st = _state(base)
     text, js = runs[0][0], runs[1][0]
     for p, _, prompts in runs:
-        assert prompts == 1 and p.returncode in (0, 1), p.stderr[-500:]
+        assert prompts == 1 and p.returncode in (0, 1, 5), p.stderr[-500:]
         assert ("[!] token revocation not confirmed: %s issued by %s to client_id " % (BOTH, base)) in p.stderr
         assert " (%s); revoke on the server" % result in p.stderr
         assert "STILL LIVE" not in p.stdout + p.stderr

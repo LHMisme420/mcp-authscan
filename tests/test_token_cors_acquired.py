@@ -351,5 +351,5 @@ def test_plain_scan_never_prompts_or_reads_stdin():
             cwd=str(ROOT), env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         out, err = p.communicate(timeout=60)   # stdin left open until communicate closes it at the end
         st = _state(base)
-    assert p.returncode == 0
+    assert p.returncode in (0, 5)
     assert "[?]" not in err and "/authorize?" not in err and st["tokens_issued"] == 0

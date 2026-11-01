@@ -510,15 +510,6 @@ def probe_token_cache_control(token_endpoint):
         error = json.loads(body.decode("utf-8")).get("error", "") or ""
     except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
         error = ""
-    if error in ("invalid_client", "unauthorized_client"):
-        return record(
-            probe_id=3,
-            name="token-cache-control",
-            status="NOT_OBSERVED",
-            probe_class="authserver",
-            detail="No accepted client credential (%s), so no token response was produced" % error,
-            endpoint=token_endpoint
-        )
 
     if "no-store" in cache_control:
         status = "PASS"
@@ -1405,6 +1396,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     records.append(probe_client_auth(metadata.get("token_endpoint")))
     if os.environ.get("MCPAUTHSCAN_CROSS_TENANT") == "1":
         records.append(probe_cross_tenant(mcp_url))
+    records.append(probe_token_audience(mcp_url, metadata=metadata))
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the
@@ -1521,3 +1513,139 @@ def probe_cross_tenant(mcp_url, tool="get_record"):
         severity=severity,
         endpoint=mcp_url
     )
+
+
+
+def _revoke_audience_token(token_endpoint, token, cid, csec, metadata):
+    """Best-effort revocation. A token that cannot be revoked is announced, not hidden."""
+    endpoint = (metadata or {}).get("revocation_endpoint")
+    if not endpoint or not cid:
+        print("[!] token revocation not confirmed: token-audience token left live", file=sys.stderr)
+        return
+    form = {"token": token, "client_id": cid}
+    req = Request(endpoint, method="POST")
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        _apply_client_secret(req, form, cid, csec, metadata=metadata)
+        req.data = urlencode(form).encode()
+        _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        with urlopen(req, timeout=10) as resp:
+            resp.read()
+        print("[+] token-audience token revoked", file=sys.stderr)
+    except HTTPError as exc:
+        print("[!] token revocation refused: HTTP %d" % exc.code, file=sys.stderr)
+    except Exception as exc:
+        print("[!] token revocation not confirmed: %s (%s)" % (endpoint, exc), file=sys.stderr)
+
+
+def probe_token_audience(mcp_url, metadata=None):
+    """A token minted for one resource must not be honoured by another."""
+    metadata = metadata or {}
+    token_endpoint = metadata.get("token_endpoint")
+    if not token_endpoint:
+        return record(
+            probe_id=11,
+            name="token-audience",
+            status="EXCLUDED",
+            probe_class="authserver",
+            prerequisites=("a token endpoint",),
+            prerequisite_met=False,
+            limitation="No token endpoint advertised"
+        )
+
+    cid, csec, _ = _client_creds()
+    if not cid:
+        return record(
+            probe_id=11,
+            name="token-audience",
+            status="EXCLUDED",
+            probe_class="authserver",
+            prerequisites=("an accepted client credential",),
+            prerequisite_met=False,
+            limitation="No client credential supplied"
+        )
+
+    foreign = "https://foreign-resource.invalid/mcp"
+    form = {"grant_type": "client_credentials", "resource": foreign, "client_id": cid}
+    req = Request(token_endpoint, method="POST")
+    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        _apply_client_secret(req, form, cid, csec, metadata=metadata)
+        req.data = urlencode(form).encode()
+        http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+    except EgressRefusalError:
+        return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Target URL outside allowed scope")
+    except Exception as e:
+        return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Token request failed: %s" % e)
+
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    error = payload.get("error", "")
+
+    if error in ("invalid_client", "unauthorized_client"):
+        return record(probe_id=11, name="token-audience", status="EXCLUDED",
+                      probe_class="authserver",
+                      prerequisites=("an accepted client credential",),
+                      prerequisite_met=False,
+                      limitation="Client credential refused (%s)" % error)
+
+    if error in ("invalid_target", "invalid_resource", "invalid_request", "invalid_scope"):
+        return record(probe_id=11, name="token-audience", status="PASS",
+                      probe_class="authserver", http_status=http_status, body=body,
+                      detail="Refused a token for a resource it does not serve (%s)" % error,
+                      endpoint=token_endpoint)
+
+    token = payload.get("access_token")
+    if not (200 <= http_status < 300 and isinstance(token, str) and token.strip()):
+        return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                      probe_class="authserver", http_status=http_status, body=body,
+                      detail="Token endpoint returned %s without an access token" % http_status,
+                      endpoint=token_endpoint)
+
+    token = token.strip()
+    _revoke_audience_token(token_endpoint, token, cid, csec, metadata)
+
+    init = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                       "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                                  "clientInfo": {"name": "mcp-authscan", "version": "2.0.0"}}}).encode("utf-8")
+    pres = Request(mcp_url, method="POST", data=init)
+    pres.add_header("Content-Type", "application/json")
+    pres.add_header("Authorization", "Bearer " + token)
+    pres.add_header("User-Agent", "mcp-authscan/2.0.0")
+    try:
+        res_status, res_headers, res_body = _egress_guard(pres, allow_private=ALLOW_PRIVATE_TARGETS)
+    except HTTPError as exc:
+        res_status, res_body = exc.code, exc.read()
+    except EgressRefusalError:
+        return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Endpoint outside allowed scope")
+    except Exception as e:
+        return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                      probe_class="authserver",
+                      detail="Could not present the token to the endpoint: %s" % e)
+
+    if res_status in (401, 403):
+        return record(probe_id=11, name="token-audience", status="PASS",
+                      probe_class="authserver", http_status=res_status, body=res_body,
+                      detail="A token minted for another resource was refused with %s" % res_status,
+                      endpoint=mcp_url)
+
+    if 200 <= res_status < 300:
+        return record(probe_id=11, name="token-audience", status="FAIL",
+                      probe_class="authserver", http_status=res_status, body=res_body,
+                      severity="HIGH",
+                      detail="Accepted a token minted for %s" % foreign,
+                      endpoint=mcp_url)
+
+    return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                  probe_class="authserver", http_status=res_status, body=res_body,
+                  detail="Unexpected response presenting the token: HTTP %s" % res_status,
+                  endpoint=mcp_url)

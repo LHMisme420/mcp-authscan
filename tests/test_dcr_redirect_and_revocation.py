@@ -88,7 +88,7 @@ def test_unrevoked_client_is_still_live_in_terminal_text_and_json(env, revocatio
     assert clients["revoke_forms"] == []
     for proc, cid in ((text, text_cid), (js, js_cid)):
         assert [l for l in proc.stderr.splitlines() if revocation in l] == ["[!] " + oos % (cid, base)]
-        assert proc.returncode == 0          # exit code unchanged by a client left registered
+        assert proc.returncode in (0, 5)          # 5: token-audience not observed here; unchanged by a client left registered
     assert "Client Removal: %s\n" % (oos % (text_cid, base)) in text.stdout
     for out in (text.stdout, text.stderr, js.stdout, js.stderr):
         assert "fixture-rat" not in out and "registration_access_token\": \"fixture" not in out

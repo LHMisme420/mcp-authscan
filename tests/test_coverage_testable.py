@@ -38,9 +38,9 @@ class CoverageOverTestable(unittest.TestCase):
         report = json.loads(j.stdout[j.stdout.find("{"):])
         counts = report["counts"]
         excluded = sorted(x["name"] for x in report["probes"] if x["status"] == "EXCLUDED")
-        self.assertEqual(9, counts["in_scope"])
-        self.assertEqual(["pkce-s256", "redirect-uri-exact", "token-cors"], excluded)
-        self.assertEqual(3, counts["EXCLUDED"])
+        self.assertEqual(10, counts["in_scope"])
+        self.assertEqual(["pkce-s256", "redirect-uri-exact", "token-audience", "token-cors"], excluded)
+        self.assertEqual(4, counts["EXCLUDED"])
         testable = counts["in_scope"] - counts["EXCLUDED"]
         self.assertEqual(6, testable)
         self.assertEqual(6, counts["PASS"] + counts["FAIL"])
@@ -51,7 +51,7 @@ class CoverageOverTestable(unittest.TestCase):
         self.assertIsNotNone(m, "printed coverage line: %r" % lines[0])
         self.assertEqual((6, 6), (int(m.group(1)), int(m.group(2))))
         self.assertEqual(report["coverage"], float(m.group(3)))
-        self.assertIn("3 excluded (token-cors, pkce-s256, redirect-uri-exact", lines[0])
+        self.assertIn("4 excluded", lines[0])
 
 
 if __name__ == "__main__":

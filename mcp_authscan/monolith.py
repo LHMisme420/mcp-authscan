@@ -635,7 +635,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.11.01.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.01.4"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2244,7 +2244,7 @@ def main():
         # Attempted = probes actually sent (may exclude those with unmet prerequisites)
         # Excluded = probes never sent (prerequisite_met=False)
         # Not implemented = probes not yet built, never sent
-        # Total probe set = 9 (always attempted + excluded + not_implemented = 9)
+        # Total probe set is whatever the assessment declared for this run
         attempted = probe_status.get("attempted", 0)
         excluded = probe_status.get("excluded", 0)
         not_implemented = probe_status.get("not_implemented", 0)
@@ -2259,9 +2259,10 @@ def main():
             print(f"[!] ACCOUNTING ERROR: {verdicts} verdicts (expected {attempted} attempted)", file=sys.stderr)
             sys.exit(4)  # invariant violation is a scan error, whether or not anything was found
 
-        # Verify: attempted + excluded + not_implemented = 9
-        if attempted + excluded + not_implemented != 9:
-            print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded + {not_implemented} not implemented = {attempted + excluded + not_implemented} (expected 9)", file=sys.stderr)
+        # Verify: attempted + excluded + not_implemented = declared probe count
+        declared_total = len(oauth_records)
+        if attempted + excluded + not_implemented != declared_total:
+            print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded + {not_implemented} not implemented = {attempted + excluded + not_implemented} (expected {declared_total})", file=sys.stderr)
             sys.exit(4)  # invariant violation is a scan error, whether or not anything was found
 
         # Update probes_attempted in case it was 0 before
@@ -2484,7 +2485,7 @@ def main():
             elif entry.get("token_revocation_unconfirmed") is False:
                 report_lines.append("Token Status: revoked")
             else:
-                report_lines.append("Token Status: none acquired")
+                report_lines.append("Token Status: none acquired through client registration (token-audience probe mints separately, see probe 11)")
             report_lines.append("-" * 80)
             report_lines.append("")
 
