@@ -90,3 +90,18 @@ dist/
 .eggs/
 *.whl
 docs/assessments/
+
+# local scratch and third-party tooling
+compare*.txt
+out*.txt
+fail*.txt
+h1.txt
+h2.txt
+suite_*.txt
+unauth_fixture.py
+nova-proximity/
+ramparts
+rustup.sh
+mcp-authscan-report.html
+*.bak
+compare*.json
