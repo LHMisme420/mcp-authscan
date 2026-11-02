@@ -2447,7 +2447,11 @@ def main():
             probes_attempted=probes_attempted,
             probes_passed=probes_passed,
             # Live scan: count FAIL probe records; source scan has no records, keeps findings count
-            probes_failed=(sum(1 for r in oauth_records if r.status == "FAIL") if oauth_records else len(F)),
+            probes_failed=(
+                sum(1 for r in oauth_records if r.status == "FAIL")
+                if oauth_records
+                else (len(F) if scan_mode == "SOURCE_CODE_ASSESSMENT" else None)
+            ),
             probes_not_observed=probes_not_observed,
             probes_excluded=probes_excluded,
             probes_not_implemented=probes_not_implemented,
