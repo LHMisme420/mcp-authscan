@@ -2225,7 +2225,7 @@ def main():
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
-            if not F: sys.exit(5)
+            pass  # HALTED: fall through so the report prints and decide_exit returns 5
 
         if not server_reachable:
             # Distinguish failure modes by discovery_info status
@@ -2250,7 +2250,7 @@ def main():
             # - NOT_OBSERVED: 404/5xx (endpoint doesn't exist or error)
             # - FINDINGS: vulnerabilities detected
             probes_attempted = probe_status.get('attempted', 0)
-            if not probes_attempted and not F:
+            if not probes_attempted and not F and (discovery_info or {}).get("status") != "DISCOVERY_INCOMPLETE":
                 print(f"[!] Refused: no probes attempted against {args.target}; no report produced", file=sys.stderr)
                 sys.exit(3)
             if not probes_attempted:
@@ -2564,6 +2564,7 @@ def main():
         "probes": probes,
         "target": args.target,
         "scan_mode": scan_mode,
+        "discovery_status": (discovery_info or {}).get("status"),
         "probe_set_version": PROBE_SET_VERSION,
         "owasp_mapping_version": MAPPING_VERSION,
         "probes_attempted": probes_attempted,
@@ -2701,7 +2702,7 @@ def main():
                     if ev:
                         print("  EVIDENCE: %s" % ev)
                     print("")
-            return  # Stop here - don't run probes
+            sys.exit(exit_code)  # halted scan exits on its findings
 
         # Build summary from actual probe records (data-driven only)
         report_lines.append("PROBE RESULTS SUMMARY")
@@ -2802,7 +2803,7 @@ def main():
     sys.exit(exit_code)
 
 
-EXIT_CONTRACT = "2026.11.02.3"
+EXIT_CONTRACT = "2026.11.02.4"
 HASH_SCHEME = "verdict-v2"  # Which keys report_hash is taken over
 
 

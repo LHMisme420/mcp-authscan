@@ -20,6 +20,16 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ### Changed
 - The README states that ten probes run by default and that cross-tenant isolation needs MCPAUTHSCAN_CROSS_TENANT=1.
 
+## [1.1.17] - 2026-11-02
+
+- README: review offer moved below Versions.
+## [1.1.18] - 2026-11-02
+
+### Changed
+- A halted scan now prints its report and exits 5 instead of 3 with no report.
+- discovery_status is recorded in the payload and the saved report.
+- Exit contract stamp is now 2026.11.02.4.
+
 ## [1.1.16] - 2026-11-02
 
 ### Added
@@ -146,3 +156,4 @@ of 2026-10-29. The old date-only 2026.10.30 and the new 2026.10.30.1 are differe
 ## [1.0.0]
 - Baseline: MCP auth/CORS scanner with text/JSON reports and CWE/OWASP/NIST
   compliance mappings.
+
