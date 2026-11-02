@@ -105,3 +105,7 @@ rustup.sh
 mcp-authscan-report.html
 *.bak
 compare*.json
+
+voice_*.py
+voicecap1.json
+halt_run.py
