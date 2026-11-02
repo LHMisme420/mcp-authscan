@@ -148,6 +148,16 @@
         "code": "c7b07181d561b3bce4df77e25f5397185829f6e17d143ebda38a8968f47917ed"
       },
       "fingerprint": "95eac3b14a41ed61d7c524025b2c90f91cba0d8ece597feee5e67246e41f546c"
+    },
+    "2026.11.02.3": {
+      "changed": "2026-11-02, uncommitted (probe 12 resource-authservers added; no existing verdict changed)",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "93d59b1c717605e4d481236f68a39b2dad7383dc35b501f1ee4cdd66b62cb452"
+      },
+      "fingerprint": "db5bd95e16fe5f1dd27d032aa1e677d66f16b51f638ffefc4a21c9ac3ef8eee9"
     }
   },
   "withdrawn": {

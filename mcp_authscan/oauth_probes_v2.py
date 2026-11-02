@@ -1391,6 +1391,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     rb = probe_resource_binding(resource_metadata, mcp_url)
     if rb:
         records.append(rb)
+    rs = probe_resource_authorization_servers(resource_metadata, mcp_url); records.append(rs) if rs else None
     records.append(probe_token_cache_control(metadata.get("token_endpoint")))
     records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=client,
                                     registration_note=registration_note))
@@ -1659,3 +1660,82 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
                   probe_class="authserver", http_status=res_status, body=res_body,
                   detail="Unexpected response presenting the token: HTTP %s" % res_status,
                   endpoint=mcp_url)
+
+
+
+
+def probe_resource_authorization_servers(resource_metadata, mcp_url):
+    """Advertised authorization servers must be absolute HTTPS issuers."""
+    if not resource_metadata:
+        return record(
+            probe_id=12,
+            name="resource-authservers",
+            status="EXCLUDED",
+            probe_class="authserver",
+            limitation="No resource metadata"
+        )
+    servers = resource_metadata.get("authorization_servers")
+    body = json.dumps({"authorization_servers": servers}).encode("utf-8")
+    if not isinstance(servers, list) or not servers:
+        return record(
+            probe_id=12,
+            name="resource-authservers",
+            status="FAIL",
+            http_status=200,
+            body=body,
+            severity="MEDIUM",
+            probe_class="authserver",
+            detail="resource metadata names no authorization_servers",
+            endpoint=mcp_url
+        )
+    bad = [s for s in servers if not (isinstance(s, str) and s.startswith("https://"))]
+    return record(
+        probe_id=12,
+        name="resource-authservers",
+        status="FAIL" if bad else "PASS",
+        http_status=200,
+        body=body,
+        severity="HIGH" if bad else None,
+        probe_class="authserver",
+        detail="authorization_servers=%s%s" % (", ".join(servers), "" if not bad else " non-https: " + ", ".join(bad)),
+        endpoint=mcp_url
+    )
+
+
+def probe_resource_authorization_servers(resource_metadata, mcp_url):
+    """Advertised authorization servers must be HTTPS, or http on loopback."""
+    loopback = ("http://127.0.0.1", "http://localhost", "http://[::1]")
+    if not resource_metadata:
+        return record(
+            probe_id=12,
+            name="resource-authservers",
+            status="EXCLUDED",
+            probe_class="authserver",
+            limitation="No resource metadata"
+        )
+    servers = resource_metadata.get("authorization_servers")
+    body = json.dumps({"authorization_servers": servers}).encode("utf-8")
+    if not isinstance(servers, list) or not servers:
+        return record(
+            probe_id=12,
+            name="resource-authservers",
+            status="FAIL",
+            http_status=200,
+            body=body,
+            severity="MEDIUM",
+            probe_class="authserver",
+            detail="resource metadata names no authorization_servers",
+            endpoint=mcp_url
+        )
+    bad = [s for s in servers if not (isinstance(s, str) and (s.startswith("https://") or s.startswith(loopback)))]
+    return record(
+        probe_id=12,
+        name="resource-authservers",
+        status="FAIL" if bad else "PASS",
+        http_status=200,
+        body=body,
+        severity="HIGH" if bad else None,
+        probe_class="authserver",
+        detail="authorization_servers=%s%s" % (", ".join(servers), "" if not bad else " non-https: " + ", ".join(bad)),
+        endpoint=mcp_url
+    )
