@@ -30,6 +30,12 @@ aims to follow [Semantic Versioning](https://semver.org/).
 - discovery_status is recorded in the payload and the saved report.
 - Exit contract stamp is now 2026.11.02.4.
 
+## [1.1.19] - 2026-11-02
+
+### Fixed
+- A refused tools/list capture no longer exits 6 after the scan has run, and it now uses the same allowed host set as the scan.
+- The printed hash statement now names the tools_digest block among its exclusions.
+
 ## [1.1.16] - 2026-11-02
 
 ### Added

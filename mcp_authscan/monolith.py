@@ -2643,10 +2643,10 @@ def main():
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
     try:
-        canonical_payload["tools_digest"] = tools_digest_report(args.target)
+        canonical_payload["tools_digest"] = tools_digest_report(args.target, allowed_hosts=sorted(ALLOWED_HOSTS))
     except EgressRefusalError as e:
         print("[!] %s" % e, file=sys.stderr)
-        sys.exit(6)
+        canonical_payload["tools_digest"] = {"captured": False, "endpoint": args.target, "reason": "egress refused at capture"}
 
     if args.html:
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html", canonical_payload)
@@ -2788,7 +2788,7 @@ def main():
             # Use canonical payload hash (covers probe counts, auth, and findings)
             report_hash = payload_hash
             print("=" * 80)
-            print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
+            print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, tools_digest, and finding detail text.]")
             print(footer_line(canonical_payload))
             print(owasp_block(canonical_payload))
             print(f"REPORT HASH (SHA256): {report_hash}")
