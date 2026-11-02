@@ -67,3 +67,11 @@ class TestVersionParity:
         )
         assert result.returncode == 0, f"--version failed: {result.stderr}"
         assert "tool version" in result.stdout.lower() or get_tool_version() in result.stdout
+
+
+def test_readme_current_version_matches_pyproject():
+    import re, tomllib, pathlib
+    ver = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+    m = re.search(r"Current source version ([0-9][0-9.]*)", pathlib.Path("README.md").read_text())
+    assert m, "README has no current version line"
+    assert m.group(1) == ver, "README says %s, pyproject says %s" % (m.group(1), ver)

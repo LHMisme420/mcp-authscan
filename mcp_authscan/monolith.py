@@ -1,3 +1,4 @@
+from .owasp_mapping import MAPPING_VERSION, owasp_block, sarif_rules, tag
 import sys
 #!/usr/bin/env python3
 """
@@ -533,6 +534,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             for finding in oauth_findings:
                 findings.append({
                     "rule": f"OAuth-{finding['rule']}",
+                    "owasp": tag(f"OAuth-{finding['rule']}"),
                     "severity": finding['severity'],
                     "confidence": "HIGH",
                     "title": finding['title'],
@@ -570,6 +572,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             if record.status == "FAIL":
                 findings.append({
                     "rule": f"OAuth-{record.probe_id}",
+                    "owasp": tag(f"OAuth-{record.probe_id}"),
                     "severity": record.severity or "HIGH",
                     "confidence": "HIGH",
                     "title": record.name,
@@ -606,7 +609,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
-        # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-10, OAuth-11)
+        # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-7, OAuth-8)
         return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
     else:
         if not mcp_verified:
@@ -1376,7 +1379,7 @@ def to_sarif(findings, target):
                 "name": "mcp-authscan",
                 "informationUri": "https://github.com/LHMisme420/mcp-authscan",
                 "version": VERSION,
-                "rules": rules,
+                "rules": sarif_rules(rules),
             }},
             "properties": {"reportSha256": hashlib.sha256(blob).hexdigest(), "exitContract": EXIT_CONTRACT},
             "results": results,
@@ -1976,6 +1979,7 @@ def generate_html_report(findings, target, output_file, payload=None):
         ('Scope', payload.get('scope', '')),
         ('Scan mode', payload.get('scan_mode', '')),
         ('Probe set', payload.get('probe_set_version', '')),
+        ('OWASP mapping', payload.get('owasp_mapping_version', MAPPING_VERSION)),
         ('Exit contract', payload.get('exit_contract', '')),
         ('Fail on', payload.get('fail_on', '')),
         ('Exit code', '%s (%s)' % (payload.get('exit_code'), payload.get('exit_condition', ''))),
@@ -2524,6 +2528,7 @@ def main():
         "target": args.target,
         "scan_mode": scan_mode,
         "probe_set_version": PROBE_SET_VERSION,
+        "owasp_mapping_version": MAPPING_VERSION,
         "probes_attempted": probes_attempted,
         "probes_passed": probes_passed,
         "probes_failed": len(F),
@@ -2724,6 +2729,7 @@ def main():
             print("=" * 80)
             print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
             print(footer_line(canonical_payload))
+            print(owasp_block(canonical_payload))
             print(f"REPORT HASH (SHA256): {report_hash}")
             extra = " (no finding at or above --fail-on)" if exit_condition == "clean" else ""
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
