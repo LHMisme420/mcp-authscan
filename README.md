@@ -12,14 +12,6 @@ Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends r
 
 Repository scan (static). Given a GitHub repository URL, it reads the source instead of sending requests.
 
-## Want your own MCP server reviewed?
-
-I run authorised, evidence-backed security reviews of MCP server deployments. You get a written report with every finding by severity, the request and response behind each one, and an explicit list of what was not tested, including probes not yet built.
-
-Two ways in: a single-server review at $1,750, or a full assessment at $3,500 including one retest after you fix.
-
-I only scan servers I hold written permission to test. Email lhmisme2011@gmail.com with the endpoint and who authorises it.
-
 ## Authorized use
 
 Every scan needs an authorization basis. The CLI refuses to start without --authorized-by, --auth-basis and --contact, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
@@ -73,9 +65,9 @@ Which OWASP MCP Top 10 categories this covers, and which it does not, is in [doc
 - 0 clean, no FAIL at or above --fail-on and no in-scope probe without a verdict
 - 1 FAIL at or above --fail-on
 - 2 authorization validation failed, no network requests made
-- 3 target unreachable
+- 3 target unreachable, or refused before any probe (no report)
 - 4 target is not a valid MCP server
-- 5 incomplete coverage, at least one in-scope probe with no verdict (NOT_OBSERVED)
+- 5 incomplete coverage, at least one in-scope probe with no verdict (NOT_OBSERVED), or zero testable probes
 - 6 egress refused, a discovered host was not in the authorized set
 
 A FAIL at or above the threshold outranks incomplete coverage, so a run with both exits 1.
@@ -108,7 +100,15 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.16 (latest PyPI release 1.1.16) and probe set 2026.11.02.2 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+Current source version 1.1.18 and probe set 2026.11.02.2 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+
+## Want your own MCP server reviewed?
+
+I run authorised, evidence-backed security reviews of MCP server deployments. You get a written report with every finding by severity, the request and response behind each one, and an explicit list of what was not tested, including probes not yet built.
+
+Two ways in: a single-server review at $1,750, or a full assessment at $3,500 including one retest after you fix.
+
+I only scan servers I hold written permission to test. Email lhmisme2011@gmail.com with the endpoint and who authorises it.
 
 ## About
 
