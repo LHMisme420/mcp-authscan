@@ -6,7 +6,7 @@ Which of the ten categories mcp-authscan can decide on a running MCP server, whi
 
 A category is covered only when a probe positively demonstrated the property on a live endpoint. A 404, a timeout, a 5xx or an unexpected body is not a pass. A probe that could not run is excluded with its missing prerequisite named, and is counted as neither a pass nor a failure.
 
-Three things no endpoint prober can settle. It cannot verify a three-party OAuth flow, where the client, the authorization server and the resource are separate parties. It cannot read tool descriptions, prompts or resources, so tool poisoning and context over-sharing sit outside it. It cannot discover a server, only assess one it was handed, so shadow MCP servers are out of reach.
+Two things no endpoint prober can settle. It cannot verify a three-party OAuth flow, where the client, the authorization server and the resource are separate parties. It reads tool descriptions, prompts and resources, but a read is not a verdict. A clean read demonstrates no property, so tool poisoning and context over-sharing still carry none. It cannot discover a server, only assess one it was handed, so shadow MCP servers are out of reach.
 
 Every report stamps this mapping version beside the probe-set version, so a report issued under one revision is never quietly read as another.
 
