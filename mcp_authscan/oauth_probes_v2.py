@@ -1616,7 +1616,6 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
                       endpoint=token_endpoint)
 
     token = token.strip()
-    _revoke_audience_token(token_endpoint, token, cid, csec, metadata)
 
     init = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
                        "params": {"protocolVersion": "2025-06-18", "capabilities": {},
@@ -1637,6 +1636,7 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
                       probe_class="authserver",
                       detail="Could not present the token to the endpoint: %s" % e)
 
+    _revoke_audience_token(token_endpoint, token, cid, csec, metadata)
     if res_status in (401, 403):
         return record(probe_id=11, name="token-audience", status="PASS",
                       probe_class="authserver", http_status=res_status, body=res_body,
