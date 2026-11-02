@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Test server with security findings: accepts password grant (FAIL). Complete coverage for EXIT 1."""
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import json
 import sys
 
@@ -70,4 +70,4 @@ class FindingsHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9002
-    HTTPServer(("127.0.0.1", port), FindingsHandler).serve_forever()
+    ThreadingHTTPServer(("127.0.0.1", port), FindingsHandler).serve_forever()
