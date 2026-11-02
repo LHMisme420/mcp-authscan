@@ -66,6 +66,8 @@ Statuses are PASS, FAIL, NOT_OBSERVED, EXCLUDED and NOT_IMPLEMENTED.
 
 Coverage is PASS plus FAIL over the testable probes, the set that run declared less any EXCLUDED (prerequisite missing, never sent). A run without client credentials excludes pkce-s256 and redirect-uri-exact, so when the other seven reach a verdict it reads 7 of 7 testable (1.00), 2 excluded, and the report names each excluded probe with its missing prerequisite. Zero testable probes give no coverage figure and exit 5. Not observed means sent and not demonstrated.
 
+Which OWASP MCP Top 10 categories this covers, and which it does not, is in [docs/owasp-coverage.md](docs/owasp-coverage.md).
+
 ## Exit codes
 
 - 0 clean, no FAIL at or above --fail-on and no in-scope probe without a verdict
