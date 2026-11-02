@@ -27,6 +27,7 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
 from mcp_authscan.cors import probe_cors_urllib
 from .errors import EgressRefusalError
+from .tools_digest_footer import footer_line
 from mcp_authscan import _common
 
 LIVE_ENDPOINTS = {
@@ -2009,6 +2010,7 @@ def generate_html_report(findings, target, output_file, payload=None):
         '<h2>Run detail</h2><table>', detail, '</table>',
         '<h2>Not tested</h2><ul>', gap, '</ul>',
         '<h2>Findings</h2>', body,
+        "<p>%s</p>" % escape(footer_line(payload)),
         '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
         '<p>Hash covers: %s.</p><p>Evidence and remediation text are outside the hash.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
         '</div></body></html>',
@@ -2721,6 +2723,7 @@ def main():
             report_hash = payload_hash
             print("=" * 80)
             print("[Hash computed over: authorization + scan mode + probe status + findings + exit contract, condition, code and --fail-on. Excludes: run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, and finding detail text.]")
+            print(footer_line(canonical_payload))
             print(f"REPORT HASH (SHA256): {report_hash}")
             extra = " (no finding at or above --fail-on)" if exit_condition == "clean" else ""
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")

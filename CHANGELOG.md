@@ -4,6 +4,12 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.11] - 2026-11-02
+
+### Added
+- Text and HTML reports now say whether the tools/list digest was captured, and name the reason when it was not.
+- The digest stays outside the report hash; it moves no verdict and no coverage count.
+
 ## [Unreleased]
 
 ### Probe set stamps
