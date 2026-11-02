@@ -35,7 +35,9 @@ the previous stamp instead of the day its probe set changed. Commit times are Am
 | 2026.10.30.5 | f707170 | 2026-10-30 | **withdrawn**: issued by f707170 for a report-arithmetic change, same probe set as .4; any report carrying .5 ran the .4 probe set. The change it was issued for: Coverage is PASS+FAIL over testable probes (in_scope - EXCLUDED), was over in_scope; JSON and text share counts.coverage(); zero testable exits 5 |
 | 2026.10.31.3 | 38ed39d | 2026-10-31 05:50 | probe 10 cross-tenant added and parked behind MCPAUTHSCAN_CROSS_TENANT, declared set stays nine; token-cors on a plain scan EXCLUDED naming the missing client credential |
 | 2026.10.31.4 | b175070 | 2026-10-31 06:01 | jwks-keys reports NOT_OBSERVED when the JWKS endpoint cannot be fetched, was EXCLUDED; a failed fetch is an attempt not observed, not a missing prerequisite |
-| 2026.11.01.7 | commit adding this row | 2026-11-01 | probe 11 revokes the audience token after the presentation, so PASS means a foreign-audience token was refused rather than a revoked one; no probe added, verdict meaning changed |
+| 2026.11.01.7 | a9b7faa | 2026-11-01 | probe 11 revokes the audience token after the presentation, so PASS means a foreign-audience token was refused rather than a revoked one; no probe added, verdict meaning changed |
+| 2026.11.01.5 | bdf49d2 | 2026-11-01 | probe 6 password-grant takes the client the run resolved, falling back to the environment; no verdict changed |
+| 2026.11.01.6 | dc2ebff | 2026-11-01 | probe 11 token-audience asks with the resolved client and records EXCLUDED, prerequisite named, when the token endpoint refuses the grant |
 
 The fingerprint no longer hashes report accounting (the counts and coverage assignments in
 `monolith.main`); every recorded fingerprint was recomputed without it, and the current stamp is
