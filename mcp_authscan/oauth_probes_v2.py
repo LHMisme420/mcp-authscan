@@ -1,4 +1,6 @@
 """OAuth Authorization Server Assessment - Nine security probes."""
+from importlib.metadata import version as _dist_version
+USER_AGENT = "mcp-authscan/" + _dist_version("mcp-authscan")
 import json
 import os
 import re
@@ -236,7 +238,7 @@ def _register_once(endpoint, redirect_uri):
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
     }).encode("utf-8"))
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json")
     try:
@@ -313,7 +315,7 @@ def _remove_client(oauth_server_url, client):
         return False, ("client removal is out of scope for this tool: client_id %s registered at %s by this run "
                        "was not removed" % (client.client_id, oauth_server_url))
     req = Request(uri, method="DELETE")
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     req.add_header("Authorization", "Bearer " + rat)
     rat = None
     try:
@@ -464,7 +466,7 @@ def probe_token_cache_control(token_endpoint):
     
     try:
         req = Request(token_endpoint, method="POST")
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         cid, csec, _ = _client_creds()
         form = {"grant_type": "invalid"}
@@ -568,7 +570,7 @@ def _revoke_tokens(metadata, client, tokens, sent=None):
         sent["Authorization header"] = _basic_client_auth(req, form, client.client_id, client.secret, method)
         req.data = urlencode(form).encode("ascii")
         form = token = None
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         revoked = False
         try:
@@ -709,7 +711,7 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     # only to withhold an echoing error_description
     sent = {"code": code, "code_verifier": verifier, "client_secret": client.secret, "Authorization header": basic}
     form = code = verifier = basic = None
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     req.add_header("Origin", HOSTILE_ORIGIN)
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
     req.add_header("Accept", "application/json")
@@ -788,7 +790,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         # Check CORS on POST (the request that carries credentials)
         # Probe: POST with hostile Origin header
         req = Request(token_endpoint, method="POST")
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         req.add_header("Origin", origin_sent)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         cid, csec, _ = _client_creds()
@@ -916,7 +918,7 @@ def probe_jwks_keys(jwks_uri):
     
     try:
         req = Request(jwks_uri)
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         jwks = json.loads(body.decode("utf-8"))
         keys = jwks.get("keys", [])
@@ -985,7 +987,7 @@ def probe_password_grant(token_endpoint, metadata=None, client=None, registratio
     
     try:
         req = Request(token_endpoint, method="POST")
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         cid, csec = (client.client_id, client.secret) if client else _client_creds()[:2]
         form = {"grant_type": "password", "username": "test", "password": "test"}
@@ -1081,7 +1083,7 @@ def _authorize(authorization_endpoint, params):
     """One authorization request. Redirects are never followed and the Location is never fetched."""
     sep = "&" if "?" in authorization_endpoint else "?"
     req = Request(authorization_endpoint + sep + urlencode(params), method="GET")
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     return _egress_guard(req, follow_redirects=False)
 
 
@@ -1313,7 +1315,7 @@ def probe_client_auth(token_endpoint):
     
     try:
         req = Request(token_endpoint, method="POST")
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=authorization_code&code=invalid"
         try:
@@ -1363,7 +1365,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     metadata_url = oauth_server_url.rstrip("/") + "/.well-known/oauth-authorization-server"
     try:
         req = Request(metadata_url)
-        req.add_header("User-Agent", "mcp-authscan/2.0.0")
+        req.add_header("User-Agent", USER_AGENT)
         status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         metadata = json.loads(body.decode())
     except EgressRefusalError as e:
@@ -1485,7 +1487,7 @@ def probe_cross_tenant(mcp_url, tool="get_record"):
     req = Request(mcp_url, method="POST", data=payload)
     req.add_header("Content-Type", "application/json")
     req.add_header("Authorization", "Bearer " + token)
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     try:
         http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
     except HTTPError as exc:
@@ -1524,7 +1526,7 @@ def _revoke_audience_token(token_endpoint, token, cid, csec, metadata):
         return
     form = {"token": token, "client_id": cid}
     req = Request(endpoint, method="POST")
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
     try:
         _apply_client_secret(req, form, cid, csec, metadata=metadata)
@@ -1569,7 +1571,7 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
     foreign = "https://foreign-resource.invalid/mcp"
     form = {"grant_type": "client_credentials", "resource": foreign, "client_id": cid}
     req = Request(token_endpoint, method="POST")
-    req.add_header("User-Agent", "mcp-authscan/2.0.0")
+    req.add_header("User-Agent", USER_AGENT)
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
     try:
         _apply_client_secret(req, form, cid, csec, metadata=metadata)
@@ -1623,7 +1625,7 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
     pres = Request(mcp_url, method="POST", data=init)
     pres.add_header("Content-Type", "application/json")
     pres.add_header("Authorization", "Bearer " + token)
-    pres.add_header("User-Agent", "mcp-authscan/2.0.0")
+    pres.add_header("User-Agent", USER_AGENT)
     try:
         res_status, res_headers, res_body = _egress_guard(pres, allow_private=ALLOW_PRIVATE_TARGETS)
     except HTTPError as exc:

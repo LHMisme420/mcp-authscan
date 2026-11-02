@@ -128,6 +128,16 @@
                 "code": "c26a367323279668f72a3db231799701afe32d34cb6efbab357a3a6cb3f6e8b4"
             },
             "fingerprint": "970df5e8d28ab97de7e316f058622c0b0a6937d8619afbde0bfc9fdf45c35894"
+        },
+        "2026.11.02.1": {
+            "changed": "2026-11-02, uncommitted (User-Agent reports the installed version; no verdict or coverage change)",
+            "components": {
+                "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+                "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
+                "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+                "code": "dca2b1467709ef77fb9f493f765d6292cca19526b10048eab59f7c45b5d07a96"
+            },
+            "fingerprint": "ab6f490352ea01eb3026b54c197d03c4c11ac9a18882aa9e551bc1db6f82b85d"
         }
     },
     "withdrawn": {

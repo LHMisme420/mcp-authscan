@@ -10,9 +10,16 @@ aims to follow [Semantic Versioning](https://semver.org/).
 - Text and HTML reports now say whether the tools/list digest was captured, and name the reason when it was not.
 - The digest stays outside the report hash; it moves no verdict and no coverage count.
 
+## [1.1.12] - 2026-11-02
+
+### Fixed
+- The User-Agent reports the installed package version instead of a hardcoded 2.0.0.
+
 ## [Unreleased]
 
 ### Probe set stamps
+
+- 2026.11.02.1: the User-Agent reports the installed package version; no verdict or coverage change.
 `PROBE_SET_VERSION` (reported as `probe_set_version`) names the probe set that produced a report.
 From 2026.10.30.1 a stamp is `YYYY.MM.DD.N`: the America/New_York date the probe set changed and a
 per-day counter starting at 1, so two probe sets changed on one day get distinct stamps.
