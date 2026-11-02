@@ -2595,6 +2595,12 @@ def main():
     canonical_payload["hash_covers"] = sorted(hashed)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
+    from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
+    try:
+        canonical_payload["tools_digest"] = tools_digest_report(args.target)
+    except EgressRefusalError as e:
+        print("[!] %s" % e, file=sys.stderr)
+        sys.exit(6)
 
     if args.html:
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html", canonical_payload)

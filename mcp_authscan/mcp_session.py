@@ -39,6 +39,8 @@ def _post_jsonrpc(endpoint, payload, token, session_id=None, allow_private=None)
         "Authorization": "Bearer %s" % token,
         "User-Agent": "mcp-authscan/%s" % OAUTH_PROBE_VERSION,
     }
+    if not token:
+        hdrs.pop("Authorization", None)
     if session_id:
         hdrs[SESSION_HEADER] = session_id
     req = Request(endpoint, data=json.dumps(payload).encode("utf-8"), headers=hdrs, method="POST")
