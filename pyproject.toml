@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.12"  # keep in sync with mcp_authscan.version
+version = "1.1.13"  # keep in sync with mcp_authscan.version
 description = """MCP AuthScan
 Security scanner for MCP server deployments you are authorised to test. Python 3.11+.
 

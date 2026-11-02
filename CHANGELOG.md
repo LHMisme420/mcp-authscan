@@ -15,6 +15,11 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ### Fixed
 - The User-Agent reports the installed package version instead of a hardcoded 2.0.0.
 
+## [1.1.13] - 2026-11-02
+
+### Changed
+- The README states that ten probes run by default and that cross-tenant isolation needs MCPAUTHSCAN_CROSS_TENANT=1.
+
 ## [Unreleased]
 
 ### Probe set stamps
