@@ -2215,7 +2215,7 @@ def main():
             from mcp_authscan import content_probe
             try:
                 cobs = content_probe.observe(
-                    args.target, allow_private=args.allow_private)
+                    args.target, token=os.environ.get("MCPAUTHSCAN_TOKEN") or None, allow_private=args.allow_private)
             except EgressRefusalError as e:
                 print("[!] %s" % e, file=sys.stderr)
                 sys.exit(6)
@@ -2643,7 +2643,7 @@ def main():
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
     try:
-        canonical_payload["tools_digest"] = tools_digest_report(args.target, allowed_hosts=sorted(ALLOWED_HOSTS))
+        canonical_payload["tools_digest"] = tools_digest_report(args.target, token=os.environ.get("MCPAUTHSCAN_TOKEN") or None, allowed_hosts=sorted(ALLOWED_HOSTS))
     except EgressRefusalError as e:
         print("[!] %s" % e, file=sys.stderr)
         canonical_payload["tools_digest"] = {"captured": False, "endpoint": args.target, "reason": "egress refused at capture"}
