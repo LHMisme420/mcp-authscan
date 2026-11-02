@@ -1471,8 +1471,12 @@ def _apply_server_error_rule(records):
 
 
 
-def probe_cross_tenant(mcp_url, tool="get_record"):
-    """A tool reading a record by id must refuse a foreign tenant record."""
+def probe_cross_tenant(mcp_url, tool=None):
+    """A tool call for a foreign tenant record must refuse it.
+
+    Uses a real session and a listed tool when the server offers them, and falls
+    back to a direct call so the probe still reaches object authorization.
+    """
     token = os.environ.get("MCPAUTHSCAN_TENANT_TOKEN")
     foreign = os.environ.get("MCPAUTHSCAN_FOREIGN_ID")
     missing = [n for n in ("MCPAUTHSCAN_TENANT_TOKEN", "MCPAUTHSCAN_FOREIGN_ID") if not os.environ.get(n)]
@@ -1484,21 +1488,18 @@ def probe_cross_tenant(mcp_url, tool="get_record"):
             probe_class="authserver",
             prerequisites=tuple(missing or ("an MCP endpoint",)),
             prerequisite_met=False,
-            limitation="No tenant token or foreign record id supplied"
+            limitation="No tenant token or foreign record id supplied",
         )
 
-    payload = json.dumps({"jsonrpc": "2.0", "id": 1, "params": {"name": tool, "arguments": {"id": foreign}}}).encode("utf-8")
-    req = Request(mcp_url, method="POST", data=payload)
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Authorization", "Bearer " + token)
-    req.add_header("User-Agent", USER_AGENT)
-    try:
-        http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
-    except HTTPError as exc:
-        http_status, body = exc.code, exc.read()
-    except URLError as exc:
-        return record(probe_id=10, name="cross-tenant", status="NOT_OBSERVED", probe_class="authserver", detail="Request failed: %s" % exc)
-    text = body.decode("utf-8", "replace")
+    from mcp_authscan import denial_probe
+
+    http_status, msg, err = denial_probe.call_as(
+        mcp_url, token, tool=tool, arguments={"id": foreign},
+        allow_private=ALLOW_PRIVATE_TARGETS)
+    if err or http_status is None:
+        return record(probe_id=10, name="cross-tenant", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Request failed: %s" % err)
+    text = json.dumps(msg)[:4000] if isinstance(msg, dict) else ""
 
     if 200 <= http_status < 300 and "error" not in text and foreign in text:
         status, severity, detail = "FAIL", "CRITICAL", "Returned another tenant record for a foreign id"
@@ -1513,14 +1514,12 @@ def probe_cross_tenant(mcp_url, tool="get_record"):
         name="cross-tenant",
         status=status,
         http_status=http_status,
-        body=body,
+        body=json.dumps(msg).encode("utf-8") if isinstance(msg, dict) else b"",
         probe_class="authserver",
         detail=detail,
         severity=severity,
-        endpoint=mcp_url
+        endpoint=mcp_url,
     )
-
-
 
 def _revoke_audience_token(token_endpoint, token, cid, csec, metadata):
     """Best-effort revocation. A token that cannot be revoked is announced, not hidden."""
