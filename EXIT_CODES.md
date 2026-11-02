@@ -2,11 +2,11 @@
 
 ## Code Grouping
 
-Contract: 2026.10.31.1. Every report stamps the contract id, the condition that fired and the resulting code, and all three sit inside the report hash, so two reports cannot share a hash while disagreeing about why they exited.
+Contract: 2026.11.02.3. Every report stamps the contract id, the condition that fired and the resulting code, and all three sit inside the report hash, so two reports cannot share a hash while disagreeing about why they exited.
 
 Precondition aborts (no probes run):
 - Exit 2: Arguments or setup error
-- Exit 3: Target validation failed, including private IP DNS rebinding protection, or a target that is neither an http(s) URL nor a readable source directory. One refusal line on stderr; no report produced.
+- Exit 3: Target validation failed, including private IP DNS rebinding protection, or a target that is neither an http(s) URL nor a readable source directory. One refusal line on stderr; no report produced. Since 2026.11.02.3 this applies only when there are no findings: a run with no probe attempted and at least one content finding produces a report with coverage null and exits by the findings.
 - Exit 4: Scan error. An unhandled exception, an accounting invariant violation, or a target that is not an MCP server.
 - Exit 6: Egress refusal. The request was refused before it left because the host was outside the authorized set.
 

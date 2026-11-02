@@ -43,12 +43,15 @@ def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None
         raise EgressRefusalError(str(e))
     
     # Check hostname against authorized set
-    from mcp_authscan.monolith import ALLOWED_HOSTS
+    from mcp_authscan import monolith
     from urllib.parse import urlparse
     parsed = urlparse(request_obj.full_url)
-    hostname = (parsed.hostname or '').lower()
-    if hostname and hostname not in ALLOWED_HOSTS:
-        raise EgressRefusalError(f"host {hostname} not in authorized set: {sorted(ALLOWED_HOSTS)}")
+    hostname = (parsed.hostname or "").lower()
+    hosts = monolith.ALLOWED_HOSTS if allowed_hosts is None else set(allowed_hosts)
+    if not hostname:
+        raise EgressRefusalError("URL has no hostname")
+    if hostname not in hosts:
+        raise EgressRefusalError(f"host {hostname} not in authorized set: {sorted(hosts)}")
     
     opener = urlopen if follow_redirects else _NO_REDIRECT_OPENER.open
     try:

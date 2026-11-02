@@ -32,7 +32,8 @@ def _parse_body(raw, ctype):
     return json.loads(text)
 
 
-def _post_jsonrpc(endpoint, payload, token, session_id=None, allow_private=None):
+def _post_jsonrpc(endpoint, payload, token, session_id=None, allow_private=None,
+                   allowed_hosts=None):
     hdrs = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream",
@@ -44,10 +45,10 @@ def _post_jsonrpc(endpoint, payload, token, session_id=None, allow_private=None)
     if session_id:
         hdrs[SESSION_HEADER] = session_id
     req = Request(endpoint, data=json.dumps(payload).encode("utf-8"), headers=hdrs, method="POST")
-    return _egress_guard(req, allow_private=allow_private)
+    return _egress_guard(req, allow_private=allow_private, allowed_hosts=allowed_hosts)
 
 
-def open_session(endpoint, token, allow_private=None):
+def open_session(endpoint, token, allow_private=None, allowed_hosts=None):
     """Initialize an MCP session and return what tools/list needs. Produces no verdict."""
     init = {
         "jsonrpc": "2.0",
@@ -60,7 +61,7 @@ def open_session(endpoint, token, allow_private=None):
         },
     }
     try:
-        status, headers, raw = _post_jsonrpc(endpoint, init, token, allow_private=allow_private)
+        status, headers, raw = _post_jsonrpc(endpoint, init, token, allow_private=allow_private, allowed_hosts=allowed_hosts)
     except EgressRefusalError:
         raise
     except Exception as exc:
@@ -80,7 +81,7 @@ def open_session(endpoint, token, allow_private=None):
     note = {"jsonrpc": "2.0", "method": "notifications/initialized"}
     try:
         nstatus, _, _ = _post_jsonrpc(endpoint, note, token, session_id=session_id,
-                                      allow_private=allow_private)
+                                      allow_private=allow_private, allowed_hosts=allowed_hosts)
     except EgressRefusalError:
         raise
     except Exception:

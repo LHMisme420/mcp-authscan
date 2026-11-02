@@ -20,6 +20,19 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ### Changed
 - The README states that ten probes run by default and that cross-tenant isolation needs MCPAUTHSCAN_CROSS_TENANT=1.
 
+## [1.1.16] - 2026-11-02
+
+### Added
+- Surface drift: a scan captures a digest of the server's tools, prompts, resources and its own instructions, then reports each item that differs from a recorded baseline as added, removed or changed.
+- --surface-baseline FILE writes a baseline when the file does not exist, and compares against it when it does.
+- Drift findings use rule MCPD-1 at medium severity, carrying the baseline path, the item key and the before and after text as evidence. Drift never counts as a pass and stays outside the ten OWASP categories.
+- The text report states whether the surface was pinned, unchanged, changed or not compared, with the reason when it was not compared.
+
+### Fixed
+- Drift findings were written to a list the report does not read, so they were missing from the text report and the JSON payload while still appearing in the surface record.
+- A scan that stopped at OAuth discovery said it was reporting content findings and then printed none. It now lists them, with evidence, before it stops.
+- Installed metadata and the README still recorded 1.1.14 while the source was 1.1.15.
+
 ## [Unreleased]
 
 ### Probe set stamps
@@ -43,6 +56,8 @@ the previous stamp instead of the day its probe set changed. Commit times are Am
 | 2026.10.31 | a68c144 | 2026-10-29 15:40 | **mis-dated**: password-grant PASS on any named 4xx OAuth error except invalid_grant; token-cors non-verdict wording |
 | 2026.11.01 | 07d77a0 | 2026-10-29 17:31 | **mis-dated**: dynamic registration asks for grant_types authorization_code and refresh_token |
 | 2026.11.02 | a4612ef | 2026-10-29 18:19 | **mis-dated**: revocation always sends client_secret (empty for a public client) and a non-2xx reads "revocation not confirmed"; client removal only by RFC 7592 DELETE |
+| 2026.11.02.2 | commit adding this row | 2026-11-02 | no probe added or altered; the egress guard honours the allowed_hosts it is given and refuses a URL with no hostname, so what every probe may reach changed |
+| 2026.11.02.3 | commit adding this row | 2026-11-02 | exit contract: no probe attempted but at least one content finding now produces a report with coverage null and exits by the findings, was exit 3 with no report |
 | 2026.11.03 | f1d4fb3 | 2026-10-30 02:37 | **mis-dated**, never on main or in a release: client_secret_basic (HTTP Basic, RFC 6749 2.3.1) at the token exchange, environment-client token-cors and password-grant, and revocation |
 | 2026.10.30.1 | this change | 2026-10-30 | the 2026.11.03 probe set re-stamped under the new scheme; no probe changed |
 | 2026.10.30.2 | commit adding this row | 2026-10-30 | [DEBUG] stderr lines (discovery endpoints, token-cache-control) only with --verbose; no verdict changed |

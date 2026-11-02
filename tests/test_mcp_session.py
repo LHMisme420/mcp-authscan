@@ -16,7 +16,7 @@ INIT_RESULT = {
 def _fake(init_headers=None, init_status=200, init_body=None, ctype="application/json", calls=None):
     calls = calls if calls is not None else []
 
-    def guard(req, allow_private=None):
+    def guard(req, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
         body = json.loads(req.data.decode("utf-8"))
         calls.append((body.get("method"), {k.lower(): v for k, v in req.header_items()}))
         if body.get("method") == "initialize":
@@ -69,7 +69,7 @@ def test_sse_body_is_parsed(monkeypatch):
 
 
 def test_egress_refusal_propagates(monkeypatch):
-    def boom(req, allow_private=None):
+    def boom(req, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
         raise EgressRefusalError("refused")
 
     monkeypatch.setattr(m, "_egress_guard", boom)

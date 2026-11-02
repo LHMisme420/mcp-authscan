@@ -13,7 +13,7 @@ from mcp_authscan.oauth_probes_v2 import (
 TOOLS_DIGEST = {}
 
 
-def _capture_tools_digest(endpoint, token, extra_headers=None, allow_private=None):
+def _capture_tools_digest(endpoint, token, extra_headers=None, allow_private=None, allowed_hosts=None):
     """Digest of the tools/list payload a live session returned. Provenance, not a verdict."""
     hdrs = {
         "Content-Type": "application/json",
@@ -30,7 +30,7 @@ def _capture_tools_digest(endpoint, token, extra_headers=None, allow_private=Non
     body = json.dumps({"jsonrpc": "2.0", "id": "digest", "method": "tools/list", "params": {}}).encode("utf-8")
     req = Request(endpoint, data=body, headers=hdrs, method="POST")
     try:
-        status, resp_headers, raw = _egress_guard(req, allow_private=allow_private)
+        status, resp_headers, raw = _egress_guard(req, allow_private=allow_private, allowed_hosts=allowed_hosts)
         if not (200 <= int(status) < 300):
             return {"digest": None, "reason": "tools/list returned status %s" % status}
         text = raw.decode("utf-8", "replace")
@@ -55,17 +55,19 @@ def _capture_tools_digest(endpoint, token, extra_headers=None, allow_private=Non
         }
     except EgressRefusalError:
         raise
+    except (TypeError, AttributeError, NameError):
+        raise
     except Exception as exc:
         return {"digest": None, "reason": "tools/list not obtained: %s" % exc}
 
 
-def report_payload(target, token=None, allow_private=None):
+def report_payload(target, token=None, allow_private=None, allowed_hosts=None):
     """Capture the digest for the scanned endpoint. No verdict, no coverage movement."""
     if not isinstance(target, str) or not target.startswith(("http://", "https://")):
         return {"captured": False, "reason": "target is not an HTTP endpoint"}
     if allow_private is None:
         allow_private = oauth_probes_v2.ALLOW_PRIVATE_TARGETS
-    session = open_session(target, token, allow_private=allow_private)
+    session = open_session(target, token, allow_private=allow_private, allowed_hosts=allowed_hosts)
     if not session.get("established"):
         TOOLS_DIGEST.clear()
         TOOLS_DIGEST.update({
@@ -77,7 +79,7 @@ def report_payload(target, token=None, allow_private=None):
         })
         return dict(TOOLS_DIGEST)
     captured = _capture_tools_digest(target, token, {SESSION_HEADER: session["session_id"]},
-                                     allow_private=allow_private)
+                                     allow_private=allow_private, allowed_hosts=allowed_hosts)
     TOOLS_DIGEST.clear()
     TOOLS_DIGEST.update({
         "captured": captured.get("digest") is not None,

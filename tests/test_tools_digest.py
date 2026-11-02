@@ -8,7 +8,7 @@ TOOLS = [
 ]
 
 def _fake(body, seen):
-    def guard(req, allow_private=False):
+    def guard(req, allow_private=False, allowed_hosts=None):
         seen.append(dict(req.header_items()))
         return 200, {}, json.dumps(body).encode()
     return guard
@@ -36,7 +36,7 @@ def test_missing_result_tools_records_reason(monkeypatch):
     assert "reason" in got
 
 def test_egress_refusal_propagates(monkeypatch):
-    def boom(req, allow_private=False):
+    def boom(req, allow_private=False, allowed_hosts=None):
         raise o.EgressRefusalError("refused")
     monkeypatch.setattr(o, "_egress_guard", boom)
     try:
@@ -44,3 +44,13 @@ def test_egress_refusal_propagates(monkeypatch):
     except o.EgressRefusalError:
         return
     raise AssertionError("refusal did not propagate")
+
+def test_programming_error_propagates(monkeypatch):
+    def boom(req, allow_private=False, allowed_hosts=None):
+        raise TypeError("guard called wrong")
+    monkeypatch.setattr(o, "_egress_guard", boom)
+    try:
+        o._capture_tools_digest("https://example.test/mcp", "tok", {})
+    except TypeError:
+        return
+    raise AssertionError("TypeError was swallowed")

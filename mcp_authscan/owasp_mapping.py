@@ -12,14 +12,14 @@ MAPPING_VERSION = "2026.11.02.1"
 CATEGORIES = {
     "MCP01": "Token Mismanagement & Secret Exposure",
     "MCP02": "Privilege Escalation via Scope Creep",
-    "MCP03": "Tool Poisoning",
+            "MCP03": "Tool Poisoning",
     "MCP04": "Software Supply Chain Attacks & Dependency Tampering",
     "MCP05": "Command Injection & Execution",
     "MCP06": "Prompt Injection via Contextual Payloads",
     "MCP07": "Insufficient Authentication & Authorization",
     "MCP08": "Lack of Audit and Telemetry",
     "MCP09": "Shadow MCP Servers",
-    "MCP10": "Context Injection & Over-Sharing",
+            "MCP10": "Context Injection & Over-Sharing",
 }
 
 # One primary category per rule, so a finding is filed under one heading.
@@ -37,16 +37,18 @@ RULE_CATEGORY = {
     "OAuth-11": "MCP01",  # token-audience
     "potential_unauthenticated_sensitive_data": "MCP07",
     "cors": "MCP07",
+    "MCPC-1": "MCP03",  # directive-like content in metadata
+    "MCPC-2": "MCP10",  # resource or metadata names a private path
 }
 
 UNTESTED = {
-    "MCP03": "Needs the tool description content read and compared; mcp-authscan does not read tools, prompts or resources.",
+        "MCP03": "Content is read and directive-like metadata is reported as a finding; a clean read demonstrates no property, so the category carries no verdict.",
     "MCP04": "Needs package, lockfile and provenance inspection; a running endpoint cannot show it.",
     "MCP05": "Out of scope by policy. mcp-authscan checks preconditions and does not attempt execution.",
     "MCP06": "Needs payload and context analysis rather than an HTTP probe.",
     "MCP08": "Needs request-level telemetry from the server, which a prober cannot see.",
     "MCP09": "Needs network discovery and inventory; a target is supplied, never found.",
-    "MCP10": "Needs resource and prompt content read and compared for over-sharing.",
+        "MCP10": "Resource and prompt content is read and private paths are reported as a finding; a clean read demonstrates no property, so the category carries no verdict.",
 }
 
 PARTIAL = {

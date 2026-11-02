@@ -107,7 +107,7 @@ class _Server:
         return self
 
     def __exit__(self, *exc):
-        self.server.shutdown()
+        self.server._BaseServer__shutdown_request = True
         self.server.server_close()
         self.thread.join(timeout=5)
 

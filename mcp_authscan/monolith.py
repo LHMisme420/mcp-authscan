@@ -639,7 +639,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         return findings, True, probe_status, discovery_incomplete, ([], [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.11.02.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.02.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2058,6 +2058,8 @@ def main():
                          "the redirect address back on stdin; it then tests the cross-origin read on the "
                          "token response. The token is revoked before the report and never printed. Off by "
                          "default; without it the scanner never reads stdin")
+    ap.add_argument("--surface-baseline", metavar="FILE",
+                    help="pin or compare the MCP surface the server declares; a missing file is written, an existing file is diffed")
     ap.add_argument("--allow-private", action="store_true",
                     help="allow scanning private/loopback targets (127.0.0.0/8, 10.0.0.0/8, etc) - opt-in for lab and staging")
 
@@ -2209,6 +2211,17 @@ def main():
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
             return findings, True, probe_status, discovery_info, ([], [])
 
+        if is_http_target:
+            from mcp_authscan import content_probe
+            try:
+                cobs = content_probe.observe(
+                    args.target, allow_private=args.allow_private)
+            except EgressRefusalError as e:
+                print("[!] %s" % e, file=sys.stderr)
+                sys.exit(6)
+            F.extend(cobs.get("findings") or [])
+            args.content_observed = {k: cobs.get(k) for k in ("version", "inspected", "reasons")}
+
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
@@ -2237,9 +2250,11 @@ def main():
             # - NOT_OBSERVED: 404/5xx (endpoint doesn't exist or error)
             # - FINDINGS: vulnerabilities detected
             probes_attempted = probe_status.get('attempted', 0)
-            if not probes_attempted:
+            if not probes_attempted and not F:
                 print(f"[!] Refused: no probes attempted against {args.target}; no report produced", file=sys.stderr)
                 sys.exit(3)
+            if not probes_attempted:
+                print(f"[!] No probe ran against {args.target}; reporting content findings only", file=sys.stderr)
             probes_passed = probe_status['passed']
             probes_not_observed = probe_status['not_observed']
             probes_observed = probe_status.get('observation', 0)
@@ -2298,6 +2313,26 @@ def main():
 
     # Generate report with authorization block if credentials provided
     report_lines = []
+    surface_drift = None
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and getattr(args, "surface_baseline", None):
+        from mcp_authscan.surface_drift import run_surface_drift
+        drift_found, surface_drift = run_surface_drift(args.target, args.surface_baseline, allow_private=ALLOW_PRIVATE_TARGETS, allowed_hosts=sorted(ALLOWED_HOSTS))
+        st = surface_drift.get("state")
+        rs = surface_drift.get("reason")
+        bl = surface_drift.get("baseline")
+        if st == "pinned":
+            print("SURFACE BASELINE: none at %s, wrote one, nothing compared" % bl)
+        elif st == "unchanged":
+            print("SURFACE BASELINE: unchanged since %s" % bl)
+        elif st == "drift":
+            print("SURFACE BASELINE: changed since %s, %s change(s)" % (bl, surface_drift.get("changes")))
+        else:
+            print("SURFACE BASELINE: not compared (%s: %s)" % (st, rs))
+        # F is the list the report, the JSON payload and decide_exit all read,
+        # so drift goes into F, re-sorted to keep severity order.
+        if drift_found:
+            F.extend(drift_found)
+            F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
     auth_block = ""
     metadata_block = ""
     findings_by_severity = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
@@ -2523,7 +2558,9 @@ def main():
         probes.append(probe)
 
     
+
     canonical_payload = {
+        "surface_drift": surface_drift,
         "probes": probes,
         "target": args.target,
         "scan_mode": scan_mode,
@@ -2574,6 +2611,7 @@ def main():
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
         canonical_payload.pop(key, None)
     
+    canonical_payload["content_observed"] = getattr(args, "content_observed", {})
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
@@ -2641,6 +2679,28 @@ def main():
             print("  All 12 probes marked NOT_OBSERVED (no endpoints to test)")
             print("-" * 80)
             print("")
+            # A halted scan still has content findings (drift, static rules),
+            # so list them rather than reporting an incomplete scan with none.
+            if F:
+                print("FINDINGS SUMMARY")
+                print("-" * 80)
+                for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                    n = sum(1 for x in F if x.get("severity") == sev)
+                    if n:
+                        print("  %s: %s" % (sev, n))
+                print("  TOTAL: %s" % len(F))
+                print("-" * 80)
+                print("")
+                print("DETAILED FINDINGS")
+                print("-" * 80)
+                print("")
+                for x in F:
+                    print("[%s/%s] %s  %s" % (x.get("severity"), x.get("confidence"), x.get("rule"), x.get("title")))
+                    print("  %s:%s  (%s)" % (x.get("file"), x.get("line"), x.get("ref")))
+                    ev = x.get("evidence")
+                    if ev:
+                        print("  EVIDENCE: %s" % ev)
+                    print("")
             return  # Stop here - don't run probes
 
         # Build summary from actual probe records (data-driven only)
@@ -2742,7 +2802,7 @@ def main():
     sys.exit(exit_code)
 
 
-EXIT_CONTRACT = "2026.10.31.1"
+EXIT_CONTRACT = "2026.11.02.3"
 HASH_SCHEME = "verdict-v2"  # Which keys report_hash is taken over
 
 
