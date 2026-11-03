@@ -1,6 +1,6 @@
 import json, sys, hashlib
-PROFILE = "2026.11.03.1"
-COLS = ["metadata_issuer", "credential_binding", "token_response_iss"]
+PROFILE = "2026.11.03.2"
+COLS = ["metadata_issuer", "credential_binding"]
 def render(rows):
     w = max(len(r["client"]) for r in rows) + 2
     out = []
@@ -9,6 +9,7 @@ def render(rows):
     out.append("captured 2026-11-03")
     out.append("every cell captured by run, not by hand")
     out.append("snapshot of the versions listed, not maintained")
+    out.append("token response iss is not a conformance requirement and is not scored here")
     out.append("")
     out.append("client".ljust(w) + "  ".join(c.ljust(20) for c in COLS))
     for r in rows:

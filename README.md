@@ -14,7 +14,7 @@ Repository scan (static). Given a GitHub repository URL, it reads the source ins
 
 ## Client conformance
 
-Four MCP clients measured against three OAuth properties: whether the client validates the metadata issuer, whether it binds a credential to the resource it was issued for, and whether it validates iss in the token response. Every cell was captured by running the client against a local fixture, not by reading the source.
+Four MCP clients measured against two OAuth properties: whether the client validates the metadata issuer, and whether it binds a credential to the resource it was issued for. Every cell was captured by running the client against a local fixture, not by reading the source.
 
 Results and the versions measured are in conformance/matrix.json. The fixtures and drivers are in conformance/fixtures. The TypeScript driver runs from a path outside this repo, so that row is not reproducible from a clone alone.
 
