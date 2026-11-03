@@ -2457,7 +2457,7 @@ def main():
                 "Dependency vulnerabilities (CVE check)",
                 "Secrets in repository history",
                 "Comments and documentation",
-                "Rate limiting: no probe exceeds the server request budget, so throttling is neither confirmed nor excluded"
+                "Rate limiting: not tested in this scan. Throttling is reported only when a 429 with Retry-After is observed inside an authorised request budget, and a limit enforced outside the application is not visible here"
             ]
             # If we did OAuth discovery, note that MCP resource endpoint itself wasn't tested
             if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
