@@ -109,3 +109,8 @@ compare*.json
 voice_*.py
 voicecap1.json
 halt_run.py
+conformance/fixtures/logs/
+conformance_render.txt
+conformance_render.err
+conformance_run.err
+conformance_run.log
