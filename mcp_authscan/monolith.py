@@ -434,10 +434,10 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             with urlopen(req, timeout=5) as resp:
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
-                    body = resp.read(500).decode(errors='ignore')
+                    body = resp.read(65536).decode(errors='ignore')
                     try:
-                        json.loads(body)
-                        if 'jsonrpc' in body:
+                        data = json.loads(body)
+                        if isinstance(data, dict) and ('jsonrpc' in data or ('result' in data or 'error' in data)):
                             mcp_verified = True
                             print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
                     except json.JSONDecodeError:
@@ -449,7 +449,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                     # 400: JSON-RPC error (malformed but MCP aware)
                     # 406: Wrong content-type (path exists, headers wrong)
                     # 405 is not accepted: the path refuses POST, so it is not an MCP endpoint
-                    body = resp.read(500).decode(errors='ignore')
+                    body = resp.read(65536).decode(errors='ignore')
                     if 'jsonrpc' in body or '{' in body:
                         mcp_verified = True
                         print(f"[+] MCP server verified (HTTP {resp.status} with JSON-RPC error)", file=sys.stderr)
@@ -460,7 +460,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                 print(f"[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
             elif e.code in [400, 406]:
                 # Server returned error but in JSON format - still MCP (405 does not verify)
-                body = e.fp.read(500).decode(errors='ignore') if e.fp else ""
+                body = e.fp.read(65536).decode(errors='ignore') if e.fp else ""
                 if 'jsonrpc' in body or '{' in body:
                     mcp_verified = True
                     print(f"[+] MCP server verified (HTTP {e.code} with JSON-RPC response)", file=sys.stderr)
@@ -2224,7 +2224,7 @@ def main():
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
-            print(f"[!] OAuth detected (HTTP 401) but discovery chain failed. Cannot complete scan.", file=sys.stderr)
+            print(f"[!] Discovery chain failed; no OAuth endpoints discovered. Cannot complete scan.", file=sys.stderr)
             pass  # HALTED: fall through so the report prints and decide_exit returns 5
 
         if not server_reachable:
@@ -2676,7 +2676,7 @@ def main():
             print("DISCOVERY STATUS")
             print("-" * 80)
             print("PREFLIGHT CHECK: PASSED")
-            print("  POST /initialize returned HTTP 401 with OAuth challenge")
+            print("  POST initialize answered with an MCP JSON-RPC response")
             print("  This confirms an MCP server with OAuth exists at the target path.")
             print("")
             print("DISCOVERY CHAIN: INCOMPLETE")
