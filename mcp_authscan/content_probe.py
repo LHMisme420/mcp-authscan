@@ -10,7 +10,7 @@ import re
 from mcp_authscan import mcp_session
 from mcp_authscan.owasp_mapping import tag
 
-CONTENT_PROBE_VERSION = "2026.11.02.1"
+CONTENT_PROBE_VERSION = "2026.11.03.1"
 
 DIRECTIVE = re.compile(
     r"(?i)\b(ignore (all )?(previous|prior|above)|do not (tell|mention|reveal)"
@@ -76,10 +76,10 @@ def _scan(endpoint, key, items):
             found.append(_finding(
                 "MCPC-2", "HIGH", "resource exposes a system path",
                 endpoint, "%s -> %s" % (name, uri)))
-        elif SECRETISH.search(text):
+        elif isinstance(uri, str) and SECRETISH.search(uri):
             found.append(_finding(
                 "MCPC-2", "MEDIUM", "private path named in metadata",
-                endpoint, "%s: %s" % (name, _excerpt(text))))
+                endpoint, "%s: %s" % (name, _excerpt(uri))))
     return found
 
 LISTS = (("tools/list", "tools"), ("prompts/list", "prompts"),

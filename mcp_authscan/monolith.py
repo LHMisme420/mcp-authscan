@@ -294,7 +294,17 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                 if resp.status == 200:
                     # Unauthenticated access - zero-auth vulnerability detected
                     print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
-                    zero_auth_info = {"status": "ZERO_AUTH_DETECTED", "severity": "CRITICAL"}
+                    _zb = resp.read(65536).decode("utf-8", "replace")
+                    zero_auth_info = {
+                        "status": "ZERO_AUTH_DETECTED",
+                        "severity": "CRITICAL",
+                        "request_method": "POST",
+                        "request_body": json.dumps(init_payload),
+                        "response_status": resp.status,
+                        "response_body": _zb[:2000],
+                        "response_body_truncated": len(_zb) > 2000,
+                        "response_preview": _zb[:200],
+                    }
                     return None, zero_auth_info
         except HTTPError as e:
             if e.code != 401:
@@ -617,16 +627,21 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             # misreport an HTML/non-MCP target as a verified OAuth challenge.
             return findings, False, probe_status, preflight_info, ([], [])
         # Discovery failed - STOP, don't fallback to guessing
+        # Discovery observed an unauthenticated MCP surface. Keep that
+        # observation rather than overwriting it with DISCOVERY_INCOMPLETE.
+        if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED":
+            return findings, True, probe_status, discovery_info, ([], [])
+
         # Report DISCOVERY_INCOMPLETE with forensic details
         print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-        print(f"[!] The preflight detected OAuth (401) but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print(f"[!] The preflight verified an MCP surface, but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
         print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
         discovery_incomplete = {
             "status": "DISCOVERY_INCOMPLETE",
             "preflight_verified": True,
-            "preflight_status": 401,
+            "preflight_status": "MCP_VERIFIED",
             "discovery_attempted": True,
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
             "message": "OAuth server detected but endpoint discovery chain incomplete"
@@ -2196,20 +2211,20 @@ def main():
                 "title": "Unauthenticated MCP endpoint",
                 "evidence": "POST /initialize responded with HTTP 200 without authentication",
                 "confidence": "HIGH",
-                "file": target_url,
+                "file": args.target,
                 "line": 0,
                 "ref": "ZERO-AUTH",
                 "is_live_finding": True,
                 "request_method": "POST",
-                "request_body": "",
-                "response_status": 200,
-                "response_body": "",
-                "response_preview": "HTTP 200 - MCP endpoint accessible",
+                "request_body": discovery_info.get("request_body", ""),
+                "response_status": discovery_info.get("response_status", 200),
+                "response_body": discovery_info.get("response_body", ""),
+                "response_preview": discovery_info.get("response_preview", "HTTP 200 - MCP endpoint accessible"),
                 "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
-            return findings, True, probe_status, discovery_info, ([], [])
+            F = findings
 
         if is_http_target:
             from mcp_authscan import content_probe
@@ -2821,7 +2836,7 @@ def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable):
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
     thr = {"critical": 0, "high": 1, "medium": 2}[fail_on]
     review = {"A4", "A5", "A6", "B2"}
-    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and (probe_status.get("attempted", 0) == 0 or zero_testable) and not findings:
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and (probe_status.get("attempted", 0) == 0 or zero_testable):
         return 5, "zero_testable_probes"
     for finding in findings:
         severity = finding.get("severity", "LOW")
