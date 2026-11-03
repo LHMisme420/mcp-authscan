@@ -12,6 +12,12 @@ Live endpoint assessment (active). Given an MCP server URL, mcp-authscan sends r
 
 Repository scan (static). Given a GitHub repository URL, it reads the source instead of sending requests.
 
+## Client conformance
+
+Four MCP clients measured against three OAuth properties: whether the client validates the metadata issuer, whether it binds a credential to the resource it was issued for, and whether it validates iss in the token response. Every cell was captured by running the client against a local fixture, not by reading the source.
+
+Results and the versions measured are in conformance/matrix.json. The fixtures and drivers are in conformance/fixtures. The TypeScript driver runs from a path outside this repo, so that row is not reproducible from a clone alone.
+
 ## Authorized use
 
 Every scan needs an authorization basis. The CLI refuses to start without --authorized-by, --auth-basis and --contact, and that validation runs before any network call, so an unauthorized run exits 2 having sent nothing.
@@ -100,7 +106,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.19 and probe set 2026.11.02.4 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+Current source version 1.1.20 and probe set 2026.11.02.4 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
 
 ## Want your own MCP server reviewed?
 
