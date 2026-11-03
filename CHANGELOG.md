@@ -4,6 +4,14 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.20] - 2026-11-02
+
+### Fixed
+- A live scan with no OAuth probe records no longer reports drift or content findings as failed probes. Source scans still report their findings count.
+
+### Docs
+- The OWASP coverage page no longer says the scanner cannot read tool descriptions, prompts or resources.
+
 ## [1.1.11] - 2026-11-02
 
 ### Added

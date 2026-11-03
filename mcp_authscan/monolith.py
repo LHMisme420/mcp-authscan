@@ -2573,7 +2573,11 @@ def main():
         "owasp_mapping_version": MAPPING_VERSION,
         "probes_attempted": probes_attempted,
         "probes_passed": probes_passed,
-        "probes_failed": len(F),
+        "probes_failed": (
+            sum(1 for r in oauth_records if r.status == "FAIL")
+            if oauth_records
+            else (len(F) if scan_mode == "SOURCE_CODE_ASSESSMENT" else None)
+        ),
         "probes_observed": probes_observed,
         "probes_not_observed": probes_not_observed,
         "probes_excluded": probes_excluded,
