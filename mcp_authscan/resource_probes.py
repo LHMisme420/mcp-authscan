@@ -93,7 +93,7 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
         if 200 <= status_code < 300:
             try:
                 data = json.loads(body_bytes.decode('utf-8', errors='ignore'))
-                if isinstance(data, dict) and "jsonrpc" in data:
+                if isinstance(data, dict) and ("jsonrpc" in data or ("id" in data and ("result" in data or "error" in data))):
                     return ProbeRecord(
                         probe_id="mcp-preflight",
                         name="mcp-preflight",

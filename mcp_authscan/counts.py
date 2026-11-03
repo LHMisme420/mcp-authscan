@@ -18,7 +18,7 @@ def count_probes(records):
             raise RuntimeError(
                 "probe %s returned illegal status %r" % (rec.probe_id, rec.status))
     counts = {status: sum(1 for r in records if r.status == status)
-              for status in VALID_STATUSES}
+              for status in sorted(VALID_STATUSES)}
     counts["in_scope"] = len(records)
     # NOT_IMPLEMENTED probes are never sent: neither attempted nor excluded.
     counts["attempted"] = counts["in_scope"] - counts["EXCLUDED"] - counts["NOT_IMPLEMENTED"]

@@ -490,6 +490,12 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
 
     # Perform RFC 9728 → RFC 8414 discovery
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
+    from mcp_authscan.target_probes import run_target_probes
+    _th = urlparse(target_url).hostname
+    _scope = set(allowed_hosts) if allowed_hosts is not None else set(ALLOWED_HOSTS)
+    if _th:
+        _scope.add(_th)
+    target_records, target_findings = run_target_probes(target_url, _scope, allow_private) if mcp_verified else ([], [])
     _common.debug(f"oauth_endpoints={oauth_endpoints}")
 
     if oauth_endpoints:
@@ -620,7 +626,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-7, OAuth-8)
-        return findings, True, probe_status, discovery_info, (oauth_records, probe_results)
+        return findings + target_findings, True, probe_status, discovery_info, (list(oauth_records) + target_records, probe_results)
     else:
         if not mcp_verified:
             # Discovery did not establish an OAuth surface either. Do not
@@ -630,7 +636,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         # Discovery observed an unauthenticated MCP surface. Keep that
         # observation rather than overwriting it with DISCOVERY_INCOMPLETE.
         if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED":
-            return findings, True, probe_status, discovery_info, ([], [])
+            return findings + target_findings, True, probe_status, discovery_info, (list(target_records), [])
 
         # Report DISCOVERY_INCOMPLETE with forensic details
         print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
@@ -651,10 +657,10 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         probe_status['passed'] = 0
         probe_status['failed'] = 0
         probe_status['not_observed'] = 0
-        return findings, True, probe_status, discovery_incomplete, ([], [])
+        return findings + target_findings, True, probe_status, discovery_incomplete, (list(target_records), [])
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.11.02.4"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.03.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2172,7 +2178,7 @@ def main():
 
     if is_http_target:
         try:
-            result_tuple = scan_live_server(args.target)
+            result_tuple = scan_live_server(args.target, allow_private=args.allow_private)
             F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
             if isinstance(oauth_result, tuple) and len(oauth_result) == 2:
                 oauth_records, probe_results = oauth_result
@@ -2224,7 +2230,9 @@ def main():
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
-            F = findings
+            from mcp_authscan.target_probes import counts as _tcounts
+            probe_status = _tcounts(oauth_records) if oauth_records else probe_status
+            F = findings + list(F)
 
         if is_http_target:
             from mcp_authscan import content_probe
@@ -2281,6 +2289,9 @@ def main():
         # Excluded = probes never sent (prerequisite_met=False)
         # Not implemented = probes not yet built, never sent
         # Total probe set is whatever the assessment declared for this run
+        from mcp_authscan.counts import count_probes as _cp
+        _c = _cp(oauth_records if oauth_records is not None else [])
+        probe_status = {"attempted": _c["attempted"], "passed": _c["PASS"], "failed": _c["FAIL"], "not_observed": _c["NOT_OBSERVED"], "excluded": _c["EXCLUDED"], "not_implemented": _c["NOT_IMPLEMENTED"], "observation": 0} if _c else probe_status
         attempted = probe_status.get("attempted", 0)
         excluded = probe_status.get("excluded", 0)
         not_implemented = probe_status.get("not_implemented", 0)
@@ -2296,7 +2307,10 @@ def main():
             sys.exit(4)  # invariant violation is a scan error, whether or not anything was found
 
         # Verify: attempted + excluded + not_implemented = declared probe count
-        declared_total = len(oauth_records)
+        from mcp_authscan.counts import count_probes as _cp
+        _c = _cp(oauth_records if oauth_records is not None else [])
+        declared_total = _c["in_scope"] if _c else 0
+        probe_status = {"attempted": _c["attempted"], "passed": _c["PASS"], "failed": _c["FAIL"], "not_observed": _c["NOT_OBSERVED"], "excluded": _c["EXCLUDED"], "not_implemented": _c["NOT_IMPLEMENTED"], "observation": 0} if _c else probe_status
         if attempted + excluded + not_implemented != declared_total:
             print(f"[!] ACCOUNTING ERROR: {attempted} attempted + {excluded} excluded + {not_implemented} not implemented = {attempted + excluded + not_implemented} (expected {declared_total})", file=sys.stderr)
             sys.exit(4)  # invariant violation is a scan error, whether or not anything was found
@@ -2442,7 +2456,8 @@ def main():
                 "Source code review and design patterns",
                 "Dependency vulnerabilities (CVE check)",
                 "Secrets in repository history",
-                "Comments and documentation"
+                "Comments and documentation",
+                "Rate limiting: no probe exceeds the server request budget, so throttling is neither confirmed nor excluded"
             ]
             # If we did OAuth discovery, note that MCP resource endpoint itself wasn't tested
             if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
@@ -2629,14 +2644,12 @@ def main():
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     canonical_payload["excluded"] = [{"name": r.name, "reason": getattr(r, "limitation", "") or "; ".join(getattr(r, "prerequisites", ()) or ()) or "not recorded"} for r in oauth_records if r.status == "EXCLUDED"]
     canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
-    canonical_payload["not_tested"] = [
-        "MCP protocol endpoints",
-    ]
+    canonical_payload["not_tested"] = list(metadata.not_tested or [])
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
         canonical_payload.pop(key, None)
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
-    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable)
+    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=bool(discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE"))
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
     canonical_payload["run_started_at"] = datetime.fromtimestamp(scan_start_time, timezone.utc).isoformat(timespec="seconds")
@@ -2830,7 +2843,7 @@ EXIT_CONTRACT = "2026.11.02.4"
 HASH_SCHEME = "verdict-v2"  # Which keys report_hash is taken over
 
 
-def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable):
+def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable, halted=False):
     # Single source of truth for the exit contract: the report records what this returns,
     # and the process exits with it, so a report cannot disagree with its own exit code.
     order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
@@ -2844,6 +2857,8 @@ def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable):
         rule = finding.get("rule", finding.get("ref", ""))
         if level <= thr and rule not in review:
             return 1, "finding_at_or_above_" + fail_on
+    if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and halted:
+        return 5, "halted_discovery_incomplete"
     if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("not_observed", 0) > 0:
         return 5, "not_observed_present"
     return 0, "clean"

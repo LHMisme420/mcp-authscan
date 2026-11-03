@@ -59,9 +59,9 @@ def test_zero_auth_reported_with_evidence(tmp_path, zeroauth_server):
         [sys.executable, "-c", runner] + argv,
         capture_output=True, text=True, timeout=120,
     )
-    assert proc.returncode == 5, proc.stderr
+    assert proc.returncode == 1, proc.stderr
     data = json.loads(out.read_text())
-    assert data["exit_condition"] == "zero_testable_probes"
+    assert data["exit_condition"] == "finding_at_or_above_high"
     assert data["discovery_status"] == "ZERO_AUTH_DETECTED"
     hits = [f for f in data["findings"] if f["rule"] == "ZERO-AUTH"]
     assert len(hits) == 1

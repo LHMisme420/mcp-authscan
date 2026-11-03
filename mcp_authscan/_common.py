@@ -70,8 +70,8 @@ def record(probe_id, name, status, *, http_status=None, headers=None, body=b"",
     if status in ("PASS", "FAIL"):
         if http_status is None:
             raise ValueError("probe %s: %s needs a real http status" % (probe_id, status))
-        if evidence == "body" and not body:
-            raise ValueError("probe %s: %s needs a real response body" % (probe_id, status))
+        if not body and not headers:
+            raise ValueError("probe %s: %s needs a real observation: body or headers" % (probe_id, status))
     if status == "FAIL":
         if severity not in SEVERITY_ORDER:
             raise ValueError("probe %s: FAIL needs a severity from %s, got %r"

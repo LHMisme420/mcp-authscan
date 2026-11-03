@@ -147,7 +147,7 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
         server.server_close()
 
     counts = count_probes(records)
-    assert counts["in_scope"] == 11
+    assert counts["in_scope"] == 12
     assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
     excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
     assert {"pkce-s256", "redirect-uri-exact"} <= set(excluded)

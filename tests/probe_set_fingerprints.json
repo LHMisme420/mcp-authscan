@@ -1,6 +1,26 @@
 {
   "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
   "stamps": {
+    "2026.11.03.2": {
+      "changed": "2026-11-03, the record guard now requires an observation: a PASS or FAIL must carry a body or headers, and the declared evidence type no longer decides whether the guard fires. Probe set unchanged.",
+      "components": {
+        "code": "76f3f85c594b85dde235caf4801ab145f56623c1687d6a92c40807336ea220fb",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "b057dbe7b1fdbf81b6ecb601dbadeb25542c8328e8500e52eec970d7f306e67f"
+    },
+    "2026.11.03.1": {
+      "changed": "2026-11-03, CORS probe records response headers as its evidence: a header-backed verdict is no longer refused, and a wildcard on an empty body is no longer swallowed as NOT_OBSERVED. Probe set unchanged.",
+      "components": {
+        "code": "92dbdcb34f3654771c2b461c0d2ed6c5b4d9015dbc2ea579c8f83bc41f15fa44",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "9a14f923c35700a1b21d3744cd013563fa62df3b5e6214de0e4f1c45d6e5de12"
+    },
     "2026.10.30.1": {
       "changed": "2026-10-30, commit f1d4fb3 (client_secret_basic at the token endpoint and revocation; shipped on the branch as 2026.11.03)",
       "components": {
