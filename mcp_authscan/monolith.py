@@ -2634,6 +2634,7 @@ def main():
     counts = {k: counts[k] for k in _COUNT_KEYS}
     canonical_payload["counts"] = counts
     # Coverage over the testable probes (in_scope - EXCLUDED), from counts.coverage() like the printed line
+    halted = bool(discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE")
     zero_testable = False
     try:
         canonical_payload["coverage"] = round(coverage(counts), 4)
@@ -2641,6 +2642,10 @@ def main():
         # Zero testable probes: no coverage number at all; routed to exit 5 below
         canonical_payload["coverage"] = None
         zero_testable = True
+    if halted:
+        canonical_payload["coverage"] = None
+        canonical_payload["coverage_withheld"] = "discovery did not complete"
+    canonical_payload["completed"] = not halted
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     canonical_payload["excluded"] = [{"name": r.name, "reason": getattr(r, "limitation", "") or "; ".join(getattr(r, "prerequisites", ()) or ()) or "not recorded"} for r in oauth_records if r.status == "EXCLUDED"]
     canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
@@ -2649,7 +2654,7 @@ def main():
         canonical_payload.pop(key, None)
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
-    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=bool(discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE"))
+    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
     canonical_payload["run_started_at"] = datetime.fromtimestamp(scan_start_time, timezone.utc).isoformat(timespec="seconds")
@@ -2660,7 +2665,7 @@ def main():
     # values the server generates per run, so it is excluded by construction here
     # rather than redacted case by case.
     HASHED_KEYS = (
-        "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage",
+        "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage", "completed",
         "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
         "exit_code", "fail_on", "authorization", "hash_scheme",
     )
