@@ -4,7 +4,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.auth import OAuthClientProvider
 from mcp.shared.auth import OAuthClientMetadata, OAuthToken, OAuthClientInformationFull
 PORT = sys.argv[1] if len(sys.argv) > 1 else "9201"
-STATE = os.path.expanduser("~/matrix/harness/state.json")
+STATE = os.environ.get("DRIVE_STORE", "state.json")
 URL = "http:" + "//127.0.0.1:" + PORT + "/mcp"
 ST = []
 def dump(x):

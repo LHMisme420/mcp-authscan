@@ -5,7 +5,7 @@ from key_value.aio.stores.filetree import FileTreeStore
 from key_value.aio._utils.sanitization import AlwaysHashStrategy
 PORT = sys.argv[1] if len(sys.argv) > 1 else "9211"
 URL = "http:" + "//127.0.0.1:" + PORT + "/mcp"
-STORE = pathlib.Path.home() / "matrix" / "harness" / "fmstore"
+STORE = pathlib.Path("fmstore")
 SEEN = []
 DONE = [False]
 class NoRedir(urllib.request.HTTPRedirectHandler):

@@ -61,6 +61,8 @@ class H(BaseHTTPRequestHandler):
                 if part.startswith("state="):
                     st = part[6:]
             self.send_response(302)
+            if MODE == "badauthiss":
+                st = st + chr(38) + "iss=" + FOREIGN
             self.send_header("Location", "http:" + "//localhost:9301/callback?code=abc123" + chr(38) + "state=" + st)
             self.end_headers()
             return
