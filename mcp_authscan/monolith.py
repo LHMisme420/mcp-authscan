@@ -2704,7 +2704,14 @@ def main():
     canonical_payload["completed"] = not halted
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
     excl_raw = [{"name": r.name, "reason": getattr(r, "limitation", "") or "; ".join(getattr(r, "prerequisites", ()) or ()) or "not recorded"} for r in oauth_records if r.status == "EXCLUDED"]
-    canonical_payload["excluded"] = [dict(t) for t in dict.fromkeys((d["name"], d["reason"]) for d in excl_raw)]
+    excl_keys = []
+    excl_out = []
+    for d in excl_raw:
+        k = (d["name"], d["reason"])
+        if k not in excl_keys:
+            excl_keys.append(k)
+            excl_out.append({"name": k[0], "reason": k[1]})
+    canonical_payload["excluded"] = excl_out
     canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = list(metadata.not_tested or [])
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
