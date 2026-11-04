@@ -78,7 +78,7 @@ export default function Landing() {
             <div><span className="eyebrow">Your security workspace</span></div>
             <div>
               <blockquote>Scan, review, and collaborate.</blockquote>
-              <p>Create an account to scan authorized MCP servers, review your findings, and work with your team. No payment setup is needed.</p>
+              <p>Create an account to scan authorized MCP servers, review your findings, and work with your team.</p>
               <div className="hero-ctas">
                 <Link href="/sign-up" className="button">Create your account</Link>
                 <Link href="/sign-in" className="button secondary">Already have an account?</Link>
@@ -112,8 +112,17 @@ export default function Landing() {
                   <li>Up to 5 seats, including the owner</li>
                 </ul>
               </div>
+              <div className="plan-column weekly-plan">
+                <div className="plan-column-head"><span className="eyebrow">Keep checking</span><strong>Weekly re-checks</strong><span>$49 a month</span></div>
+                <ul>
+                  <li>Scheduled re-checks</li>
+                  <li>History with drift between runs</li>
+                  <li>SARIF export</li>
+                </ul>
+                <a className="button" href="https://buy.stripe.com/aFabJ1dK2axT4j664E7Vm00" target="_blank" rel="noopener noreferrer" aria-label="Get weekly re-checks (opens in a new tab)">Get weekly re-checks</a>
+              </div>
             </div>
-             <p className="plan-footnote">Only the workspace owner manages invitations and API tokens. No subscription or payment details are required.</p>
+             <p className="plan-footnote">Only the workspace owner manages invitations and API tokens.</p>
           </div>
         </section>
       </main>

@@ -5,6 +5,16 @@ description: Current owner-approved Stripe removal and superseded billing approv
 
 ## Current owner instruction
 
+The owner subsequently approved advertising “Weekly re-checks” at $49 a month
+with an outbound Stripe payment link only: “No billing code, outbound link only.”
+This is not permission to restore the Stripe connector or in-app billing.
+
+**Why:** The owner requested a paid offer on the landing page while explicitly
+excluding a billing integration.
+
+**How to apply:** Preserve the external-link-only boundary; ask before adding
+checkout APIs, subscription reconciliation, webhooks, or connector setup.
+
 The owner asked: “please update this as i am tryign to publish deactivate and remove stripe”.
 Earlier approvals for billing preparation below are superseded. Do not restore
 Stripe automatically or use historical billing tasks as authorization to reconnect it.

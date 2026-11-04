@@ -274,10 +274,11 @@ a { color: inherit; }
 .join-card p { color: var(--muted); font-size: 13px; line-height: 1.65; }
 .join-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .billing-actions { align-items: center; flex-wrap: wrap; }
-.plan-table { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: stretch; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.plan-table { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
 .plan-column { padding: 27px 30px; }
 .plan-column + .plan-column { border-left: 1px solid var(--line); }
 .pro-plan { background: #e9eee5; }
+.weekly-plan .button { margin-top: 18px; }
 .plan-column-head { display: grid; justify-items: start; gap: 7px; padding-bottom: 18px; border-bottom: 1px solid var(--line-strong); }
 .plan-column-head strong { font: 700 32px/1.1 var(--font-display); letter-spacing: -.05em; }
 .plan-column-head strong small { font: 500 11px var(--font-mono); letter-spacing: 0; }
