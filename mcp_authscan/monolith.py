@@ -652,7 +652,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     "evidence": record.detail or "",
                     "snippet": "",
                     "is_live_finding": True,
-                    "request_method": "GET" if record.probe_id in (7, 8) else "POST",
+                    "request_method": "GET" if record.probe_id in (1, 5, 7, 8) else "POST",
                     "request_body": "",
                     "response_status": record.http_status or 0,
                     "response_body": record.body_excerpt or "",
@@ -2512,6 +2512,8 @@ def main():
             # If we did OAuth discovery, note that MCP resource endpoint itself wasn't tested
             if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
                 not_tested.insert(0, "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 → RFC 8414 discovery)")
+                if discovery_info and discovery_info.get("authorization_servers"):
+                    not_tested.insert(0, "Authorization servers named in the resource metadata (%s) were contacted only where the written authorization covered that host; any server named there and not assessed carries no verdict, and the servers actually assessed are listed under client registration" % ", ".join(discovery_info["authorization_servers"]))
 
         if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and _rl is not None:
             not_tested = [x for x in not_tested if not x.startswith("Rate limiting")]
@@ -2701,7 +2703,8 @@ def main():
         canonical_payload["coverage_withheld"] = "discovery did not complete"
     canonical_payload["completed"] = not halted
     canonical_payload["not_implemented"] = [r.name for r in oauth_records if r.status == "NOT_IMPLEMENTED"]
-    canonical_payload["excluded"] = [{"name": r.name, "reason": getattr(r, "limitation", "") or "; ".join(getattr(r, "prerequisites", ()) or ()) or "not recorded"} for r in oauth_records if r.status == "EXCLUDED"]
+    excl_raw = [{"name": r.name, "reason": getattr(r, "limitation", "") or "; ".join(getattr(r, "prerequisites", ()) or ()) or "not recorded"} for r in oauth_records if r.status == "EXCLUDED"]
+    canonical_payload["excluded"] = [dict(t) for t in dict.fromkeys((d["name"], d["reason"]) for d in excl_raw)]
     canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
     canonical_payload["not_tested"] = list(metadata.not_tested or [])
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):

@@ -57,10 +57,17 @@ def render_summary(records):
 
     # EXCLUDED: never sent (prerequisite not met); each probe's reason on its own line
     if excluded:
-        lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent):")
+        excl_rows = []
         for r in excluded:
-            reason = "; ".join(x for x in (r.limitation, r.detail) if x)
-            lines.append(f"  {r.name}: {reason or '(no reason recorded)'}")
+            reason = "; ".join(x for x in (r.limitation, r.detail) if x) or "(no reason recorded)"
+            if (r.name, reason) not in excl_rows:
+                excl_rows.append((r.name, reason))
+        if len(excl_rows) == len(excluded):
+            lines.append(f"EXCLUDED ({len(excluded)}, prerequisite missing, never sent):")
+        else:
+            lines.append(f"EXCLUDED ({len(excl_rows)} distinct over {len(excluded)} records, prerequisite missing, never sent):")
+        for name, reason in excl_rows:
+            lines.append(f"  {name}: {reason}")
 
     else:
         lines.append("EXCLUDED (0, nothing dropped)")
@@ -89,7 +96,7 @@ def render_summary(records):
     except CoverageError:
         cov = "Coverage: no testable probes; not assessable (exit 5)"
     if excluded:
-        cov += f", {len(excluded)} excluded"
+        cov += f", {len(excl_rows)} distinct over {len(excluded)} records" if len(excl_rows) != len(excluded) else f", {len(excluded)} excluded"
     if not_impl:
         cov += f"; {len(not_impl)} not implemented"
     lines.append(cov)
