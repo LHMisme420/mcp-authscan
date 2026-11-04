@@ -291,7 +291,8 @@ def run_scan():
             raise ValueError('Timeout must be between 1 and 15 seconds.')
         scanner = RepositoryScanner(target, timeout) if is_github_target(target) else MCPScanner(target, timeout)
     except (TypeError, ValueError) as error:
-        return jsonify(error=str(error)), 400
+        app.logger.info('scan request rejected: %s', error)
+        return jsonify(error='Invalid scan request.'), 400
     org_id = get_jwt_identity()
     # Require an explicit authorization attestation for the target, and record it
     # for audit. Reachability is not permission: a hosted scanner must not let a
@@ -328,7 +329,7 @@ def run_scan():
         with sqlite3.connect(DB_FILE) as conn:
             conn.execute('''UPDATE scan_runs SET status='failed',error=?,completed_at=CURRENT_TIMESTAMP
                 WHERE id=? AND org_id=?''', (message, scan_id, org_id))
-        return jsonify(error=message, scan_id=scan_id, status='failed'), 502 if isinstance(error, ScanError) else 500
+        return jsonify(error='Scan could not be completed. Please retry.', scan_id=scan_id, status='failed'), 502 if isinstance(error, ScanError) else 500
     return jsonify(message=f'Scan completed with {len(failed)} finding(s).', scan=dict(
         id=scan_id, target=scanner.target_url, status='completed', total_checks=len(checks),
         findings_count=len(failed), critical_count=critical, high_count=high,
