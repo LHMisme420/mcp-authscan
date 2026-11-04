@@ -95,3 +95,10 @@ def render_summary(records):
     lines.append(cov)
 
     return lines
+
+
+def rate_limit_line(record):
+    """Report line for the rate-limit probe, derived from its own record."""
+    if record is None:
+        return "Rate limiting: no record was produced for this scan"
+    return "Rate limiting (%s): %s" % (record.status.lower(), record.detail or record.limitation or "reached a verdict")

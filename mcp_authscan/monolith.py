@@ -398,7 +398,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
     return _direct_rfc8414_discovery(base)
 
-def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
+def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_limit_count=None, rate_limit_window=None):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
     Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
     
@@ -495,7 +495,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
     _scope = set(allowed_hosts) if allowed_hosts is not None else set(ALLOWED_HOSTS)
     if _th:
         _scope.add(_th)
-    target_records, target_findings = run_target_probes(target_url, _scope, allow_private) if mcp_verified else ([], [])
+    target_records, target_findings = run_target_probes(target_url, _scope, allow_private, rate_limit_count, rate_limit_window) if mcp_verified else ([], [])
     _common.debug(f"oauth_endpoints={oauth_endpoints}")
 
     if oauth_endpoints:
@@ -530,7 +530,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                     print(f"[!] Resource metadata not fetched: {e}", file=sys.stderr)
                     pass  # Silently fail, resource_metadata_doc stays None
             
-            from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, count_probes, render_probe
+            from mcp_authscan.oauth_probes_v2 import run_oauth_assessment, render_probe
             try:
                 records, oauth_findings = run_oauth_assessment(oauth_server_url, resource_metadata_doc, target_url)
             except (ValueError, RuntimeError) as e:
@@ -607,26 +607,13 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
                     "remediation": "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it" if record.probe_id == 4 else "Review OAuth server configuration",
                 })
         
-        # Update probe_status from counts
-        probe_status['attempted'] = oauth_counts.get("attempted", 0)
-        probe_status['passed'] = oauth_counts.get("PASS", 0)
-        probe_status['failed'] = oauth_counts.get("FAIL", 0)
-        probe_status['not_observed'] = oauth_counts.get("NOT_OBSERVED", 0)
-        probe_status['excluded'] = oauth_counts.get("EXCLUDED", 0)
-        probe_status['not_implemented'] = oauth_counts.get("NOT_IMPLEMENTED", 0)
-        
-        # If OAuth assessment failed (all counts are 0), mark all 9 probes as excluded
-        if (oauth_counts.get("attempted", 0) == 0 and 
-            oauth_counts.get("PASS", 0) == 0 and 
-            oauth_counts.get("FAIL", 0) == 0 and
-            oauth_counts.get("NOT_OBSERVED", 0) == 0):
-            probe_status["excluded"] = oauth_counts.get("EXCLUDED", 0)
-        
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
         # Future: accept --client-id to run PKCE/redirect-URI rules (OAuth-7, OAuth-8)
-        return findings + target_findings, True, probe_status, discovery_info, (list(oauth_records) + target_records, probe_results)
+        all_records = list(oauth_records) + target_records
+        status_from_counts(probe_status, count_probes(all_records))
+        return findings + target_findings, True, probe_status, discovery_info, (all_records, probe_results)
     else:
         if not mcp_verified:
             # Discovery did not establish an OAuth surface either. Do not
@@ -636,6 +623,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
         # Discovery observed an unauthenticated MCP surface. Keep that
         # observation rather than overwriting it with DISCOVERY_INCOMPLETE.
         if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED":
+            status_from_counts(probe_status, count_probes(list(target_records)))
             return findings + target_findings, True, probe_status, discovery_info, (list(target_records), [])
 
         # Report DISCOVERY_INCOMPLETE with forensic details
@@ -652,15 +640,17 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False):
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
             "message": "OAuth server detected but endpoint discovery chain incomplete"
         }
-        # Zero probes were attempted because we had no endpoints to test
-        probe_status['attempted'] = 0
-        probe_status['passed'] = 0
-        probe_status['failed'] = 0
-        probe_status['not_observed'] = 0
+        status_from_counts(probe_status, count_probes(list(target_records)))
         return findings + target_findings, True, probe_status, discovery_incomplete, (list(target_records), [])
 
+def status_from_counts(status, counts):
+    for name, key in {"attempted": "attempted", "passed": "PASS", "failed": "FAIL", "not_observed": "NOT_OBSERVED", "excluded": "EXCLUDED", "not_implemented": "NOT_IMPLEMENTED"}.items():
+        status[name] = counts[key]
+    return status
+
+
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-PROBE_SET_VERSION = "2026.11.03.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.04.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2096,6 +2086,8 @@ def main():
     ap.add_argument("--ticket-ref", metavar="REF",
                     help="client's ticket/tracking reference")
     ap.add_argument("--allow-host", action="append", default=[], help="authorize a host for discovery (repeatable)")
+    ap.add_argument("--rate-limit-count", type=int, metavar="N", help="authorise at most N requests for the rate limit probe")
+    ap.add_argument("--rate-limit-window", type=int, metavar="SECONDS", help="the window those N requests fall inside")
     ap.add_argument("--contact", metavar="EMAIL", required=True,
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
@@ -2178,7 +2170,7 @@ def main():
 
     if is_http_target:
         try:
-            result_tuple = scan_live_server(args.target, allow_private=args.allow_private)
+            result_tuple = scan_live_server(args.target, allow_private=args.allow_private, rate_limit_count=args.rate_limit_count, rate_limit_window=args.rate_limit_window)
             F, server_reachable, probe_status, discovery_info, oauth_result = result_tuple
             if isinstance(oauth_result, tuple) and len(oauth_result) == 2:
                 oauth_records, probe_results = oauth_result
@@ -2439,6 +2431,10 @@ def main():
             except (OSError, IOError, PermissionError):
                 files_excluded = list(SKIP_DIR)
 
+        from mcp_authscan.target_probes import RATE_LIMIT_PROBE_ID as _rl_id
+        from mcp_authscan.report_copy import rate_limit_line
+        _rl = next((r for r in oauth_records if r.probe_id == _rl_id), None)
+        _rate_line = rate_limit_line(_rl)
         # Define what wasn't tested based on assessment type
         not_tested = []
         if scan_mode == "SOURCE_CODE_ASSESSMENT":
@@ -2463,6 +2459,10 @@ def main():
             if discovery_info and discovery_info.get('status') != 'DISCOVERY_INCOMPLETE':
                 not_tested.insert(0, "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 → RFC 8414 discovery)")
 
+        if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and _rl is not None:
+            not_tested = [x for x in not_tested if not x.startswith("Rate limiting")]
+            if _rl.status != "PASS":
+                not_tested.append(_rate_line)
         metadata = ScanMetadata(
             scope=args.scope or "OAuth configuration assessment",
             probe_set_version=PROBE_SET_VERSION,

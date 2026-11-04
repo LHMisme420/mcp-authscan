@@ -6,6 +6,7 @@ from urllib.request import Request
 
 from ._common import record
 from .oauth_probes_v2 import _egress_guard
+from .errors import EgressRefusalError
 
 CORS_PROBE_ID = 13
 PROBE_ORIGIN = "https://probe.invalid"
@@ -65,14 +66,16 @@ def cors_probe(mcp_url, allowed_hosts=None, allow_private=None):
                   body=raw, evidence="headers", detail=detail, endpoint=mcp_url)
 
 
-def run_target_probes(target_url, allowed_hosts=None, allow_private=False):
+def run_target_probes(target_url, allowed_hosts=None, allow_private=False, rate_limit_count=None, rate_limit_window=None):
     try:
         rec = cors_probe(target_url, allowed_hosts=allowed_hosts, allow_private=allow_private)
     except Exception as e:
         rec = record(CORS_PROBE_ID, "cross-origin read on the MCP endpoint", "NOT_OBSERVED", limitation=str(e), endpoint=target_url)
+    rate_rec = rate_limit_probe(target_url, count=rate_limit_count, window=rate_limit_window, allowed_hosts=allowed_hosts, allow_private=allow_private)
+    records = [rec, rate_rec]
     if rec.status != "FAIL":
-        return [rec], []
-    return [rec], [{
+        return records, []
+    return records, [{
         "rule": "CORS-1",
         "owasp": None,
         "severity": rec.severity or "HIGH",
@@ -99,7 +102,7 @@ def counts(records):
     for r in records:
         c[r.status] = c.get(r.status, 0) + 1
     return {
-        "attempted": len(records),
+        "attempted": len(records) - c.get("EXCLUDED", 0) - c.get("NOT_IMPLEMENTED", 0),
         "passed": c.get("PASS", 0),
         "failed": c.get("FAIL", 0),
         "not_observed": c.get("NOT_OBSERVED", 0),
@@ -107,3 +110,53 @@ def counts(records):
         "observation": 0,
         "not_implemented": c.get("NOT_IMPLEMENTED", 0),
     }
+RATE_LIMIT_PROBE_ID = 14
+
+
+def rate_limit_probe(url, count=None, window=None, allowed_hosts=None,
+                     allow_private=None):
+    name = "rate limiting on the endpoint"
+    if not count or not window or count < 1 or window < 1:
+        return record(RATE_LIMIT_PROBE_ID, name, "EXCLUDED",
+                      limitation="no authorised request budget supplied, so no request was sent",
+                      endpoint=url)
+
+    sent = 0
+    last_status = None
+    for i in range(1, count + 1):
+        if sent >= count:
+            break
+        try:
+            status, headers, raw = _egress_guard(
+                _initialize_request(url),
+                allow_private=allow_private,
+                allowed_hosts=allowed_hosts,
+            )
+        except EgressRefusalError as e:
+            return record(RATE_LIMIT_PROBE_ID, name, "EXCLUDED",
+                          limitation="egress refused before request %d of %d, nothing was sent: %s" % (sent + 1, count, e),
+                          endpoint=url)
+        except Exception as e:
+            return record(RATE_LIMIT_PROBE_ID, name, "NOT_OBSERVED",
+                          http_status=last_status,
+                          limitation="request failed after %d of %d: %s" % (sent, count, e),
+                          endpoint=url)
+        sent += 1
+        last_status = status
+        if status == 429:
+            retry = (headers.get("retry-after") or "").strip()
+            if retry:
+                return record(RATE_LIMIT_PROBE_ID, name, "PASS",
+                              http_status=429, headers=headers, body=raw,
+                              detail="request %d of %d returned 429 with Retry-After %s" % (sent, count, retry),
+                              endpoint=url)
+            return record(RATE_LIMIT_PROBE_ID, name, "NOT_OBSERVED",
+                          http_status=429, headers=headers, body=raw,
+                          limitation="429 on request %d of %d carried no Retry-After, so throttling is not established" % (sent, count),
+                          endpoint=url)
+
+    return record(RATE_LIMIT_PROBE_ID, name, "NOT_OBSERVED",
+                  http_status=last_status,
+                  limitation="no 429 observed inside the authorised budget of %d requests in %d seconds" % (count, window),
+                  endpoint=url)
+

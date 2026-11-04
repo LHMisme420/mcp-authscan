@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test server: clean complete fixture. Probes 1-6, 9 target verdicts; probes 7-8 (pkce-s256, redirect-uri-exact)
-are built and return EXCLUDED without client credentials (prerequisite missing, never sent). Coverage is over the testable probes (9 less EXCLUDED); without a client 7-8 are EXCLUDED today, so the most this fixture can read is 7/7."""
+are built and return EXCLUDED without client credentials (prerequisite missing, never sent). Coverage is measured over in-scope records after exclusions, so a probe whose prerequisite is missing is EXCLUDED and names it rather than counting for or against the score.
+The set is the OAuth probes plus the CORS and rate-limit records."""
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
@@ -147,7 +148,8 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
         server.server_close()
 
     counts = count_probes(records)
-    assert counts["in_scope"] == 12
+    assert counts["in_scope"] == 13  # 11 OAuth records plus CORS and rate-limit
+    assert len({r.name for r in records}) == counts["in_scope"]
     assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
     excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
     assert {"pkce-s256", "redirect-uri-exact"} <= set(excluded)

@@ -4,6 +4,14 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Rate limiting is now probed and reported: a 429 inside the authorised budget passes, no 429 inside it is not observed, and a scan with no budget is excluded with the reason named.
+
+### Fixed
+- The probe-set stamp guard now covers the target probes as well as the OAuth set, so a CORS or rate-limit change moves the stamp test instead of slipping past it.
+
 ## [1.1.20] - 2026-11-02
 
 ### Fixed

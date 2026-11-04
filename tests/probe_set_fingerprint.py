@@ -8,8 +8,8 @@ Covered (see CHANGELOG.md "Probe set stamps"):
                    prerequisites, severity, probe_class (literal or normalized expression)
   vocabulary       VALID_STATUSES and SEVERITY_ORDER (mcp_authscan/_common.py)
   code             normalized AST of every package-internal definition reachable from
-                   run_oauth_assessment and count_probes (oauth_probes_v2, _common, counts,
-                   errors, http_headers and the monolith helpers they import), docstrings removed
+                   run_oauth_assessment and run_target_probes, plus count_probes (oauth_probes_v2, _common, counts,
+                   errors, http_headers, target_probes and the monolith helpers they import), docstrings removed
 Not covered: monolith.main (CLI flags, exit codes, report rendering, findings built from FAIL
 records, and the report accounting: its counts and coverage assignments), counts.coverage(),
 render_probe, and resource_probes.py (not run by the scanner). Report accounting is how a report
@@ -27,7 +27,7 @@ import json
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent.parent / "mcp_authscan"
-ROOTS = ("run_oauth_assessment", "count_probes")
+ROOTS = ("run_oauth_assessment", "count_probes", "run_target_probes")
 _SKIP_FIELDS = {"ctx", "kind", "type_comment", "lineno", "col_offset", "end_lineno", "end_col_offset"}
 
 
@@ -97,7 +97,7 @@ def _internal(node):
 
 def _closure():
     """{"module.name": node} for every definition reachable from ROOTS."""
-    modules, seen, todo = {}, {}, [("oauth_probes_v2", r) for r in ROOTS]
+    modules, seen, todo = {}, {}, [(m, r) for r in ROOTS for m in ("oauth_probes_v2", "target_probes")]
     while todo:
         mod_name, name = todo.pop()
         if mod_name not in modules:

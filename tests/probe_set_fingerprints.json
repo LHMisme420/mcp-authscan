@@ -1,6 +1,16 @@
 {
   "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
   "stamps": {
+    "2026.11.04.1": {
+            "changed": "2026-11-04, roots now resolve across oauth_probes_v2 and target_probes, so the guard covers cors_probe, rate_limit_probe and everything they reach; every component was recomputed with them included.",
+            "components": {
+                "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+                "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+                "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+                "code": "a4291a8a74789172532c5793fcbbcbda8b75f43b1a0f25bf9aa0d6dd105c3179"
+            },
+            "fingerprint": "e70323696d83498360868239a024d9c914c8c15648f654859d2af8c1f0375cdc"
+        },
     "2026.11.03.2": {
       "changed": "2026-11-03, the record guard now requires an observation: a PASS or FAIL must carry a body or headers, and the declared evidence type no longer decides whether the guard fires. Probe set unchanged.",
       "components": {
