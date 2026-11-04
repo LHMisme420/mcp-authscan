@@ -1,41 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Replit's Nix-managed Python is externally managed; package installation is
-# handled by the workspace package manager, so this hook verifies it read-only.
-python3 - <<'PY'
-from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
-import re
-import sys
-
-missing = []
-for raw in Path("requirements-runtime.txt").read_text().splitlines():
-    line = raw.partition("#")[0].strip()
-    if not line:
-        continue
-    match = re.match(r"^([A-Za-z0-9_.-]+)", line)
-    if not match:
-        missing.append(f"cannot parse requirement: {line}")
-        continue
-    package_name = match.group(1)
-    try:
-        version(package_name)
-    except PackageNotFoundError:
-        missing.append(f"{package_name} is not installed")
-
-if missing:
-    print("Missing or incompatible Python dependencies:", file=sys.stderr)
-    print("\n".join(f"- {item}" for item in missing), file=sys.stderr)
-    sys.exit(1)
-PY
-
-# The interpreter-only runtime does not provide an importable pip module.
-# Resolve against the installed prefix offline and read-only instead.
+# Reconcile merged runtime requirements through the same writable-prefix
+# installer as the deployment build. Never install into the Nix interpreter.
+# Preserve configured registries, including the package firewall.
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+if [[ -z "${UV_DEFAULT_INDEX:-${UV_INDEX_URL:-}}" && -n "${PIP_INDEX_URL:-}" ]]; then
+  export UV_INDEX_URL="$PIP_INDEX_URL"
+fi
+if [[ -z "${UV_INDEX:-${UV_EXTRA_INDEX_URL:-}}" && -n "${PIP_EXTRA_INDEX_URL:-}" ]]; then
+  export UV_EXTRA_INDEX_URL="$PIP_EXTRA_INDEX_URL"
+fi
+export PYTHONUSERBASE="${PYTHONUSERBASE:-$PWD/.pythonlibs}"
 python_executable="$(command -v python3)"
 python_prefix="$("$python_executable" -c 'import site; print(site.getuserbase())')"
-uv pip install --dry-run --no-index --no-cache --prefix "$python_prefix" --python "$python_executable" --requirement requirements-runtime.txt
-python3 -m compileall -q app.py app_full.py mcp_authscan tests/test_findings_refresh.py
+case "${python_prefix%/}" in
+  .pythonlibs|*/.pythonlibs) ;;
+  *) echo "Refusing dependency installation outside the managed .pythonlibs prefix." >&2; exit 1 ;;
+esac
+uv pip install --prefix "$python_prefix" --python "$python_executable" --requirement requirements-runtime.txt
+python3 -m compileall -q app.py mcp_authscan
 
 # Bundling externalizes Node packages, so a passing build does not establish
 # that a newly merged runtime dependency exists in this workspace.

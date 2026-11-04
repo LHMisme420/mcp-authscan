@@ -7,11 +7,20 @@ Replit's Python package installation can discover dependencies from optional scr
 
 **Why:** Setup required a supported Python toolchain and newer releases of the same dependencies; the installation also inferred packages used outside the main dashboard.
 
-Post-merge scripts run under Replit's Nix-managed Python, where system-wide `pip install` is rejected as externally managed. Use Replit's package manager for installation; keep post-merge hooks read-only by checking declared versions and compiling the app.
+Post-merge scripts run under Replit's Nix-managed Python, where system-wide `pip install` is rejected as externally managed. Reconcile merged requirements with the deployment pipeline's explicit UV writable-prefix installer, preserving configured registries.
 
 **Why:** A direct `pip install -r requirements.txt` in the merge hook failed with PEP 668 even though the project dependencies were installed and valid.
 
-**How to apply:** If an installation is blocked, check runtime compatibility and the dependency chain before retrying. Upgrade the relevant direct dependency rather than bypassing the package firewall. Inspect the resulting requirements for duplicate entries. In post-merge scripts, use `pip` only for read-only checks, not installs.
+**How to apply:** If an installation is blocked, check runtime compatibility and the dependency chain before retrying. Upgrade the relevant direct dependency rather than bypassing the package firewall. Inspect the resulting requirements for duplicate entries. Never install into the immutable interpreter.
+
+Post-merge setup must reconcile newly declared runtime dependencies, not merely
+report that they are missing.
+
+**Why:** A merged scanner update required packages that the read-only hook could
+detect but could not restore, blocking workflow reconciliation.
+
+**How to apply:** Use the existing writable-prefix installer without deleting
+environment launchers or running production migrations.
 
 Hosting's Nix `pip` executable can force user-site packages off even when
 the workspace's `python3` enables them. Pip 26 rejects a requested user install
