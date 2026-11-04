@@ -28,7 +28,7 @@ Two modes, both covered here:
 
 Live scanning is network facing by design and is only legitimate against systems you operate or are explicitly authorised in writing to test. Obtaining that authorisation is the operator's responsibility.
 
-mcp-authscan checks preconditions. It never attempts exploitation, command execution or credential capture.
+mcp-authscan does not execute target code. It checks preconditions and never attempts exploitation, command execution or credential capture.
 
 ## In scope for reports about this tool
 

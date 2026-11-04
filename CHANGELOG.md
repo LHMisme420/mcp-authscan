@@ -70,6 +70,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ### Probe set stamps
 
 - 2026.11.02.1: the User-Agent reports the installed package version; no verdict or coverage change.
+- 2026.11.04.2: password-grant and client-auth report NOT_OBSERVED rather than EXCLUDED when the response carries no usable token; no PASS or FAIL verdict changed.
 `PROBE_SET_VERSION` (reported as `probe_set_version`) names the probe set that produced a report.
 From 2026.10.30.1 a stamp is `YYYY.MM.DD.N`: the America/New_York date the probe set changed and a
 per-day counter starting at 1, so two probe sets changed on one day get distinct stamps.

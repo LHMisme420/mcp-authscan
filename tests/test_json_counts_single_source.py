@@ -21,7 +21,7 @@ from mcp_authscan.counts import count_probes
 PORT = 9002
 FIXTURE = "test_fixture_with_findings.py"
 PRINTED = {"PASS": "PASSED", "EXCLUDED": "EXCLUDED", "NOT_IMPLEMENTED": "NOT IMPLEMENTED",
-           "NOT_OBSERVED": "NOT OBSERVED", "FAIL": "FINDINGS"}
+           "NOT_OBSERVED": "NOT OBSERVED", "FAIL": "FAILED PROBES"}
 
 
 def _run(extra):

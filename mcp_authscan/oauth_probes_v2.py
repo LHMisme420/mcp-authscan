@@ -1054,7 +1054,7 @@ def probe_password_grant(token_endpoint, metadata=None, client=None, registratio
         return record(
             probe_id=6,
             name="password-grant",
-            status="EXCLUDED",
+            status="NOT_OBSERVED",
             http_status=http_status,
             body=body,
             probe_class="authserver",
@@ -1373,7 +1373,7 @@ def probe_client_auth(token_endpoint):
         return record(
             probe_id=9,
             name="client-auth",
-            status="EXCLUDED",
+            status="NOT_OBSERVED",
             http_status=http_status,
             body=body,
             probe_class="authserver",
