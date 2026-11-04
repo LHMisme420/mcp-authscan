@@ -438,7 +438,17 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
     await assert.rejects(fetch(`http://127.0.0.1:${failed.port}/health`));
   });
   await t.test('missing Gunicorn module exits nonzero instead of claiming readiness', async () => {
+    const bin = path.join(temp, 'missing-gunicorn-bin');
+    await mkdir(bin);
+    // Empty PYTHONPATH / PYTHONNOUSERSITE cannot hide system-installed packages.
+    // Use the real interpreter with isolated mode and no site initialization
+    // so this failure fixture does not depend on the host's Gunicorn installation.
+    const python = tool('which', ['python3']).trim();
+    await writeFile(path.join(bin, 'python3'),
+      `#!${tool('which', ['sh']).trim()}\nexec "${python}" -I -S "$@"\n`,
+      { mode: 0o755 });
     const run = await launch({
+      PATH: `${bin}:${tools.PATH}`,
       PYTHONUSERBASE: path.join(temp, 'missing-pythonlibs'),
       PYTHONPATH: '', PYTHONNOUSERSITE: '1',
     });

@@ -7,6 +7,7 @@
 - [Independent recovery approval](independent-recovery-approval.md) — encrypted off-project retention policy and synthetic rehearsal approved; live exports and storage/key custody still need approval.
 - [Findings alert policy](findings-alert-policy.md) — owner approved server logs only for backup-health notifications, not external delivery.
 - [GitHub push authentication](github-push-auth.md) — healthy OAuth metadata can coexist with rejected Git credentials; verify the push and use secure reauthorization.
+- [Public push safety](public-push-safety-policy.md) — preserve local history; check every outgoing commit and never exempt entire test folders from credential checks.
 - [GitHub changes](github-changes.md) — user asks not to block GitHub changes in this project.
 - [CORS finding policy](cors-policy.md) — reflection requires unauthenticated sensitive-data access; 401/403 are protected; wildcard alone is not a vulnerability.
 - [Workspace capacity](subscription-tier-rules.md) — five seats include owner and pending invites; UTC usage; user-selected Reserved VM for unattended scheduling.

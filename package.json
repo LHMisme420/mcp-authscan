@@ -14,6 +14,8 @@
     "recovery:archive": "tsx scripts/recovery-archive.ts",
     "recovery:gcs": "tsx scripts/recovery-gcs.ts",
     "findings:seed": "tsx scripts/seed-findings-backup.ts",
+    "check:public-push": "node scripts/public-push-check.mjs",
+    "test:public-push": "node --test tests/public-push-check.test.mjs",
     "test:billing": "tsx --test tests/billing.test.ts tests/billing-panel.test.tsx",
     "test:dependencies": "tsx --test tests/dependency-security.test.ts tests/clerk-proxy.test.ts tests/recovery-gcs.test.ts && python3 -m unittest discover -s tests -p test_dependency_security.py"
   },

@@ -22,6 +22,11 @@ GitHub release — it just skips the PyPI upload.
 
 ## Cutting a release
 
+Before sending source changes to GitHub, follow
+[the public-push safety check](PUBLIC_PUSH_SAFETY.md). A clean tip alone does not
+make older local database commits safe to publish. The branch guard does not
+check release tags; do not tag private local history.
+
 1. Bump the version in **both** places (they must match):
    - `mcp_authscan/pyproject.toml` → `version = "X.Y.Z"`
    - `mcp_authscan/__init__.py` → `__version__ = "X.Y.Z"`

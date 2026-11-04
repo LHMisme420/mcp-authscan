@@ -3,6 +3,15 @@ name: Imported Python setup
 description: Dependency installation behavior encountered when setting up this imported repository on Replit.
 ---
 
+Missing-module fixtures must isolate system packages as well as user packages.
+
+**Why:** This environment can provide Gunicorn system-wide. An empty `PYTHONPATH`
+and `PYTHONNOUSERSITE=1` therefore do not reliably simulate its absence.
+
+**How to apply:** For negative dependency tests only, use an isolated interpreter
+with site initialization disabled (`-I -S`). Keep normal application startup
+and positive dependency tests on their real package-discovery paths.
+
 Replit's Python package installation can discover dependencies from optional scripts as well as the requested package list. Old Python toolchains can force outdated releases that the package firewall blocks.
 
 **Why:** Setup required a supported Python toolchain and newer releases of the same dependencies; the installation also inferred packages used outside the main dashboard.
