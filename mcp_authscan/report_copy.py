@@ -86,7 +86,7 @@ def render_summary(records):
     # FAILED: actual findings
     if failed:
         names = ", ".join(r.name for r in failed)
-        lines.append(f"FINDINGS ({len(failed)}): {names}")
+        lines.append(f"FAILED PROBES ({len(failed)}): {names}")
 
     # Coverage over the testable probes (in_scope - EXCLUDED), the same counts.coverage() the JSON uses
     counts = count_probes(records)

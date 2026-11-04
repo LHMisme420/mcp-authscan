@@ -661,6 +661,36 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     "remediation": "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it" if record.probe_id == 4 else "Review OAuth server configuration",
                 })
         
+        alias_of = {}
+        for r in oauth_records:
+            d = getattr(r, 'detail', '') or ''
+            if 'issuer=' in d and 'base_url=' in d:
+                base = d.split('base_url=', 1)[1].split(' ')[0].strip()
+                iss = d.split('issuer=', 1)[1].split(' ')[0].strip()
+                if base and iss and base != iss:
+                    alias_of[base] = iss
+        kept = []
+        grouped = {}
+        for f in findings:
+            if not f.get('is_live_finding'):
+                kept.append(f)
+                continue
+            label = f.get('file') or ''
+            canon = alias_of.get(label, label)
+            k = (f.get('rule'), f.get('evidence'), f.get('response_status'), canon)
+            if k not in grouped:
+                if canon and canon != label:
+                    f['also_seen_under'] = [label]
+                    f['file'] = canon
+                grouped[k] = f
+                kept.append(f)
+                continue
+            prev = grouped[k]
+            seen_under = prev.get('also_seen_under') or []
+            if label and label != prev.get('file') and label not in seen_under:
+                seen_under.append(label)
+                prev['also_seen_under'] = seen_under
+        findings = kept
         # Phase 2: Skip endpoint-by-endpoint testing
         # OAuth server probes (Phase 1) are sufficient for this assessment.
         # Individual endpoint testing would repeat OAuth probe logic with wrong rules.
@@ -2838,6 +2868,8 @@ def main():
                 if x.get("is_live_finding"):
                     print(f"[{x['severity']}] {x['rule']}  {x['title']}")
                     print(f"  {x['file']}  ({x['ref']})")
+                    if x.get('also_seen_under'):
+                        print('  also seen under: ' + ', '.join(x['also_seen_under']))
                 else:
                     print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
                     print(f"  {x['file']}:{x['line']}  ({x['ref']})")
