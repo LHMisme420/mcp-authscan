@@ -89,6 +89,21 @@ installation into the immutable interpreter prefix.
 Release merges must preserve the separation of CLI packaging from the web
 project root, even when upstream expects root-level packaging.
 
+**Qualification:** Root metadata is not inherently incompatible with `uv lock`.
+A later workspace diagnostic succeeded with root metadata unchanged after the
+managed prefix gained a valid environment structure. The runtime imports and
+Preview startup also passed. This does not establish that a clean publishing
+installation works or that the post-build launcher cleanup preserves that
+environment.
+
+**Why:** Rejecting a prefix with no interpreter is an environment validation
+failure before dependency resolution, not proof that the packaging layout must
+change.
+
+**How to apply:** Distinguish invalid-environment errors from resolution errors.
+Test the former with a valid managed environment before recommending another
+layout change. Preserve deliberate CLI packaging changes while diagnosing.
+
 **Why:** A later CLI release restored root metadata and hosting resumed automatic
 UV before the custom build. UV rejected the writable package prefix because it
 was not a virtual environment. Previously successful publishes did not prevent
