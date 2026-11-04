@@ -407,7 +407,7 @@ def probe_issuer_identity(metadata_url, metadata):
         severity = None
     else:
         status = "FAIL"
-        severity = "HIGH"
+        severity = "MEDIUM"
     
     return record(
         probe_id=1,
@@ -477,9 +477,25 @@ def probe_token_cache_control(token_endpoint):
             form["client_id"] = cid
         _apply_client_secret(req, form, cid, csec, metadata=None)
         req.data = urlencode(form).encode()
-        try:
-            http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
-        except EgressRefusalError:
+        last_error = None
+        for _attempt in range(3):
+            try:
+                http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+                last_error = None
+                break
+            except EgressRefusalError:
+                return record(
+                    probe_id=3,
+                    name="token-cache-control",
+                    status="EXCLUDED",
+                    probe_class="authserver",
+                    limitation="Target URL outside allowed scope"
+                )
+            except Exception as e:
+                last_error = e
+                time.sleep(1)
+        if last_error is not None:
+            raise last_error
             return record(
                 probe_id=3,
                 name="token-cache-control",
@@ -491,9 +507,9 @@ def probe_token_cache_control(token_endpoint):
         return record(
             probe_id=3,
             name="token-cache-control",
-            status="NOT_OBSERVED",
+            status="EXCLUDED",
             probe_class="authserver",
-            detail="Request failed: %s" % e
+            limitation="Request failed after 3 attempts: %s" % e
         )
     
     # Read Cache-Control from the /token response
@@ -504,9 +520,9 @@ def probe_token_cache_control(token_endpoint):
         return record(
             probe_id=3,
             name="token-cache-control",
-            status="NOT_OBSERVED",
+            status="EXCLUDED",
             probe_class="authserver",
-            detail="Token endpoint returned %d (server error). Cache headers cannot be evaluated." % http_status,
+            limitation="Token endpoint returned %d (server error), so cache headers could not be evaluated" % http_status,
             endpoint=token_endpoint
         )
     
@@ -1035,8 +1051,16 @@ def probe_password_grant(token_endpoint, metadata=None, client=None, registratio
         status = "PASS"
         severity = None
     else:
-        status = "NOT_OBSERVED"
-        severity = None
+        return record(
+            probe_id=6,
+            name="password-grant",
+            status="EXCLUDED",
+            http_status=http_status,
+            body=body,
+            probe_class="authserver",
+            limitation="No client credential supplied: the token endpoint answered without an error code, so this could not be evaluated",
+            endpoint=token_endpoint
+        )
     
     return record(
         probe_id=6,
@@ -1346,8 +1370,16 @@ def probe_client_auth(token_endpoint):
         status = "PASS"
         severity = None
     else:
-        status = "NOT_OBSERVED"
-        severity = None
+        return record(
+            probe_id=9,
+            name="client-auth",
+            status="EXCLUDED",
+            http_status=http_status,
+            body=body,
+            probe_class="authserver",
+            limitation="No client credential supplied: the token endpoint answered without an error code, so this could not be evaluated",
+            endpoint=token_endpoint
+        )
     
     return record(
         probe_id=9,

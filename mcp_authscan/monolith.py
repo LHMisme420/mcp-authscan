@@ -218,6 +218,55 @@ def validate_input_path(path_str):
     return path
 
 
+def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
+    """Fetch RFC 9728 metadata derived from the target, path form then host form."""
+    parsed = urlparse(base)
+    host = parsed.hostname
+    if not host:
+        return None, None
+    origin = parsed.scheme + "://" + parsed.netloc
+    path = parsed.path.rstrip("/")
+    candidates = []
+    if path:
+        candidates.append(origin + "/.well-known/oauth-protected-resource" + path)
+    candidates.append(origin + "/.well-known/oauth-protected-resource")
+    for url in candidates:
+        try:
+            assert_url_is_fetchable(url, allow_private=allow_private)
+            req = Request(url)
+            req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+            with open_without_redirects(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+        except Exception as e:
+            print(f"Derived metadata failed for {url}: {e}", file=sys.stderr)
+            continue
+        servers = data.get("authorization_servers") or []
+        if not servers:
+            continue
+        endpoints = {}
+        for server in servers:
+            meta_url = server.rstrip("/") + "/.well-known/oauth-authorization-server"
+            as_host = urlparse(server).hostname or ""
+            if as_host and as_host != host and as_host not in (allowed_hosts or set()):
+                print(f"[!] not fetching {as_host}: not in scope, add --allow-host {as_host}", file=sys.stderr)
+                continue
+            try:
+                assert_url_is_fetchable(meta_url, allow_private=allow_private)
+                req2 = Request(meta_url)
+                req2.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+                with open_without_redirects(req2, timeout=5) as r2:
+                    md = json.loads(r2.read().decode())
+            except Exception as e:
+                print(f"AS metadata failed for {meta_url}: {e}", file=sys.stderr)
+                continue
+            if md.get("token_endpoint"):
+                endpoints["token"] = md["token_endpoint"]
+            if md.get("authorization_endpoint"):
+                endpoints["authorize"] = md["authorization_endpoint"]
+        if endpoints:
+            print("[+] OAuth discovery successful via derived RFC 9728", file=sys.stderr)
+            return endpoints, {"method": "RFC 9728 derived", "endpoints": endpoints, "discovered_hosts": [host], "resource_metadata": url, "authorization_servers": servers}
+    return None, None
 def _direct_rfc8414_discovery(base):
     """Try RFC 8414 discovery directly on the base URL.
 
@@ -319,10 +368,12 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
             # Look for resource_metadata URL in www-authenticate header
             match = re.search(r'resource_metadata="([^"]+)"', www_auth)
             if not match:
-                # RFC 9728 is advertised only through this parameter, so there
-                # is no resource-metadata document to fetch. Go straight to
-                # direct discovery instead of dereferencing an unbound URL.
-                print("[*] No OAuth discovery pointer in WWW-Authenticate - trying direct RFC 8414", file=sys.stderr)
+                # No pointer in the header. RFC 9728 also defines well-known
+                # locations derived from the resource URL, so try those first.
+                print("[*] No pointer - trying derived RFC 9728", file=sys.stderr)
+                derived_endpoints, derived_info = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
+                if derived_endpoints:
+                    return derived_endpoints, derived_info
                 return _direct_rfc8414_discovery(base)
             resource_url = match.group(1)
             resource_parsed = urlparse(resource_url)
@@ -489,7 +540,8 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
     # Perform RFC 9728 → RFC 8414 discovery
-    oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url)
+    _scope_pre = set(allowed_hosts) if allowed_hosts is not None else set(ALLOWED_HOSTS)
+    oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url, allowed_hosts=_scope_pre, allow_private=allow_private)
     from mcp_authscan.target_probes import run_target_probes
     _th = urlparse(target_url).hostname
     _scope = set(allowed_hosts) if allowed_hosts is not None else set(ALLOWED_HOSTS)
@@ -545,6 +597,8 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                 )]
                 oauth_findings = []
             
+            for _rec in records:
+                _rec.server = oauth_server_url
             oauth_records.extend(records)
 
             for finding in oauth_findings:
@@ -592,7 +646,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     "severity": record.severity or "HIGH",
                     "confidence": "HIGH",
                     "title": record.name,
-                    "file": oauth_server_url,
+                    "file": getattr(record, "server", None) or oauth_server_url,
                     "line": 0,
                     "ref": f"OAuth-{record.probe_id}",
                     "evidence": record.detail or "",
@@ -2833,7 +2887,7 @@ def main():
             print(footer_line(canonical_payload))
             print(owasp_block(canonical_payload))
             print(f"REPORT HASH (SHA256): {report_hash}")
-            extra = " (no finding at or above --fail-on)" if exit_condition == "clean" else ""
+            extra = " (no finding at or above --fail-on)" if exit_condition == "below_threshold" else ""
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
@@ -2866,7 +2920,7 @@ def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable, halte
         return 5, "halted_discovery_incomplete"
     if scan_mode == "LIVE_ENDPOINT_ASSESSMENT" and probe_status.get("not_observed", 0) > 0:
         return 5, "not_observed_present"
-    return 0, "clean"
+    return 0, "below_threshold"
 
 
 if __name__ == "__main__":
