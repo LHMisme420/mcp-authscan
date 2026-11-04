@@ -145,7 +145,7 @@ class RepositoryScanTests(unittest.TestCase):
             response = self.submit()
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json['status'], 'failed')
-        self.assertIn('scanner is unavailable', response.json['error'])
+        self.assertEqual(response.json['error'], 'Scan could not be completed. Please retry.')
         self.assertNotIn(str(missing), response.get_data(as_text=True))
         self.assertNotIn('internal-fixture.txt', response.get_data(as_text=True))
         self.assertIn(str(missing), '\n'.join(logs.output))
@@ -163,7 +163,7 @@ class RepositoryScanTests(unittest.TestCase):
                 self.assertLogs('mcp_authscan.repository_scan', level='ERROR') as logs:
             response = self.submit()
         self.assertEqual(response.status_code, 502)
-        self.assertIn('scanner is unavailable', response.json['error'])
+        self.assertEqual(response.json['error'], 'Scan could not be completed. Please retry.')
         self.assertIn('Unable to list scanner directory', '\n'.join(logs.output))
         run.assert_not_called()
 
@@ -204,8 +204,9 @@ class RepositoryScanTests(unittest.TestCase):
 
         def fixture_clone_then_real_scan(command, **kwargs):
             if command[0] == 'git':
-                (Path(command[-1]) / 'fixture.py').write_text(
+                (Path(command[-1]) / 'service.py').write_text(
                     f'from pathlib import Path\nPath({str(sentinel)!r}).touch()\n'
+                    'password = "violet-copper-7284"\n'
                 )
                 return self.process()
             return real_run(command, **kwargs)
@@ -216,7 +217,27 @@ class RepositoryScanTests(unittest.TestCase):
             response = self.submit()
         self.assertEqual(response.status_code, 200, response.json)
         self.assertEqual(response.json['scan']['status'], 'completed')
+        self.assertEqual(response.json['scan']['findings_count'], 1)
+        self.assertEqual(response.json['scan']['critical_count'], 1)
+        self.assertEqual(response.json['scan']['total_checks'], 2)
+        findings = self.client.get('/api/findings', headers=self.headers).json['findings']
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]['rule'], 'A2')
+        self.assertEqual(findings[0]['scan_id'], response.json['scan']['id'])
+        self.assertEqual(self.client.get('/api/findings', headers=self.other).json['findings'], [])
         self.assertFalse(sentinel.exists())
+
+    def test_both_scan_routes_require_authentication_and_authorization_before_execution(self):
+        with patch('mcp_authscan.repository_scan.subprocess.run') as run:
+            for route in ('/api/scan', '/api/scans/mcp'):
+                with self.subTest(route=route):
+                    self.assertEqual(self.client.post(route, json={
+                        'target_url': TARGET, 'authorized': True,
+                    }).status_code, 401)
+                    self.assertEqual(self.client.post(route, headers=self.headers, json={
+                        'target_url': TARGET,
+                    }).status_code, 403)
+            run.assert_not_called()
 
 
 if __name__ == '__main__':

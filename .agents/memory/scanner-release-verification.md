@@ -47,3 +47,15 @@ exclusions and inconclusive probes.
 zero counts or label legacy runs fully assessed when coverage was not recorded.
 Secret-existence metadata is likewise not evidence of secret strength,
 production/development separation, or the value used by a running revision.
+
+Source-scan integration fixtures must include an intentionally detectable
+finding in a normal source filename, not only clean code or a fixture/test path.
+
+**Why:** Source rules intentionally exclude test/fixture paths. A CLI that
+returns no findings can pass a completion-only integration test without proving
+that source findings reach the website.
+
+**How to apply:** Assert detection, severity, saved history linkage, tenant
+isolation, and non-execution together. When comparing published counts with the
+workspace, record both scanner revision evidence and the target repository
+commit; distinguish sampled GitHub HEAD from a persisted production checkout.
