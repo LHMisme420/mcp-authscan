@@ -168,7 +168,7 @@ def run(expect_issuer):
 
 
 try:
-    run("--expect-issuer" in sys.argv)
+    if __name__ == "__main__": run("--expect-issuer" in sys.argv)
 except Exception:
     import traceback
     traceback.print_exc()
