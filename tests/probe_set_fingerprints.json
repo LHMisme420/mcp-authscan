@@ -208,6 +208,16 @@
     "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
    },
    "fingerprint": "0e414cca50ae11186e02e560253d2b05c70b707ac9bd196b9161bcc3750333fa"
+  },
+  "2026.11.05.1": {
+   "changed": "2026-11-05, jwks-keys gated on a 2xx key set and fails on any symmetric key; token-cors gated on a 2xx with a body, non-OAuth 4xx reports NOT_OBSERVED, acquired mode fails on reflected Origin; token-cache-control judges only token-endpoint responses, failures and 5xx report NOT_OBSERVED, body redacted; PASS and FAIL verdicts changed",
+   "components": {
+    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+    "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+    "code": "a8e360a40d156fa29c3e480617ff4380f606caa595d6867651de0c53b8ebae42"
+   },
+   "fingerprint": "b6a0ac65ab3e469400850cd718908864355e1912ac4c1338b78e64d8c20b9f3a"
   }
  },
  "withdrawn": {

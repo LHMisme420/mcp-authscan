@@ -300,6 +300,15 @@ class H(BaseHTTPRequestHandler):
             return self._issue_code(*pending)
 
         if p == "/token":
+            shape = os.environ.get("TOKEN_SHAPE", "")
+            if shape == "501":
+                self.send_response(501); self.send_header("Content-Length", "0"); self.end_headers(); return
+            if shape == "empty204":
+                self.send_response(204); self.end_headers(); return
+            if shape == "html400":
+                b = b"<html><body>Bad Request</body></html>"
+                self.send_response(400); self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
             form = dict(x.split("=", 1) for x in body.decode(errors="ignore").split("&") if "=" in x)
             if form.get("grant_type") == "authorization_code" and "code_verifier" in form:
                 redeemed = self._redeem_code({k: v[0] for k, v in parse_qs(body.decode(errors="ignore")).items()})

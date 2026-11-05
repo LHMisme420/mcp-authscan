@@ -102,7 +102,7 @@ def _clean(r):
     ("none", "PASS", None),
     ("wildcard", "FAIL", "HIGH"),
     ("wildcard-cred", "FAIL", "CRITICAL"),
-    ("echo", "NOT_OBSERVED", None),
+    ("echo", "FAIL", "CRITICAL"),
 ])
 def test_cors_variants(acquire, browser, cors, status, severity):
     with fixture(TOKEN_CORS=cors) as base:

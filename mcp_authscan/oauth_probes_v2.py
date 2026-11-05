@@ -457,7 +457,13 @@ def probe_resource_binding(resource_metadata, mcp_url):
 
 
 def probe_token_cache_control(token_endpoint):
-    """Token endpoint error responses must carry Cache-Control: no-store."""
+    """Token endpoint responses must carry Cache-Control: no-store (RFC 6749 5.1).
+
+    Only a token-endpoint response is judged: a 2xx carrying access_token, or a 2xx/4xx whose JSON
+    body carries "error". Anything else
+    (5xx, a non-OAuth 4xx, a 2xx, an empty body, a failed or out-of-scope request) is NOT_OBSERVED:
+    there is no token error response to read the header from.
+    """
     if not token_endpoint:
         return record(
             probe_id=3,
@@ -466,7 +472,20 @@ def probe_token_cache_control(token_endpoint):
             probe_class="authserver",
             limitation="No token endpoint"
         )
-    
+
+    def not_observed(detail, http_status=None):
+        return record(
+            probe_id=3,
+            name="token-cache-control",
+            status="NOT_OBSERVED",
+            probe_class="authserver",
+            http_status=http_status,
+            detail=detail,
+            endpoint=token_endpoint
+        )
+
+    http_status, headers, body = None, {}, b""
+    last_error = None
     try:
         req = Request(token_endpoint, method="POST")
         req.add_header("User-Agent", USER_AGENT)
@@ -477,60 +496,40 @@ def probe_token_cache_control(token_endpoint):
             form["client_id"] = cid
         _apply_client_secret(req, form, cid, csec, metadata=None)
         req.data = urlencode(form).encode()
-        last_error = None
         for _attempt in range(3):
             try:
                 http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
                 last_error = None
                 break
             except EgressRefusalError:
-                return record(
-                    probe_id=3,
-                    name="token-cache-control",
-                    status="EXCLUDED",
-                    probe_class="authserver",
-                    limitation="Target URL outside allowed scope"
-                )
+                return not_observed("Target URL outside allowed scope")
             except Exception as e:
                 last_error = e
                 time.sleep(1)
-        if last_error is not None:
-            raise last_error
-            return record(
-                probe_id=3,
-                name="token-cache-control",
-                status="EXCLUDED",
-                probe_class="authserver",
-                limitation="Target URL outside allowed scope"
-            )
     except Exception as e:
-        return record(
-            probe_id=3,
-            name="token-cache-control",
-            status="EXCLUDED",
-            probe_class="authserver",
-            limitation="Request failed after 3 attempts: %s" % e
-        )
-    
-    # Read Cache-Control from the /token response
-    cache_control = headers.get("Cache-Control", "").lower()
+        last_error = e
+    if last_error is not None:
+        return not_observed("Request failed after 3 attempts: %s" % last_error)
+
+    headers = headers or {}
+    cache_control = next((v for k, v in headers.items() if k.lower() == "cache-control"), "").lower()
     debug(f"token-cache-control: status={http_status}, cache_control={repr(cache_control)}")
-    
-    if http_status and http_status >= 500:
-        return record(
-            probe_id=3,
-            name="token-cache-control",
-            status="EXCLUDED",
-            probe_class="authserver",
-            limitation="Token endpoint returned %d (server error), so cache headers could not be evaluated" % http_status,
-            endpoint=token_endpoint
-        )
-    
-    error = ""
+
     try:
-        error = json.loads(body.decode("utf-8")).get("error", "") or ""
-    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-        error = ""
+        doc = json.loads(body.decode("utf-8")) if body else None
+    except (ValueError, UnicodeDecodeError, AttributeError):
+        doc = None
+    error = doc.get("error") if isinstance(doc, dict) else None
+    issued = isinstance(doc, dict) and isinstance(doc.get("access_token"), str) and bool(doc.get("access_token"))
+    is_error = isinstance(error, str) and bool(error)
+    judged = isinstance(http_status, int) and (
+        (200 <= http_status < 300 and (issued or is_error)) or (400 <= http_status < 500 and is_error))
+    if not judged:
+        return not_observed(
+            "HTTP %s%s; neither an OAuth error nor a token response, Cache-Control not judged"
+            % (http_status if http_status is not None else "none", "" if body else ", empty body"),
+            http_status=http_status,
+        )
 
     if "no-store" in cache_control:
         status = "PASS"
@@ -538,13 +537,13 @@ def probe_token_cache_control(token_endpoint):
     else:
         status = "FAIL"
         severity = "LOW"
-    
+
     return record(
         probe_id=3,
         name="token-cache-control",
         status=status,
-        http_status=http_status or 400,
-        body=body,
+        http_status=http_status,
+        body=redact_secrets(body),
         probe_class="authserver",
         detail="Cache-Control: %s" % (cache_control or "(absent)"),
         severity=severity,
@@ -771,9 +770,10 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
         http_status, "access token obtained" if obtained else "no access token in the response",
         acao or "(absent)", "true" if acac else "(absent)", HOSTILE_ORIGIN, revocation)
     severity = None
-    if 200 <= http_status < 300 and acao == "*":
+    is_2xx = isinstance(http_status, int) and 200 <= http_status < 300
+    if is_2xx and acao in ("*", HOSTILE_ORIGIN):
         status, severity = "FAIL", ("CRITICAL" if acac else "HIGH")
-    elif 200 <= http_status < 300 and not acao:
+    elif is_2xx and not acao and obtained:
         status = "PASS"
     else:
         status = "NOT_OBSERVED"
@@ -854,10 +854,10 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         return record(
             probe_id=4,
             name="token-cors",
-            status="EXCLUDED",
+            status="NOT_OBSERVED",
             http_status=http_status,
             probe_class="authserver",
-            detail="Endpoint returned error; cannot assess CORS configuration"
+            detail="HTTP %d without an OAuth error body; not a token response, CORS not judged" % http_status
         )
     # 5xx: server error; cannot assess. Return NOT_OBSERVED.
     if http_status and http_status >= 500:
@@ -867,6 +867,12 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         remediation = None
     elif not (http_status and 200 <= http_status < 300):
         # Only a 2xx can convict or acquit the CORS property; an error response proves nothing.
+        status = "NOT_OBSERVED"
+        severity = None
+        title = None
+        remediation = None
+    elif not (body and body.strip()):
+        # 2xx with an empty body is not a token response; nothing to acquit or convict.
         status = "NOT_OBSERVED"
         severity = None
         title = None
@@ -905,7 +911,10 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
     elif status == "PASS":
         detail = "HTTP %d token response; ACAO %s does not admit hostile Origin %s" % (http_status, acao, origin_sent)
     else:
-        detail = "HTTP %s; CORS not judged, only 2xx convicts" % (http_status or "none",)
+        if http_status and 200 <= http_status < 300:
+            detail = "HTTP %d with empty body; no token response to read CORS from" % http_status
+        else:
+            detail = "HTTP %s; CORS not judged, only a 2xx token response is read" % (http_status or "none",)
     
     return record(
         probe_id=4,
@@ -939,8 +948,28 @@ def probe_jwks_keys(jwks_uri):
         req = Request(jwks_uri)
         req.add_header("User-Agent", USER_AGENT)
         status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        if not (isinstance(status_code, int) and 200 <= status_code < 300 and body and body.strip()):
+            return record(
+                probe_id=5,
+                name="jwks-keys",
+                status="NOT_OBSERVED",
+                probe_class="authserver",
+                http_status=status_code,
+                endpoint=jwks_uri,
+                detail="HTTP %s from JWKS endpoint; key types not judged, only a 2xx key set is read" % (status_code,),
+            )
         jwks = json.loads(body.decode("utf-8"))
-        keys = jwks.get("keys", [])
+        if not isinstance(jwks, dict) or not isinstance(jwks.get("keys"), list):
+            return record(
+                probe_id=5,
+                name="jwks-keys",
+                status="NOT_OBSERVED",
+                probe_class="authserver",
+                http_status=status_code,
+                endpoint=jwks_uri,
+                detail="HTTP %s response has no JWKS keys array; key types not judged" % (status_code,),
+            )
+        keys = jwks["keys"]
     except EgressRefusalError:
         return record(
             probe_id=5,
@@ -969,8 +998,13 @@ def probe_jwks_keys(jwks_uri):
         detail = "No keys published in JWKS"
     else:
         # Check if all keys are asymmetric
-        asymmetric_keys = [k for k in keys if k.get("kty") in asymmetric_ktys]
-        if not asymmetric_keys:
+        symmetric_keys = [k for k in keys if isinstance(k, dict) and k.get("kty") == "oct"]
+        asymmetric_keys = [k for k in keys if isinstance(k, dict) and k.get("kty") in asymmetric_ktys]
+        if symmetric_keys:
+            status = "FAIL"
+            severity = "HIGH"
+            detail = "Keys: %d, of which %d symmetric (kty=oct); a public JWKS must not publish symmetric key material" % (len(keys), len(symmetric_keys))
+        elif not asymmetric_keys:
             # All keys are symmetric or unknown - that's a failure for signing
             status = "FAIL"
             severity = "HIGH"
@@ -984,7 +1018,7 @@ def probe_jwks_keys(jwks_uri):
         probe_id=5,
         name="jwks-keys",
         status=status,
-        http_status=200,
+        http_status=status_code,
         body=body,
         probe_class="authserver",
         detail=detail,

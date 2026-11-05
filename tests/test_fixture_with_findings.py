@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """Test server with security findings: accepts password grant (FAIL). Complete coverage for EXIT 1."""
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -29,11 +30,22 @@ class FindingsHandler(BaseHTTPRequestHandler):
                 "code_challenge_methods_supported": ["S256"]
             }).encode())
         elif self.path == "/jwks":
+            if os.environ.get("JWKS_500"):
+                self.send_response(500)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error":"server_error"}')
+                return
+            keys = [{"kty": "RSA"}]
+            if os.environ.get("JWKS_HS"):
+                keys = [{"kty": "oct", "k": "c2VjcmV0"}]
+            elif os.environ.get("JWKS_MIXED"):
+                keys = [{"kty": "RSA"}, {"kty": "oct", "k": "c2VjcmV0"}]
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.send_header("Cache-Control", "public, max-age=3600")
             self.end_headers()
-            self.wfile.write(json.dumps({"keys": [{"kty": "RSA"}]}).encode())
+            self.wfile.write(json.dumps({"keys": keys}).encode())
         elif self.path in ["/authorize", "/register", "/revoke", "/device"]:
             self.send_response(401)
             self.send_header("Content-type", "application/json")
