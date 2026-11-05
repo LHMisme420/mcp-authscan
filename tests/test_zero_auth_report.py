@@ -59,14 +59,18 @@ def test_zero_auth_reported_with_evidence(tmp_path, zeroauth_server):
         [sys.executable, "-c", runner] + argv,
         capture_output=True, text=True, timeout=120,
     )
-    assert proc.returncode == 1, proc.stderr
+    # A no-tools zero-auth finding is MEDIUM under calibration 2026.11.05.1, below the
+    # default fail threshold, so the scan exits 0. (Was exit 1 when zero-auth was CRITICAL.)
+    assert proc.returncode == 0, proc.stderr
     data = json.loads(out.read_text())
-    assert data["exit_condition"] == "finding_at_or_above_high"
+    assert data["exit_condition"] != "finding_at_or_above_high"
     assert data["discovery_status"] == "ZERO_AUTH_DETECTED"
+    assert data["severity_calibration_version"] == "2026.11.05.1"
     hits = [f for f in data["findings"] if f["rule"] == "ZERO-AUTH"]
     assert len(hits) == 1
     f = hits[0]
-    assert f["severity"] == "CRITICAL"
+    assert f["severity"] == "MEDIUM"
+    assert "demonstrated no tools" in f["severity_basis"]
     assert f["response_status"] == 200
     assert f["request_body"]
     assert f["response_body"]

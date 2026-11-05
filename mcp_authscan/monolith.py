@@ -298,6 +298,46 @@ def _direct_rfc8414_discovery(base):
     return None, None
 
 
+def grade_zero_auth(response_body_text):
+    """Grade a zero-auth finding by what the response demonstrated, not by the absence
+    of auth. Returns (severity, severity_basis). Calibration SEVERITY_CALIBRATION_VERSION.
+
+    CRITICAL only when a returned tool's NAME shows a write/delete/execute/admin action.
+    HIGH when tools were returned but none names such an action. MEDIUM otherwise,
+    including a response that demonstrated no tools or did not parse. Record-level data
+    in the body is deliberately NOT inspected (a loose sniffer re-creates over-grading);
+    the basis says so.
+    """
+    import json as _json
+    WRITE_VERBS = ("write", "delete", "remove", "create", "update", "exec", "execute",
+                   "run", "admin", "drop", "modify", "destroy")
+    try:
+        doc = _json.loads(response_body_text) if response_body_text else None
+    except (ValueError, TypeError):
+        return "MEDIUM", ("zero-auth endpoint; response body did not parse as JSON, so no tool "
+                          "surface was observed; body not inspected for record-level data")
+    tools = None
+    if isinstance(doc, dict):
+        res = doc.get("result")
+        if isinstance(res, dict):
+            tools = res.get("tools")
+        if tools is None:
+            tools = doc.get("tools")
+    if not isinstance(tools, list) or not tools:
+        return "MEDIUM", ("zero-auth endpoint; response demonstrated no tools; body not "
+                          "inspected for record-level data")
+    for t in tools:
+        name = (t.get("name", "") if isinstance(t, dict) else "")
+        low = name.lower()
+        for verb in WRITE_VERBS:
+            if verb in low:
+                return "CRITICAL", ("zero-auth endpoint; tool '%s' name matches write/execute "
+                                    "action '%s'; body not inspected for record-level data"
+                                    % (name, verb))
+    return "HIGH", ("zero-auth endpoint; %d tool(s) returned, none with a write, delete or "
+                    "execute action in the name" % len(tools))
+
+
 def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
@@ -344,9 +384,11 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                     # Unauthenticated access - zero-auth vulnerability detected
                     print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
                     _zb = resp.read(65536).decode("utf-8", "replace")
+                    _sev, _basis = grade_zero_auth(_zb)
                     zero_auth_info = {
                         "status": "ZERO_AUTH_DETECTED",
-                        "severity": "CRITICAL",
+                        "severity": _sev,
+                        "severity_basis": _basis,
                         "request_method": "POST",
                         "request_body": json.dumps(init_payload),
                         "response_status": resp.status,
@@ -734,6 +776,7 @@ def status_from_counts(status, counts):
 
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
+SEVERITY_CALIBRATION_VERSION = "2026.11.05.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
 PROBE_SET_VERSION = "2026.11.05.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
@@ -1452,6 +1495,8 @@ def to_sarif(findings, target):
         adv = _ghsa_uri(ref)
         if adv:
             props["advisory"] = adv
+        if f.get('severity_basis'):
+            props['severityBasis'] = f['severity_basis']
         results.append({
             "ruleId": rid,
             "ruleIndex": rule_index[rid],
@@ -2074,6 +2119,8 @@ def generate_html_report(findings, target, output_file, payload=None):
         ('Scope', payload.get('scope', '')),
         ('Scan mode', payload.get('scan_mode', '')),
         ('Probe set', payload.get('probe_set_version', '')),
+        ('Severity calibration', payload.get('severity_calibration_version')
+            or 'n/a (no zero-auth finding in this report)'),
         ('OWASP mapping', payload.get('owasp_mapping_version', MAPPING_VERSION)),
         ('Exit contract', payload.get('exit_contract', '')),
         ('Fail on', payload.get('fail_on', '')),
@@ -2289,7 +2336,9 @@ def main():
             print(f"[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication", file=sys.stderr)
             findings = [{
                 "rule": "ZERO-AUTH",
-                "severity": "CRITICAL",
+                "severity": discovery_info.get("severity", "MEDIUM"),
+                "severity_basis": discovery_info.get("severity_basis",
+                    "zero-auth endpoint; severity basis not recorded"),
                 "title": "Unauthenticated MCP endpoint",
                 "evidence": "POST /initialize responded with HTTP 200 without authentication",
                 "confidence": "HIGH",
@@ -2686,6 +2735,9 @@ def main():
         "scan_mode": scan_mode,
         "discovery_status": (discovery_info or {}).get("status"),
         "probe_set_version": PROBE_SET_VERSION,
+        "severity_calibration_version": (
+            SEVERITY_CALIBRATION_VERSION
+            if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED" else None),
         "owasp_mapping_version": MAPPING_VERSION,
         "probes_attempted": probes_attempted,
         "probes_passed": probes_passed,
@@ -2899,6 +2951,8 @@ def main():
             full_report = "\n".join(report_lines_for_hash) + f"\nDETAILED FINDINGS\n{'-' * 80}\n"
             for x in F:
                 full_report += f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}\n"
+                if x.get("severity_basis"):
+                    full_report += f"  Severity basis: {x['severity_basis']}\n"
                 if x.get("is_live_finding"):
                     full_report += f"  {x['file']}  ({x['ref']})\n"
                 else:

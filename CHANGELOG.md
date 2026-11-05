@@ -1,5 +1,11 @@
 # Changelog
 
+## Severity calibration
+
+- **Zero-auth severity now reflects the demonstrated surface, not the absence of auth** (calibration 2026.11.05.1). A zero-auth finding is graded by what the response demonstrated: CRITICAL only when a returned tool's name shows a write, delete, or execute action; HIGH when tools were returned but none names such an action; MEDIUM otherwise, including a response that demonstrated no tools or did not parse. Record-level data in the body is not inspected (a loose content check re-creates over-grading); the finding's `severity_basis` states what decided the grade, and the report footer names the calibration version. Previously any zero-auth response was graded CRITICAL on the absence of auth alone.
+- **Severity calibration is versioned separately** (`SEVERITY_CALIBRATION_VERSION`, 2026.11.05.1), not by the probe set: the probes themselves are unchanged, so `PROBE_SET_VERSION` stays 2026.11.05.1. The calibration version is stamped in any report containing a zero-auth finding, so two reports can be compared honestly even though the same probe can now yield a different severity.
+- **Behaviour change for `--fail-on critical`**: a zero-auth finding that demonstrates no write/execute surface is now MEDIUM, not CRITICAL, so a CI gate set to `--fail-on critical` that previously failed on such a finding will no longer fail on it. This is intended. Gate on `--fail-on high` (or lower) to keep failing on zero-auth findings regardless of demonstrated surface.
+
 All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).

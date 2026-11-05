@@ -121,3 +121,7 @@ I only scan servers I hold written permission to test. Email lhmisme2011@gmail.c
 Independent AI security research by Leroy H. Mason, who also publishes as Elior Malak.
 GitHub: LHMisme420 · ORCID: 0009-0002-3115-534X
 Contact: lhmisme2011@gmail.com
+
+## How severities are graded
+
+A finding's grade describes what the response demonstrated, not what the absence of a control might imply. A zero-auth endpoint serving public read data is MEDIUM, and that is a correct grade rather than a downgrade. CRITICAL is reserved for a zero-auth response that positively demonstrates a sensitive surface, a tool whose name shows a write, delete, or execute action. Every zero-auth finding records a `severity_basis` naming what decided its grade, and a report containing one is stamped with the severity calibration version so two reports can be compared honestly.
