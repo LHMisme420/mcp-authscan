@@ -9,8 +9,16 @@ def test_metadata_points_at_decoy_issuer():
     try:
         url = server.base_url + "/.well-known/oauth-protected-resource"
         body = json.load(urllib.request.urlopen(url))
-        assert body["authorization_servers"] == ["https://decoy.invalid"]
+        # The decoy advertises its OWN base URL as the authorization server, so
+        # discovery is reachable and the issuer binding is actually exercised.
+        # A placeholder (https://decoy.invalid) is unreachable and would end the
+        # flow before the token request.
+        assert body["authorization_servers"] == [server.base_url]
         assert body["resource"].endswith("/mcp")
+
+        as_url = server.base_url + "/.well-known/oauth-authorization-server"
+        as_body = json.load(urllib.request.urlopen(as_url))
+        assert as_body["issuer"] == server.base_url
     finally:
         stop_decoy(server)
 
