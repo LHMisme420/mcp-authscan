@@ -79,12 +79,12 @@ class _DecoyHandler(BaseHTTPRequestHandler):
         s.touches.append("GET " + self.path)
         base = s.base_url
         if self.path.startswith("/authorize"):
-            from urllib.parse import urlsplit, parse_qs as _pq
+            from urllib.parse import urlsplit, parse_qs as _pq, quote
             q = _pq(urlsplit(self.path).query)
             redirect = (q.get("redirect_uri") or [""])[0]
             state = (q.get("state") or [""])[0]
             sep = "&" if "?" in redirect else "?"
-            loc = redirect + sep + "code=decoy-code&state=" + state
+            loc = redirect.replace("\r","").replace("\n","") + sep + "code=decoy-code&state=" + quote(state)
             self.send_response(302)
             self.send_header("Location", loc)
             self.send_header("Content-Length", "0")
@@ -204,7 +204,7 @@ async def run(mode):
             st = None
             u = recorded.get("authorize_url")
             if u:
-                from urllib.parse import urlsplit, parse_qs as _pq
+                from urllib.parse import urlsplit, parse_qs as _pq, quote
                 st = (_pq(urlsplit(u).query).get("state") or [None])[0]
             return ("decoy-code", st)
 
