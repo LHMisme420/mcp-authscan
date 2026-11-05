@@ -136,10 +136,30 @@ class _DecoyHandler(BaseHTTPRequestHandler):
             s.token_hits += 1
             return self._json(200, {"access_token": "decoy-token", "token_type": "Bearer"})
         if path == "/mcp":
-            self.send_response(401)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-            return None
+            auth = self.headers.get("Authorization") or ""
+            if not auth.startswith("Bearer "):
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", 'Bearer resource_metadata="%s/.well-known/oauth-protected-resource"' % s.base_url)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
+            import json as J
+            try:
+                m = J.loads(raw) if raw.strip() else {}
+            except Exception:
+                m = {}
+            if isinstance(m, list):
+                m = m[0] if m else {}
+            mid = m.get("id")
+            if mid is None:
+                return self._json(202, {})
+            meth = m.get("method")
+            if meth == "initialize":
+                pv = (m.get("params") or {}).get("protocolVersion", "2025-06-18")
+                return self._json(200, {"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": pv, "capabilities": {"tools": {}}, "serverInfo": {"name": "decoy", "version": "0"}}})
+            if meth == "tools/list":
+                return self._json(200, {"jsonrpc": "2.0", "id": mid, "result": {"tools": []}})
+            return self._json(200, {"jsonrpc": "2.0", "id": mid, "result": {}})
         return self._json(404, {"error": "not_found"})
 
 
