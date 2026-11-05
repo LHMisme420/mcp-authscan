@@ -161,7 +161,7 @@ def run(expect_issuer):
         print("verdict:", verdict)
         print("reason:", reason)
         print("touches:", server.touches)
-        print("captured:", evidence)
+        print("captured:", "none" if not evidence else "present")
         return verdict
     finally:
         stop_decoy(server)
