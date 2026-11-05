@@ -3,6 +3,42 @@ permissions:
   contents: read
 on: [push, pull_request]
 jobs:
+  web:
+    name: Website typecheck, build and isolated regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # Public, deliberately nonfunctional fixtures, never GitHub/workspace secrets.
+      CLERK_PUBLISHABLE_KEY: pk_test_Zml4dHVyZS5jbGVyay5hY2NvdW50cy5kZXYk
+      VITE_CLERK_PUBLISHABLE_KEY: pk_test_Zml4dHVyZS5jbGVyay5hY2NvdW50cy5kZXYk
+      CLERK_SECRET_KEY: sk_test_fixture_not_a_real_key
+      JWT_SECRET: fixture-only-signing-key-at-least-32-characters
+      PUBLIC_APP_URL: https://fixture.invalid
+      VATA_BILLING_MODE: disabled
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20.20.0" # Match the Node 20 gateway runtime.
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11" # Match the startup fixture's Python user-package path.
+      - name: Install locked website dependencies
+        run: npm ci
+      - name: Install private scanner runtime
+        run: python3 -m pip install -r requirements-runtime.txt
+      - name: Provide disposable PostgreSQL server binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Typecheck, test payment-disabled UI and verify built startup
+        # startup.test.ts starts its own loopback-only PostgreSQL service under
+        # mkdtemp, ignores inherited DATABASE_URL, and tears down only that cluster.
+        # No shared database, provider requests, deployment or publishing steps.
+        run: npm run test:ci:web
   lint:
     runs-on: ubuntu-latest
     steps:
