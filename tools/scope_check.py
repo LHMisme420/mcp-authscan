@@ -538,7 +538,37 @@ def run_scope_check(
     return result
 
 
-def print_result(result: dict[str, Any]) -> None:
+def mcp_http_status(result: dict[str, Any]) -> int | None:
+    mcp = result.get("mcp_call") or {}
+    resp = mcp.get("response") if isinstance(mcp, dict) else None
+    if isinstance(resp, dict) and isinstance(resp.get("status"), int):
+        return resp["status"]
+    return None
+
+
+def result_as_jsonable(result: dict[str, Any]) -> dict[str, Any]:
+    """Machine-readable view for --json. Token exchange is already redacted."""
+    return {
+        "verdict": result.get("verdict"),
+        "reason": result.get("reason"),
+        "exit_code": result.get("exit_code"),
+        "tool": result.get("tool"),
+        "required_scope": result.get("required_scope"),
+        "requested_scope": result.get("requested_scope"),
+        "issued_scopes": result.get("issued_scopes"),
+        "returned_scope": result.get("returned_scope"),
+        "proof_source": result.get("proof_source"),
+        "mcp_http_status": mcp_http_status(result),
+        "token_exchange": result.get("token_exchange"),
+        "mcp_call": result.get("mcp_call"),
+        "fixture_mode": result.get("fixture_mode"),
+    }
+
+
+def print_result(result: dict[str, Any], as_json: bool = False) -> None:
+    if as_json:
+        print(json.dumps(result_as_jsonable(result), indent=2, sort_keys=True))
+        return
     print("verdict: %s" % result["verdict"])
     print("reason: %s" % result["reason"])
     if result.get("returned_scope") is not None:
@@ -550,6 +580,9 @@ def print_result(result: dict[str, Any]) -> None:
     print("tool: %s" % result.get("tool"))
     print("required_scope: %s" % result.get("required_scope"))
     print("requested_scope: %s" % result.get("requested_scope"))
+    status = mcp_http_status(result)
+    if status is not None:
+        print("mcp_http_status: %s" % status)
     print("--- token exchange ---")
     print(json.dumps(result.get("token_exchange"), indent=2, sort_keys=True))
     print("--- mcp call ---")
@@ -806,6 +839,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="token grant_type (default: client_credentials)",
     )
     p.add_argument("--timeout", type=float, default=10.0)
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="emit a single JSON object on stdout (CI-friendly)",
+    )
     return p
 
 
@@ -815,7 +853,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.fixture:
         result = run_fixture_mode(args.fixture)
-        print_result(result)
+        print_result(result, as_json=args.json)
         return int(result["exit_code"])
 
     missing = [
@@ -853,7 +891,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout=args.timeout,
         skip_discovery=skip,
     )
-    print_result(result)
+    print_result(result, as_json=args.json)
     return int(result["exit_code"])
 
 

@@ -287,3 +287,18 @@ def test_only_named_tool_in_call_payload():
     assert set(body["params"].keys()) <= {"name", "arguments"}
     forbidden = {"write", "delete", "execute", "shell", "rm"}
     assert body["params"]["name"] not in forbidden
+
+
+
+def test_cli_json_emits_machine_readable_object():
+    proc = _run_tool(["--fixture", "strict", "--json"])
+    assert proc.returncode == 4
+    data = json.loads(proc.stdout)
+    assert data["verdict"] == "NOT_OBSERVED"
+    assert data["exit_code"] == 4
+    assert "401" in data["reason"]
+    assert data["mcp_http_status"] == 401
+    assert data["requested_scope"] == sc.FIXTURE_NARROW_SCOPE
+    assert data["required_scope"] == sc.FIXTURE_REQUIRED_SCOPE
+    assert isinstance(data["token_exchange"], dict)
+    assert data["token_exchange"]["request"]["body"]["grant_type"] == "client_credentials"
