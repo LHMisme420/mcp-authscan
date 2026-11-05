@@ -477,6 +477,15 @@ def run_scope_check(
             cid = body["client_id"]
             csec = body.get("client_secret") or ""
 
+    if te is None and not skip_discovery:
+        result["verdict"] = "EXCLUDED"
+        result["reason"] = (
+            "no authorization server published at this endpoint; discovery named no "
+            "token_endpoint, so scope enforcement cannot be exercised"
+        )
+        result["exit_code"] = EXIT_EXCLUDED
+        return result
+
     if not te or not cid or csec is None:
         result["verdict"] = "NOT_OBSERVED"
         result["reason"] = "missing token_endpoint or client credentials after discovery"
