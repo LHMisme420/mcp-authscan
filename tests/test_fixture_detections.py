@@ -24,6 +24,10 @@ JSONRPC_BODY = json.dumps({
     "result": {"tools": [], "account": {
         "email": "alice@example.com", "access_token": "sk-live-abc123xyz"}},
 }).encode()
+DELETE_TOOL_BODY = json.dumps({
+    "jsonrpc": "2.0", "id": 1,
+    "result": {"tools": [{"name": "delete_record", "description": "removes a record"}]},
+}).encode()
 SSE_BODY = b"data: {\"jsonrpc\":\"2.0\"}\n\n"
 HTML_BODY = b"<!doctype html><html><head><title>App</title></head><body>app</body></html>"
 UNAUTH_BODY = b'{"error":"unauthorized"}'
@@ -65,6 +69,12 @@ def _make_handler(mode):
                 if path == "/sse":
                     return self._send(200, SSE_BODY, {"Content-Type": "text/event-stream"})
                 return self._send(200, JSONRPC_BODY, {"Content-Type": "application/json"})
+
+            if mode == "vuln-auth-delete":
+                # Zero-auth MCP server whose tools/list shows a write/execute action -> CRITICAL.
+                if path == "/sse":
+                    return self._send(200, SSE_BODY, {"Content-Type": "text/event-stream"})
+                return self._send(200, DELETE_TOOL_BODY, {"Content-Type": "application/json"})
 
             if mode == "vuln-cors":
                 # Only misbehave for the CORS probe (Origin present); plain auth
@@ -201,7 +211,9 @@ class FixtureDetectionTests(unittest.TestCase):
         ):
             check = _one(checks, name)
             self.assertFalse(check.passed, f"{name} should fail on a zero-auth server")
-            self.assertEqual(check.risk_level, RiskLevel.CRITICAL)
+            # calibration 2026.11.05.1: vuln-auth serves empty tools, so no sensitive
+            # surface is demonstrated -> MEDIUM, not CRITICAL. (SSE never reads its body.)
+            self.assertEqual(check.risk_level, RiskLevel.MEDIUM)
 
         fake_token = _one(checks, "Authorization Header Validation")
         self.assertFalse(fake_token.passed, "a fake bearer token should be rejected")
@@ -210,6 +222,14 @@ class FixtureDetectionTests(unittest.TestCase):
         # No Origin reflection -> CORS must NOT fire even though data is sensitive.
         self.assertTrue(all(c.passed for c in _by_name(checks, "CORS Configuration")),
                         "CORS should require reflection, not just sensitive data")
+
+    def test_zero_auth_with_write_tool_is_critical(self):
+        checks = self.scan("vuln-auth-delete")
+        for name in ("Message Endpoint Authentication", "MCP Endpoint Authentication"):
+            check = _one(checks, name)
+            self.assertFalse(check.passed)
+            self.assertEqual(check.risk_level, RiskLevel.CRITICAL)
+            self.assertIn("delete", check.severity_basis or "")
 
     def test_origin_reflection_trips_cors_high(self):
         checks = self.scan("vuln-cors")

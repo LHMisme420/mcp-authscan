@@ -61,7 +61,7 @@ def build_sarif(per_target, tool_version: str = "0.0.0") -> dict:
                         "fullyQualifiedName": f"{base}{c.endpoint}", "kind": "resource"}],
                 }],
                 "properties": {"target": target, "endpoint": c.endpoint,
-                               "risk_level": c.risk_level.value},
+                               "risk_level": c.risk_level.value, "severityBasis": c.severity_basis},
             })
     return {
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",

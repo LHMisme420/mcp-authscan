@@ -67,6 +67,46 @@ class Check:
     passed: bool
     details: str
     remediation: str
+    severity_basis: str | None = None
+
+_WRITE_VERBS = ("write", "delete", "remove", "create", "update", "exec", "execute",
+                "run", "admin", "drop", "modify", "destroy")
+
+
+def grade_zero_auth_response(resp):
+    """Grade a zero-auth check by what the response demonstrated (calibration 2026.11.05.1).
+
+    Returns (RiskLevel, severity_basis). CRITICAL only when a returned tool's NAME shows a
+    write/delete/execute action; HIGH when tools were returned but none names such an action;
+    MEDIUM otherwise (no tools, or body did not parse). Record-level data is not inspected.
+    Mirrors monolith.grade_zero_auth; kept scanner-local because this path uses RiskLevel.
+    """
+    try:
+        doc = resp.json()
+    except Exception:
+        return RiskLevel.MEDIUM, ("zero-auth endpoint; response body did not parse as JSON, so no "
+                                  "tool surface was observed; body not inspected for record-level data")
+    tools = None
+    if isinstance(doc, dict):
+        res = doc.get("result")
+        if isinstance(res, dict):
+            tools = res.get("tools")
+        if tools is None:
+            tools = doc.get("tools")
+    if not isinstance(tools, list) or not tools:
+        return RiskLevel.MEDIUM, ("zero-auth endpoint; response demonstrated no tools; body not "
+                                  "inspected for record-level data")
+    for t in tools:
+        name = (t.get("name", "") if isinstance(t, dict) else "")
+        low = name.lower()
+        for verb in _WRITE_VERBS:
+            if verb in low:
+                return RiskLevel.CRITICAL, ("zero-auth endpoint; tool '%s' name matches write/execute "
+                                            "action '%s'; body not inspected for record-level data"
+                                            % (name, verb))
+    return RiskLevel.HIGH, ("zero-auth endpoint; %d tool(s) returned, none with a write, delete or "
+                            "execute action in the name" % len(tools))
+
 
 class MCPScanner:
     def __init__(self, target_url: str, timeout: int = 5, headers=None, checks: str = "default"):
@@ -178,7 +218,13 @@ class MCPScanner:
             details = f"Status: {resp.status_code}"
             if resp.status_code == 200 and web_page:
                 details += " (HTML web page, not an MCP endpoint)"
-            self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication middleware to SSE endpoint"))
+            _sse_lvl = RiskLevel.INFO
+            _sse_basis = None
+            if not passed:
+                _sse_lvl = RiskLevel.MEDIUM
+                _sse_basis = ("zero-auth endpoint; SSE stream not read, so no tool surface was "
+                              "observed; body not inspected for record-level data")
+            self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=_sse_lvl, passed=passed, details=details, remediation="Add authentication middleware to SSE endpoint", severity_basis=_sse_basis))
         except Exception:
             self.checks.append(Check(name="SSE Endpoint Authentication", description="Checks if /sse requires auth", endpoint="/sse", method="GET", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
 
@@ -193,7 +239,10 @@ class MCPScanner:
             details = f"Status: {resp.status_code}"
             if resp.status_code == 200 and not unauth:
                 details += " (HTML web page, not an MCP endpoint)"
-            self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to message endpoint"))
+            _msg_lvl, _msg_basis = (RiskLevel.INFO, None)
+            if not passed:
+                _msg_lvl, _msg_basis = grade_zero_auth_response(resp)
+            self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=_msg_lvl, passed=passed, details=details, remediation="Add authentication to message endpoint", severity_basis=_msg_basis))
         except Exception:
             self.checks.append(Check(name="Message Endpoint Authentication", description="Checks if /message requires auth", endpoint="/message", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
 
@@ -207,7 +256,10 @@ class MCPScanner:
             details = f"Status: {resp.status_code}"
             if resp.status_code == 200 and not unauth:
                 details += " (HTML web page, not an MCP endpoint)"
-            self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.CRITICAL if not passed else RiskLevel.INFO, passed=passed, details=details, remediation="Add authentication to MCP endpoint"))
+            _mcp_lvl, _mcp_basis = (RiskLevel.INFO, None)
+            if not passed:
+                _mcp_lvl, _mcp_basis = grade_zero_auth_response(resp)
+            self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=_mcp_lvl, passed=passed, details=details, remediation="Add authentication to MCP endpoint", severity_basis=_mcp_basis))
         except Exception:
             self.checks.append(Check(name="MCP Endpoint Authentication", description="Checks if /mcp requires auth", endpoint="/mcp", method="POST", risk_level=RiskLevel.INFO, passed=True, details="Endpoint unavailable", remediation="N/A"))
 
