@@ -2922,6 +2922,8 @@ def main():
                     print(f"  {x['file']}  ({x['ref']})")
                     if x.get('also_seen_under'):
                         print('  also seen under: ' + ', '.join(x['also_seen_under']))
+                    if x.get('severity_basis'):
+                        print(f"  Severity basis: {x['severity_basis']}")
                 else:
                     print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
                     print(f"  {x['file']}:{x['line']}  ({x['ref']})")
@@ -2984,6 +2986,8 @@ def main():
             print(owasp_block(canonical_payload))
             print(f"REPORT HASH (SHA256): {report_hash}")
             extra = " (no finding at or above --fail-on)" if exit_condition == "below_threshold" else ""
+            if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED":
+                print(f"Severity calibration: {SEVERITY_CALIBRATION_VERSION}")
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:
