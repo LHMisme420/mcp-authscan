@@ -731,7 +731,7 @@ def _make_handler(state: _FixtureState):
                     token = auth.split(" ", 1)[1].strip()
 
                 if state.mode == "strict":
-                    self.send_response(401)
+                    self.send_response(403)
                     self.send_header(
                         "WWW-Authenticate",
                         'Bearer %s, scope="%s"' % (WWW_AUTH_INSUFFICIENT, FIXTURE_REQUIRED_SCOPE),

@@ -27,15 +27,15 @@ def _run_tool(args: list[str]) -> subprocess.CompletedProcess:
     )
 
 
-def test_fixture_strict_401_challenge_is_not_observed():
+def test_fixture_strict_passes_on_403():
     # Was: assert r["verdict"] == "PASS"; assert r["exit_code"] == 0
     # Fixture still returns 401 + error="insufficient_scope"; PASS now requires 403.
     r = sc.run_fixture_mode("strict")
-    assert r["verdict"] == "NOT_OBSERVED"
-    assert r["exit_code"] == 4
-    assert "401" in r["reason"]
+    assert r["verdict"] == "PASS"
+    assert r["exit_code"] == 0
+    assert "403" in r["reason"]
     assert sc.WWW_AUTH_INSUFFICIENT in (r["mcp_call"]["response"]["www_authenticate"] or "")
-    assert r["mcp_call"]["response"]["status"] == 401
+    assert r["mcp_call"]["response"]["status"] == 403
     assert r["fixture_mcp_calls"], "MCP must be called"
     assert all(c["method"] == "tools/call" for c in r["fixture_mcp_calls"])
     assert all(c["tool"] == sc.FIXTURE_TOOL for c in r["fixture_mcp_calls"])
@@ -76,7 +76,7 @@ def test_strict_and_lax_token_requests_match():
 
 def test_cli_fixture_exit_codes():
     # strict fixture still answers 401+challenge → NOT_OBSERVED (4), not PASS (0).
-    for mode, expected in (("strict", 4), ("lax", 1), ("as-widens", 3)):
+    for mode, expected in (("strict", 0), ("lax", 1), ("as-widens", 3)):
         proc = _run_tool(["--fixture", mode])
         assert proc.returncode == expected, (mode, proc.stdout, proc.stderr)
 
@@ -292,12 +292,12 @@ def test_only_named_tool_in_call_payload():
 
 def test_cli_json_emits_machine_readable_object():
     proc = _run_tool(["--fixture", "strict", "--json"])
-    assert proc.returncode == 4
+    assert proc.returncode == 0
     data = json.loads(proc.stdout)
-    assert data["verdict"] == "NOT_OBSERVED"
-    assert data["exit_code"] == 4
-    assert "401" in data["reason"]
-    assert data["mcp_http_status"] == 401
+    assert data["verdict"] == "PASS"
+    assert data["exit_code"] == 0
+    assert "403" in data["reason"]
+    assert data["mcp_http_status"] == 403
     assert data["requested_scope"] == sc.FIXTURE_NARROW_SCOPE
     assert data["required_scope"] == sc.FIXTURE_REQUIRED_SCOPE
     assert isinstance(data["token_exchange"], dict)
