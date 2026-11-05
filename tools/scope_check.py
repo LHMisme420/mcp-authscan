@@ -366,7 +366,11 @@ def call_named_tool(
 
 
 def evaluate_mcp_response(mcp_record: dict[str, Any]) -> tuple[str, str]:
-    """Return (verdict, reason) for the MCP tools/call response."""
+    """Return (verdict, reason) for the MCP tools/call response.
+
+    PASS requires HTTP 403 and WWW-Authenticate carrying error="insufficient_scope".
+    A 401 with that challenge is NOT_OBSERVED; the reason names the 401 status.
+    """
     if mcp_record.get("error"):
         return "NOT_OBSERVED", mcp_record["error"]
     resp = mcp_record.get("response") or {}
@@ -375,7 +379,19 @@ def evaluate_mcp_response(mcp_record: dict[str, Any]) -> tuple[str, str]:
     body = resp.get("body_json")
 
     if WWW_AUTH_INSUFFICIENT in www:
-        return "PASS", "WWW-Authenticate contains %s" % WWW_AUTH_INSUFFICIENT
+        if status == 403:
+            return "PASS", (
+                "HTTP 403 with WWW-Authenticate containing %s" % WWW_AUTH_INSUFFICIENT
+            )
+        if status == 401:
+            return "NOT_OBSERVED", (
+                "HTTP 401 with %s is not a conclusive scope refusal; "
+                "PASS requires HTTP 403" % WWW_AUTH_INSUFFICIENT
+            )
+        return "NOT_OBSERVED", (
+            "WWW-Authenticate contains %s but HTTP status was %s, not 403"
+            % (WWW_AUTH_INSUFFICIENT, status)
+        )
 
     # Accepted tool result → FAIL (scope not enforced).
     if status == 200 and isinstance(body, dict) and "result" in body:
@@ -385,8 +401,9 @@ def evaluate_mcp_response(mcp_record: dict[str, Any]) -> tuple[str, str]:
 
     # Refusal without the exact WWW-Authenticate error → FAIL (wrong refusal signal).
     if status in (401, 403):
-        return "FAIL", "refused without exact %s (WWW-Authenticate=%r)" % (
+        return "FAIL", "refused without exact %s (HTTP %s, WWW-Authenticate=%r)" % (
             WWW_AUTH_INSUFFICIENT,
+            status,
             www,
         )
 
