@@ -135,6 +135,7 @@ def run(expect_issuer):
             except Exception as exc:
                 error = str(exc) or type(exc).name
 
+        safe_error = redact(error) if error else None
         found = credential_present(server.captured)
         read_metadata = any("oauth-protected-resource" in t for t in server.touches)
         evidence = [
@@ -148,13 +149,13 @@ def run(expect_issuer):
 
         if found:
             verdict = "FAIL"
-            reason = "client presented " + found + " to an authorization server whose issuer did not match the protected resource"
+            reason = "client presented sensitive credentials to an authorization server whose issuer did not match the protected resource"
         elif not read_metadata:
             verdict = "EXCLUDED"
-            reason = "client never read the decoy metadata, so issuer binding was not exercised" + (": " + error if error else "")
+            reason = "client never read the decoy metadata, so issuer binding was not exercised" + (": " + safe_error if safe_error else "")
         else:
             verdict = "PASS"
-            reason = "client read the decoy metadata and presented no credential" + (": " + error if error else "")
+            reason = "client read the decoy metadata and presented no credential" + (": " + safe_error if safe_error else "")
 
         print("mode:", "expect-issuer" if expect_issuer else "default")
         print("verdict:", verdict)
