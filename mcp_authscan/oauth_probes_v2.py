@@ -29,6 +29,17 @@ class _NoRedirect(HTTPRedirectHandler):
 _NO_REDIRECT_OPENER = build_opener(_NoRedirect)
 
 
+_PACE={"t":0.0}
+
+def _pace():
+    import os, time
+    r=float(os.environ.get("MCPAUTHSCAN_RATE","0") or 0)
+    if r<=0: return
+    d=time.time()-_PACE["t"]
+    i=1.0/r
+    if d<i: time.sleep(i-d)
+    _PACE["t"]=time.time()
+
 def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
     """Egress guard: enforce scope on all outbound requests.
     
@@ -245,7 +256,7 @@ def _register_once(endpoint, redirect_uri):
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json")
     try:
-        status, _, body = _egress_guard(req, follow_redirects=False)
+        _pace(); status, _, body = _egress_guard(req, follow_redirects=False)
     except EgressRefusalError:
         return None, "registration_endpoint outside allowed scope"
     except Exception as e:
@@ -322,7 +333,7 @@ def _remove_client(oauth_server_url, client):
     req.add_header("Authorization", "Bearer " + rat)
     rat = None
     try:
-        status, _, body = _egress_guard(req, follow_redirects=False)
+        _pace(); status, _, body = _egress_guard(req, follow_redirects=False)
     except EgressRefusalError:
         status, outcome = None, "registration_client_uri outside allowed scope"
     except Exception as e:
@@ -498,7 +509,7 @@ def probe_token_cache_control(token_endpoint):
         req.data = urlencode(form).encode()
         for _attempt in range(3):
             try:
-                http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+                _pace(); http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
                 last_error = None
                 break
             except EgressRefusalError:
@@ -592,7 +603,7 @@ def _revoke_tokens(metadata, client, tokens, sent=None):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         revoked = False
         try:
-            status, _, body = _egress_guard(req, follow_redirects=False)
+            _pace(); status, _, body = _egress_guard(req, follow_redirects=False)
             outcome = _status_text(status, body, sent)
             revoked = 200 <= status < 300
         except EgressRefusalError:
@@ -734,7 +745,7 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
     req.add_header("Accept", "application/json")
     try:
-        http_status, headers, body = _egress_guard(req, follow_redirects=False)
+        _pace(); http_status, headers, body = _egress_guard(req, follow_redirects=False)
     except EgressRefusalError:
         return result("NOT_OBSERVED", mode + "token_endpoint outside allowed scope")
     except Exception as e:
@@ -821,7 +832,7 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         else:
             return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", prerequisites=("a client credential, registered or MCPAUTHSCAN_CLIENT_ID",), prerequisite_met=False, limitation="No client credential, so no credentialed request was sent")
         try:
-            http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+            _pace(); http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
             # Case-insensitive ACAO lookup: HTTP headers are case-insensitive per RFC 7230
             acao = next((v for k, v in headers.items() if k.lower() == "access-control-allow-origin"), "")
             acac = next((v for k, v in headers.items() if k.lower() == "access-control-allow-credentials"), "")
@@ -947,7 +958,7 @@ def probe_jwks_keys(jwks_uri):
     try:
         req = Request(jwks_uri)
         req.add_header("User-Agent", USER_AGENT)
-        status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        _pace(); status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         if not (isinstance(status_code, int) and 200 <= status_code < 300 and body and body.strip()):
             return record(
                 probe_id=5,
@@ -1048,7 +1059,7 @@ def probe_password_grant(token_endpoint, metadata=None, client=None, registratio
             form["client_id"] = cid
         _apply_client_secret(req, form, cid, csec, client=client, metadata=metadata)
         req.data = urlencode(form).encode()
-        http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        _pace(); http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         try:
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
@@ -1145,6 +1156,7 @@ def _authorize(authorization_endpoint, params):
     sep = "&" if "?" in authorization_endpoint else "?"
     req = Request(authorization_endpoint + sep + urlencode(params), method="GET")
     req.add_header("User-Agent", USER_AGENT)
+    _pace()
     return _egress_guard(req, follow_redirects=False)
 
 
@@ -1380,7 +1392,7 @@ def probe_client_auth(token_endpoint):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         req.data = b"grant_type=authorization_code&code=invalid"
         try:
-            http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+            _pace(); http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
             response = json.loads(body.decode("utf-8"))
             error = response.get("error", "")
         except json.JSONDecodeError:
@@ -1435,7 +1447,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     try:
         req = Request(metadata_url)
         req.add_header("User-Agent", USER_AGENT)
-        status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        _pace(); status_code, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         metadata = json.loads(body.decode())
     except EgressRefusalError as e:
         print("[!] OAuth server outside allowed scope: %s" % e, file=sys.stderr)
@@ -1600,7 +1612,7 @@ def _revoke_audience_token(token_endpoint, token, cid, csec, metadata):
     try:
         _apply_client_secret(req, form, cid, csec, metadata=metadata)
         req.data = urlencode(form).encode()
-        _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        _pace(); _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
         with urlopen(req, timeout=10) as resp:
             resp.read()
         print("[+] token-audience token revoked", file=sys.stderr)
@@ -1645,7 +1657,7 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
     try:
         _apply_client_secret(req, form, cid, csec, metadata=metadata)
         req.data = urlencode(form).encode()
-        http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+        _pace(); http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
     except EgressRefusalError:
         return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
                       probe_class="authserver", detail="Target URL outside allowed scope")
@@ -1696,7 +1708,7 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
     pres.add_header("Authorization", "Bearer " + token)
     pres.add_header("User-Agent", USER_AGENT)
     try:
-        res_status, res_headers, res_body = _egress_guard(pres, allow_private=ALLOW_PRIVATE_TARGETS)
+        _pace(); res_status, res_headers, res_body = _egress_guard(pres, allow_private=ALLOW_PRIVATE_TARGETS)
     except HTTPError as exc:
         res_status, res_body = exc.code, exc.read()
     except EgressRefusalError:
