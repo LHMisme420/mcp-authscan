@@ -100,3 +100,6 @@ suite_*.txt
 unauth_fixture.py
 *.jsonl
 one.*
+registry-urls.txt
+mm-recheck.json
+1claw-report.json
