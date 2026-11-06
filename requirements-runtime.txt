@@ -22,4 +22,4 @@ gunicorn
 camelot-py>=2.0.0,<3
 # OAuth and observability: pinned to patched versions
 oauthlib>=4.0.0
-opentelemetry-api>=1.45.1
+opentelemetry-api>=1.45.2
