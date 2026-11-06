@@ -98,14 +98,5 @@ scan_*.txt
 sdist/
 suite_*.txt
 unauth_fixture.py
-var/
-venv/
-voice_*.py
-voicecap1.json
-wheels/
-1claw-report.json
-.jsonl
-.bak*
-*.txt
-one.
-.json
+*.jsonl
+one.*
