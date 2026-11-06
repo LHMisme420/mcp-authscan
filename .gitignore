@@ -104,3 +104,8 @@ voice_*.py
 voicecap1.json
 wheels/
 1claw-report.json
+.jsonl
+.bak*
+*.txt
+one.
+.json
