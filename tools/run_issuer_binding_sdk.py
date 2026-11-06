@@ -83,8 +83,10 @@ class _DecoyHandler(BaseHTTPRequestHandler):
             q = _pq(urlsplit(self.path).query)
             redirect = (q.get("redirect_uri") or [""])[0]
             state = (q.get("state") or [""])[0]
+            state = state.replace("\r", "").replace("\n", "")
             sep = "&" if "?" in redirect else "?"
-            loc = redirect.replace("\r","").replace("\n","") + sep + "code=decoy-code&state=" + quote(state)
+            loc = redirect.replace("\r", "").replace("\n", "") + sep + "code=decoy-code&state=" + quote(state)
+            loc = loc.replace("\r", "").replace("\n", "")
             self.send_response(302)
             self.send_header("Location", loc)
             self.send_header("Content-Length", "0")
