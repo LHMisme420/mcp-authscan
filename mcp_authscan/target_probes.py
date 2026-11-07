@@ -30,6 +30,7 @@ def _initialize_request(url):
     return req
 
 
+def _is_block_page(status,raw): t=raw.decode('utf-8','ignore') if isinstance(raw,(bytes,bytearray)) else (raw or ''); return status in (401,403) and any(m in t for m in ('cloudflare_error','browser_signature_banned','error_code','Error 10'))
 def cors_probe(mcp_url, allowed_hosts=None, allow_private=None):
     name = "cross-origin read on the MCP endpoint"
     try:
@@ -51,6 +52,7 @@ def cors_probe(mcp_url, allowed_hosts=None, allow_private=None):
                       limitation="HTTP %s does not demonstrate the endpoint CORS posture" % status,
                       endpoint=mcp_url)
 
+    if _is_block_page(status,raw): return record(CORS_PROBE_ID,name,'EXCLUDED',http_status=status,headers=headers,body=raw,limitation='intermediary block page, CORS not observed',endpoint=mcp_url)
     wildcard = acao == "*"
     echoes = acao.lower() == PROBE_ORIGIN.lower()
 
@@ -143,6 +145,7 @@ def rate_limit_probe(url, count=None, window=None, allowed_hosts=None,
                           endpoint=url)
         sent += 1
         last_status = status
+        if _is_block_page(status,raw): return record(RATE_LIMIT_PROBE_ID,name,'EXCLUDED',http_status=status,headers=headers,body=raw,limitation='block page, throttling untested',endpoint=url)
         if status == 429:
             retry = (headers.get("retry-after") or "").strip()
             if retry:

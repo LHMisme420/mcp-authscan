@@ -228,6 +228,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "51cea40bf9a760bfdc5ddf26cc0ca039f55e58667b57dbf96d62e9ea12f9b4c7"
       }
+    },
+    "2026.11.07.2": {
+      "changed": "2026-11-06, a zero-auth target now records the OAuth probes as EXCLUDED with the discovery prerequisite named instead of dropping them from the declared set; ZERO-AUTH maps to MCP07; a category with no mapped rule reports no-probe instead of covered; zero-auth basis wording corrected so it no longer asserts an observation it did not make",
+      "fingerprint": "a277f2f4ad7088de9e44c212bd373a032617efc5e5bdbd3681da96ab287bfb77",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "51cea40bf9a760bfdc5ddf26cc0ca039f55e58667b57dbf96d62e9ea12f9b4c7"
+      }
     }
   },
   "withdrawn": {
