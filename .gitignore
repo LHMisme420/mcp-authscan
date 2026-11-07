@@ -98,9 +98,8 @@ scan_*.txt
 sdist/
 suite_*.txt
 unauth_fixture.py
-var/
-venv/
-voice_*.py
-voicecap1.json
-wheels/
+*.jsonl
+one.*
+registry-urls.txt
+mm-recheck.json
 1claw-report.json

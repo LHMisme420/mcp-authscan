@@ -324,7 +324,7 @@ def grade_zero_auth(response_body_text):
         if tools is None:
             tools = doc.get("tools")
     if not isinstance(tools, list) or not tools:
-        return "MEDIUM", ("zero-auth endpoint; response demonstrated no tools; body not "
+        return "MEDIUM", ("zero-auth endpoint; no tools were returned to grade; body not "
                           "inspected for record-level data")
     for t in tools:
         name = (t.get("name", "") if isinstance(t, dict) else "")
@@ -749,7 +749,11 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         # Discovery observed an unauthenticated MCP surface. Keep that
         # observation rather than overwriting it with DISCOVERY_INCOMPLETE.
         if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED":
-            status_from_counts(probe_status, count_probes(list(target_records)))
+            from mcp_authscan._common import record as mk_rec
+            _ids = "1 2 3 4 5 6 7 8 9 10 11 12".split()
+            _names = "issuer-identity resource-binding token-cache-control token-cors jwks-keys password-grant pkce-s256 redirect-uri-exact client-auth cross-tenant token-audience resource-authservers".split()
+            _ran = set(r.probe_id for r in target_records)
+            target_records = tuple(target_records) + tuple(mk_rec(probe_id=int(i), name=n, status="EXCLUDED", probe_class="authserver", prerequisites=("OAuth discovery RFC 9728 to RFC 8414",), prerequisite_met=False, limitation="No authorization server was discovered, so this probe was never sent") for i, n in zip(_ids, _names) if int(i) not in _ran)
             return findings + target_findings, True, probe_status, discovery_info, (list(target_records), [])
 
         # Report DISCOVERY_INCOMPLETE with forensic details
@@ -777,7 +781,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.05.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.05.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.06.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""

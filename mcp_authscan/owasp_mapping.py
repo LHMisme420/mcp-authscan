@@ -37,6 +37,7 @@ RULE_CATEGORY = {
     "OAuth-11": "MCP01",  # token-audience
     "potential_unauthenticated_sensitive_data": "MCP07",
     "cors": "MCP07",
+    "ZERO-AUTH": "MCP07",
     "MCPC-1": "MCP03",  # directive-like content in metadata
     "MCPC-2": "MCP10",  # resource or metadata names a private path
 }
@@ -76,8 +77,10 @@ def coverage_rows():
             rows.append((cid, CATEGORIES[cid], "partial", PARTIAL[cid]))
         elif cid in UNTESTED:
             rows.append((cid, CATEGORIES[cid], "untested", UNTESTED[cid]))
-        else:
+        elif cid in set(RULE_CATEGORY.values()):
             rows.append((cid, CATEGORIES[cid], "covered", ""))
+        else:
+            rows.append((cid, CATEGORIES[cid], "no-probe", "No rule in this tool maps here, so no verdict."))
     return rows
 
 
@@ -96,7 +99,7 @@ def owasp_block(payload):
     if covered:
         out.append("  covered: %s" % ", ".join(covered))
     for cid, name, state, reason in coverage_rows():
-        if state in ("untested", "partial"):
+        if state in ("untested", "partial", "no-probe"):
             out.append("  %s: %s %s. %s" % (state, cid, name, reason))
     return "\n".join(out)
 

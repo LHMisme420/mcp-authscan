@@ -94,7 +94,7 @@ def grade_zero_auth_response(resp):
         if tools is None:
             tools = doc.get("tools")
     if not isinstance(tools, list) or not tools:
-        return RiskLevel.MEDIUM, ("zero-auth endpoint; response demonstrated no tools; body not "
+        return RiskLevel.MEDIUM, ("zero-auth endpoint; no tools were returned to grade; body not "
                                   "inspected for record-level data")
     for t in tools:
         name = (t.get("name", "") if isinstance(t, dict) else "")

@@ -59,7 +59,7 @@ def test_calib_no_tools_is_medium(tmp_path):
     body = json.dumps({"result": {"serverInfo": {"name": "x"}}}).encode()
     f, _ = _scan(tmp_path, body)
     assert f["severity"] == "MEDIUM"
-    assert "demonstrated no tools" in f["severity_basis"]
+    assert "no tools were returned to grade" in f["severity_basis"]
 def test_calib_unparseable_is_medium():
     # Preflight screens a non-JSON (HTML) body out as not-MCP before grading, so this
     # branch cannot be reached through a full scan (that screening is what stops the
