@@ -324,7 +324,7 @@ def grade_zero_auth(response_body_text):
         if tools is None:
             tools = doc.get("tools")
     if not isinstance(tools, list) or not tools:
-        return "MEDIUM", ("zero-auth endpoint; no tools were returned to grade; body not "
+        return "MEDIUM", ("zero-auth endpoint; initialize response carried no tool list; body not "
                           "inspected for record-level data")
     for t in tools:
         name = (t.get("name", "") if isinstance(t, dict) else "")
@@ -780,7 +780,7 @@ def status_from_counts(status, counts):
 
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
-SEVERITY_CALIBRATION_VERSION = "2026.11.05.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
+SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
 PROBE_SET_VERSION = "2026.11.07.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):

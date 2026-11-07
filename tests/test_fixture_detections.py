@@ -211,7 +211,7 @@ class FixtureDetectionTests(unittest.TestCase):
         ):
             check = _one(checks, name)
             self.assertFalse(check.passed, f"{name} should fail on a zero-auth server")
-            # calibration 2026.11.05.1: vuln-auth serves empty tools, so no sensitive
+            # calibration 2026.11.07.1: vuln-auth serves empty tools, so no sensitive
             # surface is demonstrated -> MEDIUM, not CRITICAL. (SSE never reads its body.)
             self.assertEqual(check.risk_level, RiskLevel.MEDIUM)
 

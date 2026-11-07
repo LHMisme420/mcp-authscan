@@ -74,7 +74,7 @@ _WRITE_VERBS = ("write", "delete", "remove", "create", "update", "exec", "execut
 
 
 def grade_zero_auth_response(resp):
-    """Grade a zero-auth check by what the response demonstrated (calibration 2026.11.05.1).
+    """Grade a zero-auth check by what the response demonstrated (calibration 2026.11.07.1).
 
     Returns (RiskLevel, severity_basis). CRITICAL only when a returned tool's NAME shows a
     write/delete/execute action; HIGH when tools were returned but none names such an action;
@@ -94,7 +94,7 @@ def grade_zero_auth_response(resp):
         if tools is None:
             tools = doc.get("tools")
     if not isinstance(tools, list) or not tools:
-        return RiskLevel.MEDIUM, ("zero-auth endpoint; no tools were returned to grade; body not "
+        return RiskLevel.MEDIUM, ("zero-auth endpoint; initialize response carried no tool list; body not "
                                   "inspected for record-level data")
     for t in tools:
         name = (t.get("name", "") if isinstance(t, dict) else "")
