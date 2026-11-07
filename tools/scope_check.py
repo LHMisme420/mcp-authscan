@@ -174,13 +174,11 @@ def obtain_token(
 
 
 def redact_exchange_for_display(record: dict[str, Any]) -> dict[str, Any]:
-    """Copy of the exchange safe to print. Fixture dummy secrets stay readable."""
+    """Copy of the exchange safe to print with sensitive fields always redacted."""
     out = json.loads(json.dumps(record))
     body = out.get("request", {}).get("body")
     if isinstance(body, dict) and "client_secret" in body:
-        secret = body["client_secret"]
-        if secret not in (FIXTURE_CLIENT_SECRET, "test", "test-secret", "fixture-secret"):
-            body["client_secret"] = "<redacted>"
+        body["client_secret"] = "<redacted>"
     token = out.get("access_token")
     resp = out.get("response") or {}
     bj = resp.get("body_json") if isinstance(resp, dict) else None
