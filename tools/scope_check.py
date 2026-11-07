@@ -593,7 +593,10 @@ def print_result(result: dict[str, Any], as_json: bool = False) -> None:
     if status is not None:
         print("mcp_http_status: %s" % status)
     print("--- token exchange ---")
-    print(json.dumps(result.get("token_exchange"), indent=2, sort_keys=True))
+    token_exchange = result.get("token_exchange")
+    if isinstance(token_exchange, dict):
+        token_exchange = redact_exchange_for_display(token_exchange)
+    print(json.dumps(token_exchange, indent=2, sort_keys=True))
     print("--- mcp call ---")
     print(json.dumps(result.get("mcp_call"), indent=2, sort_keys=True))
     print("exit_code: %s" % result["exit_code"])
