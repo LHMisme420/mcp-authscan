@@ -149,7 +149,7 @@ def run(expect_issuer):
 
         if found:
             verdict = "FAIL"
-            reason = "client presented " + found + " to an authorization server whose issuer did not match the protected resource"
+            reason = "client presented credentials to an authorization server whose issuer did not match the protected resource"
         elif not read_metadata:
             verdict = "EXCLUDED"
             reason = "client never read the decoy metadata, so issuer binding was not exercised" + (": " + error if error else "")

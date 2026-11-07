@@ -13,7 +13,7 @@ pillow==13.0.0
 setuptools==84.2.1
 aiohttp
 anthropic
-authlib>=1.3.0,<2.0.0
+authlib>=1.9.3,<2.0.0
 redis
 reportlab>=5.1.0,<6
 werkzeug
@@ -22,4 +22,4 @@ gunicorn
 camelot-py>=2.0.0,<3
 # OAuth and observability: pinned to patched versions
 oauthlib>=4.0.0
-opentelemetry-api>=1.45.1
+opentelemetry-api>=1.45.2
