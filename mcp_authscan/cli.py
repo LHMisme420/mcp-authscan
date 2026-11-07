@@ -184,6 +184,8 @@ def main():
                     output = report.json()
                 else:
                     output = report.text()
+                if str(args.output).lower().endswith('.json') and args.format not in ('json', 'sarif'):
+                    output = report.json()
                 if args.output:
                     with open(args.output, 'w') as f:
                         f.write(output)
@@ -214,6 +216,8 @@ def main():
             output = json.dumps(build_batch_dict(results), indent=2)
         else:
             output = build_batch_text(results)
+        if str(args.output).lower().endswith('.json') and args.format not in ('json', 'sarif'):
+            output = json.dumps(build_batch_dict(results), indent=2)
         if args.output:
             with open(args.output, 'w') as f:
                 f.write(output)
