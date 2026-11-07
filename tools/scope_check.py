@@ -174,13 +174,11 @@ def obtain_token(
 
 
 def redact_exchange_for_display(record: dict[str, Any]) -> dict[str, Any]:
-    """Copy of the exchange safe to print. Fixture dummy secrets stay readable."""
+    """Copy of the exchange safe to print with sensitive fields always redacted."""
     out = json.loads(json.dumps(record))
     body = out.get("request", {}).get("body")
     if isinstance(body, dict) and "client_secret" in body:
-        secret = body["client_secret"]
-        if secret not in (FIXTURE_CLIENT_SECRET, "test", "test-secret", "fixture-secret"):
-            body["client_secret"] = "<redacted>"
+        body["client_secret"] = "<redacted>"
     token = out.get("access_token")
     resp = out.get("response") or {}
     bj = resp.get("body_json") if isinstance(resp, dict) else None
@@ -593,7 +591,10 @@ def print_result(result: dict[str, Any], as_json: bool = False) -> None:
     if status is not None:
         print("mcp_http_status: %s" % status)
     print("--- token exchange ---")
-    print(json.dumps(result.get("token_exchange"), indent=2, sort_keys=True))
+    token_exchange = result.get("token_exchange")
+    if isinstance(token_exchange, dict):
+        token_exchange = redact_exchange_for_display(token_exchange)
+    print(json.dumps(token_exchange, indent=2, sort_keys=True))
     print("--- mcp call ---")
     print(json.dumps(result.get("mcp_call"), indent=2, sort_keys=True))
     print("exit_code: %s" % result["exit_code"])
