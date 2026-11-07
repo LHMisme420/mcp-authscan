@@ -175,5 +175,5 @@ class HashSchemeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, 'Expected 0, got %d' % result.returncode)
             text = result.stdout
             payload = json.loads(text[text.find('{'):])
-            self.assertEqual(payload['hash_scheme'], 'verdict-v2')
+            self.assertEqual(payload['hash_scheme'], 'verdict-v3')
             self.assertIn('hash_scheme', payload['hash_covers'])

@@ -2823,7 +2823,7 @@ def main():
     if isinstance(hashed.get("probes"), list):
         hashed["probes"] = sorted(str(p) for p in hashed["probes"])
     hashed["findings"] = sorted(
-        ({k: f[k] for k in ("severity", "rule", "title", "endpoint") if k in f} for f in F),
+        ({k: f[k] for k in ("severity", "rule", "title", "endpoint", "severity_basis") if k in f} for f in F),
         key=lambda d: json.dumps(d, sort_keys=True),
     )
     payload_json = json.dumps(hashed, sort_keys=True)
@@ -3003,7 +3003,7 @@ def main():
 
 
 EXIT_CONTRACT = "2026.11.02.4"
-HASH_SCHEME = "verdict-v2"  # Which keys report_hash is taken over
+HASH_SCHEME = "verdict-v3"  # Which keys report_hash is taken over
 
 
 def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable, halted=False):
