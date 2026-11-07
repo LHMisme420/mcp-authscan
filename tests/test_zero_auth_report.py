@@ -70,7 +70,7 @@ def test_zero_auth_reported_with_evidence(tmp_path, zeroauth_server):
     assert len(hits) == 1
     f = hits[0]
     assert f["severity"] == "MEDIUM"
-    assert "demonstrated no tools" in f["severity_basis"]
+    assert "no tools were returned to grade" in f["severity_basis"]
     assert f["response_status"] == 200
     assert f["request_body"]
     assert f["response_body"]

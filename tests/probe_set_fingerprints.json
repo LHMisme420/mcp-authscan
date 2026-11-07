@@ -1,231 +1,241 @@
 {
- "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
- "stamps": {
-  "2026.11.04.1": {
-   "changed": "2026-11-04, roots now resolve across oauth_probes_v2 and target_probes, so the guard covers cors_probe, rate_limit_probe and everything they reach; every component was recomputed with them included.",
-   "components": {
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
-    "code": "a4291a8a74789172532c5793fcbbcbda8b75f43b1a0f25bf9aa0d6dd105c3179"
-   },
-   "fingerprint": "e70323696d83498360868239a024d9c914c8c15648f654859d2af8c1f0375cdc"
+  "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
+  "stamps": {
+    "2026.11.04.1": {
+      "changed": "2026-11-04, roots now resolve across oauth_probes_v2 and target_probes, so the guard covers cors_probe, rate_limit_probe and everything they reach; every component was recomputed with them included.",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "a4291a8a74789172532c5793fcbbcbda8b75f43b1a0f25bf9aa0d6dd105c3179"
+      },
+      "fingerprint": "e70323696d83498360868239a024d9c914c8c15648f654859d2af8c1f0375cdc"
+    },
+    "2026.11.03.2": {
+      "changed": "2026-11-03, the record guard now requires an observation: a PASS or FAIL must carry a body or headers, and the declared evidence type no longer decides whether the guard fires. Probe set unchanged.",
+      "components": {
+        "code": "76f3f85c594b85dde235caf4801ab145f56623c1687d6a92c40807336ea220fb",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "b057dbe7b1fdbf81b6ecb601dbadeb25542c8328e8500e52eec970d7f306e67f"
+    },
+    "2026.11.03.1": {
+      "changed": "2026-11-03, CORS probe records response headers as its evidence: a header-backed verdict is no longer refused, and a wildcard on an empty body is no longer swallowed as NOT_OBSERVED. Probe set unchanged.",
+      "components": {
+        "code": "92dbdcb34f3654771c2b461c0d2ed6c5b4d9015dbc2ea579c8f83bc41f15fa44",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "9a14f923c35700a1b21d3744cd013563fa62df3b5e6214de0e4f1c45d6e5de12"
+    },
+    "2026.10.30.1": {
+      "changed": "2026-10-30, commit f1d4fb3 (client_secret_basic at the token endpoint and revocation; shipped on the branch as 2026.11.03)",
+      "components": {
+        "code": "3fcb3390d59907a52699a528ec418992c5fe262998c5df0693603832f0b591d2",
+        "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+        "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "937881bcb11434ecfa81ede709ead759f9c7085de1bcb12298f67c75897917db"
+    },
+    "2026.10.30.2": {
+      "changed": "2026-10-30, fix: [DEBUG] lines behind --verbose (token-cache-control debug print gated; no verdict changed)",
+      "components": {
+        "code": "8923389a553b33c156c9dbd292c6f095f39eb0c5da364b4edfff6ac74525f23e",
+        "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+        "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "2df8aa5d4c4d0dfc3928de0053dbad52229f0695f0b7a7d16b0bdba592c3a201"
+    },
+    "2026.10.30.3": {
+      "changed": "2026-10-30, fix: Elapsed Time excludes the attended --acquire-token stdin wait (ATTENDED_WAIT_SECONDS); no verdict changed",
+      "components": {
+        "code": "77a66c251b1f3820453cf4ad6e5ce1bc719b7fdc96c4bf0af14313613e6204a9",
+        "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+        "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "96c46aa253217f33168029c18cfffb1911c660585f8bd0b8147d272b095da9df"
+    },
+    "2026.10.30.4": {
+      "changed": "2026-10-30, refactor: _apply_client_secret is the one place the token exchange, token-cors and password-grant place the client secret; no request or verdict changed",
+      "components": {
+        "code": "c052c37c18c5668621d5be8ac1c8af9d3821ee07c221668a7d03ffbee1a991de",
+        "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+        "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "f47b5bc5795dcff311018b1599d64750fb18d969987bccc3c060ec694e824df6"
+    },
+    "2026.10.31.1": {
+      "changed": "2026-10-31, the shared 5xx rule is applied once to every oauth probe record, so a 5xx on any probe reads NOT_OBSERVED",
+      "components": {
+        "code": "70756c2a2c82192e6b9c1fef3e975b209dd0c0e3dcaf6d68af7c22cf87f87eb8",
+        "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+        "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "4cfd489dc6805fc1b360ac29177aa93b9eb46a0b423a46b67e8c8fe4973635aa"
+    },
+    "2026.10.31.2": {
+      "changed": "2026-10-31, monolith ALLOW_PRIVATE_TARGETS defaults to false so the egress guard fails closed for callers other than main",
+      "components": {
+        "code": "8cfc3c8f3c3bf813ec45348845bee0e4690715e448a0446023826bd2f600f03b",
+        "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
+        "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "f520f1702064a49f2bca76669a37b49f7a47aa818cd3f62f52e863fcb9677599"
+    },
+    "2026.10.31.3": {
+      "changed": "2026-10-31, probe 10 cross-tenant added and parked behind MCPAUTHSCAN_CROSS_TENANT so the declared set stays nine; token-cors on a plain scan now EXCLUDED naming the missing client credential instead of POSTing grant_type=invalid",
+      "components": {
+        "code": "42ab8a624a41209e21942b992f145ea26a80178feabd3e7ab1b4ccdcb14ccbfe",
+        "probe_order": "2ad507a044ef9b5b786dc026d8cedc5d0c0094fe56409c13701566eaeb2cb770",
+        "probe_records": "411f0203c739d8161f8a27d1c4de22b5ce30df6ccee4f863a799a0ada36bf372",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "b6fe35bb9ec13d33946c6281e4b08ef7749cdd0799c66bbf837a9b070b9e16c6"
+    },
+    "2026.10.31.4": {
+      "changed": "2026-10-31, jwks-keys reports NOT_OBSERVED when the JWKS endpoint cannot be fetched instead of EXCLUDED; a failed fetch is an attempt not observed, not a missing prerequisite",
+      "components": {
+        "code": "cf3255c5b288ba5af05fd44d4b8b789f9546fc8f6a4fcde6ed199b2a1211e5c1",
+        "probe_order": "2ad507a044ef9b5b786dc026d8cedc5d0c0094fe56409c13701566eaeb2cb770",
+        "probe_records": "411f0203c739d8161f8a27d1c4de22b5ce30df6ccee4f863a799a0ada36bf372",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "1b6143962b4ec4affaf56948805ab1ee5197aec933e467895b4fb88715f8fbdb"
+    },
+    "2026.11.01.2": {
+      "components": {
+        "code": "da9e3a4fa509103733dbbacb5b2a4e2d6d8ab293ab84f2155fb688fa967316fb",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "c70d6da6da093837c06f04f6fdbc561b366bcbe20d0a97973e4c34191eccb397",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "b59b2cf81a7cc5b86d69dc4c9dcf69ed2d39cabf69d58300d2ca71a18520fd15"
+    },
+    "2026.11.01.4": {
+      "changed": "token-cache-control judges Cache-Control on the error response the endpoint returns, including a refused client, rather than excluding it",
+      "components": {
+        "code": "c8b3df51bf4a2afe515085470b8f92370256817eed0e8ee09d9790b630bff4ba",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "bbfcca5faadde0600428486ce1344ffac5f98e12c4d8abd4a50876b3dd84484a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "827834e29fc1ec5c734ef116f28f78b3bd9c980e7416fb871f291f2f14d17a4b"
+    },
+    "2026.11.01.5": {
+      "changed": "probe 6 password-grant takes the client the run resolved, falling back to the environment",
+      "components": {
+        "code": "96d0b443738317d031ea9d58f88734e6c4e0d59bf38ee78aee14e96fc21c8dd1",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "bbfcca5faadde0600428486ce1344ffac5f98e12c4d8abd4a50876b3dd84484a",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "87eec2ab6536764caf109201663538324c987ca9d93209b30ed1aceca5a795b9"
+    },
+    "2026.11.01.6": {
+      "components": {
+        "code": "dc64ed232f15d5050aa733fcc88825843e02d15cc55f59bfd03871b4d86dcb0b",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "2218a904e702c349534fefb592dc63cbcaef91bf336f98a93cfad781657a6290"
+    },
+    "2026.11.01.7": {
+      "changed": "probe 11 revokes the audience token after the presentation, so PASS means a foreign-audience token was refused rather than a revoked one",
+      "components": {
+        "code": "c26a367323279668f72a3db231799701afe32d34cb6efbab357a3a6cb3f6e8b4",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "970df5e8d28ab97de7e316f058622c0b0a6937d8619afbde0bfc9fdf45c35894"
+    },
+    "2026.11.02.1": {
+      "changed": "2026-11-02, uncommitted (User-Agent reports the installed version; no verdict or coverage change)",
+      "components": {
+        "code": "dca2b1467709ef77fb9f493f765d6292cca19526b10048eab59f7c45b5d07a96",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "ab6f490352ea01eb3026b54c197d03c4c11ac9a18882aa9e551bc1db6f82b85d"
+    },
+    "2026.11.02.2": {
+      "changed": "2026-11-02, uncommitted (egress guard honours its allowed_hosts parameter and refuses a URL with no hostname; no probe added or altered, no verdict or coverage change)",
+      "components": {
+        "code": "c7b07181d561b3bce4df77e25f5397185829f6e17d143ebda38a8968f47917ed",
+        "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
+        "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "95eac3b14a41ed61d7c524025b2c90f91cba0d8ece597feee5e67246e41f546c"
+    },
+    "2026.11.02.3": {
+      "changed": "2026-11-02, uncommitted (probe 12 resource-authservers added; no existing verdict changed)",
+      "components": {
+        "code": "93d59b1c717605e4d481236f68a39b2dad7383dc35b501f1ee4cdd66b62cb452",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "db5bd95e16fe5f1dd27d032aa1e677d66f16b51f638ffefc4a21c9ac3ef8eee9"
+    },
+    "2026.11.02.4": {
+      "changed": "2026-11-02, uncommitted (probe 12 resource-authservers added; no existing verdict changed)",
+      "components": {
+        "code": "00b017f4ae568c2a3bec608185c029588f4d270e1cee0748be4bdb2da5e30374",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "000aab6efb5b139b8336759372a1b45a1987bd2b66928b2da7f3b5903ef4fed8"
+    },
+    "2026.11.04.2": {
+      "changed": "2026-11-04, password-grant and client-auth inconclusive branch reports NOT_OBSERVED instead of EXCLUDED; no PASS or FAIL verdict changed",
+      "components": {
+        "code": "091edaa19e37e2224ee3e64bc3dce06593e8ad7b8a535ba244923d6ad16c13d4",
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "0e414cca50ae11186e02e560253d2b05c70b707ac9bd196b9161bcc3750333fa"
+    },
+    "2026.11.05.1": {
+      "changed": "2026-11-05, jwks-keys gated on a 2xx key set and fails on any symmetric key; token-cors gated on a 2xx with a body, non-OAuth 4xx reports NOT_OBSERVED, acquired mode fails on reflected Origin; token-cache-control judges only token-endpoint responses, failures and 5xx report NOT_OBSERVED, body redacted; PASS and FAIL verdicts changed",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "a8e360a40d156fa29c3e480617ff4380f606caa595d6867651de0c53b8ebae42"
+      },
+      "fingerprint": "b6a0ac65ab3e469400850cd718908864355e1912ac4c1338b78e64d8c20b9f3a"
+    },
+    "2026.11.06.1": {
+      "changed": "2026-11-06, a zero-auth target now records the OAuth probes as EXCLUDED with the discovery prerequisite named instead of dropping them from the declared set; ZERO-AUTH maps to MCP07; a category with no mapped rule reports no-probe instead of covered; zero-auth basis wording corrected so it no longer asserts an observation it did not make",
+      "fingerprint": "4d2d73253c761be294ab73b3b6234ec8cac5c2909c3263239c6eaa5b8d578816",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "51cea40bf9a760bfdc5ddf26cc0ca039f55e58667b57dbf96d62e9ea12f9b4c7"
+      }
+    }
   },
-  "2026.11.03.2": {
-   "changed": "2026-11-03, the record guard now requires an observation: a PASS or FAIL must carry a body or headers, and the declared evidence type no longer decides whether the guard fires. Probe set unchanged.",
-   "components": {
-    "code": "76f3f85c594b85dde235caf4801ab145f56623c1687d6a92c40807336ea220fb",
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "b057dbe7b1fdbf81b6ecb601dbadeb25542c8328e8500e52eec970d7f306e67f"
-  },
-  "2026.11.03.1": {
-   "changed": "2026-11-03, CORS probe records response headers as its evidence: a header-backed verdict is no longer refused, and a wildcard on an empty body is no longer swallowed as NOT_OBSERVED. Probe set unchanged.",
-   "components": {
-    "code": "92dbdcb34f3654771c2b461c0d2ed6c5b4d9015dbc2ea579c8f83bc41f15fa44",
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "9a14f923c35700a1b21d3744cd013563fa62df3b5e6214de0e4f1c45d6e5de12"
-  },
-  "2026.10.30.1": {
-   "changed": "2026-10-30, commit f1d4fb3 (client_secret_basic at the token endpoint and revocation; shipped on the branch as 2026.11.03)",
-   "components": {
-    "code": "3fcb3390d59907a52699a528ec418992c5fe262998c5df0693603832f0b591d2",
-    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
-    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "937881bcb11434ecfa81ede709ead759f9c7085de1bcb12298f67c75897917db"
-  },
-  "2026.10.30.2": {
-   "changed": "2026-10-30, fix: [DEBUG] lines behind --verbose (token-cache-control debug print gated; no verdict changed)",
-   "components": {
-    "code": "8923389a553b33c156c9dbd292c6f095f39eb0c5da364b4edfff6ac74525f23e",
-    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
-    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "2df8aa5d4c4d0dfc3928de0053dbad52229f0695f0b7a7d16b0bdba592c3a201"
-  },
-  "2026.10.30.3": {
-   "changed": "2026-10-30, fix: Elapsed Time excludes the attended --acquire-token stdin wait (ATTENDED_WAIT_SECONDS); no verdict changed",
-   "components": {
-    "code": "77a66c251b1f3820453cf4ad6e5ce1bc719b7fdc96c4bf0af14313613e6204a9",
-    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
-    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "96c46aa253217f33168029c18cfffb1911c660585f8bd0b8147d272b095da9df"
-  },
-  "2026.10.30.4": {
-   "changed": "2026-10-30, refactor: _apply_client_secret is the one place the token exchange, token-cors and password-grant place the client secret; no request or verdict changed",
-   "components": {
-    "code": "c052c37c18c5668621d5be8ac1c8af9d3821ee07c221668a7d03ffbee1a991de",
-    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
-    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "f47b5bc5795dcff311018b1599d64750fb18d969987bccc3c060ec694e824df6"
-  },
-  "2026.10.31.1": {
-   "changed": "2026-10-31, the shared 5xx rule is applied once to every oauth probe record, so a 5xx on any probe reads NOT_OBSERVED",
-   "components": {
-    "code": "70756c2a2c82192e6b9c1fef3e975b209dd0c0e3dcaf6d68af7c22cf87f87eb8",
-    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
-    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "4cfd489dc6805fc1b360ac29177aa93b9eb46a0b423a46b67e8c8fe4973635aa"
-  },
-  "2026.10.31.2": {
-   "changed": "2026-10-31, monolith ALLOW_PRIVATE_TARGETS defaults to false so the egress guard fails closed for callers other than main",
-   "components": {
-    "code": "8cfc3c8f3c3bf813ec45348845bee0e4690715e448a0446023826bd2f600f03b",
-    "probe_order": "f328a6452a508d89a89b2ab7c44c167ec7f1d41975452facb93e677dc2e84c51",
-    "probe_records": "c9db9309c0c3dd6e543e726b324930322efba9b27938a08d46524b68d0505e4a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "f520f1702064a49f2bca76669a37b49f7a47aa818cd3f62f52e863fcb9677599"
-  },
-  "2026.10.31.3": {
-   "changed": "2026-10-31, probe 10 cross-tenant added and parked behind MCPAUTHSCAN_CROSS_TENANT so the declared set stays nine; token-cors on a plain scan now EXCLUDED naming the missing client credential instead of POSTing grant_type=invalid",
-   "components": {
-    "code": "42ab8a624a41209e21942b992f145ea26a80178feabd3e7ab1b4ccdcb14ccbfe",
-    "probe_order": "2ad507a044ef9b5b786dc026d8cedc5d0c0094fe56409c13701566eaeb2cb770",
-    "probe_records": "411f0203c739d8161f8a27d1c4de22b5ce30df6ccee4f863a799a0ada36bf372",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "b6fe35bb9ec13d33946c6281e4b08ef7749cdd0799c66bbf837a9b070b9e16c6"
-  },
-  "2026.10.31.4": {
-   "changed": "2026-10-31, jwks-keys reports NOT_OBSERVED when the JWKS endpoint cannot be fetched instead of EXCLUDED; a failed fetch is an attempt not observed, not a missing prerequisite",
-   "components": {
-    "code": "cf3255c5b288ba5af05fd44d4b8b789f9546fc8f6a4fcde6ed199b2a1211e5c1",
-    "probe_order": "2ad507a044ef9b5b786dc026d8cedc5d0c0094fe56409c13701566eaeb2cb770",
-    "probe_records": "411f0203c739d8161f8a27d1c4de22b5ce30df6ccee4f863a799a0ada36bf372",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "1b6143962b4ec4affaf56948805ab1ee5197aec933e467895b4fb88715f8fbdb"
-  },
-  "2026.11.01.2": {
-   "components": {
-    "code": "da9e3a4fa509103733dbbacb5b2a4e2d6d8ab293ab84f2155fb688fa967316fb",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "c70d6da6da093837c06f04f6fdbc561b366bcbe20d0a97973e4c34191eccb397",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "b59b2cf81a7cc5b86d69dc4c9dcf69ed2d39cabf69d58300d2ca71a18520fd15"
-  },
-  "2026.11.01.4": {
-   "changed": "token-cache-control judges Cache-Control on the error response the endpoint returns, including a refused client, rather than excluding it",
-   "components": {
-    "code": "c8b3df51bf4a2afe515085470b8f92370256817eed0e8ee09d9790b630bff4ba",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "bbfcca5faadde0600428486ce1344ffac5f98e12c4d8abd4a50876b3dd84484a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "827834e29fc1ec5c734ef116f28f78b3bd9c980e7416fb871f291f2f14d17a4b"
-  },
-  "2026.11.01.5": {
-   "changed": "probe 6 password-grant takes the client the run resolved, falling back to the environment",
-   "components": {
-    "code": "96d0b443738317d031ea9d58f88734e6c4e0d59bf38ee78aee14e96fc21c8dd1",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "bbfcca5faadde0600428486ce1344ffac5f98e12c4d8abd4a50876b3dd84484a",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "87eec2ab6536764caf109201663538324c987ca9d93209b30ed1aceca5a795b9"
-  },
-  "2026.11.01.6": {
-   "components": {
-    "code": "dc64ed232f15d5050aa733fcc88825843e02d15cc55f59bfd03871b4d86dcb0b",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "2218a904e702c349534fefb592dc63cbcaef91bf336f98a93cfad781657a6290"
-  },
-  "2026.11.01.7": {
-   "changed": "probe 11 revokes the audience token after the presentation, so PASS means a foreign-audience token was refused rather than a revoked one",
-   "components": {
-    "code": "c26a367323279668f72a3db231799701afe32d34cb6efbab357a3a6cb3f6e8b4",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "970df5e8d28ab97de7e316f058622c0b0a6937d8619afbde0bfc9fdf45c35894"
-  },
-  "2026.11.02.1": {
-   "changed": "2026-11-02, uncommitted (User-Agent reports the installed version; no verdict or coverage change)",
-   "components": {
-    "code": "dca2b1467709ef77fb9f493f765d6292cca19526b10048eab59f7c45b5d07a96",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "ab6f490352ea01eb3026b54c197d03c4c11ac9a18882aa9e551bc1db6f82b85d"
-  },
-  "2026.11.02.2": {
-   "changed": "2026-11-02, uncommitted (egress guard honours its allowed_hosts parameter and refuses a URL with no hostname; no probe added or altered, no verdict or coverage change)",
-   "components": {
-    "code": "c7b07181d561b3bce4df77e25f5397185829f6e17d143ebda38a8968f47917ed",
-    "probe_order": "69dba4a7ba423b0883a391346568eab44dcb7d34011753834673df59ccb54108",
-    "probe_records": "e2e681f744790687e37c6e9d3a18163091f8f5d35d944ceb7d69308f4fa8ab8c",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "95eac3b14a41ed61d7c524025b2c90f91cba0d8ece597feee5e67246e41f546c"
-  },
-  "2026.11.02.3": {
-   "changed": "2026-11-02, uncommitted (probe 12 resource-authservers added; no existing verdict changed)",
-   "components": {
-    "code": "93d59b1c717605e4d481236f68a39b2dad7383dc35b501f1ee4cdd66b62cb452",
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "db5bd95e16fe5f1dd27d032aa1e677d66f16b51f638ffefc4a21c9ac3ef8eee9"
-  },
-  "2026.11.02.4": {
-   "changed": "2026-11-02, uncommitted (probe 12 resource-authservers added; no existing verdict changed)",
-   "components": {
-    "code": "00b017f4ae568c2a3bec608185c029588f4d270e1cee0748be4bdb2da5e30374",
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "2ce4aa6595959eb7992a13696e2087479356dfdf5c63590f3cb0597ea3dc8a8f",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "000aab6efb5b139b8336759372a1b45a1987bd2b66928b2da7f3b5903ef4fed8"
-  },
-  "2026.11.04.2": {
-   "changed": "2026-11-04, password-grant and client-auth inconclusive branch reports NOT_OBSERVED instead of EXCLUDED; no PASS or FAIL verdict changed",
-   "components": {
-    "code": "091edaa19e37e2224ee3e64bc3dce06593e8ad7b8a535ba244923d6ad16c13d4",
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
-   },
-   "fingerprint": "0e414cca50ae11186e02e560253d2b05c70b707ac9bd196b9161bcc3750333fa"
-  },
-  "2026.11.05.1": {
-   "changed": "2026-11-05, jwks-keys gated on a 2xx key set and fails on any symmetric key; token-cors gated on a 2xx with a body, non-OAuth 4xx reports NOT_OBSERVED, acquired mode fails on reflected Origin; token-cache-control judges only token-endpoint responses, failures and 5xx report NOT_OBSERVED, body redacted; PASS and FAIL verdicts changed",
-   "components": {
-    "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-    "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
-    "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
-    "code": "a8e360a40d156fa29c3e480617ff4380f606caa595d6867651de0c53b8ebae42"
-   },
-   "fingerprint": "b6a0ac65ab3e469400850cd718908864355e1912ac4c1338b78e64d8c20b9f3a"
+  "withdrawn": {
+    "2026.10.30.5": {
+      "changed": "withdrawn 2026-10-30: issued by f707170 for a report-arithmetic change (coverage denominator is testable (in_scope - EXCLUDED); JSON and printed line both from counts.coverage(); zero testable -> exit 5); same probe set as 2026.10.30.4, so any report carrying 2026.10.30.5 ran the 2026.10.30.4 probe set",
+      "fingerprint": "f47b5bc5795dcff311018b1599d64750fb18d969987bccc3c060ec694e824df6",
+      "issued_by": "f707170",
+      "same_probe_set_as": "2026.10.30.4"
+    }
   }
- },
- "withdrawn": {
-  "2026.10.30.5": {
-   "changed": "withdrawn 2026-10-30: issued by f707170 for a report-arithmetic change (coverage denominator is testable (in_scope - EXCLUDED); JSON and printed line both from counts.coverage(); zero testable -> exit 5); same probe set as 2026.10.30.4, so any report carrying 2026.10.30.5 ran the 2026.10.30.4 probe set",
-   "fingerprint": "f47b5bc5795dcff311018b1599d64750fb18d969987bccc3c060ec694e824df6",
-   "issued_by": "f707170",
-   "same_probe_set_as": "2026.10.30.4"
-  }
- }
 }
