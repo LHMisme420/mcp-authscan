@@ -75,7 +75,7 @@ def compare_issuer(advertised_issuer, as_identifier_url):
         return "MISMATCH", "issuer origin %s differs from fetch origin %s" % (
             "%s://%s%s" % (ip.scheme, ip.netloc, ""), "%s://%s" % (fp.scheme, fp.netloc))
 
-    if _norm_trailing(ip.path) != _norm_trailing(fp.path):
+    if (_norm_trailing(ip.path) or "/") != (_norm_trailing(fp.path) or "/"):
         return "MISMATCH", "issuer path %r differs from fetch path %r beyond a trailing slash" % (
             ip.path, fp.path)
 
@@ -209,17 +209,17 @@ def observe_endpoint(url, fetcher, declares_auth):
 
     pr = fetcher.get(pr_url)
     if not pr.get("ok") or pr.get("aborted"):
-        rec["verdict"] = "NO_METADATA"
+        rec["verdict"] = "NOT_PROBED"
         rec["reason"] = "protected-resource metadata not fetchable: %s" % (
             pr.get("error") or ("aborted on %s" % pr.get("status")))
         return rec
     if pr.get("status") != 200 or not isinstance(pr.get("json"), dict):
-        rec["verdict"] = "NO_METADATA"
+        rec["verdict"] = "NO_METADATA" if pr.get("status") == 404 else "NOT_PROBED"
         rec["reason"] = "protected-resource metadata status %s, not a JSON object" % pr.get("status")
         return rec
     auth_servers = pr["json"].get("authorization_servers") or []
     if not isinstance(auth_servers, list) or not auth_servers:
-        rec["verdict"] = "NO_METADATA"
+        rec["verdict"] = "NO_AS_LISTED"
         rec["reason"] = "no authorization_servers in protected-resource metadata"
         return rec
     rec["authorization_servers"] = auth_servers
@@ -246,7 +246,7 @@ def observe_endpoint(url, fetcher, declares_auth):
         rec["reason"] = reason
         return rec
 
-    rec["verdict"] = "NO_METADATA"
+    rec["verdict"] = "AS_UNREACHABLE"
     rec["reason"] = last_reason or "no authorization-server metadata reached"
     return rec
 
@@ -429,6 +429,9 @@ def build_summary(records, per_source_counts, input_path):
             "MISMATCH": verdicts.get("MISMATCH", 0),
             "UNCLEAR": verdicts.get("UNCLEAR", 0),
             "NO_METADATA": verdicts.get("NO_METADATA", 0),
+            "NO_AS_LISTED": verdicts.get("NO_AS_LISTED", 0),
+            "NOT_PROBED": verdicts.get("NOT_PROBED", 0),
+            "AS_UNREACHABLE": verdicts.get("AS_UNREACHABLE", 0),
             "UNREACHABLE": verdicts.get("UNREACHABLE", 0),
         },
         "per_source_url_counts": per_source_counts,
@@ -492,8 +495,8 @@ def fetch_registry(out_path, limit=None):
 def main():
     ap = argparse.ArgumentParser(description="Server-side issuer-echo observation (GET only).")
     ap.add_argument("--input", help="text file of URLs (one per line) or a directory of them")
-    ap.add_argument("--out", default="issuer_echo_records.jsonl", help="per-endpoint JSONL output")
-    ap.add_argument("--summary", default="issuer_echo_summary.json", help="counts-only summary output")
+    ap.add_argument("--out", default="reports/issuer_echo_records.jsonl", help="per-endpoint JSONL output")
+    ap.add_argument("--summary", default="reports/issuer_echo_summary.json", help="counts-only summary output")
     ap.add_argument("--limit", type=int, default=None, help="cap number of endpoints")
     ap.add_argument("--timeout", type=float, default=TIMEOUT)
     ap.add_argument("--delay", type=float, default=MIN_DELAY, help="min seconds between requests to a host")
