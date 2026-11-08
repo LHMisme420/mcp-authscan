@@ -582,11 +582,11 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
     # Perform RFC 9728 → RFC 8414 discovery
-    _scope_pre = set(allowed_hosts) if allowed_hosts is not None else set(ALLOWED_HOSTS)
+    _scope_pre = set(allowed_hosts) if allowed_hosts else set(ALLOWED_HOSTS)
     oauth_endpoints, discovery_info = discover_oauth_endpoints(target_url, allowed_hosts=_scope_pre, allow_private=allow_private)
     from mcp_authscan.target_probes import run_target_probes
     _th = urlparse(target_url).hostname
-    _scope = set(allowed_hosts) if allowed_hosts is not None else set(ALLOWED_HOSTS)
+    _scope = set(allowed_hosts) if allowed_hosts else set(ALLOWED_HOSTS)
     if _th:
         _scope.add(_th)
     target_records, target_findings = run_target_probes(target_url, _scope, allow_private, rate_limit_count, rate_limit_window) if mcp_verified else ([], [])
@@ -2249,6 +2249,8 @@ def main():
     ALLOWED_HOSTS = {target_host.lower()}
     for host in getattr(args, "allow_host", []):
         ALLOWED_HOSTS.add(host.lower())
+    import mcp_authscan.monolith as _realmono
+    _realmono.ALLOWED_HOSTS = ALLOWED_HOSTS
 
     # AUTHORIZATION CHECK: refuse to run without authorization metadata
     if not args.authorized_by:
