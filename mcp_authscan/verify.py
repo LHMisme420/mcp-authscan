@@ -109,6 +109,8 @@ def _differing_fields(original, fresh):
     swapped = compute(original, fresh.get("findings") or [])[0]
     if original_hash != swapped:
         names.append("findings")
+    if original.get("report_hash") != original_hash:
+        names.append("report_hash")
     return names
 
 
@@ -157,14 +159,14 @@ def main(argv=None):
     fresh = _rerun(target, _scan_flags(payload, args))
     if fresh is None:
         return _refuse("rerun produced no report")
-    original_digest = compute(payload, payload.get("findings") or [])[0]
-    fresh_digest = compute(fresh, fresh.get("findings") or [])[0]
-    if original_digest == fresh_digest:
-        print("MATCH")
-        return 0
-    print("DIVERGENCE")
-    print(",".join(_differing_fields(payload, fresh)))
-    return 1
+    recorded_hash = payload["report_hash"]
+    new_hash = compute(fresh, fresh.get("findings") or [])[0]
+    if recorded_hash != new_hash:
+        print("DIVERGENCE")
+        print(",".join(_differing_fields(payload, fresh)))
+        return 1
+    print("MATCH")
+    return 0
 
 
 if __name__ == "__main__":
