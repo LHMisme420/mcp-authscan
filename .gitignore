@@ -103,3 +103,22 @@ one.*
 registry-urls.txt
 mm-recheck.json
 1claw-report.json
+
+# numbered editor backups and local voice scratch
+.bak[0-9]
+voice_.py
+voicecap.json
+*.bak*
+cloudflared
+mcp-server-cloudflare/
+*.bak*
+cloudflared
+mcp-server-cloudflare/
+bench/targets.txt
+bench/scanners.txt
+voice*.py
+voicecap*.json
+tools/scope*
+tools/final*.py
+tests/testscope.py
+tests/scope*
