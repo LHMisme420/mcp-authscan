@@ -244,11 +244,13 @@ def discover(mcp_url: str, timeout: float = 10.0) -> dict[str, Any]:
         "token_endpoint": None,
         "registration_endpoint": None,
         "error": None,
+        "error_kind": None,
     }
     try:
         probe = requests.get(mcp_url, timeout=timeout, allow_redirects=False)
     except requests.RequestException as exc:
         out["error"] = "mcp_probe_failed: %s" % exc
+        out["error_kind"] = "not_observed"
         return out
 
     www = probe.headers.get("WWW-Authenticate") or probe.headers.get("www-authenticate")
@@ -262,6 +264,7 @@ def discover(mcp_url: str, timeout: float = 10.0) -> dict[str, Any]:
     code, rm, _ = fetch_json(rm_url, timeout=timeout)
     if not rm:
         out["error"] = "resource_metadata_unavailable status=%s" % code
+        out["error_kind"] = "excluded" if code in (404, 410) else "not_observed"
         return out
     out["resource_metadata"] = rm
     scopes = rm.get("scopes_supported")
@@ -270,6 +273,7 @@ def discover(mcp_url: str, timeout: float = 10.0) -> dict[str, Any]:
     servers = rm.get("authorization_servers")
     if not isinstance(servers, list) or not servers or not isinstance(servers[0], str):
         out["error"] = "resource_metadata missing authorization_servers"
+        out["error_kind"] = "excluded"
         return out
     as_id = servers[0].rstrip("/") + "/"
     as_meta_url = urljoin(as_id, ".well-known/oauth-authorization-server")
@@ -277,11 +281,13 @@ def discover(mcp_url: str, timeout: float = 10.0) -> dict[str, Any]:
     code, as_meta, _ = fetch_json(as_meta_url, timeout=timeout)
     if not as_meta:
         out["error"] = "as_metadata_unavailable status=%s" % code
+        out["error_kind"] = "excluded" if code in (404, 410) else "not_observed"
         return out
     out["as_metadata"] = as_meta
     te = as_meta.get("token_endpoint")
     if not isinstance(te, str) or not te:
         out["error"] = "as_metadata missing token_endpoint"
+        out["error_kind"] = "excluded"
         return out
     out["token_endpoint"] = te
     reg = as_meta.get("registration_endpoint")
@@ -292,6 +298,7 @@ def discover(mcp_url: str, timeout: float = 10.0) -> dict[str, Any]:
 
 def register_client(registration_endpoint: str, timeout: float = 10.0) -> dict[str, Any]:
     payload = {
+        "redirect_uris": ["http://127.0.0.1/callback"],
         "client_name": "mcp-authscan-scope-check",
         "token_endpoint_auth_method": "client_secret_post",
         "grant_types": ["client_credentials"],
@@ -457,9 +464,14 @@ def run_scope_check(
         disc = discover(mcp_url, timeout=timeout)
         result["discovery"] = disc
         if disc.get("error") and te is None:
-            result["verdict"] = "NOT_OBSERVED"
+            kind = disc.get("error_kind") or "not_observed"
+            if kind == "excluded":
+                result["verdict"] = "EXCLUDED"
+                result["exit_code"] = EXIT_EXCLUDED
+            else:
+                result["verdict"] = "NOT_OBSERVED"
+                result["exit_code"] = EXIT_NOT_OBSERVED
             result["reason"] = disc["error"]
-            result["exit_code"] = EXIT_NOT_OBSERVED
             return result
         if te is None:
             te = disc.get("token_endpoint")
