@@ -381,6 +381,10 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
         try:
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
+                    _de, _di = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
+                    if _de:
+                        print('[*] metadata names an authorization server, assessing OAuth not zero-auth', file=sys.stderr)
+                        return _de, _di
                     # Unauthenticated access - zero-auth vulnerability detected
                     print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
                     _zb = resp.read(65536).decode("utf-8", "replace")
