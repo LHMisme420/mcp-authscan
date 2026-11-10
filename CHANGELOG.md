@@ -75,6 +75,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Probe set stamps
 
+- 2026.11.10.2: preflight now records serverInfo.name, serverInfo.version and the negotiated protocolVersion from the unauthenticated initialize it already performs. NOT_OBSERVED when the response carries no result. No new request, no new host contacted.
+
 - 2026.11.10.1: recorded a probe set change that landed between 2026-11-07 and 2026-11-10 without a stamp bump; every component recomputed from the tree at the time of recording, fingerprint e2c0850f. No PASS or FAIL verdict changed, and no past report is regraded.
 - 2026.11.02.1: the User-Agent reports the installed package version; no verdict or coverage change.
 - 2026.11.04.2: password-grant and client-auth report NOT_OBSERVED rather than EXCLUDED when the response carries no usable token; no PASS or FAIL verdict changed.

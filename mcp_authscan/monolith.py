@@ -519,6 +519,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
     # PREFLIGHT: Verify target is an MCP server before running probes
     # POST /initialize should return 401 with WWW-Authenticate OR 200 with JSON
     mcp_verified = False
+    sv = {'status': 'NOT_OBSERVED'}
     init_payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -546,6 +547,13 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                         data = json.loads(body)
                         if isinstance(data, dict) and ('jsonrpc' in data or ('result' in data or 'error' in data)):
                             mcp_verified = True
+                            r = data.get('result') or {}
+                            i = r.get('serverInfo') or {}
+                            sv = {'status': 'OBSERVED', 'name': i.get('name'),
+                                  'version': i.get('version'),
+                                  'protocolVersion': r.get('protocolVersion')}
+                            print('[+] server', sv['name'], sv['version'],
+                                  sv['protocolVersion'], file=sys.stderr)
                             print(f"[+] MCP server verified (HTTP {resp.status})", file=sys.stderr)
                     except json.JSONDecodeError:
                             pass
@@ -576,6 +584,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         print(f"[!] Target unreachable: {target_url} did not answer ({getattr(e, 'reason', e)})", file=sys.stderr)
         return findings, False, probe_status, None, ([], [])
 
+    print("[*] server_version", sv, file=sys.stderr)
     if not mcp_verified:
         print(f"[!] No MCP surface detected at {target_url}", file=sys.stderr)
         print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
