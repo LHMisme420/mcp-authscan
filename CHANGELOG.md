@@ -75,6 +75,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Probe set stamps
 
+- 2026.11.10.1: recorded a probe set change that landed between 2026-11-07 and 2026-11-10 without a stamp bump; every component recomputed from the tree at the time of recording, fingerprint e2c0850f. No PASS or FAIL verdict changed, and no past report is regraded.
 - 2026.11.02.1: the User-Agent reports the installed package version; no verdict or coverage change.
 - 2026.11.04.2: password-grant and client-auth report NOT_OBSERVED rather than EXCLUDED when the response carries no usable token; no PASS or FAIL verdict changed.
 - 2026.11.06.1: coverage changed on a zero-auth target. The OAuth probes are now recorded as EXCLUDED with the OAuth discovery prerequisite named, instead of being dropped from the declared set, so in_scope is the full probe set and coverage stops reading 1.00 on a run that tested one endpoint. ZERO-AUTH maps to MCP07 instead of unmapped, and a category with no mapped rule reports no-probe rather than covered. The zero-auth severity basis no longer says no tools were demonstrated when the response simply carried no tool list to grade. No PASS or FAIL verdict changed.
