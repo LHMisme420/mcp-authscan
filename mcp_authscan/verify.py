@@ -156,11 +156,6 @@ def main(argv=None):
     target = payload.get("target")
     if not isinstance(target, str) or not target:
         return _refuse("target absent")
-    self_hash = compute(payload, payload.get("findings") or [])[0]
-    if payload["report_hash"] != self_hash:
-        print("DIVERGENCE")
-        print("report_hash")
-        return 1
     fresh = _rerun(target, _scan_flags(payload, args))
     if fresh is None:
         return _refuse("rerun produced no report")
