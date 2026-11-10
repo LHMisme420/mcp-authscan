@@ -11,7 +11,7 @@ from mcp_authscan.oauth_probes_v2 import probe_client_auth, probe_password_grant
 class TokenVerdictTests(unittest.TestCase):
     def evaluate(self, probe, status, payload):
         body = json.dumps(payload).encode()
-        with patch('mcp_authscan.oauth_probes_v2.urlopen') as request:
+        with patch('mcp_authscan.oauth_probes_v2._open_no_redirect') as request:
             if status >= 400:
                 request.side_effect = HTTPError(
                     'https://fixture.example.test/token', status, 'fixture', {}, BytesIO(body))

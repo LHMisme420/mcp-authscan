@@ -40,38 +40,69 @@ def _pace():
     if d<i: time.sleep(i-d)
     _PACE["t"]=time.time()
 
-def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
-    """Egress guard: enforce scope on all outbound requests.
-    
-    Checks that request_obj.full_url is fetchable (globally routable, not SSRF)
-    and that the hostname is in the authorized set.
-    Raises EgressRefusalError if the target is outside scope.
-    Returns (status_code, headers_dict, body_bytes) on success.
-    """
+from urllib.request import HTTPRedirectHandler
+
+MAX_BODY_BYTES = 8 * 1024 * 1024
+MAX_REDIRECTS = 5
+_REDIRECT_CODES = (301, 302, 303, 307, 308)
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+def _check_hop(url, allow_private=None, allowed_hosts=None):
+    from urllib.parse import urlparse
+    from mcp_authscan import monolith
     try:
-        assert_url_is_fetchable(request_obj.full_url, allow_private=allow_private)
+        assert_url_is_fetchable(url, allow_private=allow_private)
     except ValueError as e:
         raise EgressRefusalError(str(e))
-    
-    # Check hostname against authorized set
-    from mcp_authscan import monolith
-    from urllib.parse import urlparse
-    parsed = urlparse(request_obj.full_url)
-    hostname = (parsed.hostname or "").lower()
+    hostname = (urlparse(url).hostname or "").lower()
     hosts = monolith.ALLOWED_HOSTS if allowed_hosts is None else set(allowed_hosts)
     if not hostname:
         raise EgressRefusalError("URL has no hostname")
     if hostname not in hosts:
-        raise EgressRefusalError(f"host {hostname} not in authorized set: {sorted(hosts)}")
-    
-    opener = urlopen if follow_redirects else _NO_REDIRECT_OPENER.open
-    try:
-        with opener(request_obj, timeout=timeout) as resp:
-            return (resp.status, Headers(resp.headers), resp.read())
-    except HTTPError as e:
-        return (e.code, Headers(e.headers), e.read())
+        raise EgressRefusalError("host " + hostname + " not in authorized set: " + str(sorted(hosts)))
+    return hosts
+
+def _read_capped(resp, limit=MAX_BODY_BYTES):
+    data = resp.read(limit + 1)
+    if len(data) > limit:
+        raise EgressRefusalError("response body exceeded " + str(limit) + " bytes")
+    return data
+
+def _open_no_redirect(request_obj, timeout=5):
+    """Single seam for the actual send, so tests can patch one name."""
+    from urllib.request import build_opener
+    return build_opener(_NoRedirect()).open(request_obj, timeout=timeout)
 
 
+def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
+    """Egress guard: enforce scope on every hop. Bodies read with a hard cap."""
+    from urllib.parse import urljoin
+    from urllib.request import Request, build_opener
+
+    url = request_obj.full_url
+    method = request_obj.get_method()
+    body = request_obj.data
+    headers = dict(request_obj.headers)
+
+    for hop in range(MAX_REDIRECTS + 1):
+        hosts = _check_hop(url, allow_private=allow_private, allowed_hosts=allowed_hosts)
+        current = request_obj if hop == 0 else Request(url, data=body, headers=headers, method=method)
+        try:
+            with _open_no_redirect(current, timeout) as resp:
+                return (resp.status, Headers(resp.headers), _read_capped(resp))
+        except HTTPError as e:
+            location = e.headers.get("Location") if e.headers else None
+            if not (follow_redirects and e.code in _REDIRECT_CODES and location):
+                return (e.code, Headers(e.headers), _read_capped(e))
+            url = urljoin(url, location)
+            if e.code == 303 or (e.code in (301, 302) and method == "POST"):
+                method = "GET"
+                body = None
+
+    raise EgressRefusalError("redirect chain exceeded " + str(MAX_REDIRECTS) + " hops")
 def _client_creds(client_id=None, client_secret=None, redirect_uri=None):
     """Resolve OAuth client credentials: explicit argument, else environment."""
     return (
