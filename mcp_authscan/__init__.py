@@ -1,6 +1,6 @@
 from importlib.metadata import version as pkgversion
 try:
-    __version__ = pkgversion("mcp-authscan")
+    __version__ = "1.1.20"
 except Exception:
     __version__ = "0.0.0+source"
 
