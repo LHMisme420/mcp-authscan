@@ -1,5 +1,5 @@
 import json,re,sys
-RULES="ann-rules-1"
+RULES="ann-rules-2"
 V="delete remove create update modify write add insert patch put post send submit execute run invoke cancel close revoke rotate reset restart deploy publish transfer purge wipe clear archive disable enable uninstall install upload push commit merge rename move grant assign invite trigger".split()
 M=("only call","do not call","call this","use this","used to","this tool","call when","call to")
 N=("not ","n't","never","cannot","can not","no need","without")
@@ -33,7 +33,7 @@ def verdict(t):
         if any(x in low for x in M):
             return ("CONFLICT",h[0],sent.strip()[:90],"clause")
     if nh:
-        return ("CONFLICT",nh[0],d.strip()[:90],"name")
+        return ("UNCLEAR",nh[0],d.strip()[:90],"name")
     if dh:
         return ("UNCLEAR",dh[0],d.strip()[:90],"verb-no-clause")
     return ("NO_CONFLICT","",d.strip()[:60],"")
