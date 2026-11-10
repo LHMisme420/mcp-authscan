@@ -238,6 +238,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "51cea40bf9a760bfdc5ddf26cc0ca039f55e58667b57dbf96d62e9ea12f9b4c7"
       }
+    },
+    "2026.11.10.1": {
+      "changed": "2026-11-10, records the probe set change that landed between 2026-11-07 and 2026-11-10 without a stamp bump; every component recomputed from the current tree.",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "4efd7f8e583d1d00f7eb0365c8c65a8fc09e201d0dfb0cde4aa64189be15a0f9"
+      },
+      "fingerprint": "e2c0850f9d65c3855418082e9531c622159bea506d48d87e577dc47aea64bdf0"
     }
   },
   "withdrawn": {
