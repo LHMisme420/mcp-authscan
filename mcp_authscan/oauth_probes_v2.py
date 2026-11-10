@@ -1186,6 +1186,7 @@ def _classify(response, authorization_endpoint, sent_redirect_uri, registered_re
             return ("neither", "HTTP %d, Location %s (the registered redirect_uri, not the one sent)"
                     % (status, recorded), recorded)
         if _origin(absolute) == _origin(authorization_endpoint):
+            recorded = re.sub(r"req=[A-Za-z0-9_-]+", "req=REDACTED", recorded)
             return "proceeded", "HTTP %d, Location %s (consent page on the authorization server's origin)" % (status, recorded), recorded
         return "neither", "HTTP %d, Location %s (neither the redirect_uri nor the server's own origin)" % (status, recorded), recorded
     if status == 200:
