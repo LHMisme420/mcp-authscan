@@ -298,6 +298,13 @@ def _direct_rfc8414_discovery(base):
     return None, None
 
 
+def sse_payload(text):
+    if not text:
+        return ""
+    for line in text.splitlines():
+        if line.startswith("data:"):
+            return line[5:].strip()
+    return text
 def grade_zero_auth(response_body_text):
     """Grade a zero-auth finding by what the response demonstrated, not by the absence
     of auth. Returns (severity, severity_basis). Calibration SEVERITY_CALIBRATION_VERSION.
@@ -387,7 +394,8 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                         return _de, _di
                     # Unauthenticated access - zero-auth vulnerability detected
                     print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
-                    _zb = resp.read(65536).decode("utf-8", "replace")
+                    _raw = resp.read(65536).decode("utf-8", "replace")
+                    _zb = sse_payload(_raw)
                     _sev, _basis = grade_zero_auth(_zb)
                     zero_auth_info = {
                         "status": "ZERO_AUTH_DETECTED",
@@ -396,7 +404,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                         "request_method": "POST",
                         "request_body": json.dumps(init_payload),
                         "response_status": resp.status,
-                        "response_body": _zb[:2000],
+                        "response_body": _raw[:2000],
                         "response_body_truncated": len(_zb) > 2000,
                         "response_preview": _zb[:200],
                     }
@@ -2875,7 +2883,7 @@ def main():
             print("-" * 80)
             print("PREFLIGHT CHECK: PASSED")
             print("  POST initialize answered with an MCP JSON-RPC response")
-            print("  This confirms an MCP server with OAuth exists at the target path.")
+            print("  Preflight verified an MCP surface; the OAuth discovery chain did not complete.")
             print("")
             print("DISCOVERY CHAIN: INCOMPLETE")
             print("  RFC 9728 → RFC 8414 discovery attempted but did not complete.")
