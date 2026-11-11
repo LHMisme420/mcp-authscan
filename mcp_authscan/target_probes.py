@@ -46,7 +46,7 @@ def cors_probe(mcp_url, allowed_hosts=None, allow_private=None):
     acao = (headers.get("access-control-allow-origin") or "").strip()
     acac = (headers.get("access-control-allow-credentials") or "").strip().lower()
 
-    if status in (404, 405) or status >= 500:
+    if status in (401, 403, 404, 405) or status >= 500:
         return record(CORS_PROBE_ID, name, "NOT_OBSERVED", http_status=status,
                       headers=headers, body=raw,
                       limitation="HTTP %s does not demonstrate the endpoint CORS posture" % status,
