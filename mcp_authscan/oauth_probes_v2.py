@@ -854,11 +854,11 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
         req.add_header("User-Agent", USER_AGENT)
         req.add_header("Origin", origin_sent)
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
-        cid, csec, _ = _client_creds()
+        cid, csec = (client.client_id, client.secret) if client is not None else _client_creds()[:2]
         sent_credentials = bool(cid)
         if cid:
             form = {"grant_type": "client_credentials", "client_id": cid}
-            _apply_client_secret(req, form, cid, csec, metadata=metadata)
+            _apply_client_secret(req, form, cid, csec, client=client, metadata=metadata)
             req.data = urlencode(form).encode()
         else:
             return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver", prerequisites=("a client credential, registered or MCPAUTHSCAN_CLIENT_ID",), prerequisite_met=False, limitation="No client credential, so no credentialed request was sent")
