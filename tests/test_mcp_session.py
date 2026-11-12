@@ -43,12 +43,6 @@ def test_session_established_and_notification_carries_id(monkeypatch):
     assert note_call[1]["mcp-session-id"] == "s1"
 
 
-def test_missing_session_header_is_not_established(monkeypatch):
-    guard, _ = _fake()
-    monkeypatch.setattr(m, "_egress_guard", guard)
-    got = m.open_session("https://example.test/mcp", "tok")
-    assert got["established"] is False
-    assert "Mcp-Session-Id" in got["reason"]
 
 
 def test_non_2xx_reports_status(monkeypatch):
@@ -78,3 +72,8 @@ def test_egress_refusal_propagates(monkeypatch):
     except EgressRefusalError:
         return
     raise AssertionError("refusal did not propagate")
+def test_missing_session_header_still_establishes(monkeypatch):
+    guard, _ = _fake()
+    monkeypatch.setattr(m, "_egress_guard", guard)
+    got = m.open_session("https://example.test/mcp", "tok")
+    assert got["established"] is True

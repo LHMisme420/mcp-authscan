@@ -70,9 +70,6 @@ def open_session(endpoint, token, allow_private=None, allowed_hosts=None):
         return {"established": False, "http_status": status,
                 "reason": "initialize returned HTTP %s" % status}
     session_id = _header(headers, SESSION_HEADER)
-    if not session_id:
-        return {"established": False, "http_status": status,
-                "reason": "no Mcp-Session-Id in initialize response"}
     try:
         msg = _parse_body(raw, _header(headers, "Content-Type"))
     except Exception as exc:
