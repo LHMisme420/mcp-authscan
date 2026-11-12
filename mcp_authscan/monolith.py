@@ -762,7 +762,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     # Should be JSON-RPC response
                     body = resp.read(65536).decode(errors='ignore')
                     try:
-                        data = json.loads(body)
+                        data = json.loads(sse_payload(body))
                         if isinstance(data, dict) and ('jsonrpc' in data or ('result' in data or 'error' in data)):
                             mcp_verified = True
                             r = data.get('result') or {}
@@ -972,7 +972,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         status_from_counts(probe_status, count_probes(all_records))
         return findings + target_findings, True, probe_status, discovery_info, (all_records, probe_results)
     else:
-        if not mcp_verified:
+        if not mcp_verified and discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
             # Discovery did not establish an OAuth surface either. Do not
             # misreport an HTML/non-MCP target as a verified OAuth challenge.
             return findings, False, probe_status, preflight_info, ([], [])
