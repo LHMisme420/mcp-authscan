@@ -1,0 +1,9 @@
+{
+"fixture": "runissuerbinding.py",
+"fixtureLocation": "repository root",
+"probeSetVersion": "2026.11.11.1",
+"cases": [
+{"client": "mcp 4.1.1", "expected": "FAIL"},
+{"client": "mcp 4.1.2", "expected": "PASS"}
+]
+}
