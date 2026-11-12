@@ -7,6 +7,8 @@ import Dashboard from './Dashboard';
 import Landing from './Landing';
 import { AuthLoading } from './AuthLoading';
 import { JoinTeamPage } from './PlanFeatures';
+import { PageMetadata } from './PageMetadata';
+import SampleAssessment from './SampleAssessment';
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -94,8 +96,9 @@ const clerkAppearance = {
 
 function HomeRoute() {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <AuthLoading />;
-  return isSignedIn ? <Redirect to="/user-portal" /> : <Landing />;
+  // The public service description remains visible while Clerk initializes.
+  // Once authenticated, retain the existing workspace redirect.
+  return isLoaded && isSignedIn ? <Redirect to="/user-portal" /> : <Landing />;
 }
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -142,8 +145,8 @@ function SignInPage() {
   const signUpTarget = `${basePath}/sign-up?redirect_url=${encodeURIComponent(fallback)}`;
   return (
     <div className="auth-page">
-      <a className="brand" href={basePath || '/'} aria-label="VATA home">
-        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">VATA</span>
+      <a className="brand" href={basePath || '/'} aria-label="MCP AuthScan home">
+        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">MCP AuthScan</span>
       </a>
       <SignIn
         routing="path"
@@ -161,8 +164,8 @@ function SignUpPage() {
   const signInTarget = `${basePath}/sign-in?redirect_url=${encodeURIComponent(fallback)}`;
   return (
     <div className="auth-page">
-      <a className="brand" href={basePath || '/'} aria-label="VATA home">
-        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">VATA</span>
+      <a className="brand" href={basePath || '/'} aria-label="MCP AuthScan home">
+        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">MCP AuthScan</span>
       </a>
       <SignUp
         routing="path"
@@ -192,14 +195,15 @@ function ClerkRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: 'Welcome back', subtitle: 'Sign in to your VATA security workspace' } },
-        signUp: { start: { title: 'Create your VATA account', subtitle: 'Set up an account for your security workspace' } },
+        signIn: { start: { title: 'Welcome back', subtitle: 'Sign in to your MCP AuthScan security workspace' } },
+        signUp: { start: { title: 'Create your MCP AuthScan account', subtitle: 'Set up an account for your security workspace' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <Switch>
         <Route path="/" component={HomeRoute} />
+        <Route path="/sample-assessment" component={SampleAssessment} />
         <Route path="/user-portal" component={UserPortalRoute} />
         <Route path="/join-team" component={JoinTeamRoute} />
         <Route path="/success"><Redirect to="/user-portal" /></Route>
@@ -215,6 +219,7 @@ function ClerkRoutes() {
 function App() {
   return (
     <WouterRouter base={basePath}>
+      <PageMetadata />
       <ClerkRoutes />
     </WouterRouter>
   );

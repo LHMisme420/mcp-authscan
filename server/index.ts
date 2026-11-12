@@ -12,6 +12,7 @@ import { tierRoutes, tokenAuthentication } from './tierRoutes';
 import { TierError } from './tiers';
 import { startApplication } from './startup';
 import { requirePro } from './billing';
+import { publicDocuments, sendFrontendPage } from './publicPages';
 
 if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
   throw new Error('Secure sign-in is not configured.');
@@ -20,6 +21,11 @@ const app = express();
 const httpServer = createHttpServer(app);
 app.set('trust proxy', 1);
 const start = await startApplication(app, httpServer);
+app.use(publicDocuments);
+if (process.env.NODE_ENV === 'production') {
+  // Public marketing HTML must not wait for authentication to initialize.
+  app.get(['/', '/sample-assessment', '/sample-assessment/'], sendFrontendPage);
+}
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 // Retired payment URLs remain explicit tombstones, including old webhook URLs.
 // No environment variable can reactivate payments in this release.
@@ -85,7 +91,7 @@ app.use((error: any, _req: any, res: any, _next: any) => {
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.resolve('build/client')));
-  app.use((req, res, next) => req.method === 'GET' ? res.sendFile(path.resolve('build/client/index.html')) : next());
+  app.use((req, res, next) => req.method === 'GET' ? sendFrontendPage(req, res, next) : next());
 } else {
   const { createServer } = await import('vite');
   const vite = await createServer({

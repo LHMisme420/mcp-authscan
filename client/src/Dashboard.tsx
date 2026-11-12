@@ -320,8 +320,8 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
       <header className="portal-topbar">
         <div className="wrap portal-topbar-inner">
           <div className="workspace-label">
-            <Link className="brand" href="/user-portal" aria-label="VATA workspace">
-              <img src="/logo.svg" alt="" /><span className="brand-word">VATA</span>
+            <Link className="brand" href="/user-portal" aria-label="MCP AuthScan workspace">
+              <img src="/logo.svg" alt="" /><span className="brand-word">MCP AuthScan</span>
             </Link>
             <span className="workspace-divider" />
             <span className="org-name">{account?.organization?.name || 'Security workspace'}</span>
