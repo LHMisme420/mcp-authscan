@@ -1,9 +1,28 @@
 {
-"fixture": "runissuerbinding.py",
-"fixtureLocation": "repository root",
-"probeSetVersion": "2026.11.11.1",
-"cases": [
-{"client": "mcp 4.1.1", "expected": "FAIL"},
-{"client": "mcp 4.1.2", "expected": "PASS"}
-]
+  "fixture": "runissuerbinding.py",
+  "fixtureLocation": "repository root",
+  "probeSetVersion": "2026.11.11.1",
+  "cases": [
+    {
+      "client": "fastmcp 4.1.1",
+      "mode": "default",
+      "expected": "FAIL"
+    },
+    {
+      "client": "fastmcp 4.1.2",
+      "mode": "default",
+      "expected": "FAIL"
+    },
+    {
+      "client": "fastmcp 4.1.2",
+      "mode": "expect-issuer",
+      "expected": "PASS"
+    },
+    {
+      "client": "fastmcp 4.1.1",
+      "mode": "expect-issuer",
+      "expected": "EXCLUDED",
+      "prerequisite": "provider accepts an issuer argument"
+    }
+  ]
 }
