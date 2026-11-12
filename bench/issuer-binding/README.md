@@ -1,5 +1,5 @@
 Issuer-binding benchmark
-Expected verdicts for the local decoy in runissuerbinding.py.
+Expected verdicts for the local decoy in run_issuer_binding.py.
 
 The decoy imitates the flaw described in GHSA-qx49-fqc8-xw99 / CVE-2026-115563: a client that accepts authorization-server metadata without checking that it echoes the URL it was fetched from. It is a local imitation of that flaw, not the real package.
 
