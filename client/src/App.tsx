@@ -9,6 +9,8 @@ import { AuthLoading } from './AuthLoading';
 import { JoinTeamPage } from './PlanFeatures';
 import { PageMetadata } from './PageMetadata';
 import SampleAssessment from './SampleAssessment';
+import Assessments from './Assessments';
+import RequestAssessment from './RequestAssessment';
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -145,8 +147,8 @@ function SignInPage() {
   const signUpTarget = `${basePath}/sign-up?redirect_url=${encodeURIComponent(fallback)}`;
   return (
     <div className="auth-page">
-      <a className="brand" href={basePath || '/'} aria-label="MCP AuthScan home">
-        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">MCP AuthScan</span>
+      <a className="brand" href={basePath || '/'} aria-label="VATA home">
+        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">VATA</span>
       </a>
       <SignIn
         routing="path"
@@ -164,8 +166,8 @@ function SignUpPage() {
   const signInTarget = `${basePath}/sign-in?redirect_url=${encodeURIComponent(fallback)}`;
   return (
     <div className="auth-page">
-      <a className="brand" href={basePath || '/'} aria-label="MCP AuthScan home">
-        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">MCP AuthScan</span>
+      <a className="brand" href={basePath || '/'} aria-label="VATA home">
+        <img src={`${basePath}/logo.svg`} alt="" /><span className="brand-word">VATA</span>
       </a>
       <SignUp
         routing="path"
@@ -195,14 +197,16 @@ function ClerkRoutes() {
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       localization={{
-        signIn: { start: { title: 'Welcome back', subtitle: 'Sign in to your MCP AuthScan security workspace' } },
-        signUp: { start: { title: 'Create your MCP AuthScan account', subtitle: 'Set up an account for your security workspace' } },
+        signIn: { start: { title: 'Welcome back', subtitle: 'Sign in to your VATA security workspace' } },
+        signUp: { start: { title: 'Create your VATA account', subtitle: 'Set up an account for your security workspace' } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <Switch>
         <Route path="/" component={HomeRoute} />
+        <Route path="/assessments" component={Assessments} />
+        <Route path="/request-assessment" component={RequestAssessment} />
         <Route path="/sample-assessment" component={SampleAssessment} />
         <Route path="/user-portal" component={UserPortalRoute} />
         <Route path="/join-team" component={JoinTeamRoute} />

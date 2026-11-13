@@ -1,11 +1,27 @@
 // Verified with the publishing service before this commercial-site update.
 // This is the public site origin, not the workspace Preview URL.
 export const PUBLIC_SITE_ORIGIN = 'https://mcp-authscan.replit.app';
-export const BRAND_NAME = 'MCP AuthScan';
-export const HOME_DESCRIPTION = 'Independent, evidence-backed security assessments of authorized MCP deployments. Single-server reviews at $1,750, with documented scope, findings, and limitations.';
+export const BRAND_NAME = 'VATA';
+export const HOME_DESCRIPTION = 'VATA is a hosted MCP security workspace for authorized scanning, organization-scoped findings and scan history. Independent MCP AuthScan assessments are available separately.';
 
 export function metadataForPath(pathname: string) {
   const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
+  if (path === '/assessments') {
+    return {
+      title: 'Independent MCP Security Assessments | MCP AuthScan',
+      description: 'Evidence-backed independent MCP security verification: $1,750 for one authorized server or $3,500 for an expanded assessment with one remediation retest. Agreed scope and written permission required.',
+      canonical: `${PUBLIC_SITE_ORIGIN}/assessments`,
+      robots: 'index, follow',
+    };
+  }
+  if (path === '/request-assessment') {
+    return {
+      title: 'Request an MCP Security Assessment | MCP AuthScan',
+      description: 'Discuss an independent MCP security assessment with MCP AuthScan. Share your company, desired package and brief scope—not credentials. An inquiry does not authorize scanning.',
+      canonical: `${PUBLIC_SITE_ORIGIN}/request-assessment`,
+      robots: 'index, follow',
+    };
+  }
   if (path === '/sample-assessment') {
     return {
       title: 'Synthetic Sample Assessment | MCP AuthScan',
@@ -24,14 +40,14 @@ export function metadataForPath(pathname: string) {
   ].find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`));
   if (privatePage) {
     return {
-      title: `${privatePage[1]} | MCP AuthScan`,
-      description: 'Access your organization-scoped MCP AuthScan security workspace.',
+      title: `${privatePage[1]} | VATA`,
+      description: 'Access your organization-scoped VATA MCP security workspace.',
       canonical: `${PUBLIC_SITE_ORIGIN}${privatePage[0]}`,
       robots: 'noindex, follow',
     };
   }
   return {
-    title: 'MCP AuthScan | Independent MCP Security Assessments',
+    title: 'VATA | MCP Security Workspace',
     description: HOME_DESCRIPTION,
     canonical: `${PUBLIC_SITE_ORIGIN}/`,
     robots: 'index, follow',

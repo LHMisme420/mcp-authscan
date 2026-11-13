@@ -36,39 +36,46 @@ export function AssessmentServices() {
               <span>Single engagement</span>
               <strong className="offer-price">$1,750</strong>
             </div>
-            <h3>Single-server review</h3>
-            <p>A focused, independently assessed review of one agreed MCP server scope.</p>
-            <div className="offer-detail">
-              Written report with observed evidence, findings, remediation guidance, and explicit
-              exclusions and limitations. Final scope is agreed before testing.
-            </div>
+            <h3>MCP Server Security Verification</h3>
+            <p>Focused independent verification of one authorized MCP server.</p>
+            <ul className="package-includes">
+              <li>Authentication and supported protocol-security checks</li>
+              <li>Manual validation of significant scanner findings</li>
+              <li>Evidence-backed assessment report</li>
+              <li>Severity rationale and remediation guidance</li>
+              <li>JSON and SARIF output where applicable</li>
+            </ul>
             <div className="offer-bottom">
-              <a className="button" href={assessmentMailto}>Request an Assessment</a>
-              <span>Scope confirmed before any testing</span>
+              <Link className="button" href="/request-assessment?package=verification">Request an Assessment</Link>
+              <span>Scope and written authorization before testing</span>
             </div>
           </article>
 
           <article className="commercial-offer expanded">
             <div className="offer-topline">
-              <span>Assessment + retest</span>
+            <span>Expanded assessment</span>
               <strong className="offer-price">$3,500</strong>
             </div>
-            <h3>Expanded assessment</h3>
-            <p>A broader agreed assessment, including one remediation retest.</p>
-            <div className="offer-detail">
-              Includes one retest after remediation, against the agreed finding criteria. The
-              retest is documented separately; it does not expand the original scope.
-            </div>
+            <h3>Comprehensive MCP Security Assessment</h3>
+            <p>A broader mutually agreed MCP security review, including one remediation retest.</p>
+            <ul className="package-includes">
+              <li>Expanded, mutually agreed testing scope</li>
+              <li>Authentication and authorization boundary review</li>
+              <li>OAuth and protocol configuration analysis where applicable</li>
+              <li>Manual investigation of significant findings</li>
+              <li>Executive and technical assessment report</li>
+              <li>Remediation recommendations and one retest</li>
+            </ul>
             <div className="offer-bottom">
-              <a className="button" href={assessmentMailto}>Request an Assessment</a>
-              <span>No testing before written permission</span>
+              <Link className="button" href="/request-assessment?package=comprehensive">Request an Assessment</Link>
+              <span>Retest against agreed criteria only</span>
             </div>
           </article>
         </div>
 
         <div className="scope-caveat">
           <strong>Scope first.</strong>
-          <span>These are separate independent assessment services. Targets, actions, and any timing are agreed in writing. Neither offer promises exhaustive coverage.</span>
+          <span>Actual testing is limited to agreed scope, available credentials, supported techniques, and written authorization. No certification, compliance, complete-coverage, or security guarantee is implied.</span>
         </div>
 
         <div className="tooling-strip">
@@ -101,10 +108,11 @@ export function AssessmentMethodology() {
             <span className="eyebrow">Method &amp; evidence</span>
             <h2>Say what the response showed—and what it did not.</h2>
           </div>
-          <p>
-            A report is organized around agreed scope, observable evidence, and explicit boundaries.
-            The sample illustrates the format; it is not evidence about a real deployment.
-          </p>
+            <p>
+              Versioned probes, separately calibrated severity, independent validation, and explicit
+              exclusions keep the report tied to what was observed. The sample illustrates the format;
+              it is not evidence about a real deployment.
+            </p>
         </div>
         <div className="method-list">
           <article className="method-item">
@@ -160,7 +168,7 @@ export function AssessmentContact() {
             <a className="contact-mail" href={assessmentMailto}>lhmisme2011@gmail.com</a>
           </div>
           <div className="contact-actions">
-            <a className="button" href={assessmentMailto}>Request an Assessment</a>
+              <Link className="button" href="/request-assessment">Request an Assessment</Link>
             <small>This opens your email client with a suggested subject and prompts. No information is submitted to this website.</small>
           </div>
         </div>

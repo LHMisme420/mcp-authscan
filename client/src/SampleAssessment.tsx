@@ -1,29 +1,11 @@
 import { Link } from 'wouter';
-import './commercial.css';
+import PublicSiteLayout from './PublicSiteLayout';
 import { assessmentMailto } from './AssessmentSections';
 
 export default function SampleAssessment() {
   return (
-    <div className="app-shell sample-page">
-      <header className="wrap landing-nav">
-        <Link href="/" className="brand" aria-label="MCP AuthScan home">
-          <img src="/logo.svg" alt="" />
-          <span><span className="commercial-brand-name">MCP AuthScan</span><span className="commercial-brand-subtitle">Independent security assessment</span></span>
-        </Link>
-        <nav className="commercial-nav-links" aria-label="Main navigation">
-          <Link href="/#assessments">Assessments</Link>
-          <Link href="/#methodology">Methodology</Link>
-          <Link href="/#contact">Contact</Link>
-          <Link href="/sample-assessment">Sample report</Link>
-          <Link href="/">Home</Link>
-        </nav>
-        <nav className="nav-actions" aria-label="Account">
-          <Link href="/sign-in" className="button quiet">Sign in</Link>
-          <Link href="/sign-up" className="button small">Create account</Link>
-        </nav>
-      </header>
-
-      <main className="wrap">
+    <PublicSiteLayout className="sample-page" footerNote="SYNTHETIC SAMPLE · No client · No real assessment · No requests sent">
+      <div className="wrap">
         <section className="sample-header">
           <span className="eyebrow">Public report format example</span>
           <h1>MCP server security assessment</h1>
@@ -252,17 +234,12 @@ Content-Type: application/json
               <a className="contact-mail" href={assessmentMailto}>lhmisme2011@gmail.com</a>
             </div>
             <div className="contact-actions">
-              <a className="button" href={assessmentMailto}>Request an Assessment</a>
-              <small>Opens your email client; this website does not receive a submission.</small>
+              <Link className="button" href="/request-assessment">Request an Assessment</Link>
+              <small>Discuss scope through the inquiry page, or use the email link as a fallback. An inquiry does not authorize testing.</small>
             </div>
           </div>
         </section>
-      </main>
-
-      <footer className="wrap sample-footer">
-        <Link href="/" className="brand" aria-label="MCP AuthScan home"><img src="/logo.svg" alt="" /><span className="commercial-brand-name">MCP AuthScan</span></Link>
-        <span>SYNTHETIC SAMPLE · No client · No real assessment · No requests sent</span>
-      </footer>
-    </div>
+      </div>
+    </PublicSiteLayout>
   );
 }

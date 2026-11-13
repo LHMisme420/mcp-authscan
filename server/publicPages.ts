@@ -9,12 +9,12 @@ export function publicDocuments(req: Request, res: Response, next: NextFunction)
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   if (req.path === '/robots.txt') {
     return res.type('text/plain').send(
-      `User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${PUBLIC_SITE_ORIGIN}/sitemap.xml\n`,
+      `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /contact/\nSitemap: ${PUBLIC_SITE_ORIGIN}/sitemap.xml\n`,
     );
   }
   if (req.path === '/sitemap.xml') {
     return res.type('application/xml').send(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_SITE_ORIGIN}/</loc></url><url><loc>${PUBLIC_SITE_ORIGIN}/sample-assessment</loc></url></urlset>`,
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', '/assessments', '/request-assessment', '/sample-assessment'].map(route => `<url><loc>${PUBLIC_SITE_ORIGIN}${route}</loc></url>`).join('')}</urlset>`,
     );
   }
   return next();

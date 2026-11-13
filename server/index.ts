@@ -13,6 +13,7 @@ import { TierError } from './tiers';
 import { startApplication } from './startup';
 import { requirePro } from './billing';
 import { publicDocuments, sendFrontendPage } from './publicPages';
+import { assessmentInquiryRoutes } from './assessmentInquiry';
 
 if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
   throw new Error('Secure sign-in is not configured.');
@@ -24,9 +25,10 @@ const start = await startApplication(app, httpServer);
 app.use(publicDocuments);
 if (process.env.NODE_ENV === 'production') {
   // Public marketing HTML must not wait for authentication to initialize.
-  app.get(['/', '/sample-assessment', '/sample-assessment/'], sendFrontendPage);
+  app.get(['/', '/assessments', '/assessments/', '/request-assessment', '/request-assessment/', '/sample-assessment', '/sample-assessment/'], sendFrontendPage);
 }
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+app.use('/contact', assessmentInquiryRoutes());
 // Retired payment URLs remain explicit tombstones, including old webhook URLs.
 // No environment variable can reactivate payments in this release.
 app.use(['/api/test-checkout', '/api/checkout', '/api/billing', '/api/stripe'], (_req, res) => {
