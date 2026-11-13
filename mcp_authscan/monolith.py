@@ -432,12 +432,14 @@ def grade_tool_call(status, body_text):
             return "UNKNOWN", "empty response body", None, None
         return "UNKNOWN", "response body did not parse as JSON-RPC", None, None
     if doc.get("error") is not None:
+        if not tcAuthShape(doc.get("error")): return "UNKNOWN", "JSON-RPC error that shows no authorization refusal", doc.get("error"), None
         return "REFUSED", "JSON-RPC error object", doc.get("error"), None
     result = doc.get("result")
     if not isinstance(result, dict):
         return "UNKNOWN", "JSON-RPC result is not an object", None, None
     content = result.get("content", result)
     if result.get("isError") is True:
+        if not tcAuthShape(content): return "UNKNOWN", "tool error that shows no authorization refusal", None, content
         return "REFUSED", "JSON-RPC result with isError true", None, content
     return "EXECUTED", "JSON-RPC result without an error", None, content
 
@@ -3320,3 +3322,18 @@ OAUTH_2_1_CHECKS = {
 }
 
 
+
+def tcAuthShape(err):
+    if isinstance(err, dict):
+        msg = err.get("message", "")
+        data = err.get("data", "")
+        code = err.get("code")
+    else:
+        msg, data, code = err, "", None
+    if code in (401, 403):
+        return True
+    text = (str(msg) + " " + str(data)).lower()
+    for w in ("unauthor", "forbidden", "authentic", "authoriz", "permission", "credential", "token", "scope", "bearer", "login", "api key"):
+        if w in text:
+            return True
+    return False
