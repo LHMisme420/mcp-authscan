@@ -396,6 +396,22 @@ def _tc_parse(text):
     return None
 
 
+def tcAuthShape(err):
+    if isinstance(err, dict):
+        msg = err.get("message", "")
+        data = err.get("data", "")
+        code = err.get("code")
+    else:
+        msg, data, code = err, "", None
+    if code in (401, 403):
+        return True
+    text = (str(msg) + " " + str(data)).lower()
+    for w in ("unauthor", "forbidden", "authentic", "authoriz", "permission", "credential", "token", "scope", "bearer", "login", "api key"):
+        if w in text:
+            return True
+    return False
+
+
 def grade_tool_call(status, body_text):
     """Grade one tools/call response. Returns (outcome, reason, error, content).
 
@@ -3305,18 +3321,3 @@ OAUTH_2_1_CHECKS = {
 }
 
 
-
-def tcAuthShape(err):
-    if isinstance(err, dict):
-        msg = err.get("message", "")
-        data = err.get("data", "")
-        code = err.get("code")
-    else:
-        msg, data, code = err, "", None
-    if code in (401, 403):
-        return True
-    text = (str(msg) + " " + str(data)).lower()
-    for w in ("unauthor", "forbidden", "authentic", "authoriz", "permission", "credential", "token", "scope", "bearer", "login", "api key"):
-        if w in text:
-            return True
-    return False
