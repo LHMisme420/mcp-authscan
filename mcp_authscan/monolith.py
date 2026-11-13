@@ -176,23 +176,6 @@ def open_without_redirects(req, timeout=5):
 
 MAX_RESPONSE_SIZE = 10_000_000
 
-def safe_read_response(req, timeout=5, max_size=MAX_RESPONSE_SIZE):
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            data = b''
-            chunk_size = 65536
-            while len(data) < max_size:
-                chunk = resp.read(chunk_size)
-                if not chunk:
-                    break
-                data += chunk
-            if len(data) >= max_size:
-                raise ValueError(f"Response exceeded {max_size} bytes (DoS protection)")
-            return data
-    except HTTPError as e:
-        if e.fp:
-            e.fp.read()
-        raise
 
 class RateLimiter:
     def __init__(self, requests_per_second=10):
