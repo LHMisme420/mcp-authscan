@@ -989,13 +989,13 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
 
         # Report DISCOVERY_INCOMPLETE with forensic details
         print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-        print(f"[!] The preflight verified an MCP surface, but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print("RFC 9728 to RFC 8414 discovery incomplete; no MCP surface established", file=sys.stderr)
         print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
         discovery_incomplete = {
             "status": "DISCOVERY_INCOMPLETE",
-            "preflight_verified": True,
+            "preflight_status": ("MCP_VERIFIED" if mcp_verified else "MCP_NOT_OBSERVED"),
             "preflight_status": "MCP_VERIFIED",
             "discovery_attempted": True,
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
@@ -3125,9 +3125,7 @@ def main():
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print("DISCOVERY STATUS")
             print("-" * 80)
-            print("PREFLIGHT CHECK: PASSED")
-            print("  POST initialize answered with an MCP JSON-RPC response")
-            print("  Preflight verified an MCP surface; the OAuth discovery chain did not complete.")
+            print("PREFLIGHT CHECK: " + ("PASSED: POST initialize answered with an MCP JSON-RPC response" if discovery_info.get("preflight_verified") else "FAILED: no MCP JSON-RPC response observed"))
             print("")
             print("DISCOVERY CHAIN: INCOMPLETE")
             print("  RFC 9728 → RFC 8414 discovery attempted but did not complete.")
