@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "PYTHONUSERBASE=\"${PYTHONUSERBASE:-$PWD/.pythonlibs}\" PATH=\"$PATH:${PYTHONUSERBASE:-$PWD/.pythonlibs}/bin\" tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --bundle --packages=external --platform=node --format=esm --outfile=build/server/index.js",
+    "build": "node scripts/build-web.mjs",
+    "build:fingerprint": "node --input-type=module -e \"import {sourceSnapshot} from './scripts/web-build-integrity.mjs'; console.log((await sourceSnapshot(process.cwd())).fingerprint)\"",
+    "test:web-build": "node --test tests/web-build-integrity.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:ci:web": "npm run typecheck && npm run test:billing && npm run test:startup",
     "build:deployment": "bash scripts/deployment-build.sh",
