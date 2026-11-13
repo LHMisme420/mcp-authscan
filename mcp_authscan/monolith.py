@@ -2529,6 +2529,9 @@ def main():
     probes_not_implemented = 0
     discovery_info = None
     tool_call_probe = None  # set only with --probe-tools
+    if getattr(args, "probe_tools", False) and not getattr(args, "allow_host", []):
+        tool_call_probe = tool_call_not_attempted(args.target, "no --allow-host given, so no tool call was attempted")
+        print("[*] Tool-call probe SKIPPED: %s" % tool_call_probe["reason"], file=sys.stderr)
     repo_url = None
     branch = None
     commit_sha_long = None
@@ -3163,6 +3166,8 @@ def main():
             report_lines.append("TOOL-CALL PROBE")
             report_lines.append("-" * 80)
             report_lines.append("Outcome: %s" % tool_call_line(tool_call_probe))
+            if tool_call_probe.get("outcome") not in ("EXECUTED", "REFUSED") and tool_call_probe.get("reason"):
+                report_lines.append("Skipped: %s (%s)" % (tool_call_probe.get("reason"), tool_call_probe.get("outcome")))
             if tool_call_probe.get("observation"):
                 report_lines.append("Observation: %s" % tool_call_probe["observation"])
             report_lines.append("-" * 80)
