@@ -86,6 +86,7 @@ export async function assertArtifacts(root, graphs) {
   for (const marker of [
     '/assessments', '/request-assessment', '/sample-assessment', '/contact/assessment/status',
     '1,750', '3,500', 'MCP Server Security Verification', 'Comprehensive MCP Security Assessment',
+    'Synthetic Demonstration — Not a Real Client Assessment.',
     'https://buy.stripe.com/aFabJ1dK2axT4j664E7Vm00',
   ]) if (!client.includes(marker)) fail(`Generated frontend lacks required content: ${marker}`);
   if (!html.includes('VATA | MCP Security Workspace')) fail('Generated HTML uses an old homepage template.');

@@ -14,7 +14,7 @@ export default function SampleAssessment() {
             integrity limits can be presented in a written report.
           </p>
           <div className="synthetic-banner" role="note">
-            <strong>SYNTHETIC SAMPLE / DEMONSTRATION ONLY</strong>
+            <strong>Synthetic Demonstration — Not a Real Client Assessment.</strong>
             No client. No real assessment. No target contacted and no requests sent. Every endpoint,
             check, request, response, and finding below is illustrative, not real evidence.
           </div>

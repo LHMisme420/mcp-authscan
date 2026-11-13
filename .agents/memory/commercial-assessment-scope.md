@@ -15,8 +15,8 @@ Preserve VATA branding and product messaging. VATA is the hosted MCP security wo
 
 **How to apply:** Keep the existing account, scanning, history and $49 subscription experience intact. Do not introduce inquiry storage in findings tables or migrations; do not restart or republish production without separate approval.
 
-The owner-supplied real anonymized sample has a 14-day remediation window following November 7, 2026. Confirm the exact release timing, permission conditions and approved redactions before public disclosure; do not automatically release it when the window elapses.
+There is no approved redacted client report available for publication. Use only the existing synthetic sample, labeled "Synthetic Demonstration — Not a Real Client Assessment." Do not search for, fabricate, or publish a real client's report.
 
-**Why:** The owner explicitly requires private staging if publication eligibility is uncertain and prohibits strengthening the real observations into an unproven exploit.
+**Why:** The owner explicitly superseded the real-report staging request and made verified deployment of the existing assessment pages the immediate priority.
 
-**How to apply:** Keep embargoed report content out of public assets, frontend bundles and public Git history. Preserve the original evidence and distinguish automated severity from analyst interpretation. A short fingerprint is not a complete evidence hash.
+**How to apply:** Keep the synthetic example distinct from owner-summary observations. Do not insert those observations or a fabricated evidence hash into the demonstration. Any future real-report work needs a new explicit request and approved source material.

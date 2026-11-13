@@ -161,6 +161,10 @@ test('public content is not gated on sign-in loading and protected routes retain
 test('sample report is clearly synthetic, bounded, and not a customer or scanner coverage claim', async () => {
   const document = await renderComponent('client/src/SampleAssessment.tsx');
   const text = document.body.textContent || '';
+  assert.equal(document.querySelector('.synthetic-banner strong')?.textContent, 'Synthetic Demonstration — Not a Real Client Assessment.');
+  for (const privateObservation of ['1bcfda42', '2026.11.10.1', '2026.11.07.1']) {
+    assert(!text.includes(privateObservation), 'Owner-summary observations must not appear in the synthetic sample');
+  }
   assert.match(text, /synthetic/i);
   assert.match(text, /no.*requests.*sent|no.*target.*contacted/i);
   assert.match(text, /not.*customer|not.*client/i);
