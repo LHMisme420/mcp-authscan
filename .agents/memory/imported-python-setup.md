@@ -215,17 +215,31 @@ and changing every launcher can change the interpreter used by required runtime
 commands. Removing a required launcher before replacing its caller breaks startup.
 
 **How to apply:** Run the private scanner through system Python's Gunicorn module,
-not its generated console script, before omitting the managed prefix's entire
-launcher directory. Keep all importable libraries and the interpreter-only Nix
-module. Verify imports and real cold startup without the prefix's bin directory
-or a Python package-path override. Keep Node as the public entrypoint and preserve
-writer-lock/readiness gates. Do not restore a direct Gunicorn CLI dependency
-without addressing the archive problem.
+not its generated console script. Keep all importable libraries, the managed
+Python interpreter aliases and environment metadata, and the interpreter-only
+Nix module. Keep Node as the public entrypoint and preserve writer-lock/readiness
+gates. Do not restore a direct Gunicorn CLI dependency without addressing the
+archive problem.
 
 The actual post-build launcher cleanup is the verified control; a documentation
 search did not establish that .replitignore is enforced by the hosting archiver.
 Label this an archive workaround until actual upload and the new release are
 verified, rather than treating a successful local build as proof of resolution.
+
+## Preserve the managed interpreter across consecutive publishes
+
+Never remove or exclude the entire managed Python bin directory when automatic
+UV project installation targets that same managed environment. Only remove
+unused package launchers, preserving Python interpreter aliases and metadata.
+
+**Why:** A successful custom prefix build removed the interpreter, causing the
+next publish's automatic `uv lock` to fail before the custom build could run.
+Disabling the hosting packager feature did not prevent that automatic step.
+
+**How to apply:** Verify `uv lock` both before and after the complete deployment
+build. A valid prefix library tree is not sufficient evidence of a valid UV
+environment. Do not delete installed libraries or change CLI metadata to repair
+a missing interpreter; retain the source/artifact fingerprint guard.
 
 ## Verify package callback results in a prefix-managed interpreter
 

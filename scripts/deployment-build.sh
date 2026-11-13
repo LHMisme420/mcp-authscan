@@ -33,8 +33,15 @@ uv pip install --reinstall --prefix "$python_prefix" --python "$python_executabl
 
 npm run build
 
-# The gateway uses system Python's `-m gunicorn`, not a generated console script.
-# Keep all installed libraries, but omit the complete generated launcher tree.
-# The Python toolchain also supplies an interpreter outside this prefix.
-# This is an archive workaround, not a confirmed diagnosis of the tar failure.
-rm -rf -- "$python_prefix/bin"
+# Replit's next automatic `uv lock` must still find the managed interpreter.
+# Remove unused package launchers, never the Python executable or venv metadata.
+# Runtime continues to use the system interpreter and the same library prefix.
+find "$python_prefix/bin" -mindepth 1 -maxdepth 1 \
+  ! -name python ! -name python3 ! -name 'python3.[0-9]*' \
+  \( -type f -o -type l \) -delete
+if [[ -f "$python_prefix/pyvenv.cfg" ]]; then
+  test -x "$python_prefix/bin/python" || {
+    echo "Managed Python interpreter is missing after build." >&2
+    exit 1
+  }
+fi

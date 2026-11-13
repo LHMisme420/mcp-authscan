@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -44,6 +44,10 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
     for (const tool of ['npm', 'python3', 'uv']) {
       await writeFile(path.join(temp, tool), stub, { mode: 0o755 });
     }
+    for (const name of ['python', 'python3', 'python3.11']) {
+      await symlink(path.join(temp, 'python3'), path.join(prefix, 'bin', name));
+    }
+    await writeFile(path.join(prefix, 'pyvenv.cfg'), 'home = /fixture/python\n');
     const result = spawnSync('bash', [script], {
       cwd: temp,
       encoding: 'utf8',
@@ -66,6 +70,9 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
       gunicornExists: await exists(path.join(prefix, 'bin/gunicorn')),
       binExists: await exists(path.join(prefix, 'bin')),
       pythonExists: await exists(path.join(temp, 'python3')),
+      managedPythonExists: (await Promise.all(['python', 'python3', 'python3.11']
+        .map(name => exists(path.join(prefix, 'bin', name))))).every(Boolean),
+      venvMetadataExists: await exists(path.join(prefix, 'pyvenv.cfg')),
       gunicornLibraryExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/gunicorn/__init__.py')),
       cffiExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/cffi/__init__.py')),
       flaskExists: await exists(path.join(prefix, 'lib/python3.11/site-packages/flask/__init__.py')),
@@ -78,7 +85,7 @@ if (step === 'python-prefix') console.log(process.env.FIXTURE_PREFIX);
 test('hosting uses an explicit build without changing the durable runtime command', async () => {
   const config = await readFile(path.join(root, '.replit'), 'utf8');
   assert.match(config, /\[packager\.features\]\s+enabledForHosting = false/);
-  assert.match(config, /build = \["bash", "scripts\/deployment-build\.sh"\]/);
+  assert.match(config, /build = \["node", "scripts\/deployment-web\.mjs", "[a-f0-9]{64}"\]/);
   assert.match(config, /deploymentTarget = "(?:cloudrun|autoscale)"/);
   assert.match(config, /run = \["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=\/tmp\/vata-findings\.sqlite", "npm", "run", "start"\]/);
   const modules = config.match(/^modules = (.+)$/m)?.[1] ?? '';
@@ -123,10 +130,10 @@ test('development hot reload shares the public HTTP listener instead of opening 
   assert.match(source, /hmr:\s*\{\s*server:\s*httpServer\s*\}/);
 });
 
-test('Python runtime dependencies are explicit, without the legacy hosting pip manifest', async () => {
+test('Python runtime dependencies and root UV project metadata remain available', async () => {
   await assert.rejects(readFile(path.join(root, 'requirements.txt')), { code: 'ENOENT' });
-  await assert.rejects(readFile(path.join(root, 'pyproject.toml')), { code: 'ENOENT' });
-  await assert.rejects(readFile(path.join(root, 'uv.lock')), { code: 'ENOENT' });
+  assert.match(await readFile(path.join(root, 'pyproject.toml'), 'utf8'), /\[project\]/);
+  assert.match(await readFile(path.join(root, 'uv.lock'), 'utf8'), /^version = /m);
   const requirements = await readFile(path.join(root, 'requirements-runtime.txt'), 'utf8');
   assert.match(requirements, /^flask>=3\.1\.3,<4$/m);
   assert.match(requirements, /^gunicorn$/m);
@@ -145,17 +152,18 @@ test('web root stays separate from the nested CLI package and retains runtime re
   assert.match(project, /package-dir = \{mcp_authscan = "\."\}/);
 });
 
-test('post-merge verification remains offline and read-only without importing pip', async () => {
+test('post-merge setup uses the managed prefix without importing pip', async () => {
   const hook = await readFile(path.join(root, 'scripts/post-merge.sh'), 'utf8');
   assert.doesNotMatch(hook, /python3 -m pip/);
-  assert.match(hook, /uv pip install --dry-run --no-index --no-cache --prefix/);
+  assert.match(hook, /uv pip install --prefix/);
+  assert.match(hook, /Refusing dependency installation outside the managed/);
 });
 
-test('publishing omits generated launchers, not importable runtime libraries', async () => {
+test('publishing preserves the managed interpreter and importable runtime libraries', async () => {
   const ignore = await readFile(path.join(root, '.replitignore'), 'utf8');
   const rules = ignore.split('\n').map(line => line.trim())
     .filter(line => line && !line.startsWith('#'));
-  assert.ok(rules.includes('/.pythonlibs/bin/'));
+  assert.ok(!rules.includes('/.pythonlibs/bin/'));
   for (const broadRule of [
     '.pythonlibs', '.pythonlibs/', '/.pythonlibs', '/.pythonlibs/', '**/.pythonlibs/**',
     '/.pythonlibs/**',
@@ -168,13 +176,13 @@ test('publishing omits generated launchers, not importable runtime libraries', a
 test('canonical scanner compiles and retains the discovery security parameter', () => {
   const result = spawnSync('python3', ['-c', [
     'import ast, pathlib',
-    'path = pathlib.Path("mcp_authscan/scan_main.py")',
+    'path = pathlib.Path("mcp_authscan/monolith.py")',
     'source = path.read_text()',
     'compile(source, str(path), "exec")',
     'tree = ast.parse(source)',
     'functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "discover_oauth_endpoints"]',
     'assert len(functions) == 1',
-    'assert [arg.arg for arg in functions[0].args.args] == ["base_url", "allow_private"]',
+    'assert [arg.arg for arg in functions[0].args.args] == ["base_url", "allowed_hosts", "allow_private"]',
   ].join('\n')], {
     cwd: root,
     encoding: 'utf8',
@@ -186,7 +194,8 @@ test('canonical scanner compiles and retains the discovery security parameter', 
 test('build installs Node and Python into the managed prefix before compiling', async () => {
   const {
     result, calls, prefix, python, generatorExists, flaskCliExists,
-    gunicornExists, binExists, pythonExists, gunicornLibraryExists, cffiExists, flaskExists,
+    gunicornExists, binExists, pythonExists, managedPythonExists, venvMetadataExists,
+    gunicornLibraryExists, cffiExists, flaskExists,
   } = await buildFixture();
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls.map(call => call.step), ['npm-ci', 'python-prefix', 'uv-install', 'npm-run']);
@@ -200,7 +209,9 @@ test('build installs Node and Python into the managed prefix before compiling', 
   assert.equal(generatorExists, false, 'The unused generator is removed');
   assert.equal(flaskCliExists, false, 'The unused Flask launcher is removed');
   assert.equal(gunicornExists, false, 'The generated Gunicorn launcher is no longer required');
-  assert.equal(binExists, false, 'Remove the entire launcher class, not a growing file list');
+  assert.equal(binExists, true, 'The managed interpreter directory must survive cleanup');
+  assert.equal(managedPythonExists, true, 'All managed interpreter aliases must survive cleanup');
+  assert.equal(venvMetadataExists, true, 'UV environment metadata must survive cleanup');
   assert.equal(pythonExists, true, 'The interpreter outside the prefix must remain');
   assert.equal(gunicornLibraryExists, true, 'The Gunicorn module must remain installed');
   assert.equal(cffiExists, true, 'CFFI itself must remain importable');
