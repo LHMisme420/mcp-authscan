@@ -11,6 +11,25 @@ import { JSDOM } from 'jsdom';
 import { metadataForPath, PUBLIC_SITE_ORIGIN, renderPageMetadata } from '../shared/siteMetadata';
 import { publicDocuments, sendFrontendPage } from '../server/publicPages';
 
+function checkEmailLink(anchor: HTMLAnchorElement, packageLabel?: string) {
+  assert.equal(anchor.textContent, 'Email us to request an assessment');
+  const href = anchor.getAttribute('href')!;
+  assert(href.startsWith('mailto:lhmisme2011@gmail.com?'));
+  const params = new URLSearchParams(href.slice(href.indexOf('?') + 1));
+  assert.match(params.get('subject') || '', /MCP AuthScan/);
+  const body = params.get('body') || '';
+  for (const prompt of ['Name / company:', 'Desired package:', 'Target and number of MCP servers:', 'Scope:', 'Timeframe:', 'Authorizing party:']) {
+    assert(body.includes(prompt), `Missing email prompt: ${prompt}`);
+  }
+  assert.match(body, /No credentials, tokens, passwords/);
+  if (packageLabel) {
+    assert(params.get('subject')?.includes(packageLabel));
+    assert(body.includes(`Desired package: ${packageLabel}`));
+  }
+  assert.equal(params.size, 2, 'Only the fixed subject and body may be prefilled');
+  assert(!/[\r\n ]/.test(href), 'Subject and body must be URL encoded');
+}
+
 test('public and account routes get honest titles, canonical URLs, and indexing rules', async () => {
   const template = await readFile('client/index.html', 'utf8');
   for (const route of ['/', '/assessments', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
@@ -101,6 +120,9 @@ test('homepage preserves VATA product-first messaging, workspace and existing re
   assert.equal(links.filter(link => /stripe\.com/.test(link.href)).length, 1);
   assert(links.some(link => link.getAttribute('href') === '/assessments'));
   assert(links.some(link => link.getAttribute('href') === '/request-assessment'));
+  const emailButton = document.querySelector<HTMLAnchorElement>('.service-teaser-actions a.button[href^="mailto:"]')!;
+  assert(emailButton);
+  checkEmailLink(emailButton);
   assert.equal(document.querySelectorAll('form').length, 0);
   for (const anchor of links.filter(link => link.getAttribute('href')?.startsWith('#'))) {
     assert(document.getElementById(anchor.getAttribute('href')!.slice(1)), `Broken anchor ${anchor.href}`);
@@ -121,24 +143,53 @@ test('dedicated assessment page has exact packages, limits, evidence methodology
   for (const service of ['verification', 'comprehensive']) {
     assert(document.querySelector(`a[href="/request-assessment?package=${service}"]`));
   }
+  const packageButtons = document.querySelectorAll<HTMLAnchorElement>('.commercial-offer .button');
+  assert.equal(packageButtons.length, 2);
+  checkEmailLink(packageButtons[0], 'MCP Server Security Verification');
+  checkEmailLink(packageButtons[1], 'Comprehensive MCP Security Assessment');
   assert(!document.querySelector('a[href*="stripe.com"]'), 'Assessments are scoped engagements, not automatic checkout');
 });
 
-test('inquiry page exposes only requested fields and honest delivery/authorization notices', async () => {
+test('inquiry page makes supported email prominent without a misleading submission form', async () => {
   const document = await renderComponent('client/src/RequestAssessment.tsx');
-  for (const name of ['name', 'email', 'company', 'website', 'service', 'servers', 'timeframe', 'scope']) {
-    const field = document.querySelector(`[name="${name}"]`);
-    assert(field, `Missing field: ${name}`);
-    assert(document.querySelector(`label[for="${field.id}"]`), `Missing label for ${name}`);
-  }
-  assert(!document.querySelector('input[type="password"]'));
-  assert(!document.querySelector('[name="website"]')?.hasAttribute('required'));
-  assert(document.querySelector('input[name="websiteExtra"][tabindex="-1"]'));
+  assert.equal(document.querySelectorAll('form, input, textarea, button[type="submit"]').length, 0);
+  const primary = document.querySelector<HTMLAnchorElement>('a.email-primary-cta')!;
+  assert(primary);
+  checkEmailLink(primary);
+  const address = document.querySelector<HTMLAnchorElement>('.email-address-block .contact-mail')!;
+  assert.equal(address.textContent, 'lhmisme2011@gmail.com');
+  assert.equal(address.getAttribute('href'), 'mailto:lhmisme2011@gmail.com');
+  assert(primary.compareDocumentPosition(document.querySelector('.email-template')!) & 4, 'Email CTA must precede the scope template');
   const text = document.body.textContent || '';
   assert.match(text, /not authorization/i);
-  assert.match(text, /not stored in the findings database/);
-  assert.match(text, /no credentials|Do not submit API keys/);
-  assert(document.querySelector('button[type="submit"][disabled]'), 'Sending cannot be enabled before checking provider configuration');
+  assert.match(text, /Online submission is currently unavailable/);
+  assert.match(text, /Email is supported/);
+  assert.match(text, /select and copy this address into Gmail or another webmail/);
+  assert.match(text, /you must review and send it/);
+  assert.match(text, /This website submits nothing/);
+  assert.match(text, /does not submit or store your inquiry/);
+  assert.match(text, /do not send credentials/);
+  assert(!text.includes('Resend'));
+  const source = await readFile('client/src/RequestAssessment.tsx', 'utf8');
+  assert(!source.includes('fetch('), 'Email-only page must not fetch challenges or send inquiries');
+  assert(document.querySelector('a[href="/sample-assessment"]'));
+});
+
+test('email templates allow only fixed packages and never inject query text or mail headers', async () => {
+  const result = await build({
+    entryPoints: ['client/src/AssessmentSections.tsx'],
+    bundle: true, write: false, platform: 'node', format: 'cjs', jsx: 'automatic',
+    external: ['react', 'react/jsx-runtime'],
+  });
+  const module = { exports: {} as { assessmentEmailFor: (value?: string) => string } };
+  new Function('require', 'module', 'exports', result.outputFiles[0].text)(
+    createRequire(import.meta.url), module, module.exports,
+  );
+  const emailFor = module.exports.assessmentEmailFor;
+  for (const value of ['__proto__', 'constructor', 'verification\r\nBcc:attacker@example.invalid', 'comprehensive&bcc=attacker@example.invalid', '<script>']) {
+    assert.equal(emailFor(value), emailFor('undecided'));
+  }
+  assert.notEqual(emailFor('verification'), emailFor('comprehensive'));
 });
 
 test('public content is not gated on sign-in loading and protected routes retain authorization', async () => {

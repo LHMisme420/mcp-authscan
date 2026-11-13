@@ -84,7 +84,8 @@ export async function assertArtifacts(root, graphs) {
     client += await readFile(path.join(root, 'build/client', name.slice(1)), 'utf8');
   }
   for (const marker of [
-    '/assessments', '/request-assessment', '/sample-assessment', '/contact/assessment/status',
+    '/assessments', '/request-assessment', '/sample-assessment',
+    'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
     '1,750', '3,500', 'MCP Server Security Verification', 'Comprehensive MCP Security Assessment',
     'Synthetic Demonstration — Not a Real Client Assessment.',
     'https://buy.stripe.com/aFabJ1dK2axT4j664E7Vm00',

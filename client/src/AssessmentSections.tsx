@@ -1,18 +1,42 @@
 import { Link } from 'wouter';
 
-const contactSubject = 'MCP AuthScan independent assessment inquiry';
-const contactBody = [
-  'Hello, I would like to discuss an MCP AuthScan independent assessment.',
-  '',
-  'Name / organization:',
-  'Target description (no secrets):',
-  'Authorizing party:',
-  'Desired scope:',
-  '',
-  'I can provide written authorization before any testing begins.',
-].join('\n');
+const assessmentMailtoBase = 'mailto:lhmisme2011@gmail.com';
+export const assessmentEmail = assessmentMailtoBase.slice('mailto:'.length);
 
-export const assessmentMailto = `mailto:lhmisme2011@gmail.com?subject=${encodeURIComponent(contactSubject)}&body=${encodeURIComponent(contactBody)}`;
+export type AssessmentPackage = 'verification' | 'comprehensive' | 'undecided';
+
+const packageDetails: Record<AssessmentPackage, { label: string }> = {
+  verification: {
+    label: 'MCP Server Security Verification',
+  },
+  comprehensive: {
+    label: 'Comprehensive MCP Security Assessment',
+  },
+  undecided: {
+    label: 'Assessment package to discuss',
+  },
+};
+
+export function assessmentEmailFor(packageChoice: string = 'undecided') {
+  const details = packageDetails[packageChoice === 'verification' || packageChoice === 'comprehensive' ? packageChoice : 'undecided'];
+  const subject = `MCP AuthScan inquiry — ${details.label}`;
+  const body = [
+    'Hello, I would like to discuss an MCP AuthScan independent assessment.',
+    '',
+    'Name / company:',
+    `Desired package: ${details.label}`,
+    'Target and number of MCP servers:',
+    'Scope:',
+    'Timeframe:',
+    'Authorizing party:',
+    '',
+    'No credentials, tokens, passwords, or other secrets are included.',
+  ].join('\n');
+  return `${assessmentMailtoBase}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// Kept as a compatibility export for existing callers.
+export const assessmentMailto = assessmentEmailFor();
 
 export function AssessmentServices() {
   return (
@@ -46,7 +70,10 @@ export function AssessmentServices() {
               <li>JSON and SARIF output where applicable</li>
             </ul>
             <div className="offer-bottom">
-              <Link className="button" href="/request-assessment?package=verification">Request an Assessment</Link>
+              <div className="offer-cta-stack">
+                <a className="button" href={assessmentEmailFor('verification')}>Email us to request an assessment</a>
+                <Link className="text-link" href="/request-assessment?package=verification">No email app? See email instructions</Link>
+              </div>
               <span>Scope and written authorization before testing</span>
             </div>
           </article>
@@ -67,7 +94,10 @@ export function AssessmentServices() {
               <li>Remediation recommendations and one retest</li>
             </ul>
             <div className="offer-bottom">
-              <Link className="button" href="/request-assessment?package=comprehensive">Request an Assessment</Link>
+              <div className="offer-cta-stack">
+                <a className="button" href={assessmentEmailFor('comprehensive')}>Email us to request an assessment</a>
+                <Link className="text-link" href="/request-assessment?package=comprehensive">No email app? See email instructions</Link>
+              </div>
               <span>Retest against agreed criteria only</span>
             </div>
           </article>
@@ -165,11 +195,11 @@ export function AssessmentContact() {
               mind. Do not include credentials, tokens, or other secrets. Written permission is
               required before testing.
             </p>
-            <a className="contact-mail" href={assessmentMailto}>lhmisme2011@gmail.com</a>
+              <a className="contact-mail" href={assessmentMailto}>{assessmentEmail}</a>
           </div>
           <div className="contact-actions">
-              <Link className="button" href="/request-assessment">Request an Assessment</Link>
-            <small>This opens your email client with a suggested subject and prompts. No information is submitted to this website.</small>
+              <a className="button" href={assessmentMailto}>Email us to request an assessment</a>
+            <small>Opens an email draft. You must send it; this website submits nothing.</small>
           </div>
         </div>
       </div>

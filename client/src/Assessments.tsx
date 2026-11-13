@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import PublicSiteLayout from './PublicSiteLayout';
-import { AssessmentMethodology } from './AssessmentSections';
+import { AssessmentMethodology, assessmentEmailFor } from './AssessmentSections';
 
 export default function Assessments() {
   return (
@@ -39,7 +39,10 @@ export default function Assessments() {
                 <li>JSON and SARIF output where applicable</li>
               </ul>
               <div className="offer-bottom">
-                <Link className="button" href="/request-assessment?package=verification">Request Assessment</Link>
+                <div className="offer-cta-stack">
+                  <a className="button" href={assessmentEmailFor('verification')}>Email us to request an assessment</a>
+                  <Link className="text-link" href="/request-assessment?package=verification">No email app? See email instructions</Link>
+                </div>
                 <span>Scope and authorization approval before payment or testing</span>
               </div>
             </article>
@@ -57,7 +60,10 @@ export default function Assessments() {
                 <li>One remediation retest</li>
               </ul>
               <div className="offer-bottom">
-                <Link className="button" href="/request-assessment?package=comprehensive">Request Assessment</Link>
+                <div className="offer-cta-stack">
+                  <a className="button" href={assessmentEmailFor('comprehensive')}>Email us to request an assessment</a>
+                  <Link className="text-link" href="/request-assessment?package=comprehensive">No email app? See email instructions</Link>
+                </div>
                 <span>Retest stays within separately agreed criteria and scope</span>
               </div>
             </article>

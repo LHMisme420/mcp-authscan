@@ -80,6 +80,16 @@ test('post-verification artifact tampering is rejected even when route markers r
   await assert.rejects(verifyRelease(dir), /Built files changed/);
 });
 
+test('a release without the supported email inquiry path cannot pass verification', async t => {
+  const { dir, release } = await fixture(t);
+  const js = Object.keys(release.artifacts).find(name => /^build\/client\/assets\/.*\.js$/.test(name));
+  const original = await readFile(path.join(dir, js), 'utf8');
+  for (const marker of ['Email us to request an assessment', 'mailto:lhmisme2011@gmail.com']) {
+    await writeFile(path.join(dir, js), original.replaceAll(marker, 'removed-contact-path'));
+    await assert.rejects(assertArtifacts(dir, release.graphs), /Generated frontend lacks required content/);
+  }
+});
+
 test('missing verification manifest stops npm entry before database or scanner initialization', async t => {
   const { dir } = await fixture(t);
   await rm(path.join(dir, 'build/release-manifest.json'));

@@ -1,5 +1,6 @@
 import { Link } from 'wouter';
 import PublicSiteLayout from './PublicSiteLayout';
+import { assessmentMailto } from './AssessmentSections';
 import './commercial.css';
 
 export default function Landing() {
@@ -127,8 +128,9 @@ export default function Landing() {
             <p>Your team can run the scanner. We provide an independent assessment of supported security controls, reproduce significant findings, and document the evidence for technical and enterprise security reviews.</p>
           </div>
           <div className="service-teaser-actions">
-            <Link className="button" href="/assessments">View Security Assessments</Link>
-            <Link className="button secondary" href="/request-assessment">Request an Assessment</Link>
+            <a className="button" href={assessmentMailto}>Email us to request an assessment</a>
+            <Link className="button secondary" href="/assessments">View Security Assessments</Link>
+            <Link className="text-link" href="/request-assessment">No email app? See email instructions</Link>
           </div>
         </div>
       </section>

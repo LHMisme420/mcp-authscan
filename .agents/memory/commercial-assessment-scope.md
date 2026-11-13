@@ -20,3 +20,9 @@ There is no approved redacted client report available for publication. Use only 
 **Why:** The owner explicitly superseded the real-report staging request and made verified deployment of the existing assessment pages the immediate priority.
 
 **How to apply:** Keep the synthetic example distinct from owner-summary observations. Do not insert those observations or a fabricated evidence hash into the demonstration. Any future real-report work needs a new explicit request and approved source material.
+
+Use Gmail-based customer assessment inquiries for now, with email as the primary public contact path and no automatic production email sending.
+
+**Why:** The owner chose email without a verified Resend domain and asked not to make a disabled online form the main inquiry pathway.
+
+**How to apply:** Keep a prominent email CTA, a selectable address, and instructions for visitors using webmail. Explain that a mailto link opens a draft the visitor must send. Do not activate production transactional delivery or require domain setup without a new request.

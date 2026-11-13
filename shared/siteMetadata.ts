@@ -17,7 +17,7 @@ export function metadataForPath(pathname: string) {
   if (path === '/request-assessment') {
     return {
       title: 'Request an MCP Security Assessment | MCP AuthScan',
-      description: 'Discuss an independent MCP security assessment with MCP AuthScan. Share your company, desired package and brief scope—not credentials. An inquiry does not authorize scanning.',
+      description: 'Email MCP AuthScan to request an independent MCP security assessment. Share your company, desired package and brief scope—not credentials. Written authorization is required before testing.',
       canonical: `${PUBLIC_SITE_ORIGIN}/request-assessment`,
       robots: 'index, follow',
     };
