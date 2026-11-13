@@ -1,6 +1,6 @@
 from importlib.metadata import version as pkgversion
 try:
-    __version__ = "1.1.23"
+    __version__ = "1.1.24"
 except Exception:
     __version__ = "0.0.0+source"
 
