@@ -160,7 +160,7 @@ def assert_url_is_fetchable(url, allow_private=None):
 
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise HTTPError(req.full_url, code, f"redirect refused: {newurl}", headers, fp)
+        raise EgressRefusalError(f"redirect refused: {newurl}")
 
 
 
