@@ -416,8 +416,8 @@ def _tc_parse(text):
 def grade_tool_call(status, body_text):
     """Grade one tools/call response. Returns (outcome, reason, error, content).
 
-    REFUSED   HTTP 401 or 403; or a JSON-RPC error object; or a JSON-RPC result with isError true
-              (FastMCP's ToolError comes back as HTTP 200 with result.isError true).
+    REFUSED   HTTP 401 or 403; or an error or isError result that shows an authorization refusal
+              (tcAuthShape decides). Anything else is UNKNOWN with the error carried, so an invalid-params rejection cannot withdraw a finding.
     EXECUTED  a JSON-RPC result object with isError absent or false.
     UNKNOWN   empty body, a body that does not parse as JSON-RPC, or a result that is not an
               object. Never graded as either of the other two.
