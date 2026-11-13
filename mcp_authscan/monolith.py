@@ -2464,7 +2464,7 @@ def main():
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
-    ap.add_argument("--probe-tools", action="store_true",
+    ap.add_argument("--probe-tools", action=argparse.BooleanOptionalAction, default=True,
                     help="after a zero-auth handshake, send one unauthenticated tools/call (arguments {}) "
                          "to the first tool whose name is a read-only word (list, get, read, status, "
                          "version, ping, health, search, describe, info) and none of write, delete, remove, "
@@ -2608,7 +2608,7 @@ def main():
             from mcp_authscan.target_probes import counts as _tcounts
             probe_status = _tcounts(oauth_records) if oauth_records else probe_status
             F = findings + list(F)
-            if getattr(args, "probe_tools", False):
+            if getattr(args, "probe_tools", False) and getattr(args, "allow_host", []):
                 tool_call_probe = run_tool_call_probe(
                     args.target, allow_private=args.allow_private, allowed_hosts=sorted(ALLOWED_HOSTS))
                 print("[*] Tool-call probe: %s" % tool_call_line(tool_call_probe), file=sys.stderr)
@@ -2621,7 +2621,7 @@ def main():
                 else:
                     tool_call_probe["zero_auth_suppressed"] = False
                     findings[0]["tool_call_probe"] = tool_call_summary(tool_call_probe)
-        elif getattr(args, "probe_tools", False):
+        elif getattr(args, "probe_tools", False) and getattr(args, "allow_host", []):
             tool_call_probe = tool_call_not_attempted(args.target, "zero-auth handshake not observed")
 
         if is_http_target:
