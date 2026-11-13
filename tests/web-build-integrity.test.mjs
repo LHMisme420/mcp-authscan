@@ -65,7 +65,7 @@ test('an old emitted client, old HTML, or unmounted backend cannot pass verifica
   await writeFile(path.join(dir, js), original);
   const html = path.join(dir, 'build/client/index.html');
   const template = await readFile(html, 'utf8');
-  await writeFile(html, template.replaceAll('VATA | MCP Security Workspace', 'VATA — Security workspace'));
+  await writeFile(html, template.replaceAll('Independent MCP Security Assessments | MCP AuthScan', 'VATA | MCP Security Workspace'));
   await assert.rejects(assertArtifacts(dir, release.graphs), /old homepage template/);
   await writeFile(html, template);
   const server = path.join(dir, 'build/server/index.js');
@@ -88,6 +88,16 @@ test('a release without the supported email inquiry path cannot pass verificatio
     await writeFile(path.join(dir, js), original.replaceAll(marker, 'removed-contact-path'));
     await assert.rejects(assertArtifacts(dir, release.graphs), /Generated frontend lacks required content/);
   }
+});
+
+test('an old product-first homepage or recurring checkout cannot pass verification', async t => {
+  const { dir, release } = await fixture(t);
+  const js = Object.keys(release.artifacts).find(name => /^build\/client\/assets\/.*\.js$/.test(name));
+  const original = await readFile(path.join(dir, js), 'utf8');
+  await writeFile(path.join(dir, js), original.replaceAll('MCP security assessment your buyer', 'Old product-first homepage'));
+  await assert.rejects(assertArtifacts(dir, release.graphs), /Generated frontend lacks required content/);
+  await writeFile(path.join(dir, js), original + '\n/* https://buy.stripe.com/retired-checkout */');
+  await assert.rejects(assertArtifacts(dir, release.graphs), /retired recurring checkout link/);
 });
 
 test('missing verification manifest stops npm entry before database or scanner initialization', async t => {

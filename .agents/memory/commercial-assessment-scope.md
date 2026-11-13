@@ -7,13 +7,13 @@ The website sells independent MCP security assessments. Distinguish the free PyP
 
 **Why:** The owner explicitly requested a credible assessment business website, without invented testimonials, certifications, vulnerability discoveries, or assessment coverage.
 
-**How to apply:** Keep public claims tied to authentic or explicitly synthetic evidence. Do not present an automated scanner export as independent verification. New payment processing requires separate approval; the existing outbound-only re-checks offer does not authorize billing integration.
+**How to apply:** Keep public claims tied to authentic or explicitly synthetic evidence. Do not present an automated scanner export as independent verification. New payment processing requires separate approval.
 
-Preserve VATA branding and product messaging. VATA is the hosted MCP security workspace; MCP AuthScan is the open-source scanner and independent assessment service. Add commercial services alongside the product, with a dedicated assessments page and a homepage section below workspace features.
+Make the landing page assessment-first, not workspace- or recurring-plan-first. Remove public monthly offers, the weekly re-checks checkout link, and compliance-score selling points. Keep workspace sign-in, technical names, scan API, scanning logic and dashboard unchanged.
 
-**Why:** The owner's commercial expansion brief explicitly supersedes the earlier assessment-first homepage direction: “Do not replace VATA branding.”
+**Why:** The owner's later landing-page rewrite explicitly superseded the earlier product-first and recurring-offer direction.
 
-**How to apply:** Keep the existing account, scanning, history and $49 subscription experience intact. Do not introduce inquiry storage in findings tables or migrations; do not restart or republish production without separate approval.
+**How to apply:** Sell single-server and full assessments as scoped engagements, each with one written report and one retest; the full assessment also includes a findings walkthrough call. Preserve existing account/scanning/history behavior and never add inquiry storage to findings tables. Do not republish production automatically.
 
 There is no approved redacted client report available for publication. Use only the existing synthetic sample, labeled "Synthetic Demonstration — Not a Real Client Assessment." Do not search for, fabricate, or publish a real client's report.
 
@@ -26,3 +26,9 @@ Use Gmail-based customer assessment inquiries for now, with email as the primary
 **Why:** The owner chose email without a verified Resend domain and asked not to make a disabled online form the main inquiry pathway.
 
 **How to apply:** Keep a prominent email CTA, a selectable address, and instructions for visitors using webmail. Explain that a mailto link opens a draft the visitor must send. Do not activate production transactional delivery or require domain setup without a new request.
+
+Use the verified custom domain as the primary public site while preserving the existing Replit hostname where safe. Trust only exact approved origins; do not use wildcard origins or weaken authentication/CSRF checks.
+
+**Why:** The owner requested full custom-domain support without breaking existing access or changing DNS, customer data, scanner behavior, or billing.
+
+**How to apply:** Keep canonical metadata, generated links, production public URL and authentication origin checks consistent. Do not assume rendering the sign-in form proves OAuth completion or authenticated actions work.

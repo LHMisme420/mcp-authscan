@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createServer as createHttpServer } from 'node:http';
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from './middlewares/clerkProxyMiddleware';
 import { accountRoutes } from './accountRoutes';
-import { appOrigin } from './appOrigin';
+import { accountOriginGuard, trustedAppOrigins } from './appOrigin';
 import { proxyScanner } from './flaskBridge';
 import { accountFor } from './db';
 import { tierRoutes, tokenAuthentication } from './tierRoutes';
@@ -40,6 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 app.use(tokenAuthentication);
 const clerkAuth = clerkMiddleware((req) => ({
+    ...(process.env.NODE_ENV === 'production' ? { authorizedParties: trustedAppOrigins() } : {}),
     publishableKey: publishableKeyFromHost(
       getClerkProxyHost(req) ?? "",
       process.env.CLERK_PUBLISHABLE_KEY,
@@ -53,12 +54,10 @@ app.use('/api', (req: any, res, next) => {
   if (!userId && req.authMethod !== 'api_key') return res.status(401).json({ error: 'Unauthorized' });
   if (userId) req.userId = userId;
   req.authMethod ??= req.get('authorization')?.startsWith('Bearer ') ? 'bearer' : 'session';
-  if (req.method !== 'GET' && req.get('origin') && req.get('origin') !== appOrigin()) {
-    return res.status(403).json({ error: 'Cross-origin account changes are not allowed.' });
-  }
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+app.use('/api', accountOriginGuard);
 app.use('/api', async (req: any, _res, next) => {
   req.account ??= await accountFor(req.userId);
   // A Clerk bearer token must not bypass the paid programmatic API gate.

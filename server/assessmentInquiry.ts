@@ -2,6 +2,7 @@ import express from 'express';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { ReplitConnectors } from '@replit/connectors-sdk';
 import { assessmentPackages, emailPattern, validateInquiry, type AssessmentInquiry } from '../shared/assessmentInquiry';
+import { trustedAppOrigins } from './appOrigin';
 
 type DeliveryConfig = { from: string; to: string };
 type Message = DeliveryConfig & { replyTo: string; subject: string; text: string; idempotencyKey: string };
@@ -43,7 +44,7 @@ async function sendInquiry(message: Message): Promise<string> {
 
 function allowedOrigins() {
   if (process.env.NODE_ENV === 'production') {
-    try { return [new URL(process.env.PUBLIC_APP_URL ?? '').origin]; } catch { return []; }
+    try { return trustedAppOrigins(); } catch { return []; }
   }
   const host = process.env.REPLIT_DEV_DOMAIN;
   // The development webview exposes its existing port-specific HTTPS URL.

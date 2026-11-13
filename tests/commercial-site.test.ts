@@ -31,6 +31,7 @@ function checkEmailLink(anchor: HTMLAnchorElement, packageLabel?: string) {
 }
 
 test('public and account routes get honest titles, canonical URLs, and indexing rules', async () => {
+  assert.equal(PUBLIC_SITE_ORIGIN, 'https://mcpauth-scan.com');
   const template = await readFile('client/index.html', 'utf8');
   for (const route of ['/', '/assessments', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
     const expected = metadataForPath(route);
@@ -99,28 +100,36 @@ async function renderComponent(entry: string) {
   return new JSDOM(renderToStaticMarkup(React.createElement(module.exports.default))).window.document;
 }
 
-test('homepage preserves VATA product-first messaging, workspace and existing recurring offer', async () => {
+test('homepage sells named independent assessments without recurring offers or compliance scores', async () => {
   const document = await renderComponent('client/src/Landing.tsx');
   const text = document.body.textContent || '';
-  assert.match(document.querySelector('h1')?.textContent || '', /allowed to do/i);
-  for (const phrase of ['VATA', 'Need independent MCP security verification?', '$49 a month', 'Coordinate', 'Investigate', 'Weekly re-checks']) {
+  assert.equal(document.querySelector('h1')?.textContent, "MCP security assessment your buyer's review will accept.");
+  for (const phrase of ['VATA', 'Leroy H. Mason', 'Independent AI security researcher',
+    'credited reporter on published MCP security advisories', 'How the report stands up',
+    'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE', 'MIT', 'mcp-authscan']) {
     assert(text.includes(phrase), `Missing ${phrase}`);
   }
-  assert(text.indexOf('Workspace features') < text.indexOf('Need independent MCP security verification?'));
+  assert(!/subscription|monthly|a month|scheduled re.check|scheduled scan|compliance scor|score included|keep checking|\$49/i.test(text));
+  assert.equal(document.querySelectorAll('.plan-table, .weekly-plan').length, 0);
+  const paragraphs = Array.from(document.querySelectorAll('p')).map(p => p.textContent);
+  for (const offer of [
+    'Single server, 1750 dollars. One MCP server or a small set of endpoints, one written report, one retest.',
+    'Full assessment, 3500 dollars. A server or fleet, written report, one retest, and a call to walk your team through the findings.',
+  ]) assert(paragraphs.includes(offer), `Missing plain-text offer: ${offer}`);
+  assert.match(text, /hash over the graded content/i);
+  assert.match(text, /handshake/i);
+  assert.match(text, /authorized tool.call check/i);
+  assert(text.indexOf('1750 dollars') < text.indexOf('MIT'), 'Assessment must precede free scanner');
   const links = Array.from(document.querySelectorAll('a'));
   assert(links.some(link => link.href === 'https://pypi.org/project/mcp-authscan/'));
   assert(links.some(link => link.href === 'https://github.com/LHMisme420/mcp-authscan'));
   assert(links.some(link => link.getAttribute('href') === '/sample-assessment'));
   assert(links.some(link => link.getAttribute('href') === '/sign-in'));
   assert(links.some(link => link.getAttribute('href') === '/sign-up'));
-  const payment = links.find(link => link.href === 'https://buy.stripe.com/aFabJ1dK2axT4j664E7Vm00');
-  assert(payment);
-  assert.equal(payment.target, '_blank');
-  assert(payment.rel.includes('noopener'));
-  assert.equal(links.filter(link => /stripe\.com/.test(link.href)).length, 1);
+  assert.equal(links.filter(link => /stripe\.com/.test(link.href)).length, 0);
   assert(links.some(link => link.getAttribute('href') === '/assessments'));
   assert(links.some(link => link.getAttribute('href') === '/request-assessment'));
-  const emailButton = document.querySelector<HTMLAnchorElement>('.service-teaser-actions a.button[href^="mailto:"]')!;
+  const emailButton = document.querySelector<HTMLAnchorElement>('a.button[href^="mailto:"]')!;
   assert(emailButton);
   checkEmailLink(emailButton);
   assert.equal(document.querySelectorAll('form').length, 0);
@@ -133,13 +142,13 @@ test('dedicated assessment page has exact packages, limits, evidence methodology
   const document = await renderComponent('client/src/Assessments.tsx');
   const text = document.body.textContent || '';
   for (const phrase of ['Independent MCP Security Assessments', '$1,750', '$3,500',
-    'MCP Server Security Verification', 'Comprehensive MCP Security Assessment',
-    'JSON and SARIF', 'one remediation retest', 'Security evidence, not security theater.',
-    'Versioned probe sets', 'Separate severity calibration', 'Reproducibility comparisons',
-    'written authorization', 'available credentials', 'supported techniques']) {
+    'MCP Server Security Assessment', 'Full MCP Security Assessment',
+    'one written report, one retest', 'Who signs the report: Leroy H. Mason.',
+    'Hash over graded report content', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
+    'written authorization', 'available access', 'supported techniques']) {
     assert(text.includes(phrase), `Missing assessment content: ${phrase}`);
   }
-  assert.match(text, /free open-source PyPI scanner/);
+  assert.match(text, /MIT-licensed mcp-authscan scanner/);
   for (const service of ['verification', 'comprehensive']) {
     assert(document.querySelector(`a[href="/request-assessment?package=${service}"]`));
   }
@@ -148,6 +157,8 @@ test('dedicated assessment page has exact packages, limits, evidence methodology
   checkEmailLink(packageButtons[0], 'MCP Server Security Verification');
   checkEmailLink(packageButtons[1], 'Comprehensive MCP Security Assessment');
   assert(!document.querySelector('a[href*="stripe.com"]'), 'Assessments are scoped engagements, not automatic checkout');
+  assert(!/subscription|monthly|a month|scheduled re.check|\$49/i.test(text));
+  assert.match(text, /walk.*team.*findings|walkthrough/i);
 });
 
 test('inquiry page makes supported email prominent without a misleading submission form', async () => {

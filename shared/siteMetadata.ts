@@ -1,8 +1,9 @@
 // Verified with the publishing service before this commercial-site update.
 // This is the public site origin, not the workspace Preview URL.
-export const PUBLIC_SITE_ORIGIN = 'https://mcp-authscan.replit.app';
+export const PUBLIC_SITE_ORIGIN = 'https://mcpauth-scan.com';
+export const LEGACY_SITE_ORIGIN = 'https://mcp-authscan.replit.app';
 export const BRAND_NAME = 'VATA';
-export const HOME_DESCRIPTION = 'VATA is a hosted MCP security workspace for authorized scanning, organization-scoped findings and scan history. Independent MCP AuthScan assessments are available separately.';
+export const HOME_DESCRIPTION = 'Independent MCP security assessments by Leroy H. Mason: a signed written review of your server’s authorization surface. Single server $1,750; full assessment $3,500. Agreed scope and written authorization required.';
 
 export function metadataForPath(pathname: string) {
   const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
@@ -47,7 +48,7 @@ export function metadataForPath(pathname: string) {
     };
   }
   return {
-    title: 'VATA | MCP Security Workspace',
+    title: 'Independent MCP Security Assessments | MCP AuthScan',
     description: HOME_DESCRIPTION,
     canonical: `${PUBLIC_SITE_ORIGIN}/`,
     robots: 'index, follow',

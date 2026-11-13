@@ -45,83 +45,85 @@ export function AssessmentServices() {
         <div className="assessment-intro">
           <div>
             <span className="eyebrow">Independent, scoped review</span>
-            <h2>Evidence you can act on. Limits you can see.</h2>
+            <h2>Evidence you can inspect. Limits you can see.</h2>
           </div>
           <p>
-            MCP AuthScan offers paid independent security assessments for teams deploying MCP servers.
-            A scoped human review produces a written report grounded in observed responses—not a
-            certification, a safety guarantee, or a claim of complete coverage.
+            MCP AuthScan provides paid independent reviews of authorized MCP servers. Leroy H. Mason,
+            independent AI security researcher and credited reporter on published MCP security advisories,
+            signs the written report. This is not a certification, safety guarantee, promise of complete
+            coverage, or guarantee that a buyer will accept the report.
           </p>
         </div>
 
         <div className="commercial-grid">
           <article className="commercial-offer">
             <div className="offer-topline">
-              <span>Single engagement</span>
+              <span>Single server</span>
               <strong className="offer-price">$1,750</strong>
             </div>
-            <h3>MCP Server Security Verification</h3>
-            <p>Focused independent verification of one authorized MCP server.</p>
+            <h3>MCP Server Security Assessment</h3>
+            <p>One MCP server or a small set of endpoints, one written report, one retest.</p>
             <ul className="package-includes">
-              <li>Authentication and supported protocol-security checks</li>
-              <li>Manual validation of significant scanner findings</li>
-              <li>Evidence-backed assessment report</li>
-              <li>Severity rationale and remediation guidance</li>
-              <li>JSON and SARIF output where applicable</li>
+              <li>Handshake and supported protocol-security checks</li>
+              <li>An authorized tool-call check within the agreed, supported scope</li>
+              <li>Written report signed by Leroy H. Mason</li>
+              <li>Observed evidence, severity rationale, and remediation guidance</li>
+              <li>One retest after remediation, when requested and agreed</li>
             </ul>
             <div className="offer-bottom">
               <div className="offer-cta-stack">
                 <a className="button" href={assessmentEmailFor('verification')}>Email us to request an assessment</a>
                 <Link className="text-link" href="/request-assessment?package=verification">No email app? See email instructions</Link>
               </div>
-              <span>Scope and written authorization before testing</span>
+              <span>Written authorization and scope before testing</span>
             </div>
           </article>
 
           <article className="commercial-offer expanded">
             <div className="offer-topline">
-            <span>Expanded assessment</span>
+              <span>Full assessment</span>
               <strong className="offer-price">$3,500</strong>
             </div>
-            <h3>Comprehensive MCP Security Assessment</h3>
-            <p>A broader mutually agreed MCP security review, including one remediation retest.</p>
+            <h3>Full MCP Security Assessment</h3>
+            <p>A server or fleet, one written report, one retest, and a call to walk your team through the findings.</p>
             <ul className="package-includes">
-              <li>Expanded, mutually agreed testing scope</li>
-              <li>Authentication and authorization boundary review</li>
-              <li>OAuth and protocol configuration analysis where applicable</li>
-              <li>Manual investigation of significant findings</li>
-              <li>Executive and technical assessment report</li>
-              <li>Remediation recommendations and one retest</li>
+              <li>Mutually agreed scope across the server or fleet</li>
+              <li>Handshake and supported protocol-security checks</li>
+              <li>An authorized tool-call check within the agreed, supported scope</li>
+              <li>Written report signed by Leroy H. Mason</li>
+              <li>Observed evidence, severity rationale, and remediation guidance</li>
+              <li>One retest after remediation, when requested and agreed</li>
+              <li>Walkthrough call to discuss the findings</li>
             </ul>
             <div className="offer-bottom">
               <div className="offer-cta-stack">
                 <a className="button" href={assessmentEmailFor('comprehensive')}>Email us to request an assessment</a>
                 <Link className="text-link" href="/request-assessment?package=comprehensive">No email app? See email instructions</Link>
               </div>
-              <span>Retest against agreed criteria only</span>
+              <span>Retest and testing criteria remain within agreed scope</span>
             </div>
           </article>
         </div>
 
         <div className="scope-caveat">
-          <strong>Scope first.</strong>
-          <span>Actual testing is limited to agreed scope, available credentials, supported techniques, and written authorization. No certification, compliance, complete-coverage, or security guarantee is implied.</span>
+          <strong>Scope and authorization come first.</strong>
+          <span>Testing requires written permission and is limited to agreed targets, available access, and supported techniques. A named report and authorized tool-call check are part of the paid agreed scope, not a claim of guaranteed coverage or tests already performed. No certification, complete-coverage, security, or buyer-acceptance guarantee is implied.</span>
         </div>
 
         <div className="tooling-strip">
           <div>
-            <span className="eyebrow">Self-service tool</span>
-            <h3>The free scanner is not the independent assessment.</h3>
+            <span className="eyebrow">Free scanner, separate from the assessment</span>
+            <h3>Run the handshake checks yourself first.</h3>
             <p>
-              Run the free open-source PyPI scanner yourself for self-service checks. A paid
-              assessment is a separately scoped human review with written evidence, findings, and
-              stated limitations.
+              The MIT-licensed mcp-authscan project is free on GitHub and PyPI for self-service handshake
+              checks. The paid assessment adds a scoped, authorized tool-call check and a written report
+              signed by the researcher; actual coverage depends on the agreed scope and supported methods.
             </p>
           </div>
           <div className="tooling-links" aria-label="Scanner project links">
-            <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">PyPI package</a>
-            <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">GitHub source</a>
-            <Link className="text-link" href="/sample-assessment">View sample report</Link>
+            <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">mcp-authscan on GitHub</a>
+            <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
+            <Link className="text-link" href="/sample-assessment">View synthetic sample report</Link>
           </div>
         </div>
       </div>
@@ -136,13 +138,12 @@ export function AssessmentMethodology() {
         <div className="section-head">
           <div>
             <span className="eyebrow">Method &amp; evidence</span>
-            <h2>Say what the response showed—and what it did not.</h2>
+            <h2>How the report stands up.</h2>
           </div>
-            <p>
-              Versioned probes, separately calibrated severity, independent validation, and explicit
-              exclusions keep the report tied to what was observed. The sample illustrates the format;
-              it is not evidence about a real deployment.
-            </p>
+          <p>
+            A report is a claim by someone with an interest in it being believed. It should carry enough
+            inspectable evidence for another party to question and compare.
+          </p>
         </div>
         <div className="method-list">
           <article className="method-item">
@@ -151,23 +152,23 @@ export function AssessmentMethodology() {
           </article>
           <article className="method-item">
             <span className="method-index">02</span>
-            <div><h3>Observed evidence, not implication</h3><p>Findings tie to observed request and response evidence. A response that demonstrates neither presence nor absence is not reported as a pass.</p></div>
+            <div><h3>Handshake checks and authorized tool calls</h3><p>The free scanner checks the handshake. Paid work adds an authorized tool-call check when included in the agreed scope and supported by the target and available access.</p></div>
           </article>
           <article className="method-item">
             <span className="method-index">03</span>
-            <div><h3>Explicit verdicts and exclusions</h3><p>Each check is labeled PASS, FAIL, NOT_OBSERVED, or EXCLUDED; NOT_IMPLEMENTED may also apply. Exclusions name the missing prerequisite.</p></div>
+            <div><h3>Observed evidence, not implication</h3><p>Findings tie to observed request and response evidence. A response that demonstrates neither presence nor absence is not reported as a pass.</p></div>
           </article>
           <article className="method-item">
             <span className="method-index">04</span>
-            <div><h3>Limits stated plainly</h3><p>An assessment is bounded by its scope and method: it cannot establish full coverage or guarantee safety. Evidence is redacted to avoid exposing secrets.</p></div>
+            <div><h3>A hash and a comparison another party can challenge</h3><p>The report carries a hash over the graded content. With authorization, a second party can rerun the same probe set and compare. The comparison outcomes are MATCH, DIVERGENCE, and NOT REPRODUCIBLE. These names describe comparison methodology, not an implemented one-click comparison UI. They do not establish which result is correct; a divergence can be caught and examined.</p></div>
           </article>
           <article className="method-item">
             <span className="method-index">05</span>
-            <div><h3>Retest means a separate observed result</h3><p>When included and requested after remediation, a retest checks its agreed criteria and records the result. It is not implied to have happened in advance.</p></div>
+            <div><h3>Limits stated plainly</h3><p>An assessment is bounded by its scope and method: it cannot establish full coverage or guarantee safety or buyer acceptance. Evidence is redacted to avoid exposing secrets.</p></div>
           </article>
           <article className="method-item">
             <span className="method-index">06</span>
-            <div><h3>What a content hash can verify</h3><p>Where a real report provides a content hash, its exact schema is explained. A hash can check content consistency; it does not prove who authored the report, that evidence is authentic, or that testing had complete coverage.</p></div>
+            <div><h3>Retest means a separate observed result</h3><p>One retest is part of the agreed offer. When requested after remediation, it checks agreed criteria and records the result; it is not implied to have happened in advance.</p></div>
           </article>
         </div>
         <div className="status-key" aria-label="Assessment verdict definitions">
@@ -195,10 +196,10 @@ export function AssessmentContact() {
               mind. Do not include credentials, tokens, or other secrets. Written permission is
               required before testing.
             </p>
-              <a className="contact-mail" href={assessmentMailto}>{assessmentEmail}</a>
+            <a className="contact-mail" href={assessmentMailto}>{assessmentEmail}</a>
           </div>
           <div className="contact-actions">
-              <a className="button" href={assessmentMailto}>Email us to request an assessment</a>
+            <a className="button" href={assessmentMailto}>Email us to request an assessment</a>
             <small>Opens an email draft. You must send it; this website submits nothing.</small>
           </div>
         </div>

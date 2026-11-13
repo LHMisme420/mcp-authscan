@@ -88,9 +88,11 @@ export async function assertArtifacts(root, graphs) {
     'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
     '1,750', '3,500', 'MCP Server Security Verification', 'Comprehensive MCP Security Assessment',
     'Synthetic Demonstration — Not a Real Client Assessment.',
-    'https://buy.stripe.com/aFabJ1dK2axT4j664E7Vm00',
+    'MCP security assessment your buyer',
+    'How the report stands up', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
   ]) if (!client.includes(marker)) fail(`Generated frontend lacks required content: ${marker}`);
-  if (!html.includes('VATA | MCP Security Workspace')) fail('Generated HTML uses an old homepage template.');
+  if (client.includes('https://buy.stripe.com/')) fail('Generated frontend includes a retired recurring checkout link.');
+  if (!html.includes('Independent MCP Security Assessments | MCP AuthScan')) fail('Generated HTML uses an old homepage template.');
   const server = await readFile(path.join(root, 'build/server/index.js'), 'utf8');
   if (!/app\.use\(["']\/contact["'],\s*assessmentInquiryRoutes\(\)\)/.test(server) ||
       !/router\.post\(\s*["']\/assessment["']/.test(server) ||

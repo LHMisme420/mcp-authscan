@@ -1,6 +1,6 @@
 import { Link } from 'wouter';
 import PublicSiteLayout from './PublicSiteLayout';
-import { assessmentMailto } from './AssessmentSections';
+import { assessmentEmailFor } from './AssessmentSections';
 import './commercial.css';
 
 export default function Landing() {
@@ -8,60 +8,85 @@ export default function Landing() {
     <PublicSiteLayout className="landing">
       <section className="wrap hero">
         <div className="hero-copy">
-          <span className="eyebrow">MCP security review workspace</span>
-          <h1>See what an MCP server is <span>allowed to do.</span></h1>
-          <p>VATA scans MCP endpoints for authorization findings, then gives your team a clear place to review risk, compliance scoring, and scan history.</p>
-          <div className="hero-ctas">
-            <Link href="/sign-up" className="button">Open your workspace <span aria-hidden="true">→</span></Link>
-            <Link href="/sign-in" className="button secondary">Sign in</Link>
+          <span className="eyebrow">Independent MCP security assessment</span>
+          <h1>MCP security assessment your buyer&apos;s review will accept.</h1>
+          <p>An independent, written review of your MCP server&apos;s authorization surface, signed by the researcher who ran it.</p>
+          <div className="assessment-offers" aria-label="Assessment offers">
+            <p><strong>Single server, 1750 dollars.</strong> One MCP server or a small set of endpoints, one written report, one retest.</p>
+            <p><strong>Full assessment, 3500 dollars.</strong> A server or fleet, written report, one retest, and a call to walk your team through the findings.</p>
           </div>
-          <div className="hero-note">For teams testing systems they are authorized to assess</div>
+          <p className="hero-note">Scope and written authorization are agreed before testing. A report may support a buyer review; acceptance is up to the buyer.</p>
+          <div className="hero-ctas">
+            <a className="button" href={assessmentEmailFor()}>Email us to request an assessment</a>
+            <Link href="/sign-in" className="button secondary">Workspace sign in</Link>
+          </div>
+          <div className="hero-note">No credentials, tokens, passwords, or other secrets in email.</div>
         </div>
-        <div className="hero-art" aria-label="Illustration of a security scan in progress" role="img">
+        <div className="hero-art" aria-label="Illustration of an MCP security review" role="img">
           <div className="scan-orbit" />
           <div className="scan-core">
             <div className="core-mark" aria-hidden="true">
               <svg width="25" height="25" viewBox="0 0 24 24" fill="none"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 7.7 7.5 9.5 4.3-1.8 7.5-5 7.5-9.5V6L12 3Z" stroke="currentColor" strokeWidth="1.6"/><path d="M12 8v5m0 3h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
             </div>
-            <p className="core-label">Authorization review</p>
+            <p className="core-label">Independent review</p>
             <div className="core-value">MCP server</div>
             <div className="core-bars" aria-hidden="true"><i /><i /><i /></div>
           </div>
-          <div className="float-tag one"><span className="signal" />Endpoint check</div>
-          <div className="float-tag two"><span className="signal green" />Findings review</div>
+          <div className="float-tag one"><span className="signal" />Handshake checks</div>
+          <div className="float-tag two"><span className="signal green" />Written evidence</div>
         </div>
       </section>
 
       <section className="trust-band">
         <div className="wrap trust-band-inner">
-          <div className="trust-note"><span className="signal green" /><span><b>Organization-scoped</b> findings and scan history</span></div>
-          <div className="trust-note"><span className="signal" /><span><b>Full history</b> available in your workspace</span></div>
-          <div className="trust-note"><span className="signal green" /><span><b>Cookie-based</b> authenticated workspace</span></div>
+          <div className="trust-note"><span className="signal green" /><span><b>Named researcher</b> signs the report</span></div>
+          <div className="trust-note"><span className="signal" /><span><b>Written authorization</b> before testing</span></div>
+          <div className="trust-note"><span className="signal green" /><span><b>Scope and limitations</b> stated plainly</span></div>
         </div>
       </section>
 
-      <section className="landing-section">
+      <section className="landing-section" id="report-method">
         <div className="wrap">
           <div className="section-head">
-            <div><span className="eyebrow">A focused workflow</span><h2>From endpoint to evidence, without losing the thread.</h2></div>
-            <p>Keep the steps visible: scan an authorized target, inspect the returned findings, and follow the organization’s compliance score over time.</p>
+            <div><span className="eyebrow">Evidence and repeatability</span><h2>How the report stands up</h2></div>
+            <p>A report is a claim by someone with an interest in it being believed. The record should make that claim inspectable.</p>
           </div>
-          <div className="workflow">
-            <div className="workflow-main">
-              <span className="eyebrow">One review surface</span>
-              <h3>Know what was checked. Keep what came back.</h3>
-              <p>VATA brings together the scanner’s results and the underlying finding details, so authorization issues can be reviewed in context.</p>
-              <div className="workflow-list">
-                <div className="workflow-item"><b>01</b><span>Submit an MCP server URL you may test.</span></div>
-                <div className="workflow-item"><b>02</b><span>Review scan status, severity, and remediation guidance.</span></div>
-                <div className="workflow-item"><b>03</b><span>Return to scan history and organization-level signals.</span></div>
-              </div>
+          <p>The report carries a hash over the graded content. With written authorization, a second party can re-run the same probe set and compare. The comparison is recorded as MATCH, DIVERGENCE or NOT REPRODUCIBLE.</p>
+          <p className="plan-footnote">The method does not claim the tool or report is right; it makes inconsistencies easier to catch. Reproduction depends on the agreed scope, available access, and supported techniques.</p>
+        </div>
+      </section>
+
+      <section className="service-teaser" aria-labelledby="service-teaser-title">
+        <div className="wrap service-teaser-inner">
+          <div>
+            <span className="eyebrow">Who signs the report</span>
+            <h2 id="service-teaser-title">Leroy H. Mason</h2>
+            <p>Independent AI security researcher, credited reporter on published MCP security advisories. The assessment is a scoped technical review, not a certification, guarantee of security, or promise of buyer acceptance.</p>
+          </div>
+          <div className="service-teaser-actions">
+            <a className="button" href={assessmentEmailFor()}>Email us to request an assessment</a>
+            <Link className="button secondary" href="/assessments">Assessment details</Link>
+            <Link className="text-link" href="/request-assessment">No email app? See email instructions</Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section plan-section" id="free-scanner">
+        <div className="wrap">
+          <div className="section-head">
+            <div><span className="eyebrow">Free, open-source checks</span><h2>Run the handshake checks yourself first.</h2></div>
+            <p>The MIT-licensed mcp-authscan is available on GitHub and PyPI. Its free scanner checks the handshake; paid work adds an authorized tool-call check and a named written report within the agreed scope.</p>
+          </div>
+          <div className="tooling-strip">
+            <div>
+              <span className="eyebrow">Inspect the tool</span>
+              <h3>Start with the same public checks.</h3>
+              <p>The paid check is performed only with written authorization and where the agreed scope and supported techniques allow it. Neither an authorized tool-call check nor a particular coverage outcome is guaranteed before scope is agreed; no test is represented as already run.</p>
             </div>
-            <div className="workflow-aside" aria-label="Dashboard data categories">
-              <div className="readout"><span>Findings</span><strong>By severity</strong></div>
-              <div className="readout"><span>History</span><strong>Recent scan runs</strong></div>
-              <div className="readout"><span>Compliance</span><strong className="good">Score included</strong></div>
-              <div className="readout"><span>Authorization</span><strong>Review the evidence</strong></div>
+            <div className="tooling-links" aria-label="Scanner project links">
+              <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">mcp-authscan on GitHub</a>
+              <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
+              <Link className="text-link" href="/sample-assessment">View synthetic sample report</Link>
             </div>
           </div>
         </div>
@@ -69,68 +94,14 @@ export default function Landing() {
 
       <section className="landing-section">
         <div className="wrap statement">
-          <div><span className="eyebrow">Your security workspace</span></div>
+          <div><span className="eyebrow">The existing workspace</span></div>
           <div>
-            <blockquote>Scan, review, and collaborate.</blockquote>
-            <p>Create an account to scan authorized MCP servers, review your findings, and work with your team.</p>
+            <blockquote>Run checks. Keep the findings in view.</blockquote>
+            <p>The MCP AuthScan workspace remains available for teams running authorized scans, reviewing their results, and using the existing scan API.</p>
             <div className="hero-ctas">
               <Link href="/sign-up" className="button">Create your account</Link>
-              <Link href="/sign-in" className="button secondary">Already have an account?</Link>
+              <Link href="/sign-in" className="button secondary">Sign in</Link>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section plan-section">
-        <div className="wrap">
-          <div className="section-head">
-            <div><span className="eyebrow">Workspace features</span><h2>Review findings and automate your scans.</h2></div>
-            <p>All workspace features are available after sign-in, with organization-scoped access.</p>
-          </div>
-          <div className="plan-table">
-            <div className="plan-column free-plan">
-              <div className="plan-column-head"><span className="eyebrow">Scan and review</span><strong>Investigate</strong><span>For individual review</span></div>
-              <ul>
-                <li>Unlimited manual MCP scans</li>
-                <li>Full scan and finding history</li>
-                <li>Create and review finding records</li>
-                <li>Organization-scoped findings</li>
-              </ul>
-            </div>
-            <div className="plan-column pro-plan">
-              <div className="plan-column-head"><span className="eyebrow">Collaborate and automate</span><strong>Coordinate</strong><span>For team workflows</span></div>
-              <ul>
-                <li>Unlimited scans and history</li>
-                <li>Programmatic scan API access</li>
-                <li>Automated scan scheduling</li>
-                <li>Up to 5 seats, including the owner</li>
-              </ul>
-            </div>
-            <div className="plan-column weekly-plan">
-              <div className="plan-column-head"><span className="eyebrow">Keep checking</span><strong>Weekly re-checks</strong><span>$49 a month</span></div>
-              <ul>
-                <li>Scheduled re-checks</li>
-                <li>History with drift between runs</li>
-                <li>SARIF export</li>
-              </ul>
-              <a className="button" href="https://buy.stripe.com/aFabJ1dK2axT4j664E7Vm00" target="_blank" rel="noopener noreferrer" aria-label="Get weekly re-checks (opens in a new tab)">Get weekly re-checks</a>
-            </div>
-          </div>
-          <p className="plan-footnote">Only the workspace owner manages invitations and API tokens.</p>
-        </div>
-      </section>
-
-      <section className="service-teaser" aria-labelledby="service-teaser-title">
-        <div className="wrap service-teaser-inner">
-          <div>
-            <span className="eyebrow">A separate MCP AuthScan service</span>
-            <h2 id="service-teaser-title">Need independent MCP security verification?</h2>
-            <p>Your team can run the scanner. We provide an independent assessment of supported security controls, reproduce significant findings, and document the evidence for technical and enterprise security reviews.</p>
-          </div>
-          <div className="service-teaser-actions">
-            <a className="button" href={assessmentMailto}>Email us to request an assessment</a>
-            <Link className="button secondary" href="/assessments">View Security Assessments</Link>
-            <Link className="text-link" href="/request-assessment">No email app? See email instructions</Link>
           </div>
         </div>
       </section>
