@@ -258,7 +258,20 @@ def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
                     md = json.loads(r2.read().decode())
             except Exception as e:
                 print(f"AS metadata failed for {meta_url}: {e}", file=sys.stderr)
-                continue
+                # RFC 8414 metadata failed: retry the same authorization
+                # server host with OpenID Connect discovery.
+                oidc_url = server.rstrip("/") + "/.well-known/openid-configuration"
+                try:
+                    assert_url_is_fetchable(oidc_url, allow_private=allow_private)
+                    req3 = Request(oidc_url)
+                    req3.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+                    with open_without_redirects(req3, timeout=5) as r3:
+                        md = json.loads(r3.read().decode())
+                    if not isinstance(md, dict):
+                        raise ValueError("openid-configuration is not a JSON object")
+                except Exception as e2:
+                    print(f"OIDC metadata failed for {oidc_url}: {e2}", file=sys.stderr)
+                    continue
             if md.get("token_endpoint"):
                 endpoints["token"] = md["token_endpoint"]
             if md.get("authorization_endpoint"):
@@ -690,7 +703,27 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                                 print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server}", file=sys.stderr)
 
                         except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError):
-                            continue
+                            # RFC 8414 metadata failed: retry the same authorization
+                            # server host with OpenID Connect discovery.
+                            try:
+                                oidc_metadata_url = oauth_server.rstrip("/") + "/.well-known/openid-configuration"
+                                assert_url_is_fetchable(oauth_server, allow_private=ALLOW_PRIVATE_TARGETS)
+                                req = Request(oidc_metadata_url)
+                                req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+
+                                with open_without_redirects(req, timeout=5) as resp:
+                                    oidc_data = json.loads(resp.read().decode())
+
+                                    endpoints_found = {
+                                        "token": oidc_data.get("token_endpoint"),
+                                        "authorize": oidc_data.get("authorization_endpoint"),
+                                    }
+                                    endpoints_found = {k: v for k, v in endpoints_found.items() if v}
+                                    all_endpoints.update(endpoints_found)
+                                    print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server} via openid-configuration", file=sys.stderr)
+
+                            except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError, AttributeError):
+                                continue
 
                     if all_endpoints:
                         discovery_info = {
