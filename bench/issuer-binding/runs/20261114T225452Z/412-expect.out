@@ -1,0 +1,5 @@
+mode: expect-issuer
+verdict: PASS
+reason: client read the decoy metadata and presented no credential: Client failed to connect: Authorization server metadata issuer mismatch: http://127.0.0.1:40927 != https://expected.invalid
+touches: ['POST /mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-authorization-server']
+captured: present
