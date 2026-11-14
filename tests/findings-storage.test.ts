@@ -290,7 +290,9 @@ print('ownership and complete history preserved')
           assert.match(run.output(), /"reason":"writer_lock_lost"/);
           const health = await fetch(`http://127.0.0.1:${run.gatewayPort}/health`);
           assert.equal(health.status, 503);
-          assert.equal((await health.json()).dependencies.scanner, 'unavailable');
+          assert.deepEqual((await health.json()).dependencies, {
+            database: 'ready', scanner: 'ready', findingsWriter: 'unavailable',
+          });
           assert.equal(run.output().match(/"event":"findings_storage_unavailable"/g)?.length, 1);
           assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
         }

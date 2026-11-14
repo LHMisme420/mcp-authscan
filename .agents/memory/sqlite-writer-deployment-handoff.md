@@ -20,13 +20,21 @@ the platform's green publish status can precede later startup failure.
 
 **How to apply:** Permit overlapping non-writing frontend startup, not overlapping
 writers. Initialize SQLite and start schedules only after ownership and restore.
-Never retry into readiness after an acquired lock is lost: that remains
-fail-closed. Frontend 200 is deliberately not proof of writer readiness.
+After an acquired lock is lost, writes remain fail-closed during recovery.
+The owner subsequently authorized bounded automatic re-acquisition, but only
+after draining coordinated work, closing the old session, taking the exclusive
+lock and verifying local data matches the durable snapshot. Divergence still
+requires manual recovery; never overwrite either copy to regain readiness.
+Frontend 200 is deliberately not proof of writer readiness.
 Verify the new release's ready event and health response after a real publish;
 isolated handoff tests cannot guarantee platform shutdown timing. Persistent
 contention must time out, not trigger lock theft, local-only fallback, reseeding,
 namespace changes or deletion. Migrating findings to PostgreSQL remains separate
 scope; this approval changes the startup contract, not the storage model.
+
+**Why:** The owner identified that a lost dedicated writer session otherwise
+left the workspace indefinitely unavailable and explicitly requested automatic
+recovery while preserving data and single-writer safety.
 
 Treat the generic writer-not-ready response as a readiness gate, not a diagnosis
 of advisory-lock contention. Check private scanner dependencies too, and preserve

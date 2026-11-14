@@ -22,6 +22,13 @@ export class FindingsWriterBusyError extends Error {
   }
 }
 
+export class FindingsConnectionError extends Error {
+  constructor() {
+    super(failure().message);
+    this.name = 'FindingsConnectionError';
+  }
+}
+
 export function validateFindingsConfiguration() {
   const mode = process.env.VATA_SQLITE_DURABILITY ?? (process.env.NODE_ENV === 'production' ? 'postgres' : 'local');
   if (mode !== 'postgres' && mode !== 'local') throw new Error('VATA_SQLITE_DURABILITY must be postgres or local.');
@@ -107,12 +114,17 @@ export class FindingsStorage {
   get ready() { return this.healthy && !this.closed; }
 
   private async connect() {
-    await this.client.connect();
-    const lock = await this.client.query(
-      "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1, 0)) AS acquired", [this.namespace],
-    );
-    if (!lock.rows[0].acquired) throw new FindingsWriterBusyError();
-    await this.client.query('SELECT namespace,generation,sha256,payload FROM public.vata_findings_backups LIMIT 0');
+    try {
+      await this.client.connect();
+      const lock = await this.client.query(
+        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1, 0)) AS acquired", [this.namespace],
+      );
+      if (!lock.rows[0].acquired) throw new FindingsWriterBusyError();
+      await this.client.query('SELECT namespace,generation,sha256,payload FROM public.vata_findings_backups LIMIT 0');
+    } catch (error) {
+      if (error instanceof FindingsWriterBusyError) throw error;
+      throw new FindingsConnectionError();
+    }
   }
 
   async open() {
@@ -120,7 +132,7 @@ export class FindingsStorage {
       await this.connect();
       const result = await this.client.query(
         'SELECT sha256,payload FROM public.vata_findings_backups WHERE namespace=$1 ORDER BY generation DESC LIMIT 1', [this.namespace],
-      );
+      ).catch(() => { throw new FindingsConnectionError(); });
       const snapshot = result.rows[0];
       if (!snapshot) throw new Error('No approved findings backup exists for this namespace. Seed from the LIVE SQLite database before replacing the deployment; see docs/findings-storage.md.');
       const temporary = await mkdtemp(path.join(path.dirname(path.resolve(this.dbFile)), '.vata-restore-'));
@@ -151,10 +163,25 @@ export class FindingsStorage {
     } catch (error) {
       if (!(error instanceof FindingsWriterBusyError)) this.alerts.fail('startup_failed');
       await this.close();
+      if (error instanceof FindingsConnectionError) throw error;
       // Never expose pg errors or Python stderr, which may contain private paths.
       if (error instanceof Error && /^(Another findings|No approved|Stored findings|Local SQLite|SQLite sidecar|Fresh findings)/.test(error.message)) throw error;
       throw failure();
     }
+  }
+
+  /** Serialize liveness probes with writes; never replace a session in-flight. */
+  async probe() {
+    const probe = this.tail.then(async () => {
+      if (!this.ready) return;
+      try { await this.client.query('SELECT 1'); }
+      catch {
+        this.healthy = false;
+        this.alerts.fail('writer_lock_lost');
+      }
+    });
+    this.tail = probe.catch(() => {});
+    await probe;
   }
 
   private async save() {

@@ -159,10 +159,15 @@ lets a platform promote the frontend and drain the old revision without the old
 
 `/` is **liveness, not scanner readiness**. `/health` remains HTTP 503 until the
 writer lock, verified snapshot restore, private scanner readiness and initial
-snapshot commit all succeed. All `/api` routes return HTTP 503 with
+snapshot commit all succeed. Scanner/account `/api` routes return HTTP 503 with
 `code: WRITER_NOT_READY`, `Retry-After: 2` and `Cache-Control: no-store` during
 handoff, before authentication/account provisioning/quota reservations run.
 Once ready, normal authentication and authorization apply unchanged.
+The Clerk authentication transport (`/api/__clerk`) is mounted before this gate:
+sign-in resources must load even when findings writes are paused. This does not
+bypass authentication, tenant checks or the gate on scanner/account endpoints.
+Health reports `database`, `scanner` and `findingsWriter` independently; a live
+Gunicorn process is not evidence that findings writes are safe.
 
 Only lock contention is retried: once per second for up to 120 seconds by
 default. Optional `VATA_FINDINGS_LOCK_TIMEOUT_MS` (1–300000) and
@@ -171,6 +176,26 @@ bounds. A waiting candidate logs `findings_writer_waiting`, not
 `findings_storage_ready`. Timeout exits nonzero without starting its scanner,
 creating SQLite or acknowledging writes. Schema, permission, checksum and
 snapshot failures are fatal immediately, not retried.
+
+After an acquired writer session is lost, readiness immediately closes. A single
+recovery monitor stops scheduling, drains all queued/in-flight coordinated work,
+closes the old dedicated PostgreSQL client, then attempts fresh exclusive
+ownership. It retries contention and connection failures with exponential
+backoff capped at five seconds, within the configured lock timeout. A serialized
+heartbeat detects a dead idle connection even without a scan request.
+
+Recovery uses the existing namespace and local SQLite file. Before resuming, it
+must acquire the advisory lock, verify the latest durable snapshot and confirm
+its logical fingerprint matches the local database. Divergence, corruption or
+missing backups stop recovery without overwriting either copy. A write that
+lost its durable acknowledgement cannot be silently promoted over newer data.
+No second scanner is started and no namespace is reseeded. Private scanner
+readiness and an initial coordinated snapshot verification must pass before
+requests and scheduling resume and `findings_storage_recovered` is logged.
+
+If the bounded recovery fails, frontend/auth transport remain available but
+scanner/account APIs stay 503; `findings_writer_recovery_failed` requires the
+manual runbook below. Never remove files, steal a lock or force local mode.
 
 The private scanner has a separate 120-second cold-start readiness budget.
 `VATA_SCANNER_STARTUP_TIMEOUT_MS` can set a positive millisecond value up to
@@ -181,8 +206,8 @@ does not establish that this later phase completed.
 Importing the Flask app initializes SQLite, so its process is intentionally not
 started until lock acquisition and snapshot restoration finish. The scheduler
 also starts only after readiness. SIGTERM cancels the retry wait and closes any
-acquired session. A lock lost **after** acquisition remains fail-closed; this
-startup retry path never reacquires a lock over potentially divergent local data.
+acquired session. A lock lost **after** acquisition remains fail-closed during
+the verified recovery described above; divergent local data cannot resume.
 
 Actual old-revision shutdown timing is platform-controlled. A frontend 200 is
 not proof the platform has drained the old writer, or that writes have resumed.
@@ -297,9 +322,11 @@ the runbook path are logged. Notifications never contain raw errors, database
 URLs, credentials, namespace values, file paths, owners, targets, or findings.
 Do not add raw exception details to these records.
 
-Failures remain **fail-closed**: a database coming back online does not unlock
-the running failed writer. Follow the preservation/recovery steps below and
-start a single replacement instance. `findings_storage_ready` confirms that a
+Failures remain **fail-closed**: a database coming back online does not by itself unlock
+the running failed writer. Automatic recovery must first verify exclusive ownership
+and matching local/durable data. If `findings_writer_recovery_failed` is logged,
+follow the preservation/recovery steps below before starting a replacement.
+`findings_storage_ready` confirms that a
 fresh process has verified its writer session and completed its initial backup
 check before serving traffic. `findings_storage_recovered` is emitted when a
 process that observed a failure subsequently verifies a restored coordinator;

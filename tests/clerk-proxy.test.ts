@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import http, { type IncomingHttpHeaders, type RequestListener, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { gzipSync } from 'node:zlib';
+import { readFile } from 'node:fs/promises';
 import express from 'express';
 import { clerkProxyMiddleware, CLERK_PROXY_PATH, getClerkProxyHost } from '../server/middlewares/clerkProxyMiddleware';
 
@@ -53,6 +54,34 @@ test('Clerk host selection preserves forwarded hosts and ordinary Host fallback'
   assert.equal(getClerkProxyHost({ headers: { host: 'public.example.test' } }), 'public.example.test');
 });
 
+test('authentication transport is mounted before scanner readiness and body parsers', async () => {
+  const source = await readFile('server/index.ts', 'utf8');
+  const proxy = source.indexOf('app.use(CLERK_PROXY_PATH, clerkProxyMiddleware())');
+  assert(proxy > 0);
+  assert(proxy < source.indexOf('await startApplication(app, httpServer)'));
+  assert(proxy < source.indexOf('express.json('));
+});
+
+test('Clerk proxy still loads when every scanner API is unavailable', async t => {
+  const prior = { NODE_ENV: process.env.NODE_ENV, CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY };
+  process.env.NODE_ENV = 'production';
+  process.env.CLERK_SECRET_KEY = 'synthetic-proxy-secret';
+  t.after(() => {
+    for (const [key, value] of Object.entries(prior)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const target = await listen(t, http.createServer((_req, res) => res.end('synthetic-clerk-response')));
+  const app = express();
+  app.use(CLERK_PROXY_PATH, clerkProxyMiddleware(target));
+  app.use('/api', (_req, res) => res.status(503).json({ code: 'WRITER_NOT_READY' }));
+  const origin = await listen(t, http.createServer(app));
+  const auth = await request(`${origin}/api/__clerk/v1/environment`);
+  assert.equal(auth.status, 200);
+  assert.equal(auth.body.toString(), 'synthetic-clerk-response');
+  assert.equal((await request(`${origin}/api/findings`)).status, 503);
+});
 test('Clerk proxy preserves method, raw body, query, cookies and trusted forwarding headers', async t => {
   const received: { url?: string; headers?: IncomingHttpHeaders; body?: string; method?: string } = {};
   const { origin, target } = await fixture(t, (req, res) => {

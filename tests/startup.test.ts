@@ -342,7 +342,7 @@ with sqlite3.connect(app.DB_FILE) as c:
     }
   });
 
-  await t.test('overlapping frontend promotion hands off one writer, preserves rows, and fails closed after session loss', async () => {
+  await t.test('handoff and writer-session recovery preserve rows and block writes during contention', async () => {
     const namespace = 'fixture-existing';
     const old = await launch({ ...fresh(namespace), DB_FILE: path.join(temp, 'handoff-old.sqlite') });
     let replacement: Awaited<ReturnType<typeof launch>> | undefined;
@@ -384,17 +384,83 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
         [`vata-findings:${namespace}`],
       );
       assert.equal(ended.rowCount, 1);
+      // Another writer wins the race: recovery must wait, never steal its lock.
+      const lock = await admin!.query(
+        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1,0)) AS acquired", [namespace]);
+      assert.equal(lock.rows[0].acquired, true);
       for (let i = 0; i < 30 && !replacement.output().includes('"reason":"writer_lock_lost"'); i++) await delay(50);
       const unavailable = await fetch(`http://127.0.0.1:${replacement.port}/health`);
       assert.equal(unavailable.status, 503);
+      assert.deepEqual((await unavailable.json()).dependencies, {
+        database: 'ready', scanner: 'ready', findingsWriter: 'unavailable',
+      });
       await blockedApis(replacement);
       assert.equal((await fetch(`http://127.0.0.1:${replacement.port}/`)).status, 200);
       assert.match(replacement.output(), /"reason":"writer_lock_lost"/);
       assert.equal(replacement.output().match(/"event":"findings_storage_ready"/g)?.length, 1);
       assert.doesNotMatch(replacement.output(), /LOCAL-ONLY|"event":"findings_storage_recovered"/);
+      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+      await healthy(replacement);
+      assert.match(replacement.output(), /"event":"findings_writer_recovering"/);
+      assert.match(replacement.output(), /"event":"findings_storage_recovered"/);
+      assert.equal(replacement.output().match(/Starting gunicorn/g)?.length, 1, 'Recovery must not start a second scanner');
+      assert.equal((await fetch(`http://127.0.0.1:${replacement.port}/api/findings`)).status, 401);
+      assert.equal(tool('python3', ['-c', 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT COUNT(*) FROM findings").fetchone()[0])', file]).trim(), '1');
     } finally {
       await cleanup(old.child);
       if (replacement) await cleanup(replacement.child);
+    }
+  });
+
+  await t.test('writer recovery refuses divergent local data without replacing either copy', async () => {
+    const namespace = 'fixture-existing';
+    const file = path.join(temp, 'recovery-divergent.sqlite');
+    const run = await launch({ ...fresh(namespace), DB_FILE: file });
+    try {
+      await healthy(run);
+      const before = await admin!.query(
+        'SELECT sha256 FROM public.vata_findings_backups WHERE namespace=$1 ORDER BY generation DESC LIMIT 1', [namespace]);
+      await admin!.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
+        [`vata-findings:${namespace}`]);
+      const lock = await admin!.query(
+        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1,0)) AS acquired", [namespace]);
+      assert.equal(lock.rows[0].acquired, true);
+      tool('python3', ['-c', `import sqlite3,sys
+with sqlite3.connect(sys.argv[1]) as c:
+ c.execute("INSERT INTO findings(description) VALUES('synthetic-unacknowledged-local-write')")
+`, file]);
+      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+      for (let i = 0; i < 100 && !run.output().includes('"event":"findings_writer_recovery_failed"'); i++) await delay(100);
+      assert.match(run.output(), /"event":"findings_writer_recovery_failed"/);
+      assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
+      await blockedApis(run);
+      assert.equal((await fetch(`http://127.0.0.1:${run.port}/health`)).status, 503);
+      const after = await admin!.query(
+        'SELECT sha256 FROM public.vata_findings_backups WHERE namespace=$1 ORDER BY generation DESC LIMIT 1', [namespace]);
+      assert.equal(after.rows[0].sha256, before.rows[0].sha256);
+      assert.equal(tool('python3', ['-c', 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT COUNT(*) FROM findings WHERE description=?",("synthetic-unacknowledged-local-write",)).fetchone()[0])', file]).trim(), '1');
+    } finally { await cleanup(run.child); }
+  });
+
+  await t.test('recovery contention times out without stealing the writer lock', async () => {
+    const namespace = 'fixture-existing';
+    const run = await launch({ ...fresh(namespace), DB_FILE: path.join(temp, 'recovery-timeout.sqlite'),
+      VATA_FINDINGS_LOCK_TIMEOUT_MS: '1000', VATA_FINDINGS_LOCK_RETRY_MS: '100' });
+    try {
+      await healthy(run);
+      await admin!.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
+        [`vata-findings:${namespace}`]);
+      const lock = await admin!.query(
+        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1,0)) AS acquired", [namespace]);
+      assert.equal(lock.rows[0].acquired, true);
+      for (let i = 0; i < 70 && !run.output().includes('"event":"findings_writer_recovery_failed"'); i++) await delay(100);
+      assert.match(run.output(), /"event":"findings_writer_recovery_failed"/);
+      await blockedApis(run);
+      assert.equal((await fetch(`http://127.0.0.1:${run.port}/`)).status, 200);
+      assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
+    } finally {
+      await cleanup(run.child);
+      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
     }
   });
 
@@ -508,7 +574,7 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
       const response = await healthy(run);
       assert.equal(response.headers.get('cache-control'), 'no-store');
       assert.deepEqual(await response.json(), {
-        status: 'ok', version: '3.0', dependencies: { database: 'ready', scanner: 'ready' },
+        status: 'ok', version: '3.0', dependencies: { database: 'ready', scanner: 'ready', findingsWriter: 'ready' },
       });
       const rootResponse = await fetch(`http://127.0.0.1:${run.port}/`);
       assert.equal(rootResponse.status, 200);

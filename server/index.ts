@@ -21,13 +21,15 @@ if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
 const app = express();
 const httpServer = createHttpServer(app);
 app.set('trust proxy', 1);
+// Authentication transport must remain available while scanner writes are paused.
+// Mount before the /api readiness gate, and before any body parser.
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 const start = await startApplication(app, httpServer);
 app.use(publicDocuments);
 if (process.env.NODE_ENV === 'production') {
   // Public marketing HTML must not wait for authentication to initialize.
   app.get(['/', '/assessments', '/assessments/', '/request-assessment', '/request-assessment/', '/sample-assessment', '/sample-assessment/'], sendFrontendPage);
 }
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use('/contact', assessmentInquiryRoutes());
 // Retired payment URLs remain explicit tombstones, including old webhook URLs.
 // No environment variable can reactivate payments in this release.

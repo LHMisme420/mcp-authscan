@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { performance } from 'node:perf_hooks';
-import { FindingsWriterBusyError, prepareFindingsStorage } from './findingsStorage';
+import { FindingsConnectionError, FindingsWriterBusyError, prepareFindingsStorage, type FindingsStorage } from './findingsStorage';
 
 function setting(env: NodeJS.ProcessEnv, name: string, fallback: number, maximum: number) {
   const raw = env[name];
@@ -23,13 +23,15 @@ export function writerStartupPolicy(env: NodeJS.ProcessEnv = process.env) {
   };
 }
 
-/** Only contention is retryable. Corrupt/missing snapshots and session loss are not. */
+/** Recovery retries connection loss too, but never retries integrity failures. */
 export async function acquireFindingsWriter(
   signal: AbortSignal,
   policy = writerStartupPolicy(),
+  recovering = false,
 ) {
   const deadline = performance.now() + policy.timeoutMs;
   let waiting = false;
+  let attempt = 0;
   const timedOut = () => new Error(`Findings writer lock acquisition timed out after ${policy.timeoutMs}ms. Another findings writer is active; writes remained blocked.`);
   while (true) {
     signal.throwIfAborted();
@@ -42,7 +44,8 @@ export async function acquireFindingsWriter(
       }
       return storage;
     } catch (error) {
-      if (!(error instanceof FindingsWriterBusyError)) throw error;
+      if (!(error instanceof FindingsWriterBusyError) &&
+          !(recovering && error instanceof FindingsConnectionError)) throw error;
       signal.throwIfAborted();
       const remaining = deadline - performance.now();
       if (remaining <= 0) throw timedOut();
@@ -50,11 +53,27 @@ export async function acquireFindingsWriter(
         waiting = true;
         console.info(JSON.stringify({
           event: 'findings_writer_waiting', severity: 'info',
-          message: 'Frontend is live; scanner APIs remain unavailable while the previous findings writer drains.',
+          message: recovering
+            ? 'Frontend is live; scanner APIs remain unavailable while writer ownership and connectivity recover.'
+            : 'Frontend is live; scanner APIs remain unavailable while the previous findings writer drains.',
           timeoutMs: policy.timeoutMs,
         }));
       }
-      await delay(Math.min(policy.retryMs, remaining), undefined, { signal });
+      const backoff = recovering ? Math.min(5000, policy.retryMs * 2 ** Math.min(attempt++, 4)) : policy.retryMs;
+      await delay(Math.min(backoff, remaining), undefined, { signal });
     }
   }
+}
+
+/** Drain old work before a fresh session verifies exclusive ownership AND data.
+ * open() refuses divergent local/durable files; recovery never overwrites either.
+ */
+export async function recoverFindingsWriter(
+  previous: FindingsStorage,
+  signal: AbortSignal,
+  policy = writerStartupPolicy(),
+) {
+  await previous.close();
+  signal.throwIfAborted();
+  return acquireFindingsWriter(signal, policy, true);
 }

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { Server } from 'node:http';
 import { pool, verifyDatabase } from './db';
 import { configuredPort, SCANNER_PORT, scannerReady, waitForScanner } from './flaskBridge';
@@ -6,7 +7,7 @@ import { startScheduler } from './scheduler';
 import type { Express } from 'express';
 import { validateFindingsConfiguration, findingsReady, type FindingsStorage } from './findingsStorage';
 import { findingsAlerts } from './findingsAlerts';
-import { acquireFindingsWriter, scannerStartupTimeout, writerStartupPolicy } from './findingsStartup';
+import { acquireFindingsWriter, recoverFindingsWriter, scannerStartupTimeout, writerStartupPolicy } from './findingsStartup';
 
 export async function startApplication(app: Express, httpServer?: Server) {
   let scanner: ChildProcess | undefined;
@@ -50,17 +51,48 @@ export async function startApplication(app: Express, httpServer?: Server) {
   process.once('SIGTERM', () => void stop());
   process.once('SIGINT', () => void stop());
 
+  async function monitorWriter() {
+    try {
+      while (!stopping && findings) {
+        await delay(1000, undefined, { signal: shutdown.signal });
+        await findings.probe();
+        if (findings.ready || stopping) continue;
+        applicationReady = false;
+        stopScheduler();
+        console.info(JSON.stringify({ event: 'findings_writer_recovering', severity: 'warning',
+          message: 'Writes paused. Draining work and verifying a new exclusive writer session.' }));
+        pendingStorage = recoverFindingsWriter(findings, shutdown.signal);
+        findings = await pendingStorage;
+        if (stopping) return;
+        await waitForScanner(() => scannerStopped || stopping, scannerStartupTimeout());
+        if (!findings) throw new Error('Durable findings recovery cannot switch to local mode.');
+        await findings.run(async () => {});
+        if (stopping) return;
+        applicationReady = true;
+        stopScheduler = startScheduler();
+      }
+    } catch {
+      if (!stopping) {
+        applicationReady = false;
+        console.error(JSON.stringify({ event: 'findings_writer_recovery_failed', severity: 'critical',
+          message: 'Recovery could not verify exclusive ownership and matching durable data. Writes remain blocked; preserve local files and follow the recovery runbook.' }));
+      }
+    }
+  }
+
   // Health is independent of Clerk and never exposes database configuration.
   app.get('/health', async (_req, res) => {
     let database = false;
     try { await verifyDatabase(); database = true; } catch {}
-    const scanner = !scannerStopped && findingsReady() && await scannerReady();
-    const ready = readyForRequests() && database && scanner;
+    const scanner = !scannerStopped && await scannerReady();
+    const writer = findingsReady();
+    const ready = readyForRequests() && database && scanner && writer;
     res.setHeader('Cache-Control', 'no-store');
     if (!ready) res.setHeader('Retry-After', '2');
     res.status(ready ? 200 : 503).json({
       status: ready ? 'ok' : 'unavailable', version: '3.0',
-      dependencies: { database: database ? 'ready' : 'unavailable', scanner: scanner ? 'ready' : 'unavailable' },
+      dependencies: { database: database ? 'ready' : 'unavailable', scanner: scanner ? 'ready' : 'unavailable',
+        findingsWriter: writer ? 'ready' : 'unavailable' },
       ...(!ready ? { error: 'Writer or scanner not ready. Please retry.' } : {}),
     });
   });
@@ -127,6 +159,7 @@ export async function startApplication(app: Express, httpServer?: Server) {
       applicationReady = true;
       console.log(`VATA listening on port ${port}; PostgreSQL and private scanner are ready.`);
       stopScheduler = startScheduler();
+      void monitorWriter();
     } catch (error) {
       if (stopping) return;
       // Database/schema failure can occur before the storage coordinator opens.
