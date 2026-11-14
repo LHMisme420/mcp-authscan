@@ -142,6 +142,20 @@ def _build(provider_cls, mcp_url, expect_issuer):
             storage = _make_storage()
             if storage is not None:
                 kwargs[storage_name] = storage
+    if expect_issuer and "issuer" not in params:
+        # An issuer was requested but this provider declares no issuer
+        # parameter. Do not drop it and run the default path: record how the
+        # provider treats issuer= and stop before connecting.
+        try:
+            provider_cls(mcp_url, issuer=expect_issuer, **kwargs)
+            how = "accepts issuer= without declaring it, so it would be ignored"
+        except TypeError as exc:
+            how = "rejects issuer= outright (TypeError: %s)" % exc
+        sys.stderr.write(
+            "driver: issuer-unsupported: %s has no issuer parameter and %s\n"
+            % (provider_cls.__name__, how)
+        )
+        sys.exit(0)
     sys.stderr.write("driver: provider kwargs = %s\n" % sorted(kwargs))
     return provider_cls(mcp_url, **kwargs)
 
@@ -262,6 +276,9 @@ _RESOURCE_METADATA_MARKER = "oauth-protected-resource"
 # (_require_metadata_for_configured_issuer): "Authorization server metadata
 # issuer mismatch: <metadata issuer> != <expected issuer>".
 _ISSUER_MISMATCH_MARKER = "issuer mismatch"
+# Written by the Python driver when --expect-issuer was given but the provider
+# declares no issuer parameter; the driver exits before connecting.
+_ISSUER_UNSUPPORTED_MARKER = "driver: issuer-unsupported: "
 
 
 def redact(value):
@@ -308,6 +325,13 @@ def _reached_token(touches):
         if path.split("?")[0] == _TOKEN_PATH:
             return True
     return False
+
+
+def _issuer_unsupported(stderr):
+    for line in (stderr or "").splitlines():
+        if line.startswith(_ISSUER_UNSUPPORTED_MARKER):
+            return line[len(_ISSUER_UNSUPPORTED_MARKER):].strip()
+    return None
 
 
 def _shows_issuer_refusal(stderr):
@@ -399,6 +423,18 @@ def _observe(client_kind, client_python, client_node, node_cwd, expect_issuer):
 def run(client_python=None, client_name=None, expect_issuer=None,
         client_kind="python", client_node="node", node_cwd="."):
     target = _observe(client_kind, client_python, client_node, node_cwd, expect_issuer)
+    unsupported = _issuer_unsupported(target["child"].stderr if target["child"] else "")
+    if expect_issuer and unsupported:
+        # Settled before connecting: the issuer could not be forwarded, so the
+        # binding was never exercised. No control run, no /token requirement.
+        prerequisite = (
+            "client provider accepts no issuer parameter, so issuer binding "
+            "cannot be exercised on this version (" + unsupported + ")"
+        )
+        return _report(client_kind, client_name, "EXCLUDED",
+                       "issuer was requested but could not be forwarded: " + unsupported,
+                       target["touches"], _evidence(target["captured_raw"]), 2,
+                       target["child"].stderr, None, prerequisite)
     # Paired control: same client, configured to expect the decoy's own issuer.
     control = _observe(client_kind, client_python, client_node, node_cwd, lambda base: base)
 
@@ -461,7 +497,7 @@ def run(client_python=None, client_name=None, expect_issuer=None,
 
 
 def _report(client_kind, client_name, verdict, reason, touches, captured, code,
-            stderr="", control=None):
+            stderr="", control=None, prerequisite=None):
     payload = {
         "check": "client-issuer-binding",
         "kind": client_kind,
@@ -475,6 +511,8 @@ def _report(client_kind, client_name, verdict, reason, touches, captured, code,
         "exit_code": code,
         "exit_codes": {"FAIL": 1, "PASS": 0, "EXCLUDED": 2, "NOT_OBSERVED": 3},
     }
+    if prerequisite is not None:
+        payload["prerequisite"] = prerequisite
     print(json.dumps(payload, indent=2))
     return code
 
