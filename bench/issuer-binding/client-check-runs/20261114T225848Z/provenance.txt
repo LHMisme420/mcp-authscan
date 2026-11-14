@@ -1,0 +1,9 @@
+head=147afbe0323de5d02b807c3849b3ecfb57b71084
+branch=probe-tools
+dirty_files=22
+mcp_authscan/client_check.py clean_at_head
+mcp_authscan/decoy_auth_server.py clean_at_head
+8a4a0ddda0f82e192905adddb3ab27aa56b6cf43781ad47b3300f513a69c4645  mcp_authscan/client_check.py
+11160ffaebaf103e75a37fbdc99fcf2ea3dfb7b767ed154788bb5c5e673fbf09  mcp_authscan/decoy_auth_server.py
+mcp_authscan_file=/home/lhmisme/mcp-authscan/mcp_authscan/__init__.py
+runner_python=/tmp/authscan-venv/bin/python
