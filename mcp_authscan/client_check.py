@@ -282,13 +282,14 @@ _ISSUER_UNSUPPORTED_MARKER = "driver: issuer-unsupported: "
 
 
 def redact(value):
-    """First five and last four characters; never the raw value."""
+    """Scheme only, never any fragment of the credential: "Basic [redacted]".
+    A value with no scheme becomes "[redacted]"."""
     if not value:
         return value
-    text = str(value)
-    if len(text) <= 9:
-        return "*" * len(text)
-    return text[:5] + "..." + text[-4:]
+    parts = str(value).strip().split(None, 1)
+    if len(parts) == 2:
+        return parts[0] + " [redacted]"
+    return "[redacted]"
 
 
 def _last_stderr_line(stderr):
