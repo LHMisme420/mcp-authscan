@@ -1,0 +1,17 @@
+OAuth flow error
+Traceback (most recent call last):
+  File "/tmp/b412/lib/python3.13/site-packages/mcp/client/auth/oauth2.py", line 785, in _auth_flow
+    token_response = yield await self._perform_authorization()
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/b412/lib/python3.13/site-packages/fastmcp/client/auth/client_credentials.py", line 293, in _perform_authorization
+    return await super()._perform_authorization()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/b412/lib/python3.13/site-packages/mcp/client/auth/extensions/client_credentials.py", line 145, in _perform_authorization
+    return await self._exchange_token_client_credentials()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/b412/lib/python3.13/site-packages/mcp/client/auth/extensions/client_credentials.py", line 149, in _exchange_token_client_credentials
+    _require_metadata_for_configured_issuer(self.context, self._issuer)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/b412/lib/python3.13/site-packages/mcp/client/auth/extensions/client_credentials.py", line 64, in _require_metadata_for_configured_issuer
+    raise OAuthFlowError(f"Authorization server metadata issuer mismatch: {metadata.issuer} != {issuer}")
+mcp.client.auth.exceptions.OAuthFlowError: Authorization server metadata issuer mismatch: http://127.0.0.1:40927 != https://expected.invalid
