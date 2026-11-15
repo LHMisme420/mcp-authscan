@@ -317,22 +317,23 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
             Paragraph(
                 f'<b>Content Hash (SHA256):</b><br/>'
                 f'<code>{content_hash}</code><br/><br/>'
-                '<b>To Verify (schema version 2):</b> Export JSON from '
+                '<b>To Verify (schema version 3):</b> Export JSON from '
                 '/api/reports/pdf?format=json using the same signed-in workspace. '
-                'Hash only its canonical_report object, including scan_runs '
-                '(each target, total_checks, findings_count, status, scan timestamps '
-                'and authorization timestamp), severity_counts and findings. '
-                'In Python: hashlib.sha256(json.dumps(canonical_report, '
-                "sort_keys=True, separators=('&#44;', ':'), ensure_ascii=True, "
-                "allow_nan=False).encode('utf-8')).hexdigest(). "
-                'Preserve array order and null values; do not normalize strings. '
-                'The result must match the hash above. '
-                'Excludes: PDF generation timestamp and PDF metadata. '
-                'Findings are capped at the 1000 most recent, in newest-first order; '
-                'severity_counts cover all findings. Scan runs are newest-first. '
-                'Data changes between exports produce a different hash; compare '
-                'exports from unchanged data. This checksum detects content changes, '
-                'not authenticity or certification.',
+                'Hash only its canonical_report object: scan_runs with target, status, '
+                'total_checks, findings_count, probe_set_version and coverage; '
+                'severity_counts; and findings with server_name, rule, vector_type, '
+                'severity, severity_basis, endpoint, description and remediation. '
+                'In Python, sha256 over json.dumps of canonical_report with sort_keys '
+                'on, separators set to comma and colon with no spaces, ensure_ascii on '
+                'and allow_nan off, encoded utf-8, then hexdigest. Preserve array order '
+                'and null values and do not normalize strings. The result must match '
+                'the hash above. Deliberately excluded: scan timestamps, authorization '
+                'timestamp, PDF generation timestamp and PDF metadata, so two exports '
+                'of unchanged data hash identically whenever they were made. Findings '
+                'are capped at the 1000 most recent, newest first, and severity_counts '
+                'cover all findings. Data changes between exports produce a different '
+                'hash. This checksum detects content changes, not authenticity or '
+                'certification.',
                 styles['body'],
             ),
         ])
