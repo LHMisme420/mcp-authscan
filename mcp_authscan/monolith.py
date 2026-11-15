@@ -3102,6 +3102,12 @@ def main():
         canonical_payload.pop(key, None)
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
+    t=((canonical_payload.get("content_observed") or {}).get("inspected") or {}).get("tools") or 0
+    if t:
+     for f in F:
+      if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
+       f["severity"]="HIGH"
+       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, no write or execute observed"
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
@@ -3119,7 +3125,16 @@ def main():
     )
     hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
     if isinstance(hashed.get("probes"), list):
-        hashed["probes"] = sorted(str(p) for p in hashed["probes"])
+        VOL = ("mcp-session-id", "date", "set-cookie", "request-id", "x-request-id", "traceparent", "tracestate")
+        def _strip_probe(p):
+            if not isinstance(p, dict):
+                return str(p)
+            q = dict(p)
+            h = q.get("headers_observed")
+            if isinstance(h, dict):
+                q["headers_observed"] = dict((k, v) for k, v in h.items() if k.lower() not in VOL)
+            return json.dumps(q, sort_keys=True)
+        hashed["probes"] = sorted(_strip_probe(p) for p in hashed["probes"])
     hashed["findings"] = sorted(
         ({k: f[k] for k in ("severity", "rule", "title", "endpoint", "severity_basis") if k in f} for f in F),
         key=lambda d: json.dumps(d, sort_keys=True),
