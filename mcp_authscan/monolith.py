@@ -3110,6 +3110,8 @@ def main():
         _tc_basis = "tool-call probe REFUSED"
     elif _tc_out == "EXECUTED":
         _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
+    elif _tc_out == "UNKNOWN":
+        _tc_basis = "tool-call probe UNKNOWN"
     else:
         _tc_basis = "no write or execute observed"
     if t:
