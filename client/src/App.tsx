@@ -11,6 +11,7 @@ import { PageMetadata } from './PageMetadata';
 import SampleAssessment from './SampleAssessment';
 import Assessments from './Assessments';
 import RequestAssessment from './RequestAssessment';
+import BlastRadius from './BlastRadius';
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -208,6 +209,7 @@ function ClerkRoutes() {
         <Route path="/assessments" component={Assessments} />
         <Route path="/request-assessment" component={RequestAssessment} />
         <Route path="/sample-assessment" component={SampleAssessment} />
+        <Route path="/blast-radius" component={BlastRadius} />
         <Route path="/user-portal" component={UserPortalRoute} />
         <Route path="/join-team" component={JoinTeamRoute} />
         <Route path="/success"><Redirect to="/user-portal" /></Route>

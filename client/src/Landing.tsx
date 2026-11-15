@@ -66,6 +66,7 @@ export default function Landing() {
           <div className="service-teaser-actions">
             <a className="button" href={assessmentEmailFor()}>Email us to request an assessment</a>
             <Link className="button secondary" href="/assessments">Assessment details</Link>
+            <Link className="button secondary" href="/blast-radius">Blast Radius</Link>
             <Link className="text-link" href="/request-assessment">No email app? See email instructions</Link>
           </div>
         </div>
