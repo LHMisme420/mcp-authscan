@@ -30,13 +30,14 @@ STANDARD_SEVERITIES = ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')
 
 
 def canonical_report_content(findings, severity_counts, scan_rows):
-    """Bind findings to each scan's target and counts, preserving database order."""
+    """Graded content only, no timestamps, so a second party can recompute it."""
     return {
-        'schema_version': 2,
+        'schema_version': 3,
+        'hash_scheme': 'pdf-recompute-v1',
         'scan_runs': [
             {key: row.get(key) for key in (
                 'target', 'status', 'total_checks', 'findings_count',
-                'started_at', 'completed_at', 'attested_at',
+                'probe_set_version', 'coverage',
             )}
             for row in scan_rows
         ],
@@ -47,12 +48,13 @@ def canonical_report_content(findings, severity_counts, scan_rows):
                 'rule': f.get('rule'),
                 'vector_type': f.get('vector_type'),
                 'severity': f.get('severity'),
+                'severity_basis': f.get('severity_basis'),
+                'endpoint': f.get('endpoint'),
                 'description': f.get('description'),
                 'remediation': f.get('remediation'),
-                'created_at': f.get('created_at'),
             }
             for f in findings
-        ]
+        ],
     }
 
 
