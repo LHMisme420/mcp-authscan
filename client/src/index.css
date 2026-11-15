@@ -203,6 +203,12 @@ a { color: inherit; }
 .skeleton + .skeleton { border-top: 1px solid var(--surface); }
 @keyframes shimmer { to { transform: translateX(100%); } }
 .auth-loading { display: grid; min-height: 100dvh; place-items: center; color: var(--muted); font: 12px var(--font-mono); }
+.auth-load-error { width: min(640px, calc(100% - 40px)); margin: 32px auto; padding: 28px; border: 1px solid #d8ddd2; border-radius: 14px; background: #fbfaf6; color: #202a28; font: 15px/1.65 var(--font-sans, sans-serif); overflow-wrap: anywhere; }
+.auth-load-error h1 { font-size: 25px; line-height: 1.25; }
+.auth-load-error code { font-size: 12px; }
+.auth-load-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 24px 0; }
+.auth-load-actions button { background: #185d4d; color: #fff; border: 0; border-radius: 6px; padding: 12px 16px; cursor: pointer; font: inherit; }
+.auth-load-actions a { color: #185d4d; text-decoration: underline; }
 .auth-page { display: grid; min-height: 100dvh; place-items: center; padding: 30px 18px; background: var(--paper); }
 .auth-page .brand { position: absolute; top: 28px; left: max(28px, calc((100vw - 1160px) / 2)); }
 .cl-rootBox { width: 100%; }
