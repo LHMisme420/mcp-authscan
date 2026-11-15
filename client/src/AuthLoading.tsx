@@ -4,7 +4,7 @@ import { checkAuthReadiness, type AuthReadinessResult } from './authReadiness';
 const basePath = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
 
 export function AuthLoading({
-  timeoutMs = 8000,
+  timeoutMs = 2000,
   check = checkAuthReadiness,
 }: {
   timeoutMs?: number;

@@ -40,7 +40,7 @@ test('network failures and hung requests never invent an HTTP status', async () 
   assert.equal(hung.status, 'Timed out — no HTTP status received');
 });
 
-test('workspace loading becomes an accessible error with status and recovery links', async () => {
+test('workspace loading becomes an accessible error after the default two seconds', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/user-portal' });
   const previous = { window: globalThis.window, document: globalThis.document };
   Object.assign(globalThis, { window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true });
@@ -48,10 +48,11 @@ test('workspace loading becomes an accessible error with status and recovery lin
   let checks = 0;
   const check = async () => { checks++; return { request: '/api/__clerk/v1/environment', status: 'HTTP 403' }; };
   try {
-    await act(async () => { root.render(<AuthLoading timeoutMs={10} check={check} />); });
+    await act(async () => { root.render(<AuthLoading check={check} />); });
     assert.match(dom.window.document.body.textContent!, /Loading secure workspace/);
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 2100)); });
     assert.match(dom.window.document.querySelector('[role="alert"]')!.textContent!, /HTTP 403/);
+    assert.match(dom.window.document.body.textContent!, /within 2 seconds/);
     assert.doesNotMatch(dom.window.document.body.textContent!, /Loading secure workspace…/);
     assert.equal(dom.window.document.querySelector('a')?.getAttribute('href'), '/sign-in?redirect_url=%2Fuser-portal');
     assert.equal(checks, 1);
