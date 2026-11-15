@@ -612,13 +612,15 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
         try:
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
+                    _raw = resp.read(65536).decode("utf-8", "replace")
+                    if "jsonrpc" not in _raw:
+                        return None, None
                     _de, _di = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
                     if _de:
                         print('[*] metadata names an authorization server, assessing OAuth not zero-auth', file=sys.stderr)
                         return _de, _di
                     # Unauthenticated access - zero-auth vulnerability detected
                     print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
-                    _raw = resp.read(65536).decode("utf-8", "replace")
                     _zb = sse_payload(_raw)
                     _sev, _basis = grade_zero_auth(_zb)
                     zero_auth_info = {
@@ -2505,7 +2507,17 @@ def main():
                          "update, create, set, drop, exec, run, send, post, admin, revoke. A refused call "
                          "replaces the zero-auth finding with 'handshake open, tool call refused'. Off by default")
 
+    ap.add_argument("--brief", action="store_true",
+                    help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
+
     args = ap.parse_args()
+    if args.brief and (args.json or args.html or args.sarif):
+        ap.error("--brief applies to the text output; it cannot be combined with --json, --html or --sarif")
+    # --brief changes only what prints: everything that would go to stdout goes to devnull
+    # (or only to the --output file), and the VERDICT line alone reaches the terminal.
+    verdict_out = sys.stdout
+    if args.brief:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
     if args.output and not (args.html or args.json):
         sys.stdout = open_tee(args.output)
 
@@ -3235,6 +3247,7 @@ def main():
                     if ev:
                         print("  EVIDENCE: %s" % ev)
                     print("")
+            print_verdict(F, counts, target_host, verdict_out if args.brief else None)
             sys.exit(exit_code)  # halted scan exits on its findings
 
         if tool_call_probe is not None:
@@ -3353,8 +3366,32 @@ def main():
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
         else:
             print(f"{len(F)} finding(s).")
+        print_verdict(F, counts, target_host, verdict_out if args.brief else None)
 
     sys.exit(exit_code)
+
+
+def verdict_grade(findings, counts):
+    """Printed grade only: reads the severities already on the findings, never re-grades."""
+    severities = {f.get("severity") for f in findings}
+    for sev in ("CRITICAL", "HIGH", "MEDIUM"):
+        if sev in severities:
+            return sev
+    # Nothing at MEDIUM or above: PASS only if some probe reached a verdict (PASS or FAIL),
+    # the same "conclusive" count counts.verdict_line uses; otherwise INCONCLUSIVE, never PASS.
+    if counts.get("PASS", 0) + counts.get("FAIL", 0) > 0:
+        return "PASS"
+    return "INCONCLUSIVE"
+
+
+def print_verdict(findings, counts, host, brief_out=None):
+    line = "VERDICT %s | %s | %d findings | %d passed | %d not observed | %d excluded | probe set %s" % (
+        verdict_grade(findings, counts), host, len(findings), counts.get("PASS", 0),
+        counts.get("NOT_OBSERVED", 0), counts.get("EXCLUDED", 0), PROBE_SET_VERSION)
+    print(line)
+    if brief_out is not None:
+        print(line, file=brief_out)
+        brief_out.flush()
 
 
 EXIT_CONTRACT = "2026.11.02.4"
