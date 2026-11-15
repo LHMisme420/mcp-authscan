@@ -2638,7 +2638,8 @@ def main():
                 "response_status": discovery_info.get("response_status", 200),
                 "response_body": discovery_info.get("response_body", ""),
                 "response_preview": discovery_info.get("response_preview", "HTTP 200 - MCP endpoint accessible"),
-                "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+                # Set from the tool-call probe outcome once it is known (see severity_basis).
+                "interpretation": "MCP server requires no authentication.",
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
@@ -3114,6 +3115,22 @@ def main():
         _tc_basis = "tool-call probe UNKNOWN"
     else:
         _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
+    _tc_open = "MCP server completed the handshake with no authentication" + (
+        " and listed %d tool(s)." % t if t else ".")
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_interp = _tc_open + " Tool invocation was not tested (tool-call probe not run)."
+    elif _tc_out == "REFUSED":
+        _tc_interp = _tc_open + " The tool-call probe was refused without a credential, so tool invocation was not shown to be open."
+    elif _tc_out == "EXECUTED":
+        _tc_interp = ("MCP server requires no authentication. Any client can call tools, resources and prompts. "
+                      "The tool-call probe executed %s with no credential." % (tool_call_probe.get("tool") or "none"))
+    elif _tc_out == "UNKNOWN":
+        _tc_interp = _tc_open + " The tool-call probe ran but its result was inconclusive (UNKNOWN), so tool invocation was not established."
+    else:
+        _tc_interp = _tc_open + " The tool-call probe returned unexpected outcome %r, so tool invocation was not established." % (_tc_out,)
+    for f in F:
+        if f.get("rule") == "ZERO-AUTH":
+            f["interpretation"] = _tc_interp
     if t:
      for f in F:
       if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
