@@ -3113,7 +3113,7 @@ def main():
     elif _tc_out == "UNKNOWN":
         _tc_basis = "tool-call probe UNKNOWN"
     else:
-        _tc_basis = "no write or execute observed"
+        _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
     if t:
      for f in F:
       if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
