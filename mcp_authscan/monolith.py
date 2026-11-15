@@ -3103,11 +3103,20 @@ def main():
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
     t=((canonical_payload.get("content_observed") or {}).get("inspected") or {}).get("tools") or 0
+    _tc_out = tool_call_probe.get("outcome") if tool_call_probe is not None else None
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_basis = "tool-call probe not run"
+    elif _tc_out == "REFUSED":
+        _tc_basis = "tool-call probe REFUSED"
+    elif _tc_out == "EXECUTED":
+        _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
+    else:
+        _tc_basis = "no write or execute observed"
     if t:
      for f in F:
       if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
        f["severity"]="HIGH"
-       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, no write or execute observed"
+       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
