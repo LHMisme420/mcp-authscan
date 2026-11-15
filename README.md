@@ -144,3 +144,9 @@ Contact: lhmisme2011@gmail.com
 ## How severities are graded
 
 A finding's grade describes what the response demonstrated, not what the absence of a control might imply. A zero-auth endpoint serving public read data is MEDIUM, and that is a correct grade rather than a downgrade. CRITICAL is reserved for a zero-auth response that positively demonstrates a sensitive surface, a tool whose name shows a write, delete, or execute action. Every zero-auth finding records a `severity_basis` naming what decided its grade, and a report containing one is stamped with the severity calibration version so two reports can be compared honestly.
+
+## Does the grader get the right answer?
+
+Every fixture in bench/answer-key has a known correct grade. Run
+python3 bench/answer-key/run_key.py and it prints hit or miss per fixture.
+See [bench/answer-key](bench/answer-key/README.md).
