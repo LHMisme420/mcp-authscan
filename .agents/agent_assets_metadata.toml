@@ -42,3 +42,45 @@ mtime_ms = 1792159510496
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/a8c35b1e-00ff-42e0-800b-0e61d6fe85df/441aa978-bd11-4121-9741-e258125857f1"
 storage_version_token = "1792159515280751"
 content_type = "image/png"
+
+[[outputs]]
+id = "qahkdm-9vsGpbCkcj8jku"
+uri = "file://generated-artifacts/report-parity/synthetic-web-export.pdf"
+type = "pdf"
+title = "Synthetic web PDF — schema 3"
+description = "Actual protected web export of one recorded loopback fixture scan. Clearly labeled synthetic; no client or production data."
+logical_id = "3d1f948f-d0a5-4930-92cb-ad2051346ebf"
+content_hash = "sha256:9b83e4aeb245be9511956c1e3c52a3f70e42cdb779877056efd90dc869dbbb85"
+size = 3531
+mtime_ms = 1794749471755
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/3d1f948f-d0a5-4930-92cb-ad2051346ebf/849927f5-1da0-4754-ab05-7301d3e3649e"
+storage_version_token = "1794749557529613"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "O1McYFmd5tL4LrFQygTml"
+uri = "file://generated-artifacts/report-parity/synthetic-web-export.json"
+type = "unspecified"
+title = "Matching web JSON export"
+description = "Complete canonical scan content and matching SHA-256 digest; no finding truncation."
+logical_id = "26a9e1b5-ab59-45b4-b10a-d03c9f9dc7d3"
+content_hash = "sha256:1bd17374059b7e6871a86338c1e4d34dd0df76085a2294de5c037eb6e4fc6070"
+size = 2446
+mtime_ms = 1794749471755
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/26a9e1b5-ab59-45b4-b10a-d03c9f9dc7d3/6fc0e816-9ca6-48b8-a1f2-bf2bb2fd03bb"
+storage_version_token = "1794749558014735"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "eNiJDnin8x5tx1fHVoEGA"
+uri = "file://generated-artifacts/report-parity/synthetic-cli-report.json"
+type = "unspecified"
+title = "CLI report for the same recorded scan"
+description = "Actual CLI output from the owned loopback fixture. Its SHA-256 matches the web JSON and PDF."
+logical_id = "3f1ce672-39e9-4eac-8cb1-ce0c7ef91101"
+content_hash = "sha256:7db5086d355e4d480c638f0d5851ba59ec1b18e7ccb5b2e33abc6a5dd5e49ed1"
+size = 12611
+mtime_ms = 1794749471251
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/3f1ce672-39e9-4eac-8cb1-ce0c7ef91101/0b556bd1-1f01-4680-b55d-09ad4dc0e5f8"
+storage_version_token = "1794749558462822"
+content_type = "application/octet-stream"

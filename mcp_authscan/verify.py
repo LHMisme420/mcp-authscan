@@ -148,6 +148,8 @@ def main(argv=None):
             "report was produced with hash scheme %s, this is %s, install the recorded version to reproduce it"
             % (payload.get("hash_scheme"), HASH_SCHEME)
         )
+    if payload.get("schema_version") != 3:
+        return _refuse("requires schema version 3; legacy verdict-v3 hashes are not reinterpreted")
     if payload.get("probe_set_version") != PROBE_SET_VERSION:
         return _refuse(
             "report was produced with %s, this is %s, install the recorded version to reproduce it"
@@ -156,7 +158,10 @@ def main(argv=None):
     target = payload.get("target")
     if not isinstance(target, str) or not target:
         return _refuse("target absent")
-    self_hash = compute(payload, payload.get("findings") or [])[0]
+    try:
+        self_hash = compute(payload, payload.get("findings") or [])[0]
+    except (ValueError, TypeError):
+        return _refuse("invalid or incomplete schema-3 report")
     if self_hash != payload["report_hash"]:
         print("INTEGRITY")
         print("report_hash")

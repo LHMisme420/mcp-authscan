@@ -12,6 +12,10 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Single-scan web and CLI exports share the exact `verdict-v3` schema-3 canonical hash. Covered fields include probe version, coverage, severity counts and complete finding descriptions/remediation; timestamps and session/header metadata are excluded. Separate web single-scan PDF/JSON exports preserve the existing organization summary. Earlier hashes are not silently reinterpreted.
+- Probe set stamp `2026.11.15.1` records the report-contract change tracked by the source fingerprint guard; no probe execution or grading behavior changed.
+
 ### Added
 - Rate limiting is now probed and reported: a 429 inside the authorised budget passes, no 429 inside it is not observed, and a scan with no budget is excluded with the reason named.
 

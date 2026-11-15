@@ -1,4 +1,5 @@
 # Local findings exports must not be included in published builds.
+/generated-artifacts/
 vata_findings_backup.json
 
 # The web app installs requirements-runtime.txt explicitly with a writable prefix.

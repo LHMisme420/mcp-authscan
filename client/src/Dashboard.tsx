@@ -423,6 +423,13 @@ export default function Dashboard({ account, setAccount, userEmail, userId, onSi
                         <p className="scan-meta">{scan.findings_count} finding(s) · {scan.critical_count} critical · {scan.high_count} high{scan.compliance_score !== null && scan.compliance_score !== undefined ? ` · compliance ${scan.compliance_score}%` : ''}</p>
                       </>}
                     <time className="scan-date">{formatDate(scan.completed_at || scan.started_at)}</time>
+                    {scan.status === 'completed' && <p className="scan-meta">
+                      Single-scan schema-3 export:{' '}
+                      <a href={`/api/reports/pdf?scan_id=${encodeURIComponent(scan.id)}&format=pdf`} target="_blank" rel="noopener noreferrer">PDF</a>
+                      {' · '}
+                      <a href={`/api/reports/pdf?scan_id=${encodeURIComponent(scan.id)}&format=json`} target="_blank" rel="noopener noreferrer">JSON</a>
+                      {' · Legacy scans without recorded evidence cannot be verified.'}
+                    </p>}
                   </article>
                 ))}</div>
                 : !scans.error && <div className="empty-state"><strong>No scans have been run yet.</strong><span>Use the scan form to review an authorized MCP server. Results will appear here.</span></div>}

@@ -40,3 +40,8 @@ def initialize_database(db_file):
         conn.execute('''CREATE TABLE IF NOT EXISTS scan_authorizations (
             id INTEGER PRIMARY KEY, org_id TEXT, target TEXT,
             attested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        # Full per-scan report snapshots are separate from the capped, legacy
+        # organization summary. Never backfill missing historical evidence.
+        conn.execute('''CREATE TABLE IF NOT EXISTS scan_report_snapshots (
+            scan_id INTEGER PRIMARY KEY, org_id INTEGER NOT NULL,
+            canonical_json TEXT NOT NULL, report_hash TEXT NOT NULL)''')

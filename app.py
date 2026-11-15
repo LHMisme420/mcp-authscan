@@ -11,6 +11,7 @@ from mcp_authscan.repository_scan import RepositoryScanner, is_github_target, sc
 from mcp_authscan.tiers import reserve_scan
 from mcp_authscan.findings_schema import initialize_database
 from mcp_authscan.compliance_pdf import MAX_REPORTED_FINDINGS, generate_compliance_pdf, compute_canonical_findings_hash, canonical_report_content
+from mcp_authscan.scan_report import checks_payload, save_snapshot, load_snapshot, pdf as single_scan_pdf
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET') or os.getenv('SESSION_SECRET')
@@ -190,6 +191,8 @@ def compliance_pdf_report():
     export_format = request.args.get('format', 'pdf')
     if export_format not in ('pdf', 'json'):
         return jsonify(error='Report format must be pdf or json.'), 400
+    if 'scan_id' in request.args:
+        return single_scan_report(org_id, request.args.get('scan_id'), export_format)
     try:
         with closing(sqlite3.connect(
             Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=15,
@@ -249,6 +252,47 @@ def compliance_pdf_report():
         BytesIO(pdf), mimetype='application/pdf', as_attachment=True,
         download_name='vata-compliance-summary.pdf', max_age=0,
     )
+
+
+def single_scan_report(org_id, raw_scan_id, export_format):
+    """Separate export: never substitute one scan's hash for the org summary."""
+    if not raw_scan_id or not raw_scan_id.isascii() or not raw_scan_id.isdecimal() or len(raw_scan_id) > 18:
+        return jsonify(error='Enter a valid scan id.'), 400
+    scan_id = int(raw_scan_id)
+    try:
+        with closing(sqlite3.connect(
+            Path(DB_FILE).resolve().as_uri() + '?mode=ro', uri=True, timeout=15,
+        )) as conn:
+            conn.execute('BEGIN')
+            if conn.execute('SELECT 1 FROM scan_runs WHERE id=? AND org_id=?',
+                            (scan_id, org_id)).fetchone() is None:
+                return jsonify(error='Scan not found.'), 404
+            # Databases captured before schema 3 have no snapshots. Reading an
+            # export must never perform schema changes or fabricate old coverage.
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_report_snapshots'").fetchone() is None:
+                report = None
+            else:
+                report = load_snapshot(conn, org_id, scan_id)
+            organization = conn.execute('SELECT name FROM organizations WHERE id=?', (org_id,)).fetchone()
+            workspace_name = organization[0] if organization else None
+        if report is None:
+            return jsonify(error='Schema-3 evidence was not recorded for this scan. A new authorized scan is required.',
+                           code='REPORT_NOT_REPRODUCIBLE'), 409
+        if export_format == 'json':
+            response = jsonify(report)
+            response.headers['Cache-Control'] = 'no-store'
+            return response
+        response = send_file(
+            BytesIO(single_scan_pdf(report, workspace_name)), mimetype='application/pdf', as_attachment=True,
+            download_name=f'mcp-authscan-scan-{scan_id}.pdf', max_age=0,
+        )
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except (ValueError, TypeError):
+        return jsonify(error='The stored report failed integrity verification.',
+                       code='REPORT_INTEGRITY_FAILED'), 409
+    except sqlite3.Error:
+        return jsonify(error='The single-scan report is temporarily unavailable.'), 503
 
 
 @app.get('/api/threat-intelligence')
@@ -323,6 +367,14 @@ def run_scan():
             conn.execute('''UPDATE scan_runs SET status='completed',total_checks=?,findings_count=?,
                 critical_count=?,high_count=?,compliance_score=?,completed_at=CURRENT_TIMESTAMP
                 WHERE id=? AND org_id=?''', (len(checks), len(failed), critical, high, score, scan_id, org_id))
+            # Stamp the actual scanner implementation, not the CLI probe version:
+            # the web check engine is different and does not track full coverage.
+            import hashlib
+            source = b''.join((Path(__file__).parent / 'mcp_authscan' / name).read_bytes()
+                              for name in ('scanner.py', 'repository_scan.py', 'monolith.py'))
+            version = 'web-source-sha256:' + hashlib.sha256(source).hexdigest()
+            save_snapshot(conn, org_id, scan_id,
+                          checks_payload(scanner.target_url, checks, version))
     except Exception as error:
         message = str(error) if isinstance(error, ScanError) else 'Scan could not be completed. Please retry.'
         app.logger.warning('Scan failed: %s', type(error).__name__)

@@ -12,6 +12,7 @@
 *.bak
 *.clean
 *.db
+/generated-artifacts/
 *.db-*
 *.dump
 *.egg

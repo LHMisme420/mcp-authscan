@@ -10,6 +10,11 @@ from mcp_authscan import verify
 def _minimal_payload():
     data = {
         "target": "http://127.0.0.1:9002/mcp",
+        "status": "completed",
+        "total_checks": 0,
+        "findings_count": 0,
+        "severity_counts": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0},
+        "schema_version": 3,
         "scan_mode": "LIVE_ENDPOINT_ASSESSMENT",
         "probe_set_version": PROBE_SET_VERSION,
         "probes": [],
@@ -55,7 +60,7 @@ def test_self_consistent_report_matches(tmp_path, monkeypatch, capsys):
 
 def test_edited_content_fails_integrity(tmp_path, monkeypatch, capsys):
     payload = _minimal_payload()
-    payload["counts"] = {"pass": 99}
+    payload["total_checks"] = 99
     path = _write(tmp_path, payload)
 
     def fake_rerun(target, extra_args):
@@ -73,7 +78,7 @@ def test_rerun_drift_diverges(tmp_path, monkeypatch, capsys):
     payload = _minimal_payload()
     path = _write(tmp_path, payload)
     drifted = json.loads(json.dumps(payload))
-    drifted["counts"] = {"pass": 1}
+    drifted["total_checks"] = 1
 
     def fake_rerun(target, extra_args):
         return drifted

@@ -1,4 +1,5 @@
 - [Imported Python setup](imported-python-setup.md) — Nix pre-install conflicts; separate the interpreter from package installation and verify cold startup, not cached imports.
+- [CLI test runtime](cli-test-runtime.md) — working Flask imports do not prove the CLI can start; require installed distribution metadata and a valid emitted report.
 - [Preview HTTP routing](preview-http-routing.md) — local health can be 200 while the main Preview domain routes to the websocket listener and returns 426.
 - [Configuration and toolchains](configuration-toolchain-validity.md) — invalid Replit configuration can temporarily remove toolchain commands from the shell environment.
 - [Published startup evidence](published-startup-evidence.md) — compare production forwarding and bind logs; matched production and Preview ports may deliberately differ.

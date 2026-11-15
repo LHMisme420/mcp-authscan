@@ -1,7 +1,7 @@
 import json
 from mcp_authscan import report_verify as rv
 def base():
-    p={"target":"http://127.0.0.1:9100/mcp","scan_mode":"LIVE_ENDPOINT_ASSESSMENT","probe_set_version":"2026.11.07.2","probes":["b","a"],"counts":{"pass":1},"coverage":{},"completed":["a","b"],"not_implemented":[],"not_tested":[],"scope":"local","exit_contract":"2026.11.02.4","exit_condition":"findings","exit_code":1,"fail_on":"high","authorization":"self","hash_scheme":rv.HASH_SCHEME}
+    p={"target":"http://127.0.0.1:9100/mcp","status":"completed","total_checks":1,"findings_count":1,"probe_set_version":"2026.11.07.2","coverage":1.0,"severity_counts":{"CRITICAL":0,"HIGH":1,"MEDIUM":0,"LOW":0,"INFO":0},"schema_version":3,"hash_scheme":rv.HASH_SCHEME}
     f=[{"severity":"HIGH","rule":"MCPC-1","title":"t","endpoint":"http://x/mcp","severity_basis":"b"}]
     p["findings"]=f
     p["report_hash"],_=rv.compute(p,f)
@@ -19,7 +19,7 @@ def test_scheme_mismatch(tmp_path):
     assert rv.verify(str(fp))[0]=="NOT_REPRODUCIBLE"
 def test_tampered(tmp_path):
     p=base()
-    p["counts"]={"pass":2}
+    p["total_checks"]=2
     fp=tmp_path/"r.json"
     fp.write_text(json.dumps(p))
     assert rv.verify(str(fp))[0]=="MISMATCH"

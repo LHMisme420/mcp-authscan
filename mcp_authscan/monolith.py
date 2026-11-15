@@ -1012,7 +1012,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.10.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.15.1"  # Includes the schema-3 report contract; no probe behavior changed.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2399,7 +2399,9 @@ def generate_html_report(findings, target, output_file, payload=None):
         '<h2>Findings</h2>', body,
         "<p>%s</p>" % escape(footer_line(payload)),
         '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
-        '<p>Hash covers: %s.</p><p>Evidence and remediation text are outside the hash.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
+        '<p>Schema version 3 (verdict-v3). Hash covers: %s.</p>'
+        '<p>Finding descriptions and remediation are covered; raw response evidence, '
+        'timestamps, session IDs and server-varying headers are excluded.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
         '</div></body></html>',
     ])
 
@@ -3072,25 +3074,23 @@ def main():
     canonical_payload["exit_condition"] = exit_condition
     canonical_payload["exit_code"] = exit_code
     canonical_payload["fail_on"] = args.fail_on
-    # The hash covers the verdict structure only. Evidence and detail prose can carry
-    # values the server generates per run, so it is excluded by construction here
-    # rather than redacted case by case.
-    HASHED_KEYS = (
-        "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage", "completed",
-        "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
-        "exit_code", "fail_on", "authorization", "hash_scheme",
-    )
-    hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
-    if isinstance(hashed.get("probes"), list):
-        hashed["probes"] = sorted(str(p) for p in hashed["probes"])
-    hashed["findings"] = sorted(
-        ({k: f[k] for k in ("severity", "rule", "title", "endpoint", "severity_basis") if k in f} for f in F),
-        key=lambda d: json.dumps(d, sort_keys=True),
-    )
-    payload_json = json.dumps(hashed, sort_keys=True)
-    payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+    from mcp_authscan.report_verify import compute, severity_counts
+    canonical_payload["schema_version"] = 3
+    canonical_payload["status"] = "completed" if not halted else "incomplete"
+    canonical_payload["total_checks"] = counts["in_scope"]
+    canonical_payload["findings_count"] = len(F)
+    # Explicit adapters preserve the CLI's original title/detail fields outside
+    # the shared hash. The covered description is the stable finding description.
+    for finding in F:
+        finding.setdefault("server_name", args.target)
+        finding.setdefault("vector_type", finding.get("rule"))
+        finding.setdefault("description", finding.get("title"))
+        for key in ("rule", "severity", "severity_basis", "endpoint", "remediation"):
+            finding.setdefault(key, None)
+    canonical_payload["severity_counts"] = severity_counts(F)
+    payload_hash, covered = compute(canonical_payload, F)
     canonical_payload["report_hash"] = payload_hash
-    canonical_payload["hash_covers"] = sorted(hashed)
+    canonical_payload["hash_covers"] = covered
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report

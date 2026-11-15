@@ -36,6 +36,9 @@ export async function sourceSnapshot(root) {
   const files = [
     'package.json', 'package-lock.json', 'vite.config.ts', 'client/index.html',
     'app.py', 'requirements-runtime.txt', '.replitignore',
+    'mcp_authscan/report_verify.py', 'mcp_authscan/scan_report.py',
+    'mcp_authscan/findings_schema.py', 'mcp_authscan/monolith.py',
+    'mcp_authscan/scanner.py', 'mcp_authscan/repository_scan.py',
     'scripts/deployment-build.sh', 'scripts/deployment-web.mjs',
     'scripts/build-web.mjs', 'scripts/web-build-integrity.mjs',
     ...await filesIn(root, 'client/src'),

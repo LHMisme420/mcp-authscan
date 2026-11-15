@@ -1,6 +1,16 @@
 {
   "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
   "stamps": {
+    "2026.11.15.1": {
+      "changed": "2026-11-15, schema-3 report release records the actual current probe source, which did not match the previously declared stamp. This release changes hashing, not probe execution or grading.",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "f78e90498bc7536900b8836512fa800cf50036f3a2ea2a3ab5c3b25170cb1675"
+      },
+      "fingerprint": "fc9c74c466939cf2882ffc048fca701c2810b317cfbe22d98fe2154546f3e708"
+    },
     "2026.11.04.1": {
       "changed": "2026-11-04, roots now resolve across oauth_probes_v2 and target_probes, so the guard covers cors_probe, rate_limit_probe and everything they reach; every component was recomputed with them included.",
       "components": {

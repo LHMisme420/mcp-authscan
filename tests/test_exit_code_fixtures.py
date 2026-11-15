@@ -106,22 +106,22 @@ class ScopePayloadTests(unittest.TestCase):
              'http://127.0.0.1:%d/mcp' % port, *AUTH, '--json', *extra],
             cwd=ROOT, capture_output=True, text=True, timeout=45,
         )
-        self.assertEqual(result.returncode, 0,
-                         'Expected 0, got %d\n%s' % (result.returncode, result.stderr))
+        self.assertEqual(result.returncode, 1,
+                         'Findings fixture must exit 1, got %d\n%s' % (result.returncode, result.stderr))
         text = result.stdout
         start = text.find('{')
         self.assertGreaterEqual(start, 0, 'No JSON payload in stdout:\n' + text)
         return json.loads(text[start:])
 
     def test_supplied_scope_reaches_payload(self):
-        with fixture('test_fixture_coverage_100.py', 9000):
-            payload = self.payload(9000, ['--scope', 'Authorized MCP audit, fixtures only'])
+        with fixture('test_fixture_with_findings.py', 9002):
+            payload = self.payload(9002, ['--scope', 'Authorized MCP audit, fixtures only'])
             self.assertEqual(payload['scope'], 'Authorized MCP audit, fixtures only')
 
     def test_scope_falls_back_when_not_supplied(self):
-        with fixture('test_fixture_coverage_100.py', 9000):
-            payload = self.payload(9000, [])
-            expected = 'OAuth authorization server configuration for http://127.0.0.1:9000/mcp'
+        with fixture('test_fixture_with_findings.py', 9002):
+            payload = self.payload(9002, [])
+            expected = 'OAuth authorization server configuration for http://127.0.0.1:9002/mcp'
             self.assertEqual(payload['scope'], expected)
 
 
@@ -143,37 +143,39 @@ class HashCoverageTests(unittest.TestCase):
              'http://127.0.0.1:%d/mcp' % port, *AUTH, '--json', *(extra or [])],
             cwd=ROOT, capture_output=True, text=True, timeout=45,
         )
-        self.assertEqual(result.returncode, 0, 'Expected 0, got %d' % result.returncode)
+        self.assertEqual(result.returncode, 1, 'Findings fixture must exit 1, got %d' % result.returncode)
         text = result.stdout
         return json.loads(text[text.find('{'):])
 
     def test_hash_stable_across_runs(self):
-        with fixture('test_fixture_coverage_100.py', 9000):
-            self.assertEqual(self.payload(9000)['report_hash'], self.payload(9000)['report_hash'])
+        with fixture('test_fixture_with_findings.py', 9002):
+            self.assertEqual(self.payload(9002)['report_hash'], self.payload(9002)['report_hash'])
 
     def test_evidence_text_outside_hash(self):
-        with fixture('test_fixture_coverage_100.py', 9000):
-            covers = self.payload(9000)['hash_covers']
+        with fixture('test_fixture_with_findings.py', 9002):
+            covers = self.payload(9002)['hash_covers']
             self.assertIn('findings', covers)
             self.assertNotIn('evidence', covers)
 
-    def test_supplied_scope_changes_hash(self):
-        with fixture('test_fixture_coverage_100.py', 9000):
-            first = self.payload(9000, ['--scope', 'first'])['report_hash']
-            second = self.payload(9000, ['--scope', 'second'])['report_hash']
-            self.assertNotEqual(first, second)
+    def test_scope_is_outside_exact_schema_three_projection(self):
+        with fixture('test_fixture_with_findings.py', 9002):
+            first = self.payload(9002, ['--scope', 'first'])['report_hash']
+            second = self.payload(9002, ['--scope', 'second'])['report_hash']
+            self.assertEqual(first, second)
 
 
 class HashSchemeTests(unittest.TestCase):
     def test_payload_declares_its_hash_scheme(self):
-        with fixture('test_fixture_coverage_100.py', 9000):
+        with fixture('test_fixture_with_findings.py', 9002):
             result = subprocess.run(
                 [sys.executable, str(ROOT / 'mcp_authscan.py'),
-                 'http://127.0.0.1:9000/mcp', *AUTH, '--json'],
+                 'http://127.0.0.1:9002/mcp', *AUTH, '--json'],
                 cwd=ROOT, capture_output=True, text=True, timeout=45,
             )
-            self.assertEqual(result.returncode, 0, 'Expected 0, got %d' % result.returncode)
+            self.assertEqual(result.returncode, 1, 'Expected findings exit 1, got %d' % result.returncode)
             text = result.stdout
             payload = json.loads(text[text.find('{'):])
             self.assertEqual(payload['hash_scheme'], 'verdict-v3')
-            self.assertIn('hash_scheme', payload['hash_covers'])
+            self.assertEqual(payload['schema_version'], 3)
+            self.assertNotIn('hash_scheme', payload['hash_covers'])
+            self.assertNotIn('scope', payload['hash_covers'])

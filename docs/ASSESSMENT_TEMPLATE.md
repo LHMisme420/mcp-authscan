@@ -87,8 +87,9 @@ Not yet performed. Completed after remediation.
 ## 8. Integrity
 
 - Content hash: {{HASH}}
-- The hash covers: target, authorization, scan mode, verdicts and findings.
-- The hash does not cover: elapsed time, timestamps, server-varying headers, tool version, this scope statement, or finding detail text.
+- Schema version 3 (`verdict-v3`) covers exactly target, status, total_checks, findings_count, probe_set_version, coverage, severity_counts, and each finding's server_name, rule, vector_type, severity, severity_basis, endpoint, description and remediation.
+- Serialize with `json.dumps(canonical_report, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False).encode('utf-8')`, then SHA-256 hex. Sort finding objects by those same canonical JSON bytes; preserve duplicates and nulls.
+- The hash does not cover elapsed time, timestamps (including authorization timestamps), session IDs, raw response evidence, server-varying headers, tool version, or this scope statement. It is not a signature or proof that testing occurred.
 - Reproduce: {{REPRO_COMMAND}}
 
 ## 9. Signature
