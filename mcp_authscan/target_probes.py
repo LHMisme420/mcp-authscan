@@ -80,10 +80,11 @@ def run_target_probes(target_url, allowed_hosts=None, allow_private=False, rate_
     except Exception as e:
         rec = record(CORS_PROBE_ID, "cross-origin read on the MCP endpoint", "NOT_OBSERVED", limitation=str(e), endpoint=target_url)
     rate_rec = rate_limit_probe(target_url, count=rate_limit_count, window=rate_limit_window, allowed_hosts=allowed_hosts, allow_private=allow_private)
-    records = [rec, rate_rec]
+    t_rec = altprobe(target_url, allowed=allowed_hosts)
+    records = [rec, rate_rec, t_rec]
     if rec.status != "FAIL":
-        return records, []
-    return records, [{
+        return records, t_findings(target_url, t_rec)
+    return records, t_findings(target_url, t_rec) + [{
         "rule": "CORS-1",
         "owasp": None,
         "severity": rec.severity or "HIGH",
@@ -169,3 +170,5 @@ def rate_limit_probe(url, count=None, window=None, allowed_hosts=None,
                   limitation="no 429 observed inside the authorised budget of %d requests in %d seconds" % (count, window),
                   endpoint=url)
 
+
+from mcp_authscan.transportprobe import altprobe, t_findings

@@ -1,0 +1,6 @@
+import glob
+p = open("tp.txt").read().replace("~", chr(95))
+L = list(map(lambda x: x.replace("A|", "".ljust(4)).replace("B|", "".ljust(8)).replace("C|", "".ljust(12)), p.split(chr(10))))
+d = glob.glob("mcp?authscan")[0]
+open(d + "/transportprobe.py", "w").write(chr(10).join(L))
+print("wrote", len(L))
