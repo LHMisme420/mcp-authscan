@@ -1,0 +1,22 @@
+import sys
+import glob
+import importlib
+d = glob.glob("mcp?authscan")[0]
+m = importlib.import_module(d + ".transportprobe")
+S = chr(47)
+tally = {}
+for line in open(sys.argv[1]):
+A|u = line.strip()
+A|if not u:
+B|continue
+A|if not u.startswith("http"):
+B|u = "https:" + S + S + u.lstrip(S)
+A|try:
+B|r = m.altprobe(u)
+B|tally[r.status] = tally.get(r.status, 0) + 1
+B|print(r.status, u, r.limitation)
+A|except Exception as e:
+B|tally["ERROR"] = tally.get("ERROR", 0) + 1
+B|print("ERROR", u, e)
+print("----")
+print(tally)
