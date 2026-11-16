@@ -45,18 +45,18 @@ def _scan(tmp_path, body):
     assert len(hits) == 1, data.get("findings")
     return hits[0], data
 def test_calib_write_tool_is_critical(tmp_path):
-    body = json.dumps({"result": {"tools": [{"name": "delete_record"}]}}).encode()
+    body = json.dumps({"jsonrpc": "2.0", "result": {"tools": [{"name": "delete_record"}]}}).encode()
     f, data = _scan(tmp_path, body)
     assert f["severity"] == "CRITICAL"
     assert "delete" in f["severity_basis"]
     assert data["severity_calibration_version"] == "2026.11.07.1"
 def test_calib_read_only_tools_are_high(tmp_path):
-    body = json.dumps({"result": {"tools": [{"name": "list_items"}, {"name": "get_status"}]}}).encode()
+    body = json.dumps({"jsonrpc": "2.0", "result": {"tools": [{"name": "list_items"}, {"name": "get_status"}]}}).encode()
     f, _ = _scan(tmp_path, body)
     assert f["severity"] == "HIGH"
     assert "none with a write" in f["severity_basis"]
 def test_calib_no_tools_is_medium(tmp_path):
-    body = json.dumps({"result": {"serverInfo": {"name": "x"}}}).encode()
+    body = json.dumps({"jsonrpc": "2.0", "result": {"serverInfo": {"name": "x"}}}).encode()
     f, _ = _scan(tmp_path, body)
     assert f["severity"] == "MEDIUM"
     assert "initialize response carried no tool list" in f["severity_basis"]

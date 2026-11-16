@@ -46,6 +46,12 @@ def cors_probe(mcp_url, allowed_hosts=None, allow_private=None):
     acao = (headers.get("access-control-allow-origin") or "").strip()
     acac = (headers.get("access-control-allow-credentials") or "").strip().lower()
 
+    if status in (401, 403):
+        return record(CORS_PROBE_ID, name, "EXCLUDED", http_status=status,
+        headers=headers, body=raw,
+        limitation="credential-free response needed; HTTP %s requires one" % status,
+        endpoint=mcp_url)
+
     if status in (401, 403, 404, 405) or status >= 500:
         return record(CORS_PROBE_ID, name, "NOT_OBSERVED", http_status=status,
                       headers=headers, body=raw,

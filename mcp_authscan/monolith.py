@@ -844,7 +844,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
         preflight_info = {"status": "PREFLIGHT_FAILED"}
     else:
-        preflight_info = {"status": "MCP_VERIFIED"}
+        preflight_info = {"status": "MCP_VERIFIED", "preflight_verified": True}
 
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
@@ -1048,7 +1048,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.10.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.11.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2500,7 +2500,7 @@ def main():
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
-    ap.add_argument("--probe-tools", action=argparse.BooleanOptionalAction, default=True,
+    ap.add_argument("--probe-tools", action=argparse.BooleanOptionalAction, default=False,
                     help="after a zero-auth handshake, send one unauthenticated tools/call (arguments {}) "
                          "to the first tool whose name is a read-only word (list, get, read, status, "
                          "version, ping, health, search, describe, info) and none of write, delete, remove, "
@@ -3191,7 +3191,7 @@ def main():
     except EgressRefusalError as e:
         print("[!] %s" % e, file=sys.stderr)
         canonical_payload["tools_digest"] = {"captured": False, "endpoint": args.target, "reason": "egress refused at capture"}
-    if tool_call_probe is not None:
+    if tool_call_probe is not None and getattr(args, "probe_tools", False):
         # Added after hashing, like tools_digest; present only with --probe-tools.
         canonical_payload["tool_call_probe"] = tool_call_probe
 
