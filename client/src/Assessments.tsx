@@ -1,6 +1,7 @@
 import { Link } from 'wouter';
 import PublicSiteLayout from './PublicSiteLayout';
 import { AssessmentMethodology, assessmentEmailFor } from './AssessmentSections';
+import PricingTiers from './PricingTiers';
 
 export default function Assessments() {
   return (
@@ -25,48 +26,7 @@ export default function Assessments() {
 
       <section className="landing-section commercial-section" aria-label="Assessment packages">
         <div className="wrap">
-          <div className="commercial-grid">
-            <article className="commercial-offer">
-              <div className="offer-topline"><span>Single server</span><strong className="offer-price">$1,750</strong></div>
-              <h2 className="commercial-offer-title">MCP Server Security Assessment</h2>
-              <p>One MCP server or a small set of endpoints, one written report, one retest.</p>
-              <ul className="package-includes">
-                <li>Handshake and supported protocol-security checks</li>
-                <li>An authorized tool-call check within agreed, supported scope</li>
-                <li>Written report signed by Leroy H. Mason</li>
-                <li>Observed evidence, severity rationale, and remediation guidance</li>
-                <li>One retest after remediation, when requested and agreed</li>
-              </ul>
-              <div className="offer-bottom">
-                <div className="offer-cta-stack">
-                  <a className="button" href={assessmentEmailFor('verification')}>Email us to request an assessment</a>
-                  <Link className="text-link" href="/request-assessment?package=verification">No email app? See email instructions</Link>
-                </div>
-                <span>Scope and written authorization before testing</span>
-              </div>
-            </article>
-            <article className="commercial-offer expanded">
-              <div className="offer-topline"><span>Full assessment</span><strong className="offer-price">$3,500</strong></div>
-              <h2 className="commercial-offer-title">Full MCP Security Assessment</h2>
-              <p>A server or fleet, one written report, one retest, and a call to walk your team through the findings.</p>
-              <ul className="package-includes">
-                <li>Mutually agreed scope across the server or fleet</li>
-                <li>Handshake and supported protocol-security checks</li>
-                <li>An authorized tool-call check within agreed, supported scope</li>
-                <li>Written report signed by Leroy H. Mason</li>
-                <li>Observed evidence, severity rationale, and remediation guidance</li>
-                <li>One retest after remediation, when requested and agreed</li>
-                <li>Walkthrough call to discuss the findings</li>
-              </ul>
-              <div className="offer-bottom">
-                <div className="offer-cta-stack">
-                  <a className="button" href={assessmentEmailFor('comprehensive')}>Email us to request an assessment</a>
-                  <Link className="text-link" href="/request-assessment?package=comprehensive">No email app? See email instructions</Link>
-                </div>
-                <span>Retest stays within agreed criteria and scope</span>
-              </div>
-            </article>
-          </div>
+          <PricingTiers emailHref={assessmentEmailFor()} />
           <div className="package-notice">
             Testing requires written authorization and is limited to agreed targets, available access, and supported techniques.
             The named report and authorized tool-call check are part of the paid agreed scope, not guaranteed coverage or tests

@@ -3,7 +3,7 @@
 export const PUBLIC_SITE_ORIGIN = 'https://mcpauth-scan.com';
 export const LEGACY_SITE_ORIGIN = 'https://mcp-authscan.replit.app';
 export const BRAND_NAME = 'VATA';
-export const HOME_DESCRIPTION = 'Independent MCP security assessments by Leroy H. Mason: a signed written review of your server’s authorization surface. Single server $1,750; full assessment $3,500. Agreed scope and written authorization required.';
+export const HOME_DESCRIPTION = 'Independent MCP security assessments by Leroy H. Mason: a signed, evidence-backed report with written scope and authorization before testing. Single-server assessment 1750 dollars; expanded assessment 3500 dollars; single-server assessment with publication 2500 dollars. No mandatory call.';
 
 export function metadataForPath(pathname: string) {
   const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
@@ -17,8 +17,8 @@ export function metadataForPath(pathname: string) {
   }
   if (path === '/assessment') {
     return {
-      title: 'An MCP AuthScan assessment | MCP AuthScan',
-      description: 'Evidence an enterprise buyer will accept. An independent assessment of your MCP surface, scoped and confirmed by email before any request is sent.',
+      title: 'Independent MCP Security Assessments | MCP AuthScan',
+      description: HOME_DESCRIPTION,
       canonical: `${PUBLIC_SITE_ORIGIN}/assessment`,
       robots: 'index, follow',
     };

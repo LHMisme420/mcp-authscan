@@ -1,6 +1,7 @@
 import { Link } from 'wouter';
 import PublicSiteLayout from './PublicSiteLayout';
 import { assessmentEmailFor } from './AssessmentSections';
+import PricingTiers from './PricingTiers';
 import './commercial.css';
 
 export default function Landing() {
@@ -11,10 +12,7 @@ export default function Landing() {
           <span className="eyebrow">Independent MCP security assessment</span>
           <h1>MCP security assessment your buyer&apos;s review will accept.</h1>
           <p>An independent, written review of your MCP server&apos;s authorization surface, signed by the researcher who ran it.</p>
-          <div className="assessment-offers" aria-label="Assessment offers">
-            <p><strong>Single server, 1750 dollars.</strong> One MCP server or a small set of endpoints, one written report, one retest.</p>
-            <p><strong>Full assessment, 3500 dollars.</strong> A server or fleet, written report, one retest, and a call to walk your team through the findings.</p>
-          </div>
+          <PricingTiers emailHref={assessmentEmailFor()} />
           <p className="hero-note">Scope and written authorization are agreed before testing. A report may support a buyer review; acceptance is up to the buyer.</p>
           <div className="hero-ctas">
             <a className="button" href={assessmentEmailFor()}>Email us to request an assessment</a>

@@ -89,7 +89,10 @@ export async function assertArtifacts(root, graphs) {
   for (const marker of [
     '/assessments', '/request-assessment', '/sample-assessment',
     'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
-    '1,750', '3,500', 'MCP Server Security Verification', 'Comprehensive MCP Security Assessment',
+    '/assessment', '1750 dollars', '3500 dollars', '2500 dollars',
+    'Independent MCP security assessments', 'Single-server assessment',
+    'Expanded assessment', 'Single-server assessment with publication',
+    'No mandatory call is part of any assessment.',
     'Synthetic Demonstration — Not a Real Client Assessment.',
     'MCP security assessment your buyer',
     'How the report stands up', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',

@@ -1,4 +1,5 @@
 import { Link } from 'wouter';
+import PricingTiers from './PricingTiers';
 
 const assessmentMailtoBase = 'mailto:lhmisme2011@gmail.com';
 export const assessmentEmail = assessmentMailtoBase.slice('mailto:'.length);
@@ -55,55 +56,7 @@ export function AssessmentServices() {
           </p>
         </div>
 
-        <div className="commercial-grid">
-          <article className="commercial-offer">
-            <div className="offer-topline">
-              <span>Single server</span>
-              <strong className="offer-price">$1,750</strong>
-            </div>
-            <h3>MCP Server Security Assessment</h3>
-            <p>One MCP server or a small set of endpoints, one written report, one retest.</p>
-            <ul className="package-includes">
-              <li>Handshake and supported protocol-security checks</li>
-              <li>An authorized tool-call check within the agreed, supported scope</li>
-              <li>Written report signed by Leroy H. Mason</li>
-              <li>Observed evidence, severity rationale, and remediation guidance</li>
-              <li>One retest after remediation, when requested and agreed</li>
-            </ul>
-            <div className="offer-bottom">
-              <div className="offer-cta-stack">
-                <a className="button" href={assessmentEmailFor('verification')}>Email us to request an assessment</a>
-                <Link className="text-link" href="/request-assessment?package=verification">No email app? See email instructions</Link>
-              </div>
-              <span>Written authorization and scope before testing</span>
-            </div>
-          </article>
-
-          <article className="commercial-offer expanded">
-            <div className="offer-topline">
-              <span>Full assessment</span>
-              <strong className="offer-price">$3,500</strong>
-            </div>
-            <h3>Full MCP Security Assessment</h3>
-            <p>A server or fleet, one written report, one retest, and a call to walk your team through the findings.</p>
-            <ul className="package-includes">
-              <li>Mutually agreed scope across the server or fleet</li>
-              <li>Handshake and supported protocol-security checks</li>
-              <li>An authorized tool-call check within the agreed, supported scope</li>
-              <li>Written report signed by Leroy H. Mason</li>
-              <li>Observed evidence, severity rationale, and remediation guidance</li>
-              <li>One retest after remediation, when requested and agreed</li>
-              <li>Walkthrough call to discuss the findings</li>
-            </ul>
-            <div className="offer-bottom">
-              <div className="offer-cta-stack">
-                <a className="button" href={assessmentEmailFor('comprehensive')}>Email us to request an assessment</a>
-                <Link className="text-link" href="/request-assessment?package=comprehensive">No email app? See email instructions</Link>
-              </div>
-              <span>Retest and testing criteria remain within agreed scope</span>
-            </div>
-          </article>
-        </div>
+        <PricingTiers emailHref={assessmentEmailFor()} />
 
         <div className="scope-caveat">
           <strong>Scope and authorization come first.</strong>

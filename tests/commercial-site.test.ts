@@ -33,7 +33,7 @@ function checkEmailLink(anchor: HTMLAnchorElement, packageLabel?: string) {
 test('public and account routes get honest titles, canonical URLs, and indexing rules', async () => {
   assert.equal(PUBLIC_SITE_ORIGIN, 'https://mcpauth-scan.com');
   const template = await readFile('client/index.html', 'utf8');
-  for (const route of ['/', '/assessments', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
+  for (const route of ['/', '/assessment', '/assessments', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
     const expected = metadataForPath(route);
     const document = new JSDOM(renderPageMetadata(template, route)).window.document;
     assert.match(document.title, /MCP AuthScan|VATA/);
@@ -81,12 +81,12 @@ test('public HTML and discovery documents do not require an account or call the 
   assert.equal((await fetch(`${origin}/api/findings`)).status, 401);
 });
 
-async function renderComponent(entry: string) {
+async function renderComponent(entry: string, path = '/') {
   // Bundle actual components and wouter; only styles are omitted for server
   // rendering. No auth bypass is added to the application or test server.
   const result = await build({
     stdin: {
-      contents: `import React from 'react'; import { Router } from 'wouter'; import Component from './${entry}'; export default function Fixture() { return <Router ssrPath="/"><Component /></Router>; }`,
+      contents: `import React from 'react'; import { Router } from 'wouter'; import Component from './${entry}'; export default function Fixture() { return <Router ssrPath="${path}"><Component /></Router>; }`,
       resolveDir: process.cwd(), sourcefile: 'commercial-test-fixture.tsx', loader: 'tsx',
     },
     bundle: true, write: false, platform: 'node',
@@ -111,11 +111,20 @@ test('homepage sells named independent assessments without recurring offers or c
   }
   assert(!/subscription|monthly|a month|scheduled re.check|scheduled scan|compliance scor|score included|keep checking|\$49/i.test(text));
   assert.equal(document.querySelectorAll('.plan-table, .weekly-plan').length, 0);
-  const paragraphs = Array.from(document.querySelectorAll('p')).map(p => p.textContent);
-  for (const offer of [
-    'Single server, 1750 dollars. One MCP server or a small set of endpoints, one written report, one retest.',
-    'Full assessment, 3500 dollars. A server or fleet, written report, one retest, and a call to walk your team through the findings.',
-  ]) assert(paragraphs.includes(offer), `Missing plain-text offer: ${offer}`);
+  assert.equal(document.querySelector('.pricing-tiers h2')?.textContent, 'Independent MCP security assessments');
+  const tierText = Array.from(document.querySelectorAll('.pricing-tier')).map(card => [
+    card.querySelector('h3')?.textContent,
+    card.querySelector('.pricing-tier-price')?.textContent,
+    card.querySelector('p')?.textContent,
+  ]);
+  assert.deepEqual(tierText, [
+    ['Single-server assessment', '1750 dollars', 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.'],
+    ['Expanded assessment', '3500 dollars', 'A server or a fleet, broader agreed scope. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one defined remediation retest.'],
+    ['Single-server assessment with publication', '2500 dollars', 'The same scope as the 1750 assessment. The lower price is in exchange for permission to publish a redacted result after your fix window closes, naming no credentials, no tokens and no internal detail. You review the redacted text before it goes out.'],
+  ]);
+  assert.equal(document.querySelector('.pricing-tier-terms')?.textContent,
+    'Scope, deliverables and the publication option are agreed in writing before testing. No mandatory call is part of any assessment.');
+  assert(!/walkthrough|walk your team|meeting/i.test(text));
   assert.match(text, /hash over the graded content/i);
   assert.match(text, /handshake/i);
   assert.match(text, /authorized tool.call check/i);
@@ -136,29 +145,36 @@ test('homepage sells named independent assessments without recurring offers or c
   for (const anchor of links.filter(link => link.getAttribute('href')?.startsWith('#'))) {
     assert(document.getElementById(anchor.getAttribute('href')!.slice(1)), `Broken anchor ${anchor.href}`);
   }
+  const alias = await renderComponent('client/src/Assessment.tsx', '/assessment');
+  assert.equal(alias.body.innerHTML, document.body.innerHTML, '/assessment must be a content alias of the homepage');
+  const landingSource = await readFile('client/src/Landing.tsx', 'utf8');
+  for (const unchangedCopy of [
+    'The report carries a hash over the graded content. With written authorization, a second party can re-run the same probe set and compare.',
+    'Leroy H. Mason',
+    'Independent AI security researcher, credited reporter on published MCP security advisories.',
+    'Free, open-source checks',
+    'The existing workspace',
+    'Run checks. Keep the findings in view.',
+  ]) assert(landingSource.includes(unchangedCopy), `Protected landing copy changed or disappeared: ${unchangedCopy}`);
 });
 
-test('dedicated assessment page has exact packages, limits, evidence methodology and inquiry links', async () => {
+test('dedicated assessment details share exact pricing without package-call claims', async () => {
   const document = await renderComponent('client/src/Assessments.tsx');
   const text = document.body.textContent || '';
-  for (const phrase of ['Independent MCP Security Assessments', '$1,750', '$3,500',
-    'MCP Server Security Assessment', 'Full MCP Security Assessment',
-    'one written report, one retest', 'Who signs the report: Leroy H. Mason.',
+  for (const phrase of ['Independent MCP security assessments', '1750 dollars', '3500 dollars', '2500 dollars',
+    'Single-server assessment', 'Expanded assessment', 'Single-server assessment with publication',
+    'Who signs the report: Leroy H. Mason.',
     'Hash over graded report content', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
     'written authorization', 'available access', 'supported techniques']) {
     assert(text.includes(phrase), `Missing assessment content: ${phrase}`);
   }
   assert.match(text, /MIT-licensed mcp-authscan scanner/);
-  for (const service of ['verification', 'comprehensive']) {
-    assert(document.querySelector(`a[href="/request-assessment?package=${service}"]`));
-  }
-  const packageButtons = document.querySelectorAll<HTMLAnchorElement>('.commercial-offer .button');
-  assert.equal(packageButtons.length, 2);
-  checkEmailLink(packageButtons[0], 'MCP Server Security Verification');
-  checkEmailLink(packageButtons[1], 'Comprehensive MCP Security Assessment');
+  assert.equal(document.querySelectorAll('.pricing-tier').length, 3);
+  assert.equal(document.querySelectorAll('.pricing-tier a[href^="mailto:"]').length, 3);
   assert(!document.querySelector('a[href*="stripe.com"]'), 'Assessments are scoped engagements, not automatic checkout');
   assert(!/subscription|monthly|a month|scheduled re.check|\$49/i.test(text));
-  assert.match(text, /walk.*team.*findings|walkthrough/i);
+  assert(!/walkthrough|walk your team|meeting/i.test(text));
+  assert.match(text, /Hash over graded report content/);
 });
 
 test('inquiry page makes supported email prominent without a misleading submission form', async () => {
