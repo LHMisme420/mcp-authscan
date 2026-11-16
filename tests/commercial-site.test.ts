@@ -70,13 +70,16 @@ test('public HTML and discovery documents do not require an account or call the 
   }
   const robots = await fetch(`${origin}/robots.txt`);
   assert.equal(robots.status, 200);
-  assert.match(await robots.text(), /Disallow: \/api\//);
+  const robotsText = await robots.text();
+  assert.match(robotsText, /Disallow: \/api\//);
+  assert.match(robotsText, /Sitemap: https:\/\/mcpauth-scan\.com\/sitemap\.xml/);
   const sitemap = await fetch(`${origin}/sitemap.xml`);
   assert.equal(sitemap.status, 200);
   const xml = await sitemap.text();
-  assert.match(xml, /sample-assessment/);
-  assert.match(xml, /request-assessment/);
-  assert.match(xml, /\/assessments/);
+  const sitemapDocument = new JSDOM(xml, { contentType: 'application/xml' }).window.document;
+  assert.deepEqual([...sitemapDocument.querySelectorAll('loc')].map(node => node.textContent), [
+    'https://mcpauth-scan.com/', 'https://mcpauth-scan.com/blast-radius',
+  ]);
   assert(!xml.includes('user-portal'));
   assert.equal((await fetch(`${origin}/api/findings`)).status, 401);
 });
