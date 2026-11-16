@@ -1,0 +1,9 @@
+import glob
+import importlib
+d = glob.glob("mcp?authscan")[0]
+s = open(d + "/transportprobe.py").read()
+print("guard in file:", "target URL needs a scheme" in s)
+print("except narrowed:", "except (OSError" in s)
+m = importlib.import_module(d + ".transportprobe")
+print("calling with no scheme now, traceback is the proof")
+m.altprobe("hosted.flowstatemcp.com/mcp")

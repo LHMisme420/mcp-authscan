@@ -20,6 +20,8 @@ def altprobe(url, allowed=None):
     try:
         parts = urllib.parse.urlsplit(url)
         host = parts.hostname
+        if not parts.scheme or not host:
+            raise ValueError("target URL needs a scheme and a host")
         path = parts.path.rstrip("/")
         if not path.endswith("/mcp"):
             return skip(url, name, "target path does not end in mcp")
@@ -42,7 +44,7 @@ def altprobe(url, allowed=None):
             raw = resp.read(4096)
         finally:
             conn.close()
-    except Exception as e:
+    except (OSError, http.client.HTTPException) as e:
         return skip(url, name, str(e))
     if status in (401, 403):
         return record(TID, name, "PASS", http_status=status, body=raw, endpoint=url, detail="sibling transport answered " + str(status) + " with authentication enforced")

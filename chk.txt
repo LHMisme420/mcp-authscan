@@ -1,0 +1,10 @@
+import glob
+import importlib
+d = glob.glob("mcp?authscan")[0]
+m = importlib.import_module(d + ".transportprobe")
+u = "https:" + chr(47) + chr(47) + "hosted.flowstatemcp.com/mcp"
+r = m.altprobe(u)
+print(r.status)
+print(r.limitation)
+print("bad url next, ValueError is the proof:")
+m.altprobe("no-scheme-target")
