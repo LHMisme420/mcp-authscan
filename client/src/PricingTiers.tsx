@@ -1,3 +1,5 @@
+import { useEffect, useState, type FormEvent } from 'react';
+
 const tiers = [
   {
     name: 'Single-server assessment',
@@ -6,20 +8,112 @@ const tiers = [
     className: '',
   },
   {
-    name: 'Expanded assessment',
+    name: 'Full assessment',
     price: '3500 dollars',
-    body: 'A server or a fleet, broader agreed scope. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one defined remediation retest.',
+    body: 'A server or fleet, one written report, one retest, and a written scope agreed before testing.',
     className: 'pricing-tier-expanded',
-  },
-  {
-    name: 'Single-server assessment with publication',
-    price: '2500 dollars',
-    body: 'The same scope as the 1750 assessment. The lower price is in exchange for permission to publish a redacted result after your fix window closes, naming no credentials, no tokens and no internal detail. You review the redacted text before it goes out.',
-    className: '',
   },
 ];
 
 export default function PricingTiers({ emailHref }: { emailHref: string }) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [available, setAvailable] = useState(false);
+  const [challengeReady, setChallengeReady] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!formOpen) return;
+    let cancelled = false;
+    setChallenge(null);
+    setAvailabilityChecked(false);
+    setAvailable(false);
+    setChallengeReady(false);
+    setResult(null);
+    let challengeTimer: number | undefined;
+    fetch('/contact/scope/status', { credentials: 'include', signal: AbortSignal.timeout(10_000) })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Status request failed (${response.status}).`);
+        return response.json();
+      })
+      .then((data: { available?: boolean; challenge?: string | null }) => {
+        if (cancelled) return;
+        setAvailabilityChecked(true);
+        setAvailable(data.available === true && typeof data.challenge === 'string' && data.challenge.length > 0);
+        setChallenge(typeof data.challenge === 'string' ? data.challenge : null);
+        challengeTimer = window.setTimeout(() => {
+          if (!cancelled) setChallengeReady(true);
+        }, 2000);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setAvailabilityChecked(true);
+        setAvailable(false);
+        setResult({
+          kind: 'error',
+          text: error instanceof Error ? `Assessment request service status could not be checked: ${error.message}` : 'Assessment request service status could not be checked.',
+        });
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(challengeTimer);
+    };
+  }, [formOpen]);
+
+  async function submitScope(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!available || !challenge || !challengeReady || submitting) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const payload = {
+      name: String(data.get('name') || ''),
+      email: String(data.get('email') || ''),
+      company: String(data.get('company') || ''),
+      endpoints: String(data.get('endpoints') || ''),
+      service: String(data.get('service') || 'verification') as 'verification' | 'comprehensive',
+      authority: String(data.get('authority') || ''),
+      environment: String(data.get('environment') || ''),
+      authorized: data.get('authorized') === 'on',
+      challenge,
+      websiteExtra: '',
+    };
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const response = await fetch('/contact/scope', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(20_000),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const fieldErrors = body && typeof body.errors === 'object'
+          ? Object.entries(body.errors).map(([field, message]) => `${field}: ${String(message)}`).join(' ')
+          : '';
+        throw new Error([body?.error || `Request failed (${response.status}).`, fieldErrors].filter(Boolean).join(' '));
+      }
+      if (body?.saved !== true || body?.emailed !== true) {
+        throw new Error(body?.message || 'The service did not confirm that the request was saved and emailed.');
+      }
+      setResult({
+        kind: 'success',
+        text: `Your written scope request has been saved and accepted for email delivery. A written scope will follow; no testing happens until you approve it. Invoicing is after the scope is agreed.${body.reference ? ` Reference: ${String(body.reference)}.` : ''}`,
+      });
+      form.reset();
+    } catch (error) {
+      setResult({
+        kind: 'error',
+        text: error instanceof Error ? error.message : 'The request could not be submitted.',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <section className="pricing-tiers" aria-labelledby="pricing-tiers-title">
       <h2 id="pricing-tiers-title">Independent MCP security assessments</h2>
@@ -30,13 +124,65 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
             <p>{tier.body}</p>
-            <a className="text-link" href={emailHref}>Email us to request an assessment</a>
           </article>
         ))}
       </div>
-      <p className="pricing-tier-terms">
-        Scope, deliverables and the publication option are agreed in writing before testing. No mandatory call is part of any assessment.
-      </p>
+      <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
+        {formOpen ? 'Close assessment form' : 'Start an assessment'}
+      </button>
+      {formOpen && (
+        <div className="written-scope-form-wrap">
+          {result?.kind === 'success' ? <p role="status">{result.text}</p> :
+          <form className="written-scope-form" onSubmit={submitScope}>
+            <div className="written-scope-form-heading">
+              <span className="pricing-tier-index">WRITTEN SCOPE REQUEST</span>
+              <h3>Assessment details</h3>
+            </div>
+            <label htmlFor="scope-name">Name</label>
+            <input id="scope-name" name="name" autoComplete="name" required />
+            <label htmlFor="scope-email">Work email</label>
+            <input id="scope-email" name="email" type="email" autoComplete="email" required />
+            <label htmlFor="scope-company">Company</label>
+            <input id="scope-company" name="company" autoComplete="organization" required />
+            <label htmlFor="scope-endpoints">Endpoint or endpoints to be tested (one per line)</label>
+            <textarea id="scope-endpoints" name="endpoints" rows={4} required />
+            <fieldset>
+              <legend>Which option</legend>
+              <label className="written-scope-radio">
+                <input type="radio" name="service" value="verification" defaultChecked />
+                <span>Single server, 1,750 dollars</span>
+              </label>
+              <label className="written-scope-radio">
+                <input type="radio" name="service" value="comprehensive" />
+                <span>Full assessment, 3,500 dollars</span>
+              </label>
+            </fieldset>
+            <label htmlFor="scope-authority">Who owns the endpoint and their authority to authorize testing</label>
+            <textarea id="scope-authority" name="authority" rows={3} required />
+            <label htmlFor="scope-environment">Anything we should know about the environment (optional)</label>
+            <textarea id="scope-environment" name="environment" rows={3} />
+            <label className="written-scope-check">
+              <input type="checkbox" name="authorized" required />
+              <span>I confirm I own this endpoint, or am authorized to approve testing of it, and I will confirm the scope in writing before any test runs.</span>
+            </label>
+            {availabilityChecked && !available && (
+              <p className="written-scope-unavailable" role="status">
+                Online saving and email are currently unavailable. Use the existing email fallback to send your written scope request.
+                {' '}<a href={emailHref}>Email us</a>
+              </p>
+            )}
+            {result && (
+              <p className={`written-scope-result ${result.kind}`} role={result.kind === 'error' ? 'alert' : 'status'}>
+                {result.text}
+              </p>
+            )}
+            <button className="button" type="submit" disabled={!available || !challenge || !challengeReady || submitting}>
+              {submitting ? 'Submitting…' : 'Submit'}
+            </button>
+            {!challengeReady && <span className="field-help" aria-live="polite">Preparing secure request…</span>}
+          </form>}
+        </div>
+      )}
     </section>
   );
 }

@@ -49,26 +49,21 @@ test('/assessment is the same public landing content as / with matching offer me
       'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.',
     ],
     [
-      'Expanded assessment',
+      'Full assessment',
       '3500 dollars',
-      'A server or a fleet, broader agreed scope. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one defined remediation retest.',
-    ],
-    [
-      'Single-server assessment with publication',
-      '2500 dollars',
-      'The same scope as the 1750 assessment. The lower price is in exchange for permission to publish a redacted result after your fix window closes, naming no credentials, no tokens and no internal detail. You review the redacted text before it goes out.',
+      'A server or fleet, one written report, one retest, and a written scope agreed before testing.',
     ],
   ];
   const cards = Array.from(alias.querySelectorAll('.pricing-tier'));
-  assert.equal(cards.length, 3);
+  assert.equal(cards.length, 2);
   cards.forEach((card, index) => {
     assert.equal(card.querySelector('h3')?.textContent, expectedTiers[index][0]);
     assert.equal(card.querySelector('.pricing-tier-price')?.textContent, expectedTiers[index][1]);
     assert.equal(card.querySelector('p')?.textContent, expectedTiers[index][2]);
   });
   assert.equal(
-    alias.querySelector('.pricing-tier-terms')?.textContent,
-    'Scope, deliverables and the publication option are agreed in writing before testing. No mandatory call is part of any assessment.',
+    alias.querySelector('.pricing-tiers button')?.textContent,
+    'Start an assessment',
   );
   assert(!/walkthrough|walk your team|meeting/i.test(alias.body.textContent || ''));
   assert(!/private assessment.*3,500|Option one|Option two/i.test(alias.body.textContent || ''));

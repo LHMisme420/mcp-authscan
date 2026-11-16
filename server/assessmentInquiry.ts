@@ -3,6 +3,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { ReplitConnectors } from '@replit/connectors-sdk';
 import { assessmentPackages, emailPattern, validateInquiry, type AssessmentInquiry } from '../shared/assessmentInquiry';
 import { trustedAppOrigins } from './appOrigin';
+import { scopeEmailText, validateWrittenScope, type WrittenScope } from '../shared/writtenScope';
+import { saveScope, markScopeEmailed, scopeStorageReady, type SavedScope } from './scopeStore';
 
 type DeliveryConfig = { from: string; to: string };
 type Message = DeliveryConfig & { replyTo: string; subject: string; text: string; idempotencyKey: string };
@@ -11,6 +13,10 @@ type Options = {
   send?: (message: Message) => Promise<string>;
   now?: () => number;
   origins?: () => string[];
+  kind?: 'inquiry' | 'scope';
+  storageReady?: () => Promise<boolean>;
+  save?: (id: string, value: WrittenScope) => Promise<SavedScope>;
+  markEmailed?: (id: string, reference: string) => Promise<void>;
 };
 const TTL = 30 * 60_000;
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -65,6 +71,11 @@ function emailText(value: AssessmentInquiry) {
 // exemption from the existing /api authentication or writer-readiness gates.
 export function assessmentInquiryRoutes(options: Options = {}) {
   const router = express.Router();
+  const scopeMode = options.kind === 'scope';
+  const route = scopeMode ? '/scope' : '/assessment';
+  const storageReady = options.storageReady ?? scopeStorageReady;
+  const save = options.save ?? saveScope;
+  const markEmailed = options.markEmailed ?? markScopeEmailed;
   const now = options.now ?? Date.now;
   const config = options.config ?? inquiryConfig;
   const send = options.send ?? sendInquiry;
@@ -101,16 +112,18 @@ export function assessmentInquiryRoutes(options: Options = {}) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     next();
   });
-  router.get('/assessment/status', (req, res) => {
+  router.get(`${route}/status`, async (req, res) => {
     const ip = ipKey(req.ip ?? 'unknown');
     if (limited(`status:${ip}`, 40, 15 * 60_000)) {
       res.setHeader('Retry-After', '900');
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
-    const available = Boolean(config()) && deliveryUnavailableUntil <= now();
+    const delivery = config();
+    const available = Boolean(delivery) && deliveryUnavailableUntil <= now() &&
+      (!scopeMode || (delivery?.to.toLowerCase() === 'lhmisme2011@gmail.com' && await storageReady()));
     return res.json({ available, testMode: Boolean(config()?.from.toLowerCase().endsWith('@resend.dev')), challenge: available ? challenge(ip) : null });
   });
-  router.post('/assessment',
+  router.post(route,
     (req, res, next) => {
       if (!origins().includes(req.get('origin') ?? '') || req.get('sec-fetch-site') === 'cross-site') {
         return res.status(403).json({ error: 'Please submit this form from this website.' });
@@ -125,13 +138,16 @@ export function assessmentInquiryRoutes(options: Options = {}) {
         res.setHeader('Retry-After', '900');
         return res.status(429).json({ error: 'Too many requests. Please try again later or use the email link.' });
       }
-      const { value, errors } = validateInquiry(req.body);
+      const { value, errors } = scopeMode ? validateWrittenScope(req.body) : validateInquiry(req.body);
       if (!value) return res.status(400).json({ error: 'Please correct the highlighted fields.', errors });
       if (req.body.websiteExtra !== '' || !validChallenge(req.body.challenge, ip)) {
         return res.status(400).json({ error: 'Form verification expired or failed. Refresh form verification, wait two seconds, then retry.' });
       }
       const delivery = config();
       if (!delivery || deliveryUnavailableUntil > now()) return res.status(503).json({ error: 'Inquiry delivery is unavailable. Please use the email link instead.' });
+      if (scopeMode && delivery.to.toLowerCase() !== 'lhmisme2011@gmail.com') {
+        return res.status(503).json({ error: 'Scope delivery is not configured for the assessment inbox.' });
+      }
       for (const [id, entry] of requests) if (entry.until <= now()) requests.delete(id);
       const id = sha(req.body.challenge);
       const digest = sha(JSON.stringify(value));
@@ -140,13 +156,33 @@ export function assessmentInquiryRoutes(options: Options = {}) {
         return res.status(409).json({ error: 'This form verification was already used for different details. Refresh verification to send a new inquiry.' });
       }
       if (!previous && requests.size >= 1000) return res.status(429).json({ error: 'The inquiry service is busy. Please use the email link.' });
-      const promise = previous?.promise ?? send({
-        ...delivery, replyTo: value.email, subject: `${delivery.from.toLowerCase().endsWith('@resend.dev') ? '[TEST] ' : ''}MCP AuthScan assessment inquiry`,
-        text: emailText(value), idempotencyKey: `assessment-${id}`,
-      });
+      let timestamp: string | undefined;
+      const promise = previous?.promise ?? (async () => {
+        let existingReference: string | null = null;
+        if (scopeMode) {
+          const saved = await save(id, value as WrittenScope);
+          timestamp = saved.timestamp;
+          existingReference = saved.emailReference;
+        }
+        const reference = existingReference ?? await send({
+          ...delivery, replyTo: value.email, subject: `${delivery.from.toLowerCase().endsWith('@resend.dev') ? '[TEST] ' : ''}MCP AuthScan assessment inquiry`,
+          text: scopeMode ? scopeEmailText(value as WrittenScope, timestamp!) : emailText(value as AssessmentInquiry),
+          idempotencyKey: `assessment-${id}`,
+        });
+        if (scopeMode && !existingReference) await markEmailed(id, reference);
+        return reference;
+      })();
       if (!previous) requests.set(id, { digest, until: now() + TTL, promise });
       try {
         const reference = await promise;
+        if (scopeMode) {
+          // A repeated submission shares the promise; read its original durable timestamp.
+          timestamp ??= (await save(id, value as WrittenScope)).timestamp;
+          return res.status(201).json({
+            saved: true, emailed: true, reference, timestamp,
+            message: 'Your request has been saved and accepted by our email service for delivery. A written scope will follow. No testing happens until you approve it. Invoicing happens after the scope is agreed.',
+          });
+        }
         return res.status(202).json({
           accepted: true, reference,
           message: 'Your inquiry was accepted by our email service for delivery. This is not confirmation of inbox receipt or authorization to scan.',
@@ -157,7 +193,9 @@ export function assessmentInquiryRoutes(options: Options = {}) {
         requests.delete(id);
         deliveryUnavailableUntil = now() + 60_000;
         console.warn('Assessment inquiry delivery failed; no inquiry content was logged.');
-        return res.status(503).json({ error: 'We could not confirm delivery acceptance. Please retry later with the same details, or use the email link.' });
+        return res.status(503).json({ error: scopeMode
+          ? 'We could not confirm both saving and email delivery acceptance. Your request may have been saved. Please retry later with the same details, or use the email link.'
+          : 'We could not confirm delivery acceptance. Please retry later with the same details, or use the email link.' });
       }
     },
   );

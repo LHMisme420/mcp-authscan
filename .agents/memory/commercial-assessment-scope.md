@@ -13,7 +13,7 @@ Make the landing page assessment-first, not workspace- or recurring-plan-first. 
 
 **Why:** The owner's later landing-page rewrite explicitly superseded the earlier product-first and recurring-offer direction.
 
-**How to apply:** Sell single-server and full assessments as scoped engagements, each with one written report and one retest; the full assessment also includes a findings walkthrough call. Preserve existing account/scanning/history behavior and never add inquiry storage to findings tables. Do not republish production automatically.
+**How to apply:** Sell single-server and full assessments as scoped engagements, each with one written report and one retest. Do not promise a call, walkthrough, meeting, booking or calendar step in either package. Preserve existing account/scanning/history behavior and never add inquiry storage to findings tables. Do not republish production automatically.
 
 There is no approved redacted client report available for publication. Use only the existing synthetic sample, labeled "Synthetic Demonstration — Not a Real Client Assessment." Do not search for, fabricate, or publish a real client's report.
 
@@ -21,11 +21,11 @@ There is no approved redacted client report available for publication. Use only 
 
 **How to apply:** Keep the synthetic example distinct from owner-summary observations. Do not insert those observations or a fabricated evidence hash into the demonstration. Any future real-report work needs a new explicit request and approved source material.
 
-Use Gmail-based customer assessment inquiries for now, with email as the primary public contact path and no automatic production email sending.
+Use the requested written-scope form as the assessment offer's primary action, retaining Gmail as the fallback contact path. Save requests separately from findings, and email their contents and submission timestamp only through a legitimate configured sender.
 
-**Why:** The owner chose email without a verified Resend domain and asked not to make a disabled online form the main inquiry pathway.
+**Why:** The owner superseded the earlier email-only offer with a one-page scope form, explicit ownership/authorization confirmation, and saving plus email notification. Invoicing follows agreed scope; submission never authorizes testing.
 
-**How to apply:** Keep a prominent email CTA, a selectable address, and instructions for visitors using webmail. Explain that a mailto link opens a draft the visitor must send. Do not activate production transactional delivery or require domain setup without a new request.
+**How to apply:** Never claim saving or email succeeded unless each operation actually succeeded. A verified Resend sender is still required; a Gmail recipient is not permission to spoof Gmail as the sender. Keep unrelated inquiry-page wording and existing functionality unchanged unless requested.
 
 Use the verified custom domain as the primary public site while preserving the existing Replit hostname where safe. Trust only exact approved origins; do not use wildcard origins or weaken authentication/CSRF checks.
 

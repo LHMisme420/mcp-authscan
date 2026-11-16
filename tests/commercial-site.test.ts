@@ -119,11 +119,9 @@ test('homepage sells named independent assessments without recurring offers or c
   ]);
   assert.deepEqual(tierText, [
     ['Single-server assessment', '1750 dollars', 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.'],
-    ['Expanded assessment', '3500 dollars', 'A server or a fleet, broader agreed scope. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one defined remediation retest.'],
-    ['Single-server assessment with publication', '2500 dollars', 'The same scope as the 1750 assessment. The lower price is in exchange for permission to publish a redacted result after your fix window closes, naming no credentials, no tokens and no internal detail. You review the redacted text before it goes out.'],
+    ['Full assessment', '3500 dollars', 'A server or fleet, one written report, one retest, and a written scope agreed before testing.'],
   ]);
-  assert.equal(document.querySelector('.pricing-tier-terms')?.textContent,
-    'Scope, deliverables and the publication option are agreed in writing before testing. No mandatory call is part of any assessment.');
+  assert.equal(document.querySelector('.pricing-tiers button')?.textContent, 'Start an assessment');
   assert(!/walkthrough|walk your team|meeting/i.test(text));
   assert.match(text, /hash over the graded content/i);
   assert.match(text, /handshake/i);
@@ -161,16 +159,16 @@ test('homepage sells named independent assessments without recurring offers or c
 test('dedicated assessment details share exact pricing without package-call claims', async () => {
   const document = await renderComponent('client/src/Assessments.tsx');
   const text = document.body.textContent || '';
-  for (const phrase of ['Independent MCP security assessments', '1750 dollars', '3500 dollars', '2500 dollars',
-    'Single-server assessment', 'Expanded assessment', 'Single-server assessment with publication',
+  for (const phrase of ['Independent MCP security assessments', '1750 dollars', '3500 dollars',
+    'Single-server assessment', 'Full assessment', 'Start an assessment',
     'Who signs the report: Leroy H. Mason.',
     'Hash over graded report content', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
     'written authorization', 'available access', 'supported techniques']) {
     assert(text.includes(phrase), `Missing assessment content: ${phrase}`);
   }
   assert.match(text, /MIT-licensed mcp-authscan scanner/);
-  assert.equal(document.querySelectorAll('.pricing-tier').length, 3);
-  assert.equal(document.querySelectorAll('.pricing-tier a[href^="mailto:"]').length, 3);
+  assert.equal(document.querySelectorAll('.pricing-tier').length, 2);
+  assert.equal(document.querySelectorAll('.pricing-tier a[href^="mailto:"]').length, 0);
   assert(!document.querySelector('a[href*="stripe.com"]'), 'Assessments are scoped engagements, not automatic checkout');
   assert(!/subscription|monthly|a month|scheduled re.check|\$49/i.test(text));
   assert(!/walkthrough|walk your team|meeting/i.test(text));

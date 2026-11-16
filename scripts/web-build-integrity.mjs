@@ -6,7 +6,7 @@ export const frontendModules = [
   'client/src/main.tsx', 'client/src/App.tsx',
   'client/src/Assessments.tsx', 'client/src/RequestAssessment.tsx',
 ];
-export const serverModules = ['server/index.ts', 'server/assessmentInquiry.ts', 'shared/assessmentInquiry.ts'];
+export const serverModules = ['server/index.ts', 'server/assessmentInquiry.ts', 'shared/assessmentInquiry.ts', 'server/scopeStore.ts', 'shared/writtenScope.ts'];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const fail = message => { throw new Error(`WEB_BUILD_INTEGRITY: ${message}`); };
@@ -66,7 +66,8 @@ export async function assertSource(root, expected) {
   const server = await readFile(path.join(root, 'server/index.ts'), 'utf8');
   if (!server.includes("app.use('/contact', assessmentInquiryRoutes())")) fail('Inquiry router is not mounted.');
   const handler = await readFile(path.join(root, 'server/assessmentInquiry.ts'), 'utf8');
-  if (!/router\.post\(\s*['"]\/assessment['"]/.test(handler)) fail('Inquiry POST handler is missing.');
+  if (!/router\.post\(\s*route/.test(handler) || !handler.includes("'/assessment'") ||
+      !handler.includes("'/scope'") || !server.includes("assessmentInquiryRoutes({ kind: 'scope' })")) fail('Inquiry POST handlers are missing.');
   return snapshot;
 }
 
@@ -89,10 +90,10 @@ export async function assertArtifacts(root, graphs) {
   for (const marker of [
     '/assessments', '/request-assessment', '/sample-assessment',
     'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
-    '/assessment', '1750 dollars', '3500 dollars', '2500 dollars',
+    '/assessment', '1750 dollars', '3500 dollars',
     'Independent MCP security assessments', 'Single-server assessment',
-    'Expanded assessment', 'Single-server assessment with publication',
-    'No mandatory call is part of any assessment.',
+    'Full assessment', 'Start an assessment', '/contact/scope',
+    'A server or fleet, one written report, one retest, and a written scope agreed before testing.',
     'Synthetic Demonstration — Not a Real Client Assessment.',
     'MCP security assessment your buyer',
     'How the report stands up', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
@@ -101,8 +102,9 @@ export async function assertArtifacts(root, graphs) {
   if (!html.includes('Independent MCP Security Assessments | MCP AuthScan')) fail('Generated HTML uses an old homepage template.');
   const server = await readFile(path.join(root, 'build/server/index.js'), 'utf8');
   if (!/app\.use\(["']\/contact["'],\s*assessmentInquiryRoutes\(\)\)/.test(server) ||
-      !/router\.post\(\s*["']\/assessment["']/.test(server) ||
-      !server.includes('/assessment/status') || !server.includes('INQUIRY_DELIVERY_UNAVAILABLE')) {
+      !/router\.post\(\s*route/.test(server) ||
+      !server.includes('"/assessment"') || !server.includes('"/scope"') ||
+      !server.includes('vata_assessment_scope_requests') || !server.includes('INQUIRY_DELIVERY_UNAVAILABLE')) {
     fail('Generated server lacks the mounted inquiry delivery handler.');
   }
   return scripts;

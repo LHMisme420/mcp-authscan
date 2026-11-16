@@ -72,7 +72,7 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=/tmp/vata-findings.sqlite", "npm", "run", "start"]
-build = ["node", "scripts/deployment-web.mjs", "ee3e5b05c1ecf2337748858b907f89147ade6d1e4f7336a86a34ee0f409c7461"]
+build = ["node", "scripts/deployment-web.mjs", "8d70b2016924c0fc46b36e6ea5a47d8ede131531515894cf7e956a41cc8b1d5c"]
 
 [packager.features]
 enabledForHosting = false
@@ -85,6 +85,7 @@ PUBLIC_APP_URL = "https://mcpauth-scan.com"
 VATA_BILLING_MODE = "disabled"
 VATA_PREPARE_LIVE_BILLING = "0"
 VATA_FINDINGS_NAMESPACE = "production-findings"
+ASSESSMENT_EMAIL_TO = "lhmisme2011@gmail.com"
 
 [userenv.shared]
 PYTHONUSERBASE = ".pythonlibs"

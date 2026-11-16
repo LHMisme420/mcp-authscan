@@ -3,7 +3,7 @@
 export const PUBLIC_SITE_ORIGIN = 'https://mcpauth-scan.com';
 export const LEGACY_SITE_ORIGIN = 'https://mcp-authscan.replit.app';
 export const BRAND_NAME = 'VATA';
-export const HOME_DESCRIPTION = 'Independent MCP security assessments by Leroy H. Mason: a signed, evidence-backed report with written scope and authorization before testing. Single-server assessment 1750 dollars; expanded assessment 3500 dollars; single-server assessment with publication 2500 dollars. No mandatory call.';
+export const HOME_DESCRIPTION = 'Independent MCP security assessments by Leroy H. Mason: a signed, evidence-backed report with written scope and authorization before testing. Single-server assessment 1750 dollars; full assessment 3500 dollars.';
 
 export function metadataForPath(pathname: string) {
   const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
