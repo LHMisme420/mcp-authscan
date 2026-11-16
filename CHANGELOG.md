@@ -75,6 +75,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Probe set stamps
 
+- 2026.11.16.2: probe 16 added MCP-ORIGIN-PARITY-1. On a target path ending in mcp, an OPTIONS preflight carrying Origin: https://probe.invalid is sent to the sibling sse path on the same host. 200 echoing that origin is FAIL MEDIUM; 401, 403, a non-echoing response, 404, 405, 5xx and unreadable bodies are EXCLUDED with the reason recorded and the status kept. No new host is contacted and no tool is called, and the FAIL is merged into findings on both return paths of run_target_probes so a passing CORS check cannot hide it. 2026.11.16.1 stamped the transport probe in the same push; no past report is regraded.
 - 2026.11.10.2: preflight now records serverInfo.name, serverInfo.version and the negotiated protocolVersion from the unauthenticated initialize it already performs. NOT_OBSERVED when the response carries no result. No new request, no new host contacted.
 
 - 2026.11.10.1: recorded a probe set change that landed between 2026-11-07 and 2026-11-10 without a stamp bump; every component recomputed from the tree at the time of recording, fingerprint e2c0850f. No PASS or FAIL verdict changed, and no past report is regraded.
