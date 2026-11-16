@@ -15,6 +15,14 @@ export function metadataForPath(pathname: string) {
       robots: 'index, follow',
     };
   }
+  if (path === '/assessment') {
+    return {
+      title: 'An MCP AuthScan assessment | MCP AuthScan',
+      description: 'Evidence an enterprise buyer will accept. An independent assessment of your MCP surface, scoped and confirmed by email before any request is sent.',
+      canonical: `${PUBLIC_SITE_ORIGIN}/assessment`,
+      robots: 'index, follow',
+    };
+  }
   if (path === '/request-assessment') {
     return {
       title: 'Request an MCP Security Assessment | MCP AuthScan',

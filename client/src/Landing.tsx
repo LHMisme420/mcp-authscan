@@ -85,9 +85,10 @@ export default function Landing() {
               <p>The paid check is performed only with written authorization and where the agreed scope and supported techniques allow it. Neither an authorized tool-call check nor a particular coverage outcome is guaranteed before scope is agreed; no test is represented as already run.</p>
             </div>
             <div className="tooling-links" aria-label="Scanner project links">
-              <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">mcp-authscan on GitHub</a>
+              <pre className="free-run-command"><code>pip install mcp-authscan{"\n"}mcp-authscan https://api.example.com/mcp --authorized-by &quot;Your Name&quot; --auth-basis &quot;written consent&quot; --contact &quot;you@example.com&quot;</code></pre>
               <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
               <Link className="text-link" href="/sample-assessment">View synthetic sample report</Link>
+              <Link className="text-link assessment-discovery-link" href="/assessment">An MCP AuthScan assessment</Link>
             </div>
           </div>
         </div>
