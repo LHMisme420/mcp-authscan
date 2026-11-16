@@ -9,6 +9,19 @@ Describe the VATA severity-based score as an indicator. Do not call it a SOC 2 a
 
 **How to apply:** use this distinction in generated reports, dashboard labels, and other compliance-related product wording.
 
+## Optional declaration-check evidence
+
+Keep the optional Boundary declaration-check rows outside the existing
+`pdf-recompute-v1` canonical payload. Its supplied graded-row digest is separate.
+MATCH means annotation consistency, not demonstrated authorization enforcement.
+
+**Why:** Existing exported reports must still recompute unchanged; observations
+made without credentials or tool calls cannot establish access-control enforcement.
+
+**How to apply:** Do not silently widen the old hash or imply its checksum covers
+the added section. Wiring a real boundary producer requires its actual digest
+contract; rendering a supplied digest alone does not verify it.
+
 ## User-required single-scan integrity contract
 
 Use exactly the requested verdict-v3 schema-3 fields and canonical JSON rules

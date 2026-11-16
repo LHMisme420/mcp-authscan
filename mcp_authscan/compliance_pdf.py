@@ -97,7 +97,7 @@ def _scan_note(summary, scan_rows):
 
 
 
-def generate_compliance_pdf(organization, summary, severity_counts, findings, scan_rows=(), content_hash=None):
+def generate_compliance_pdf(organization, summary, severity_counts, findings, scan_rows=(), content_hash=None, boundary=None):
     """Create a printable summary using the app's own score and tenant-scoped data."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -190,6 +190,7 @@ def generate_compliance_pdf(organization, summary, severity_counts, findings, sc
             styles['muted'],
         ),
         *_scan_section(scan_rows, styles),
+        *_boundary_section(boundary, styles, content_width),
         Paragraph('Findings by severity', styles['section']),
     ])
 
@@ -369,3 +370,75 @@ def _scan_section(scan_rows, styles):
         Paragraph('Scans on record', styles['section']),
         _paragraph('<br/>'.join(lines), styles['body']),
     ]
+
+
+def _boundary_section(boundary, styles, content_width):
+    """Render a declaration check outside canonical_report_content.
+
+    Without a credential, observations reflect annotations, not enforcement.
+    The supplied digest covers graded rows only, not the canonical report.
+    """
+    if not boundary:
+        return []
+    rows = list(boundary.get('rows') or [])
+    if not rows:
+        return []
+    counts = {'MATCH': 0, 'MISMATCH': 0, 'UNVERIFIED': 0}
+    for row in rows:
+        grade = str(row.get('grade') or 'UNVERIFIED').strip().upper()
+        counts[grade if grade in counts else 'UNVERIFIED'] += 1
+    digest = str(boundary.get('digest') or '')
+    headline = _paragraph(
+        '<b>Declaration check, not an authorization audit.</b> '
+        f'{counts["MATCH"]} MATCH, {counts["MISMATCH"]} MISMATCH, '
+        f'{counts["UNVERIFIED"]} UNVERIFIED across {len(rows)} tools, observed '
+        'with no credential and no tool call. Without a credential the observed '
+        'column reflects only what each annotation declares, so a server that '
+        'under-declares scores all MATCH. A MATCH is consistency between the two '
+        'columns, not proof that the server enforces anything.',
+        styles['muted'],
+    )
+    table_rows = [[
+        _paragraph('Tool', styles['cell_header']),
+        _paragraph('Declared', styles['cell_header']),
+        _paragraph('Observed', styles['cell_header']),
+        _paragraph('Grade', styles['cell_header']),
+    ]]
+    for row in rows:
+        grade = str(row.get('grade') or 'UNVERIFIED').strip().upper()
+        table_rows.append([
+            _paragraph(_plain_text(row.get('tool') or 'unnamed', limit=120), styles['cell']),
+            _paragraph(_plain_text(row.get('declared') or 'none declared', limit=180), styles['cell']),
+            _paragraph(_plain_text(row.get('observed') or 'not observed', limit=180), styles['cell']),
+            _paragraph(_plain_text(grade if grade in counts else 'UNVERIFIED', limit=20), styles['cell']),
+        ])
+    table = LongTable(
+        table_rows,
+        colWidths=[content_width * 0.30, content_width * 0.24,
+                   content_width * 0.24, content_width * 0.22],
+        repeatRows=1, splitByRow=1, hAlign='LEFT',
+    )
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), FOREST),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, SURFACE]),
+        ('GRID', (0, 0), (-1, -1), 0.4, LINE),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    story = [
+        Paragraph('Declared vs observed', styles['section']),
+        headline,
+        table,
+    ]
+    if digest:
+        story.append(_paragraph(
+            f'Graded-row digest (SHA-256): {_plain_text(digest, limit=128)}. '
+            'Recompute by running the boundary check again on the same target with '
+            'the same probe set; identical graded rows produce this digest.',
+            styles['muted'],
+        ))
+    story.append(Spacer(1, 0.06 * inch))
+    return story
