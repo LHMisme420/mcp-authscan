@@ -1,0 +1,19 @@
+{
+  "check": "client-issuer-binding",
+  "kind": "python",
+  "client": "fastmcp 4.1.2",
+  "verdict": "PASS",
+  "reason": "client read the protected-resource metadata and presented no credential to the token endpoint",
+  "touches": [
+    "POST /mcp",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-authorization-server"
+  ],
+  "captured": [
+    {
+      "path": "/mcp",
+      "authorization": null,
+      "body_keys": []
+    }
+  ]
+}

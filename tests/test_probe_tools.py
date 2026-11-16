@@ -132,7 +132,7 @@ def _assert_record(rec, outcome, tool, status):
 
 def test_executed_call_keeps_zero_auth(tmp_path, fixture_server):
     fx = fixture_server([_tool("delete_user"), _tool("get_status")], "execute")
-    proc, data = _scan(fx.url, tmp_path, "--probe-tools")
+    proc, data = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1")
     assert data is not None, proc.stderr
     assert data["discovery_status"] == "ZERO_AUTH_DETECTED"
     rec = data["tool_call_probe"]
@@ -150,7 +150,7 @@ def test_executed_call_keeps_zero_auth(tmp_path, fixture_server):
 
 def test_refused_jsonrpc_error_in_200_suppresses_zero_auth(tmp_path, fixture_server):
     fx = fixture_server([_tool("probe_ping")], "jsonrpc_error")
-    proc, data = _scan(fx.url, tmp_path, "--probe-tools")
+    proc, data = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1")
     assert data is not None, proc.stderr
     rec = data["tool_call_probe"]
     _assert_record(rec, "REFUSED", "probe_ping", 200)
@@ -163,7 +163,7 @@ def test_refused_jsonrpc_error_in_200_suppresses_zero_auth(tmp_path, fixture_ser
 
 def test_refused_http_401_suppresses_zero_auth(tmp_path, fixture_server):
     fx = fixture_server([_tool("probe_ping")], "http_401")
-    proc, data = _scan(fx.url, tmp_path, "--probe-tools")
+    proc, data = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1")
     assert data is not None, proc.stderr
     rec = data["tool_call_probe"]
     _assert_record(rec, "REFUSED", "probe_ping", 401)
@@ -176,7 +176,7 @@ def test_refused_http_401_suppresses_zero_auth(tmp_path, fixture_server):
 def test_refused_is_error_result_suppresses_zero_auth(tmp_path, fixture_server):
     # The h5 enforce-mode shape: HTTP 200, result {content: [...], isError: true}.
     fx = fixture_server([_tool("probe_ping")], "is_error")
-    proc, data = _scan(fx.url, tmp_path, "--probe-tools")
+    proc, data = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1")
     assert data is not None, proc.stderr
     rec = data["tool_call_probe"]
     _assert_record(rec, "REFUSED", "probe_ping", 200)
@@ -189,7 +189,7 @@ def test_refused_is_error_result_suppresses_zero_auth(tmp_path, fixture_server):
 def test_no_read_only_name_is_not_attempted(tmp_path, fixture_server):
     fx = fixture_server([_tool("delete_user"), _tool("run_job"), _tool("get_or_create"),
                          _tool("settings"), _tool("listing")], "execute")
-    proc, data = _scan(fx.url, tmp_path, "--probe-tools")
+    proc, data = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1")
     assert data is not None, proc.stderr
     rec = data["tool_call_probe"]
     _assert_record(rec, "NOT_ATTEMPTED", None, None)
@@ -220,11 +220,11 @@ def test_without_flag_no_tools_call_and_no_new_keys(tmp_path, fixture_server):
 
 def test_text_and_sarif_carry_outcome(tmp_path, fixture_server):
     fx = fixture_server([_tool("probe_ping")], "jsonrpc_error")
-    proc_t, _ = _scan(fx.url, tmp_path, "--probe-tools", fmt="--verbose")
+    proc_t, _ = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1", fmt="--verbose")
     assert "TOOL-CALL PROBE" in proc_t.stdout, proc_t.stderr
     assert "Outcome: REFUSED tool=probe_ping http=200" in proc_t.stdout
     assert "Observation: " + REFUSED_NOTE in proc_t.stdout
-    proc_s, _ = _scan(fx.url, tmp_path, "--probe-tools", fmt="--sarif")
+    proc_s, _ = _scan(fx.url, tmp_path, "--probe-tools", "--allow-host", "127.0.0.1", fmt="--sarif")
     sarif = json.loads(proc_s.stdout)
     rules = {r["id"]: r for r in sarif["runs"][0]["tool"]["driver"]["rules"]}
     assert rules["ZERO-AUTH"]["properties"]["toolCallProbe"]["outcome"] == "REFUSED"

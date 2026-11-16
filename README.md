@@ -12,7 +12,7 @@ mcp-authscan asks whether an MCP endpoint requires a credential at all, then gra
 
 Same local fixture, two tools, both scanners run against it. Cisco AI Defense mcp-scanner with its yara analyzer flagged read_file HIGH and greet SAFE. mcp-authscan flagged the same tool, plus a resource pointing at file:///etc/passwd and an endpoint accepting calls with no credential.
 
-Current report contract: verdict-v3 schema version 3, probe set 2026.11.15.1, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
+Current report contract: verdict-v3 schema version 3, probe set 2026.11.16.1, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
 
 Against the field: 16,072 registry endpoints walked, 57.1% of the 14,339 that speak MCP completed a handshake with no credential.
 
@@ -125,7 +125,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.23 and probe set 2026.11.15.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+Current source version 1.1.24 and probe set 2026.11.16.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
 
 ## Want your own MCP server reviewed?
 
@@ -144,3 +144,9 @@ Contact: lhmisme2011@gmail.com
 ## How severities are graded
 
 A finding's grade describes what the response demonstrated, not what the absence of a control might imply. A zero-auth endpoint serving public read data is MEDIUM, and that is a correct grade rather than a downgrade. CRITICAL is reserved for a zero-auth response that positively demonstrates a sensitive surface, a tool whose name shows a write, delete, or execute action. Every zero-auth finding records a `severity_basis` naming what decided its grade, and a report containing one is stamped with the severity calibration version so two reports can be compared honestly.
+
+## Does the grader get the right answer?
+
+Every fixture in bench/answer-key has a known correct grade. Run
+python3 bench/answer-key/run_key.py and it prints hit or miss per fixture.
+See [bench/answer-key](bench/answer-key/README.md).

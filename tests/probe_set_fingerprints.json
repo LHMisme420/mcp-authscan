@@ -1,15 +1,15 @@
 {
   "_comment": "PROBE_SET_VERSION -> fingerprint of the probe set it names (tests/probe_set_fingerprint.py). Append a stamp whenever the probe set changes; never reuse a recorded one. On 2026-10-30 the report_accounting component was dropped from the fingerprint and every recorded fingerprint recomputed from its other recorded components. 'withdrawn' lists stamps issued for an unchanged probe set; they are not current-stamp candidates. Stamps before 2026.10.30.1 used the old date-only scheme and are listed in CHANGELOG.md, not here.",
   "stamps": {
-    "2026.11.15.1": {
-      "changed": "2026-11-15, schema-3 report release records the actual current probe source, which did not match the previously declared stamp. This release changes hashing, not probe execution or grading.",
+    "2026.11.16.1": {
+      "changed": "2026-11-16, merged alternate-transport target probes and updated OAuth grading while retaining schema-3 report serialization.",
+      "fingerprint": "d802c9495f6879eda3f021aa8aec4fa4473dcf28f1f3380740ca8f7436a204ba",
       "components": {
         "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
-        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "probe_records": "b74b66964b800da2099ca036c16c9e8cd1a954f6b100796ac2c4b2a00e5f4252",
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
-        "code": "f78e90498bc7536900b8836512fa800cf50036f3a2ea2a3ab5c3b25170cb1675"
-      },
-      "fingerprint": "fc9c74c466939cf2882ffc048fca701c2810b317cfbe22d98fe2154546f3e708"
+        "code": "660058351e15cbe4226752dc591bbd9a2005c85ee25e2e3a3c1d840feeeb8d17"
+      }
     },
     "2026.11.04.1": {
       "changed": "2026-11-04, roots now resolve across oauth_probes_v2 and target_probes, so the guard covers cors_probe, rate_limit_probe and everything they reach; every component was recomputed with them included.",
@@ -258,9 +258,24 @@
         "code": "4efd7f8e583d1d00f7eb0365c8c65a8fc09e201d0dfb0cde4aa64189be15a0f9"
       },
       "fingerprint": "e2c0850f9d65c3855418082e9531c622159bea506d48d87e577dc47aea64bdf0"
+    },
+    "2026.11.11.1": {
+      "changed": "2026-11-11, SSE preflight fix and token-cors uses the registered client",
+      "fingerprint": "fc9c74c466939cf2882ffc048fca701c2810b317cfbe22d98fe2154546f3e708",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "bf23c7fca849f1096dd14077cfe177f267df4b931760bc079e0139547d8dfc03",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "f78e90498bc7536900b8836512fa800cf50036f3a2ea2a3ab5c3b25170cb1675"
+      }
     }
   },
   "withdrawn": {
+    "2026.11.15.1": {
+      "changed": "Schema-3 release stamp duplicated the probe source already recorded as 2026.11.11.1; retained here to identify historical reports without changing their meaning.",
+      "fingerprint": "fc9c74c466939cf2882ffc048fca701c2810b317cfbe22d98fe2154546f3e708",
+      "same_probe_set_as": "2026.11.11.1"
+    },
     "2026.10.30.5": {
       "changed": "withdrawn 2026-10-30: issued by f707170 for a report-arithmetic change (coverage denominator is testable (in_scope - EXCLUDED); JSON and printed line both from counts.coverage(); zero testable -> exit 5); same probe set as 2026.10.30.4, so any report carrying 2026.10.30.5 ran the 2026.10.30.4 probe set",
       "fingerprint": "f47b5bc5795dcff311018b1599d64750fb18d969987bccc3c060ec694e824df6",

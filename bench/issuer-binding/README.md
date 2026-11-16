@@ -16,3 +16,5 @@ python3 -m venv /tmp/b412
 /tmp/b412/bin/python run_issuer_binding.py --expect-issuer
 /tmp/b411/bin/python run_issuer_binding.py --expect-issuer
 
+
+Held constant: mcp 2.3.0. The refusal in the PASS case is raised by mcp.client.auth.extensions.client_credentials (_require_metadata_for_configured_issuer); fastmcp 4.1.2 forwards issuer to it, and 4.1.1 has no issuer parameter (signature-411.txt). Observed record: runs/20261114T225452Z, verified by its SHA256SUMS. Expected file sha256 after the fixture-name fix: 22bf57bb1497b01560d0f8d44a6bbfd55e80b43603fd73d34ee6c516fb81194b.
