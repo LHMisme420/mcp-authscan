@@ -10,7 +10,7 @@ const tiers = [
   {
     name: 'Full assessment',
     price: '3500 dollars',
-    body: 'A server or fleet, one written report, one retest, and a written scope agreed before testing.',
+    body: 'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
     className: 'pricing-tier-expanded',
   },
 ];
@@ -72,9 +72,11 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
       email: String(data.get('email') || ''),
       company: String(data.get('company') || ''),
       endpoints: String(data.get('endpoints') || ''),
-      service: String(data.get('service') || 'verification') as 'verification' | 'comprehensive',
+      service: 'comprehensive' as const,
       authority: String(data.get('authority') || ''),
-      environment: String(data.get('environment') || ''),
+      environment: '',
+      buyerContext: String(data.get('buyerContext') || ''),
+      publicationPermission: data.get('publicationPermission') === 'on',
       authorized: data.get('authorized') === 'on',
       challenge,
       websiteExtra: '',
@@ -101,7 +103,7 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
       }
       setResult({
         kind: 'success',
-        text: `Your written scope request has been saved and accepted for email delivery. A written scope will follow; no testing happens until you approve it. Invoicing is after the scope is agreed.${body.reference ? ` Reference: ${String(body.reference)}.` : ''}`,
+        text: 'Scope received. You will get a written reply.',
       });
       form.reset();
     } catch (error) {
@@ -124,12 +126,14 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
             <p>{tier.body}</p>
+            {tier.name === 'Full assessment' && (
+              <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
+                {formOpen ? 'Close assessment form' : 'Start an assessment'}
+              </button>
+            )}
           </article>
         ))}
       </div>
-      <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
-        {formOpen ? 'Close assessment form' : 'Start an assessment'}
-      </button>
       {formOpen && (
         <div className="written-scope-form-wrap">
           {result?.kind === 'success' ? <p role="status">{result.text}</p> :
@@ -138,29 +142,22 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
               <span className="pricing-tier-index">WRITTEN SCOPE REQUEST</span>
               <h3>Assessment details</h3>
             </div>
-            <label htmlFor="scope-name">Name</label>
+            <label htmlFor="scope-name">Your name</label>
             <input id="scope-name" name="name" autoComplete="name" required />
             <label htmlFor="scope-email">Work email</label>
             <input id="scope-email" name="email" type="email" autoComplete="email" required />
             <label htmlFor="scope-company">Company</label>
             <input id="scope-company" name="company" autoComplete="organization" required />
-            <label htmlFor="scope-endpoints">Endpoint or endpoints to be tested (one per line)</label>
+            <label htmlFor="scope-endpoints">MCP endpoint or URL</label>
             <textarea id="scope-endpoints" name="endpoints" rows={4} required />
-            <fieldset>
-              <legend>Which option</legend>
-              <label className="written-scope-radio">
-                <input type="radio" name="service" value="verification" defaultChecked />
-                <span>Single server, 1,750 dollars</span>
-              </label>
-              <label className="written-scope-radio">
-                <input type="radio" name="service" value="comprehensive" />
-                <span>Full assessment, 3,500 dollars</span>
-              </label>
-            </fieldset>
-            <label htmlFor="scope-authority">Who owns the endpoint and their authority to authorize testing</label>
+            <label htmlFor="scope-authority">Who authorizes the test and on what basis</label>
             <textarea id="scope-authority" name="authority" rows={3} required />
-            <label htmlFor="scope-environment">Anything we should know about the environment (optional)</label>
-            <textarea id="scope-environment" name="environment" rows={3} />
+            <label htmlFor="scope-buyer-context">What buyer or review is waiting on it</label>
+            <textarea id="scope-buyer-context" name="buyerContext" rows={3} required />
+            <label className="written-scope-check">
+              <input type="checkbox" name="publicationPermission" />
+              <span>Permission to publish a redacted result</span>
+            </label>
             <label className="written-scope-check">
               <input type="checkbox" name="authorized" required />
               <span>I confirm I own this endpoint, or am authorized to approve testing of it, and I will confirm the scope in writing before any test runs.</span>

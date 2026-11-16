@@ -119,7 +119,7 @@ test('homepage sells named independent assessments without recurring offers or c
   ]);
   assert.deepEqual(tierText, [
     ['Single-server assessment', '1750 dollars', 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.'],
-    ['Full assessment', '3500 dollars', 'A server or fleet, one written report, one retest, and a written scope agreed before testing.'],
+    ['Full assessment', '3500 dollars', 'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.'],
   ]);
   assert.equal(document.querySelector('.pricing-tiers button')?.textContent, 'Start an assessment');
   assert(!/walkthrough|walk your team|meeting/i.test(text));

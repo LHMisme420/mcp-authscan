@@ -27,6 +27,12 @@ Use the requested written-scope form as the assessment offer's primary action, r
 
 **How to apply:** Never claim saving or email succeeded unless each operation actually succeeded. A verified Resend sender is still required; a Gmail recipient is not permission to spoof Gmail as the sender. Keep unrelated inquiry-page wording and existing functionality unchanged unless requested.
 
+The landing scope form asks what buyer or review is waiting on the assessment and offers an optional permission checkbox for publishing a redacted result.
+
+**Why:** The owner explicitly requested these questions; publication permission must not be assumed from a request for testing.
+
+**How to apply:** Include both answers in the saved inquiry and notification. Keep publication consent separate from testing authority and never preselect it.
+
 Use the verified custom domain as the primary public site while preserving the existing Replit hostname where safe. Trust only exact approved origins; do not use wildcard origins or weaken authentication/CSRF checks.
 
 **Why:** The owner requested full custom-domain support without breaking existing access or changing DNS, customer data, scanner behavior, or billing.

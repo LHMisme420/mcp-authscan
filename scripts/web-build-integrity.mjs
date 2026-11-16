@@ -93,7 +93,7 @@ export async function assertArtifacts(root, graphs) {
     '/assessment', '1750 dollars', '3500 dollars',
     'Independent MCP security assessments', 'Single-server assessment',
     'Full assessment', 'Start an assessment', '/contact/scope',
-    'A server or fleet, one written report, one retest, and a written scope agreed before testing.',
+    'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
     'Synthetic Demonstration — Not a Real Client Assessment.',
     'MCP security assessment your buyer',
     'How the report stands up', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',

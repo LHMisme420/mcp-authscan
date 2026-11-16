@@ -51,7 +51,7 @@ test('/assessment is the same public landing content as / with matching offer me
     [
       'Full assessment',
       '3500 dollars',
-      'A server or fleet, one written report, one retest, and a written scope agreed before testing.',
+      'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
     ],
   ];
   const cards = Array.from(alias.querySelectorAll('.pricing-tier'));

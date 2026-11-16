@@ -9,7 +9,7 @@ const value = {
   name: 'Synthetic Requester', email: 'tester@example.invalid', company: 'Synthetic Example',
   endpoints: 'https://one.example.invalid/mcp\nhttps://two.example.invalid/mcp',
   service: 'comprehensive', authority: 'We own both endpoints and can approve testing.',
-  environment: '', authorized: true,
+  environment: '', authorized: true, buyerContext: 'A synthetic procurement review', publicationPermission: false,
 };
 
 async function fixture(t: test.TestContext, overrides: Parameters<typeof assessmentInquiryRoutes>[0] = {}) {
@@ -50,7 +50,7 @@ test('required scope fields, option and explicit authority are independently val
     { authorized: false }, { authorized: 'true' }, { authority: '' }, { endpoints: '' },
     { name: '' }, { email: 'bad' }, { email: 'a@b.com\r\nBcc:x@y.com' }, { company: '' },
     { service: 'publication' }, { service: '__proto__' }, { endpoints: 'x\n\ny' },
-    { environment: 'x'.repeat(2001) },
+    { environment: 'x'.repeat(2001) }, { buyerContext: '' }, { publicationPermission: 'true' },
   ]) assert(!validateWrittenScope({ ...value, ...invalid }).value, JSON.stringify(invalid));
   assert(!validateWrittenScope(null).value);
 });
@@ -70,6 +70,8 @@ test('save precedes sending, email contains every field and durable timestamp, d
   assert.deepEqual(savedValue, value);
   for (const field of [value.name, value.email, value.company, value.endpoints, value.authority, scopeAuthorization, result.timestamp]) assert(message.includes(field));
   assert.match(message, /Full assessment, 3,500 dollars/);
+  assert.match(message, /A synthetic procurement review/);
+  assert.match(message, /Permission to publish a redacted result: No/);
   assert.equal((await f.post(f.data)).status, 201);
   assert.equal(f.counters().sends, 1);
   assert.equal((await f.post({ ...f.data, company: 'Different' })).status, 409);
@@ -130,4 +132,5 @@ test('provided optional environment appears in plain text without HTML interpret
   const text = scopeEmailText({ ...value, service: 'verification', environment: '<script>synthetic</script>' }, '2026-11-16T00:00:00Z');
   assert.match(text, /Single server, 1,750 dollars/);
   assert.match(text, /<script>synthetic<\/script>/);
+  assert.match(scopeEmailText({ ...value, service: 'verification', publicationPermission: true }, '2026-11-16T00:00:00Z'), /Permission to publish a redacted result: Yes/);
 });

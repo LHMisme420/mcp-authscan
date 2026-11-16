@@ -13,10 +13,11 @@ test('pricing offers two written assessment options with one start action', () =
   assert.match(html, /1750 dollars/);
   assert.match(html, /Full assessment/);
   assert.match(html, /3500 dollars/);
-  assert.match(html, /A server or fleet, one written report, one retest, and a written scope agreed before testing\./);
+  assert.match(html, /A server or fleet, one written report, one retest, and the written scope agreed by email before testing\./);
   assert.doesNotMatch(html, /publication|mandatory call|Email us to request an assessment/);
   assert.match(html, />Start an assessment</);
   assert.doesNotMatch(html, /<a class="text-link"/);
+  assert.match(html, /<p>A server or fleet[^<]*<\/p><button class="button pricing-start-button"/);
 });
 
 test('start opens the required plain form; failed save/email is visible and success confirms written scope only', async t => {
@@ -57,25 +58,31 @@ test('start opens the required plain form; failed save/email is visible and succ
   const form = document.querySelector('form')!;
   assert(form);
   assert.equal(form.querySelectorAll('textarea').length, 3);
-  assert.equal(form.querySelectorAll('input[type=radio]').length, 2);
+  assert.equal(form.querySelectorAll('input[type=radio]').length, 0);
   assert.equal(form.querySelector('input[name=authorized]')?.hasAttribute('required'), true);
+  assert.equal(form.querySelector('textarea[name=buyerContext]')?.hasAttribute('required'), true);
+  assert.equal(form.querySelector('input[name=publicationPermission]')?.hasAttribute('required'), false);
   assert(!/calendar|booking|walkthrough/i.test(form.textContent || ''));
   for (const [name, value] of Object.entries({
     name: 'Synthetic Tester', email: 'test@example.invalid', company: 'Synthetic Co',
     endpoints: 'https://example.invalid/mcp', authority: 'Owner authorized to approve testing',
+    buyerContext: 'A procurement review is waiting on the assessment.',
   })) (form.elements.namedItem(name) as HTMLInputElement).value = value;
   (form.elements.namedItem('authorized') as HTMLInputElement).checked = true;
+  (form.elements.namedItem('publicationPermission') as HTMLInputElement).checked = true;
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 2150)); });
   assert.equal(form.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled, false);
   await act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
   assert.match(document.querySelector('[role=alert]')!.textContent!, /Could not save and email/);
   assert.equal((form.elements.namedItem('company') as HTMLInputElement).value, 'Synthetic Co');
   assert.equal(posted?.authorized, true);
-  assert.equal(posted?.service, 'verification');
+  assert.equal(posted?.service, 'comprehensive');
   assert.equal(posted?.endpoints, 'https://example.invalid/mcp');
+  assert.equal(posted?.environment, '');
+  assert.equal(posted?.buyerContext, 'A procurement review is waiting on the assessment.');
+  assert.equal(posted?.publicationPermission, true);
   accepted = true;
   await act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
   assert.equal(document.querySelector('form'), null);
-  assert.match(document.querySelector('[role=status]')!.textContent!, /written scope will follow; no testing happens until you approve it/);
-  assert.match(document.querySelector('[role=status]')!.textContent!, /Invoicing is after the scope is agreed/);
+  assert.equal(document.querySelector('[role=status]')!.textContent, 'Scope received. You will get a written reply.');
 });
