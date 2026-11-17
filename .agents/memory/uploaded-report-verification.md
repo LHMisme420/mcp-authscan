@@ -9,8 +9,14 @@ Use the scanner's actual canonical hash function for uploaded report verificatio
 
 **How to apply:** Unsupported formats must be reported as unreadable rather than silently mapped to a different scheme. A matching unkeyed digest proves consistency with the stored hash, not producer identity, authorization, server security or that nobody edited and rehashed the report.
 
-Keep integrity and authenticity independent. Verify detached Ed25519 signatures only against explicitly published public keys and exactly the CLI's canonical bytes; never generate or handle a private signing key in this project.
+Keep integrity and authenticity independent. Verify detached Ed25519 signatures only against explicitly published public keys and exactly the CLI's canonical bytes. Private signing keys must stay outside all repositories and the website runtime.
 
-**Why:** The owner explicitly reserved signing for the package on their own machine, with only the public half supplied to the site. No signer identity may be invented.
+**Why:** The owner reserved signing for the CLI, later authorizing one local key pair stored outside the repositories. Only its public key and key_id may cross into the website.
 
-**How to apply:** Leave the published key list empty until the owner provides a legitimate public key. Report unsigned, unknown-key, malformed and invalid-signature states honestly; do not infer signature validity from a matching hash, or hash integrity from a valid signature.
+**How to apply:** Publish only explicitly authorized public identities. Report unsigned, unknown-key, malformed and invalid-signature states honestly; do not infer signature validity from a matching hash, or hash integrity from a valid signature. Sign only schema-3 CLI JSON; PDF output points to its JSON hash and signing key_id rather than signing layout bytes. Do not sign a second, incompatible format.
+
+Preserve uploaded JSON text rather than parsing and reserializing it in JavaScript before verification.
+
+**Why:** Python's existing canonical serializer distinguishes a floating-point `1.0` from integer `1`. A JavaScript JSON round trip can normalize the former to the latter and invalidate a legitimate signature even when a test intended to change only the stored digest.
+
+**How to apply:** Keep the raw-text upload path. For independence tests, replace only the intended field in the original JSON text; do not change canonicalization to accommodate JavaScript numeric normalization.

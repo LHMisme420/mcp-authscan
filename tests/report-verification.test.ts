@@ -5,6 +5,7 @@ import express from 'express';
 import { reportVerificationRoutes } from '../server/reportVerification';
 import { reportPublicKeys, verifyAuthenticity, type PublishedKey } from '../server/reportAuthenticity';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 // RFC 8032 test 1: public key and signature only. No private key is used.
 const vectorKey: PublishedKey = {
@@ -73,7 +74,8 @@ test('public offline verifier uses the CLI hash and rejects malformed reports', 
     assert.equal(malformed.authenticity.verdict, 'UNREADABLE', 'Parsing failure is not an unsigned report');
     const keys = await fetch(`http://127.0.0.1:${address.port}/keys.json`);
     assert.equal(keys.status, 200);
-    assert.deepEqual(await keys.json(), { keys: [] }, 'Do not publish invented signer identities');
+    assert.deepEqual(await keys.json(), JSON.parse(readFileSync('client/public/keys.json', 'utf8')),
+      'Serve exactly the explicitly configured public identities');
     assert.equal((await post(' '.repeat(1048577))).status, 413);
   } finally {
     server.closeAllConnections();
