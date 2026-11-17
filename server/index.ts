@@ -14,6 +14,7 @@ import { startApplication } from './startup';
 import { requirePro } from './billing';
 import { publicDocuments, sendFrontendPage } from './publicPages';
 import { assessmentInquiryRoutes } from './assessmentInquiry';
+import { reportVerificationRoutes } from './reportVerification';
 
 if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
   throw new Error('Secure sign-in is not configured.');
@@ -24,6 +25,7 @@ app.set('trust proxy', 1);
 // Authentication transport must remain available while scanner writes are paused.
 // Mount before the /api readiness gate, and before any body parser.
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+app.use('/api', reportVerificationRoutes());
 const start = await startApplication(app, httpServer);
 app.use(publicDocuments);
 app.get(['/sample-assessment', '/sample-assessment/'], (_req, res) => res.redirect(301, '/sample-report'));

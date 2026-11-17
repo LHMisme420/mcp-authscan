@@ -7,6 +7,14 @@ export const HOME_DESCRIPTION = 'Independent MCP security assessments by Leroy H
 
 export function metadataForPath(pathname: string) {
   const path = pathname.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
+  if (path === '/verify') {
+    return {
+      title: 'Verify a Report | MCP AuthScan',
+      description: 'Recompute a schema-3 report hash using the scanner’s canonical verdict-v3 algorithm. No scanning, accounts or report storage.',
+      canonical: `${PUBLIC_SITE_ORIGIN}/verify`,
+      robots: 'index, follow',
+    };
+  }
   if (path === '/assessments') {
     return {
       title: 'Independent MCP Security Assessments | MCP AuthScan',

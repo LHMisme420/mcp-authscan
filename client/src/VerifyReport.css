@@ -1,0 +1,304 @@
+.verify-page {
+  padding: 48px 0 28px;
+}
+
+.verify-heading {
+  max-width: 810px;
+  padding-bottom: 27px;
+}
+
+.verify-heading h1 {
+  margin: 11px 0 13px;
+  color: var(--ink);
+  font: 700 clamp(38px, 6vw, 62px)/1.03 var(--font-display);
+  letter-spacing: -.06em;
+}
+
+.verify-heading p {
+  max-width: 760px;
+  margin: 0 0 10px;
+  color: #64716c;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.verify-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr);
+  gap: 33px;
+  align-items: start;
+  padding: 25px 27px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.verify-form-intro h2,
+.verify-limits h2,
+.verify-result h2 {
+  margin: 9px 0 9px;
+  color: var(--ink);
+  font: 700 clamp(22px, 3vw, 30px)/1.18 var(--font-display);
+  letter-spacing: -.045em;
+}
+
+.verify-form-intro p {
+  max-width: 280px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.verify-form {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.verify-form > label,
+.verify-file-row > label {
+  color: #45534b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.verify-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 250px;
+  padding: 13px 14px;
+  border: 1px solid #c8cec4;
+  border-radius: 5px;
+  background: #f6f5ed;
+  color: var(--ink);
+  font: 11px/1.65 var(--font-mono);
+  resize: vertical;
+}
+
+.verify-form textarea::placeholder { color: #8a928b; }
+.verify-form textarea:focus-visible,
+.verify-form input:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.verify-input-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--muted);
+  font: 9px/1.5 var(--font-mono);
+}
+
+.verify-input-meta span:last-child {
+  flex: 0 0 auto;
+  color: #76817a;
+  text-align: right;
+}
+
+.verify-file-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 8px 13px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fbfaf6;
+}
+
+.verify-file-row input {
+  width: 100%;
+  min-width: 0;
+  color: #56635c;
+  font: 10px var(--font-sans);
+}
+
+.verify-file-name {
+  grid-column: 2;
+  color: var(--forest);
+  font: 10px/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.verify-file-note {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.verify-message {
+  margin: 3px 0 0;
+  padding: 11px 13px;
+  border-left: 3px solid #9a4d2b;
+  background: #f6e9df;
+  color: #783d26;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.verify-submit {
+  justify-self: start;
+  margin-top: 8px;
+}
+
+.verify-submit:disabled {
+  cursor: wait;
+  opacity: .62;
+}
+
+.verify-privacy-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.verify-pending {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.verify-skeleton-line {
+  width: 72%;
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #e7e9e1 25%, #f0f0e8 48%, #e7e9e1 72%);
+  background-size: 240% 100%;
+  animation: verify-skeleton 1.6s ease-in-out infinite;
+}
+
+.verify-skeleton-line.short { width: 43%; }
+
+@keyframes verify-skeleton {
+  to { background-position: -240% 0; }
+}
+
+.verify-result {
+  margin-top: 19px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--forest);
+  border-radius: 8px;
+  background: #e9eee5;
+}
+
+.verify-result-altered,
+.verify-result-unreadable {
+  border-left-color: #a45b30;
+  background: #f4e8d7;
+}
+
+.verify-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.verify-verdict {
+  padding: 6px 9px;
+  border-radius: 4px;
+  background: #d9e5d9;
+  color: #355c48;
+  font: 11px/1.3 var(--font-mono);
+  letter-spacing: .07em;
+}
+
+.verify-verdict-altered,
+.verify-verdict-unreadable {
+  background: #efdfc9;
+  color: #80501f;
+}
+
+.verify-result h2 { margin: 11px 0 6px; font-size: 23px; }
+.verify-result-reason {
+  margin: 0;
+  color: #4f5d55;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.verify-result-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 19px 0 0;
+  border-top: 1px solid rgba(86, 99, 92, .2);
+}
+
+.verify-result-meta > div { padding: 12px 13px 0 0; }
+.verify-result-meta dt {
+  color: #68766d;
+  font: 9px/1.5 var(--font-mono);
+  text-transform: uppercase;
+}
+
+.verify-result-meta dd {
+  margin: 5px 0 0;
+  color: #34433a;
+  font: 11px/1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.verify-limits {
+  max-width: 850px;
+  margin-top: 42px;
+  padding: 25px 0 5px;
+  border-top: 1px solid var(--line);
+}
+
+.verify-limits h2 { max-width: 650px; }
+.verify-limits > p {
+  max-width: 800px;
+  color: #64716c;
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.verify-limits > p strong { color: #405249; }
+
+.verify-support-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 19px;
+  padding: 15px 17px;
+  border-left: 3px solid #c2762e;
+  background: #f4e8d7;
+  color: #70512e;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.verify-support-note strong {
+  font: 500 10px/1.4 var(--font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  .verify-page { padding-top: 34px; }
+  .verify-workspace { grid-template-columns: 1fr; gap: 19px; padding: 20px; }
+  .verify-form-intro p { max-width: 500px; }
+}
+
+@media (max-width: 480px) {
+  .verify-input-meta { flex-direction: column; gap: 3px; }
+  .verify-input-meta span:last-child { text-align: left; }
+  .verify-file-row { grid-template-columns: 1fr; }
+  .verify-file-name { grid-column: 1; }
+  .verify-result { padding: 18px; }
+  .verify-result-meta { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verify-skeleton-line { animation: none; }
+}
