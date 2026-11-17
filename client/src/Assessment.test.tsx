@@ -82,6 +82,13 @@ test('homepage variant uses the requested copy, three assessment triggers, and r
   const legacy = await renderPage('client/src/Landing', '/', '');
 
   assert.equal(home.querySelector('h1')?.textContent, 'The connector is what gets breached.');
+  const incidentSource = home.querySelector('a[href="https://www.mittwald.de/blog/mittwald/sicherheitsvorfall-am-mcp-server"]');
+  assert.equal(incidentSource?.textContent, 'German hosting company');
+  assert.equal(incidentSource?.getAttribute('rel'), 'noopener noreferrer');
+  assert.equal(
+    home.querySelector('a[href="https://therecord.media/cyberattack-germany-ai-mittwald"]')?.textContent,
+    'Eight days inside, 56 customer projects reached.',
+  );
   const paragraphs = Array.from(home.querySelectorAll('.hero-copy > p'))
     .map((paragraph) => paragraph.textContent);
   assert(paragraphs.includes('In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.'));

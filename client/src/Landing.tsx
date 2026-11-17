@@ -46,7 +46,7 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
               renderLead={(openForm) => (
                 <>
                   <h1>The connector is what gets breached.</h1>
-                  <p>In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.</p>
+                  <p>In late October 2026 a <a href="https://www.mittwald.de/blog/mittwald/sicherheitsvorfall-am-mcp-server" target="_blank" rel="noopener noreferrer">German hosting company</a> was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. <a href="https://therecord.media/cyberattack-germany-ai-mittwald" target="_blank" rel="noopener noreferrer">Eight days inside, 56 customer projects reached.</a></p>
                   <p>An independent assessment of your MCP server records how it handles sign-in, what it exposes without a credential, and what changes when you ship a fix. The report carries a hash a second party can recompute by re-running the same checks on the same server, so your buyer can verify it instead of trusting it.</p>
                   <p>One server, 1750 dollars. Full assessment with one retest, 3500 dollars.</p>
                   <button className="button" type="button" onClick={openForm}>Start an assessment</button>
