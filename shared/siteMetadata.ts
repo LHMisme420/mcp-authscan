@@ -23,11 +23,11 @@ export function metadataForPath(pathname: string) {
       robots: 'index, follow',
     };
   }
-  if (path === '/request-assessment') {
+  if (path === '/scope' || path === '/request-assessment') {
     return {
       title: 'Request an MCP Security Assessment | MCP AuthScan',
       description: 'Email MCP AuthScan to request an independent MCP security assessment. Share your company, desired package and brief scope—not credentials. Written authorization is required before testing.',
-      canonical: `${PUBLIC_SITE_ORIGIN}/request-assessment`,
+      canonical: `${PUBLIC_SITE_ORIGIN}${path}`,
       robots: 'index, follow',
     };
   }

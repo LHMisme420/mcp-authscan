@@ -13,6 +13,7 @@ import Assessments from './Assessments';
 import RequestAssessment from './RequestAssessment';
 import BlastRadius from './BlastRadius';
 import Assessment from './Assessment';
+import Scope from './Scope';
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -209,6 +210,7 @@ function ClerkRoutes() {
         <Route path="/" component={HomeRoute} />
         <Route path="/assessments" component={Assessments} />
         <Route path="/assessment" component={Assessment} />
+        <Route path="/scope" component={Scope} />
         <Route path="/request-assessment" component={RequestAssessment} />
         <Route path="/sample-assessment" component={SampleAssessment} />
         <Route path="/blast-radius" component={BlastRadius} />

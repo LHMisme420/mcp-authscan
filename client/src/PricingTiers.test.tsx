@@ -56,6 +56,12 @@ test('Submit opens a fixed-recipient draft with every entered answer and never s
   assert.equal(form.querySelector('textarea[name=buyerContext]')?.hasAttribute('required'), true);
   assert.equal(form.querySelector('input[name=publicationPermission]')?.hasAttribute('required'), false);
   assert(!/calendar|checkout|booking|walkthrough/i.test(form.textContent || ''));
+  const publicationCheckbox = form.querySelector<HTMLInputElement>('input[name=publicationPermission]')!;
+  assert.equal(publicationCheckbox.parentElement?.textContent?.includes('No'), true);
+  await act(async () => publicationCheckbox.click());
+  assert.equal(publicationCheckbox.parentElement?.textContent?.includes('Yes'), true, 'publication answer becomes visibly Yes when checked');
+  await act(async () => publicationCheckbox.click());
+  assert.equal(publicationCheckbox.parentElement?.textContent?.includes('No'), true, 'publication answer returns to No when unchecked');
   const submitButton = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
   const emailLink = form.querySelector<HTMLAnchorElement>('.written-scope-email-fallback a')!;
   const navigations: string[] = [];
@@ -78,13 +84,13 @@ test('Submit opens a fixed-recipient draft with every entered answer and never s
     authority: 'Synthetic form test only; no endpoint testing is authorized.',
     buyerContext: 'Synthetic procurement review.',
   })) (form.elements.namedItem(name) as HTMLInputElement).value = value;
-  (form.elements.namedItem('publicationPermission') as HTMLInputElement).checked = false;
-
   await act(async () => submitButton.click());
   assert.equal(navigations.length, 0, 'unchecked authority must block draft activation');
   assert.equal((form.elements.namedItem('authorized') as HTMLInputElement).checked, false);
 
-  (form.elements.namedItem('authorized') as HTMLInputElement).checked = true;
+  const authorityCheckbox = form.elements.namedItem('authorized') as HTMLInputElement;
+  await act(async () => authorityCheckbox.click());
+  assert.equal(authorityCheckbox.parentElement?.textContent?.includes('Yes'), true, 'authorized answer becomes visibly Yes when checked');
   await act(async () => submitButton.click());
   assert.equal(navigations.length, 1, 'valid Submit must activate the visible mailto anchor');
   const mailto = new URL(navigations[0]);
@@ -100,8 +106,8 @@ test('Submit opens a fixed-recipient draft with every entered answer and never s
     'MCP endpoint or URL: https://synthetic.example.invalid/mcp',
     'Who authorizes the test and on what basis: Synthetic form test only; no endpoint testing is authorized.',
     'What buyer or review is waiting on it: Synthetic procurement review.',
-    'Permission to publish a redacted result: false',
-    'I confirm authority to approve testing: true',
+    'Permission to publish a redacted result: No',
+    'I confirm authority to approve testing: Yes',
   ]) assert(body.includes(answer), `Draft should contain ${answer}`);
   console.log('Decoded mailto draft:', JSON.stringify({ to: mailto.pathname, subject, body }, null, 2));
   assert.match(document.querySelector('[role=status]')!.textContent!, /draft.*not been sent.*press Send/i);
@@ -173,7 +179,7 @@ test('the direct fallback URI-encodes special characters and the current checkbo
     'MCP endpoint or URL: https://synthetic.example.invalid/mcp?q=a&next=%2Fone#part',
     "Who authorizes the test and on what basis: Written approval: owner's scope & limits?",
     'What buyer or review is waiting on it: Reviewers <team> & procurement',
-    'Permission to publish a redacted result: false',
+    'Permission to publish a redacted result: No',
   ]) assert(body.includes(exactAnswer), `Encoded draft should preserve ${exactAnswer}`);
   assert.doesNotMatch(body, /calendar|checkout/i);
 });

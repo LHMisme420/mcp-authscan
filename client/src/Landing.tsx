@@ -13,6 +13,15 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
             <PricingTiers
               emailHref={assessmentEmailFor()}
               homepageVariant
+              afterCards={
+                <div>
+                  <p>Send the server URL and who authorizes the test. Scope and written authorization are agreed by email before anything is tested. Do not include credentials, tokens or secrets in email.</p>
+                  <div className="hero-ctas">
+                    <Link href="/scope" className="button">Start a scope request</Link>
+                    <a className="button secondary" href={assessmentEmailFor()}>Email Leroy</a>
+                  </div>
+                </div>
+              }
               renderLead={(openForm) => (
                 <>
                   <h1>The connector is what gets breached.</h1>
@@ -28,7 +37,18 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
               <span className="eyebrow">Independent MCP security assessment</span>
               <h1>MCP security assessment your buyer&apos;s review will accept.</h1>
               <p>An independent, written review of your MCP server&apos;s authorization surface, signed by the researcher who ran it.</p>
-              <PricingTiers emailHref={assessmentEmailFor()} />
+              <PricingTiers
+                emailHref={assessmentEmailFor()}
+                afterCards={
+                  <div>
+                    <p>Send the server URL and who authorizes the test. Scope and written authorization are agreed by email before anything is tested. Do not include credentials, tokens or secrets in email.</p>
+                    <div className="hero-ctas">
+                      <Link href="/scope" className="button">Start a scope request</Link>
+                      <a className="button secondary" href={assessmentEmailFor()}>Email Leroy</a>
+                    </div>
+                  </div>
+                }
+              />
             </>
           )}
           <p className="hero-note">Scope and written authorization are agreed before testing. A report may support a buyer review; acceptance is up to the buyer.</p>

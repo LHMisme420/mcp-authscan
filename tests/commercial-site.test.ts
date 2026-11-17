@@ -33,7 +33,7 @@ function checkEmailLink(anchor: HTMLAnchorElement, packageLabel?: string) {
 test('public and account routes get honest titles, canonical URLs, and indexing rules', async () => {
   assert.equal(PUBLIC_SITE_ORIGIN, 'https://mcpauth-scan.com');
   const template = await readFile('client/index.html', 'utf8');
-  for (const route of ['/', '/assessment', '/assessments', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
+  for (const route of ['/', '/assessment', '/assessments', '/scope', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
     const expected = metadataForPath(route);
     const document = new JSDOM(renderPageMetadata(template, route)).window.document;
     assert.match(document.title, /MCP AuthScan|VATA/);
@@ -55,13 +55,13 @@ test('public and account routes get honest titles, canonical URLs, and indexing 
 test('public HTML and discovery documents do not require an account or call the private API', async t => {
   const app = express();
   app.use(publicDocuments);
-  app.get(['/', '/assessments', '/request-assessment', '/sample-assessment'], sendFrontendPage);
+  app.get(['/', '/assessments', '/scope', '/request-assessment', '/sample-assessment'], sendFrontendPage);
   app.use('/api', (_req, res) => res.status(401).json({ error: 'Unauthorized' }));
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  for (const route of ['/', '/assessments', '/request-assessment', '/sample-assessment']) {
+  for (const route of ['/', '/assessments', '/scope', '/request-assessment', '/sample-assessment']) {
     const response = await fetch(`${origin}${route}`);
     assert.equal(response.status, 200);
     const document = new JSDOM(await response.text()).window.document;
@@ -83,7 +83,8 @@ test('public HTML and discovery documents do not require an account or call the 
   assert.deepEqual([...sitemapDocument.querySelectorAll('loc')].map(node => node.textContent), [
     'https://mcpauth-scan.com/', 'https://mcpauth-scan.com/blast-radius',
     'https://mcpauth-scan.com/assessment', 'https://mcpauth-scan.com/assessments',
-    'https://mcpauth-scan.com/request-assessment', 'https://mcpauth-scan.com/sample-assessment',
+    'https://mcpauth-scan.com/request-assessment', 'https://mcpauth-scan.com/scope',
+    'https://mcpauth-scan.com/sample-assessment',
   ]);
   assert(!xml.includes('user-portal'));
   assert.equal((await fetch(`${origin}/api/findings`)).status, 401);
@@ -144,7 +145,8 @@ test('homepage sells named independent assessments without recurring offers or c
   assert.equal(links.filter(link => /stripe\.com/.test(link.href)).length, 0);
   assert(links.some(link => link.getAttribute('href') === '/assessments'));
   assert(links.some(link => link.getAttribute('href') === '/request-assessment'));
-  const emailButton = document.querySelector<HTMLAnchorElement>('a.button[href^="mailto:"]')!;
+  const emailButton = [...document.querySelectorAll<HTMLAnchorElement>('a.button[href^="mailto:"]')]
+    .find(link => link.textContent === 'Email us to request an assessment')!;
   assert(emailButton);
   checkEmailLink(emailButton);
   assert.equal(document.querySelectorAll('form').length, 0);
@@ -181,6 +183,47 @@ test('dedicated assessment details share exact pricing without package-call clai
   assert(!/subscription|monthly|a month|scheduled re.check|\$49/i.test(text));
   assert(!/walkthrough|walk your team|meeting/i.test(text));
   assert.match(text, /Hash over graded report content/);
+});
+
+test('assessment closing links follow the cards before the unchanged report method', async () => {
+  const document = await renderComponent('client/src/Landing.tsx');
+  const cards = document.querySelector('.pricing-tier-grid')!;
+  const primary = document.querySelector<HTMLAnchorElement>('a[href="/scope"]')!;
+  const method = document.querySelector('#report-method')!;
+  assert(primary, 'The closing primary link must lead to the real scope page');
+  assert.equal(primary.textContent, 'Start a scope request');
+  assert(cards.compareDocumentPosition(primary) & 4);
+  assert(primary.compareDocumentPosition(method) & 4);
+  const closing = primary.parentElement!.parentElement!;
+  assert.match(closing.textContent || '', /Send the server URL and who authorizes the test/);
+  assert.match(closing.textContent || '', /Scope and written authorization are agreed by email before anything is tested/);
+  assert.match(closing.textContent || '', /Do not include credentials, tokens or secrets in email/);
+  const secondary = [...closing.querySelectorAll('a')].find(link => link.textContent === 'Email Leroy');
+  assert(secondary?.getAttribute('href')?.startsWith('mailto:lhmisme2011@gmail.com'));
+});
+
+test('/scope directly renders the existing written-scope form without replacing other intake routes', async () => {
+  const document = await renderComponent('client/src/Scope.tsx', '/scope');
+  const form = document.querySelector('form')!;
+  assert(form, 'The scope form must already be visible on arrival');
+  assert.deepEqual([...form.querySelectorAll('label')].map(label => label.textContent?.replace(/\s+/g, ' ').trim()).map(text => text?.replace(/\s+(Yes|No)$/, '')), [
+    'Your name',
+    'Work email',
+    'Company',
+    'MCP endpoint or URL',
+    'Who authorizes the test and on what basis',
+    'What buyer or review is waiting on it',
+    'Permission to publish a redacted result',
+    'I confirm I own this endpoint, or am authorized to approve testing of it, and I will confirm the scope in writing before any test runs.',
+  ]);
+  assert(!/\b(true|false)\b/.test(form.textContent || ''), 'Visitors must not see raw booleans');
+  assert.equal(form.querySelector('button[type="submit"]')?.textContent, 'Submit');
+  assert.match(form.querySelector('.written-scope-email-fallback a')?.getAttribute('href') || '', /^mailto:lhmisme2011@gmail.com/);
+  const app = await readFile('client/src/App.tsx', 'utf8');
+  assert(app.includes('path="/scope" component={Scope}'));
+  assert(app.includes('path="/request-assessment" component={RequestAssessment}'));
+  assert(app.includes('path="/assessment" component={Assessment}'));
+  assert.equal(metadataForPath('/scope').canonical, 'https://mcpauth-scan.com/scope');
 });
 
 test('inquiry page makes supported email prominent without a misleading submission form', async () => {
