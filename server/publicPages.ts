@@ -7,9 +7,13 @@ import { renderPageMetadata } from '../shared/siteMetadata';
 // writer-readiness middleware, and never returns private workspace content.
 export function publicDocuments(req: Request, res: Response, next: NextFunction) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-  if (req.path === '/robots.txt' || req.path === '/sitemap.xml') {
+  const verificationFile = 'google4d11d51a142646af.html';
+  const nestedVerification = req.path === `/sitemap.xml/${verificationFile}`;
+  if (req.path === '/robots.txt' || req.path === '/sitemap.xml' ||
+      req.path === `/${verificationFile}` || nestedVerification) {
     const root = process.env.NODE_ENV === 'production' ? 'build/client' : 'client/public';
-    return res.sendFile(path.resolve(root, req.path.slice(1)), error => {
+    const filename = nestedVerification ? verificationFile : req.path.slice(1);
+    return res.sendFile(path.resolve(root, filename), error => {
       if (error) next(error);
     });
   }
