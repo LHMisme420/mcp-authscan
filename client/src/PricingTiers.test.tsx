@@ -20,23 +20,17 @@ test('pricing offers two written assessment options with one start action', () =
   assert.match(html, /<p>A server or fleet[^<]*<\/p><button class="button pricing-start-button"/);
 });
 
-test('start opens the required plain form; failed save/email is visible and success confirms written scope only', async t => {
+test('Submit opens a fixed-recipient draft with every entered answer and never sends it automatically', async t => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://scope.example' });
   const originals = new Map<string, PropertyDescriptor | undefined>();
   const globals: Record<string, unknown> = {
     window: dom.window, document: dom.window.document, FormData: dom.window.FormData,
     IS_REACT_ACT_ENVIRONMENT: true,
   };
-  let posted: Record<string, unknown> | undefined;
-  let accepted = false;
-  globals.fetch = async (url: string, init?: RequestInit) => {
-    if (url.endsWith('/status')) return Response.json({ available: true, challenge: 'synthetic-challenge' });
-    assert.equal(url, '/contact/scope');
-    assert.equal(init?.method, 'POST');
-    posted = JSON.parse(String(init?.body));
-    return accepted
-      ? Response.json({ saved: true, emailed: true, reference: 'synthetic-email-id' }, { status: 201 })
-      : Response.json({ error: 'Could not save and email the request.' }, { status: 503 });
+  let fetchCalls = 0;
+  globals.fetch = () => {
+    fetchCalls += 1;
+    throw new Error('Fetch must not be used by the mailto form.');
   };
   for (const [key, value] of Object.entries(globals)) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -58,33 +52,130 @@ test('start opens the required plain form; failed save/email is visible and succ
   const form = document.querySelector('form')!;
   assert(form);
   assert.equal(form.querySelectorAll('textarea').length, 3);
-  assert.equal(form.querySelectorAll('input[type=radio]').length, 0);
   assert.equal(form.querySelector('input[name=authorized]')?.hasAttribute('required'), true);
   assert.equal(form.querySelector('textarea[name=buyerContext]')?.hasAttribute('required'), true);
   assert.equal(form.querySelector('input[name=publicationPermission]')?.hasAttribute('required'), false);
-  assert(!/calendar|booking|walkthrough/i.test(form.textContent || ''));
+  assert(!/calendar|checkout|booking|walkthrough/i.test(form.textContent || ''));
+  const submitButton = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+  const emailLink = form.querySelector<HTMLAnchorElement>('.written-scope-email-fallback a')!;
+  const navigations: string[] = [];
+  document.addEventListener('click', (event) => {
+    if (event.target === emailLink) {
+      event.preventDefault();
+      navigations.push(emailLink.href);
+    }
+  });
+
+  await act(async () => submitButton.click());
+  assert.equal(navigations.length, 0, 'missing required answers must block draft activation');
+  assert.equal(form.querySelector<HTMLInputElement>('input[name=name]')!.checkValidity(), false);
+
   for (const [name, value] of Object.entries({
-    name: 'Synthetic Tester', email: 'test@example.invalid', company: 'Synthetic Co',
-    endpoints: 'https://example.invalid/mcp', authority: 'Owner authorized to approve testing',
-    buyerContext: 'A procurement review is waiting on the assessment.',
+    name: 'INTERNAL SYNTHETIC MAILTO TEST',
+    email: 'scope-test@example.com',
+    company: 'Synthetic Test Company',
+    endpoints: 'https://synthetic.example.invalid/mcp',
+    authority: 'Synthetic form test only; no endpoint testing is authorized.',
+    buyerContext: 'Synthetic procurement review.',
+  })) (form.elements.namedItem(name) as HTMLInputElement).value = value;
+  (form.elements.namedItem('publicationPermission') as HTMLInputElement).checked = false;
+
+  await act(async () => submitButton.click());
+  assert.equal(navigations.length, 0, 'unchecked authority must block draft activation');
+  assert.equal((form.elements.namedItem('authorized') as HTMLInputElement).checked, false);
+
+  (form.elements.namedItem('authorized') as HTMLInputElement).checked = true;
+  await act(async () => submitButton.click());
+  assert.equal(navigations.length, 1, 'valid Submit must activate the visible mailto anchor');
+  const mailto = new URL(navigations[0]);
+  assert.equal(mailto.protocol, 'mailto:');
+  assert.equal(mailto.pathname, 'lhmisme2011@gmail.com');
+  const subject = mailto.searchParams.get('subject') || '';
+  const body = mailto.searchParams.get('body') || '';
+  assert.match(subject, /assessment request/i);
+  for (const answer of [
+    'Your name: INTERNAL SYNTHETIC MAILTO TEST',
+    'Work email: scope-test@example.com',
+    'Company: Synthetic Test Company',
+    'MCP endpoint or URL: https://synthetic.example.invalid/mcp',
+    'Who authorizes the test and on what basis: Synthetic form test only; no endpoint testing is authorized.',
+    'What buyer or review is waiting on it: Synthetic procurement review.',
+    'Permission to publish a redacted result: false',
+    'I confirm authority to approve testing: true',
+  ]) assert(body.includes(answer), `Draft should contain ${answer}`);
+  console.log('Decoded mailto draft:', JSON.stringify({ to: mailto.pathname, subject, body }, null, 2));
+  assert.match(document.querySelector('[role=status]')!.textContent!, /draft.*not been sent.*press Send/i);
+  assert.equal(document.querySelector('form'), form, 'the form remains available after opening the draft');
+  assert.equal((form.elements.namedItem('name') as HTMLInputElement).value, 'INTERNAL SYNTHETIC MAILTO TEST');
+  assert.equal((form.elements.namedItem('email') as HTMLInputElement).value, 'scope-test@example.com');
+  assert.equal((form.elements.namedItem('company') as HTMLInputElement).value, 'Synthetic Test Company');
+  assert.equal((form.elements.namedItem('endpoints') as HTMLTextAreaElement).value, 'https://synthetic.example.invalid/mcp');
+  assert.equal((form.elements.namedItem('authority') as HTMLTextAreaElement).value, 'Synthetic form test only; no endpoint testing is authorized.');
+  assert.equal((form.elements.namedItem('buyerContext') as HTMLTextAreaElement).value, 'Synthetic procurement review.');
+  assert.equal((form.elements.namedItem('publicationPermission') as HTMLInputElement).checked, false);
+  assert.equal((form.elements.namedItem('authorized') as HTMLInputElement).checked, true);
+  assert.equal(fetchCalls, 0);
+});
+
+test('the direct fallback URI-encodes special characters and the current checkbox answers', async t => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'https://scope.example' });
+  const originals = new Map<string, PropertyDescriptor | undefined>();
+  const globals: Record<string, unknown> = {
+    window: dom.window, document: dom.window.document, FormData: dom.window.FormData,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  };
+  for (const [key, value] of Object.entries(globals)) {
+    originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
+  }
+  const root = createRoot(dom.window.document.getElementById('root')!);
+  t.after(async () => {
+    await act(async () => root.unmount());
+    for (const [key, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+    dom.window.close();
+  });
+  await act(async () => root.render(<PricingTiers emailHref="mailto:ignored@example.invalid" />));
+  const document = dom.window.document;
+  await act(async () => document.querySelector<HTMLButtonElement>('.pricing-start-button')!.click());
+  const form = document.querySelector<HTMLFormElement>('form')!;
+  for (const [name, value] of Object.entries({
+    name: 'A & B "Review"',
+    email: 'special+chars@example.invalid',
+    company: 'Research, Inc. <Synthetic>',
+    endpoints: 'https://synthetic.example.invalid/mcp?q=a&next=%2Fone#part',
+    authority: "Written approval: owner's scope & limits?",
+    buyerContext: 'Reviewers <team> & procurement',
   })) (form.elements.namedItem(name) as HTMLInputElement).value = value;
   (form.elements.namedItem('authorized') as HTMLInputElement).checked = true;
-  (form.elements.namedItem('publicationPermission') as HTMLInputElement).checked = true;
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 2150)); });
-  assert.equal(form.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled, false);
-  await act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
-  assert.match(document.querySelector('[role=alert]')!.textContent!, /Could not save and email/);
-  assert.equal((form.elements.namedItem('company') as HTMLInputElement).value, 'Synthetic Co');
-  assert.equal(posted?.authorized, true);
-  assert.equal(posted?.service, 'comprehensive');
-  assert.equal(posted?.endpoints, 'https://example.invalid/mcp');
-  assert.equal(posted?.environment, '');
-  assert.equal(posted?.buyerContext, 'A procurement review is waiting on the assessment.');
-  assert.equal(posted?.publicationPermission, true);
-  accepted = true;
-  await act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
-  assert.equal(document.querySelector('form'), null);
-  assert.equal(document.querySelector('[role=status]')!.textContent, 'Scope received. You will get a written reply.');
+  (form.elements.namedItem('publicationPermission') as HTMLInputElement).checked = false;
+  const fallback = document.querySelector<HTMLAnchorElement>('.written-scope-email-fallback a')!;
+  const navigations: string[] = [];
+  document.addEventListener('click', (event) => {
+    if (event.target === fallback) {
+      event.preventDefault();
+      navigations.push(fallback.href);
+    }
+  });
+  await act(async () => fallback.click());
+  assert.equal(navigations.length, 1);
+  const mailto = new URL(navigations[0]);
+  assert.equal(mailto.protocol, 'mailto:');
+  assert.equal(mailto.pathname, 'lhmisme2011@gmail.com');
+  const encodedHref = navigations[0];
+  assert.match(encodedHref, /%26|%3C|%3E|%3F|%23/);
+  const body = mailto.searchParams.get('body') || '';
+  for (const exactAnswer of [
+    'Your name: A & B "Review"',
+    'Company: Research, Inc. <Synthetic>',
+    'MCP endpoint or URL: https://synthetic.example.invalid/mcp?q=a&next=%2Fone#part',
+    "Who authorizes the test and on what basis: Written approval: owner's scope & limits?",
+    'What buyer or review is waiting on it: Reviewers <team> & procurement',
+    'Permission to publish a redacted result: false',
+  ]) assert(body.includes(exactAnswer), `Encoded draft should preserve ${exactAnswer}`);
+  assert.doesNotMatch(body, /calendar|checkout/i);
 });
 
 test('homepage, single-server, and full-assessment triggers open the same complete scope form', async t => {
@@ -95,7 +186,6 @@ test('homepage, single-server, and full-assessment triggers open the same comple
     document: dom.window.document,
     FormData: dom.window.FormData,
     IS_REACT_ACT_ENVIRONMENT: true,
-    fetch: async () => Response.json({ available: true, challenge: 'synthetic-challenge' }),
   };
   for (const [key, value] of Object.entries(globals)) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));

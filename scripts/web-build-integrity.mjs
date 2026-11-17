@@ -5,6 +5,7 @@ import path from 'node:path';
 export const frontendModules = [
   'client/src/main.tsx', 'client/src/App.tsx',
   'client/src/Assessments.tsx', 'client/src/RequestAssessment.tsx',
+  'client/src/writtenScopeMailto.ts',
 ];
 export const serverModules = ['server/index.ts', 'server/assessmentInquiry.ts', 'shared/assessmentInquiry.ts', 'server/scopeStore.ts', 'shared/writtenScope.ts'];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -92,7 +93,9 @@ export async function assertArtifacts(root, graphs) {
     'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
     '/assessment', '1750 dollars', '3500 dollars',
     'Independent MCP security assessments', 'Single-server assessment',
-    'Full assessment', 'Start an assessment', '/contact/scope',
+    'Full assessment', 'Start an assessment',
+    encodeURIComponent('Written assessment request — MCP security assessment'),
+    'Your email app should open with a plain-text draft. It has not been sent; review it and press Send.',
     'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
     'Synthetic Demonstration — Not a Real Client Assessment.',
     'MCP security assessment your buyer',

@@ -84,7 +84,10 @@ test('a release without the supported email inquiry path cannot pass verificatio
   const { dir, release } = await fixture(t);
   const js = Object.keys(release.artifacts).find(name => /^build\/client\/assets\/.*\.js$/.test(name));
   const original = await readFile(path.join(dir, js), 'utf8');
-  for (const marker of ['Email us to request an assessment', 'mailto:lhmisme2011@gmail.com']) {
+  for (const marker of [
+    'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
+    encodeURIComponent('Written assessment request — MCP security assessment'),
+  ]) {
     await writeFile(path.join(dir, js), original.replaceAll(marker, 'removed-contact-path'));
     await assert.rejects(assertArtifacts(dir, release.graphs), /Generated frontend lacks required content/);
   }

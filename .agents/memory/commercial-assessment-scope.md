@@ -21,11 +21,17 @@ There is no approved redacted client report available for publication. Use only 
 
 **How to apply:** Keep the synthetic example distinct from owner-summary observations. Do not insert those observations or a fabricated evidence hash into the demonstration. Any future real-report work needs a new explicit request and approved source material.
 
-Use the requested written-scope form as the assessment offer's primary action, retaining Gmail as the fallback contact path. Save requests separately from findings, and email their contents and submission timestamp only through a legitimate configured sender.
+Use the written-scope form as the assessment offer's primary action. Submit opens a prefilled mailto draft to the existing assessment inbox; it does not call status, save online, or send server-side. Keep Resend connected but unused by this form.
 
-**Why:** The owner superseded the earlier email-only offer with a one-page scope form, explicit ownership/authorization confirmation, and saving plus email notification. Invoicing follows agreed scope; submission never authorizes testing.
+**Why:** The owner explicitly replaced server-side delivery with the visitor's email client so a status or sending-service failure cannot block the request. Invoicing follows agreed scope; submission never authorizes testing.
 
-**How to apply:** Never claim saving or email succeeded unless each operation actually succeeded. A verified Resend sender is still required; a Gmail recipient is not permission to spoof Gmail as the sender. Keep unrelated inquiry-page wording and existing functionality unchanged unless requested.
+**How to apply:** Explain that the visitor must press Send in their email client. Do not claim saving, delivery or receipt from opening a draft. Do not require a verified Resend sender for this mailto-only path. Keep unrelated inquiry-page wording and existing functionality unchanged unless requested.
+
+The scope-form fallback must remain a direct mailto link to the same assessment inbox, preserving the visitor's entered scope rather than navigating to another intake page.
+
+**Why:** The owner requested a usable email fallback when online status or submission fails, without silently losing the request.
+
+**How to apply:** URI-encode draft answers, preserve fields on failure, and explain that opening a draft does not send it. Report a real test email's delivery evidence separately from mocked tests or provider acceptance.
 
 The landing scope form asks what buyer or review is waiting on the assessment and offers an optional permission checkbox for publishing a redacted result.
 

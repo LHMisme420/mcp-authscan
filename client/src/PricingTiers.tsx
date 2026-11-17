@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { writtenScopeMailto } from './writtenScopeMailto';
 
 const tiers = [
   {
@@ -15,114 +16,29 @@ const tiers = [
   },
 ];
 
-export default function PricingTiers({
-  emailHref,
-  homepageVariant = false,
-  renderLead,
-}: {
+export default function PricingTiers(props: {
   emailHref: string;
   homepageVariant?: boolean;
   renderLead?: (openForm: () => void) => ReactNode;
 }) {
+  const { homepageVariant = false, renderLead } = props;
   const [formOpen, setFormOpen] = useState(false);
-  const [challenge, setChallenge] = useState<string | null>(null);
-  const [availabilityChecked, setAvailabilityChecked] = useState(false);
-  const [available, setAvailable] = useState(false);
-  const [challengeReady, setChallengeReady] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const emailLinkRef = useRef<HTMLAnchorElement>(null);
+  const [draftMessage, setDraftMessage] = useState('');
   const openForm = () => setFormOpen(true);
 
-  useEffect(() => {
-    if (!formOpen) return;
-    let cancelled = false;
-    setChallenge(null);
-    setAvailabilityChecked(false);
-    setAvailable(false);
-    setChallengeReady(false);
-    setResult(null);
-    let challengeTimer: number | undefined;
-    fetch('/contact/scope/status', { credentials: 'include', signal: AbortSignal.timeout(10_000) })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Status request failed (${response.status}).`);
-        return response.json();
-      })
-      .then((data: { available?: boolean; challenge?: string | null }) => {
-        if (cancelled) return;
-        setAvailabilityChecked(true);
-        setAvailable(data.available === true && typeof data.challenge === 'string' && data.challenge.length > 0);
-        setChallenge(typeof data.challenge === 'string' ? data.challenge : null);
-        challengeTimer = window.setTimeout(() => {
-          if (!cancelled) setChallengeReady(true);
-        }, 2000);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setAvailabilityChecked(true);
-        setAvailable(false);
-        setResult({
-          kind: 'error',
-          text: error instanceof Error ? `Assessment request service status could not be checked: ${error.message}` : 'Assessment request service status could not be checked.',
-        });
-      });
-    return () => {
-      cancelled = true;
-      window.clearTimeout(challengeTimer);
-    };
-  }, [formOpen]);
-
-  async function submitScope(event: FormEvent<HTMLFormElement>) {
+  function submitScope(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!available || !challenge || !challengeReady || submitting) return;
     const form = event.currentTarget;
-    const data = new FormData(form);
-    const payload = {
-      name: String(data.get('name') || ''),
-      email: String(data.get('email') || ''),
-      company: String(data.get('company') || ''),
-      endpoints: String(data.get('endpoints') || ''),
-      service: 'comprehensive' as const,
-      authority: String(data.get('authority') || ''),
-      environment: '',
-      buyerContext: String(data.get('buyerContext') || ''),
-      publicationPermission: data.get('publicationPermission') === 'on',
-      authorized: data.get('authorized') === 'on',
-      challenge,
-      websiteExtra: '',
-    };
-    setSubmitting(true);
-    setResult(null);
-    try {
-      const response = await fetch('/contact/scope', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(20_000),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const fieldErrors = body && typeof body.errors === 'object'
-          ? Object.entries(body.errors).map(([field, message]) => `${field}: ${String(message)}`).join(' ')
-          : '';
-        throw new Error([body?.error || `Request failed (${response.status}).`, fieldErrors].filter(Boolean).join(' '));
-      }
-      if (body?.saved !== true || body?.emailed !== true) {
-        throw new Error(body?.message || 'The service did not confirm that the request was saved and emailed.');
-      }
-      setResult({
-        kind: 'success',
-        text: 'Scope received. You will get a written reply.',
-      });
-      form.reset();
-    } catch (error) {
-      setResult({
-        kind: 'error',
-        text: error instanceof Error ? error.message : 'The request could not be submitted.',
-      });
-    } finally {
-      setSubmitting(false);
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
     }
+    if (!emailLinkRef.current) return;
+    emailLinkRef.current.href = writtenScopeMailto(new FormData(form));
+    setDraftMessage('Your email app should open with a plain-text draft. It has not been sent; review it and press Send.');
+    emailLinkRef.current.click();
   }
 
   return (
@@ -147,8 +63,7 @@ export default function PricingTiers({
       </div>
       {formOpen && (
         <div className="written-scope-form-wrap">
-          {result?.kind === 'success' ? <p role="status">{result.text}</p> :
-          <form className="written-scope-form" onSubmit={submitScope}>
+          <form className="written-scope-form" ref={formRef} onSubmit={submitScope}>
             <div className="written-scope-form-heading">
               <span className="pricing-tier-index">WRITTEN SCOPE REQUEST</span>
               <h3>Assessment details</h3>
@@ -173,22 +88,19 @@ export default function PricingTiers({
               <input type="checkbox" name="authorized" required />
               <span>I confirm I own this endpoint, or am authorized to approve testing of it, and I will confirm the scope in writing before any test runs.</span>
             </label>
-            {availabilityChecked && !available && (
-              <p className="written-scope-unavailable" role="status">
-                Online saving and email are currently unavailable. Use the existing email fallback to send your written scope request.
-                {' '}<a href={emailHref}>Email us</a>
-              </p>
-            )}
-            {result && (
-              <p className={`written-scope-result ${result.kind}`} role={result.kind === 'error' ? 'alert' : 'status'}>
-                {result.text}
-              </p>
-            )}
-            <button className="button" type="submit" disabled={!available || !challenge || !challengeReady || submitting}>
-              {submitting ? 'Submitting…' : 'Submit'}
-            </button>
-            {!challengeReady && <span className="field-help" aria-live="polite">Preparing secure request…</span>}
-          </form>}
+            {draftMessage && <p className="written-scope-result" role="status">{draftMessage}</p>}
+            <button className="button" type="submit">Submit</button>
+            <p className="written-scope-email-fallback">
+              Fallback: opens your email app with these answers as a plain-text draft. Review it, then press Send.
+              {' '}<a
+                ref={emailLinkRef}
+                href="mailto:lhmisme2011@gmail.com"
+                onClick={(event) => {
+                  if (formRef.current) event.currentTarget.href = writtenScopeMailto(new FormData(formRef.current));
+                }}
+              >Email us</a>
+            </p>
+          </form>
         </div>
       )}
     </section>
