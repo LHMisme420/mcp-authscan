@@ -11,9 +11,15 @@ Use the scanner's actual canonical hash function for uploaded report verificatio
 
 Keep integrity and authenticity independent. Verify detached Ed25519 signatures only against explicitly published public keys and exactly the CLI's canonical bytes. Private signing keys must stay outside all repositories and the website runtime.
 
-**Why:** The owner reserved signing for the CLI, later authorizing one local key pair stored outside the repositories. Only its public key and key_id may cross into the website.
+**Why:** The owner reserved signing for the CLI. After a runner-only proof, they clarified that a runner home directory is not acceptable long-term signing-key custody. Production signing must use a replacement generated on an owner-controlled machine; only its public key and key_id may cross into the website.
 
 **How to apply:** Publish only explicitly authorized public identities. Report unsigned, unknown-key, malformed and invalid-signature states honestly; do not infer signature validity from a matching hash, or hash integrity from a valid signature. Sign only schema-3 CLI JSON; PDF output points to its JSON hash and signing key_id rather than signing layout bytes. Do not sign a second, incompatible format.
+
+Keep published key_ids append-only; do not remove historical public keys.
+
+**Why:** The owner explicitly requires old reports not to turn into UNKNOWN KEY when signing identities change.
+
+**How to apply:** Add replacement public identities without deleting existing ones. Historical key retention does not establish current trust or cure compromised key custody; treat revocation/trust status as a separate decision.
 
 Preserve uploaded JSON text rather than parsing and reserializing it in JavaScript before verification.
 
