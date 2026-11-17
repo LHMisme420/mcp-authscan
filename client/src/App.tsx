@@ -102,7 +102,7 @@ function HomeRoute() {
   const { isLoaded, isSignedIn } = useAuth();
   // The public service description remains visible while Clerk initializes.
   // Once authenticated, retain the existing workspace redirect.
-  return isLoaded && isSignedIn ? <Redirect to="/user-portal" /> : <Landing />;
+  return isLoaded && isSignedIn ? <Redirect to="/user-portal" /> : <Landing homepageVariant />;
 }
 
 function ProtectedRoute({ children }: { children: ReactNode }) {

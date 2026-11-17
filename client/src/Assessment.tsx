@@ -1,1 +1,5 @@
-export { default } from './Landing';
+import Landing from './Landing';
+
+export default function Assessment() {
+  return <Landing />;
+}

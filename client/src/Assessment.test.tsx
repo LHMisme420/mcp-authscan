@@ -7,10 +7,10 @@ import { build } from 'esbuild';
 import { metadataForPath, PUBLIC_SITE_ORIGIN } from '../../shared/siteMetadata';
 import { JSDOM } from 'jsdom';
 
-async function renderPage(entry: string, path: string) {
+async function renderPage(entry: string, path: string, props = '') {
   const result = await build({
     stdin: {
-      contents: `import React from 'react'; import { Router } from 'wouter'; import Page from './${entry}'; export default function Fixture() { return <Router ssrPath="${path}"><Page /></Router>; }`,
+      contents: `import React from 'react'; import { Router } from 'wouter'; import Page from './${entry}'; export default function Fixture() { return <Router ssrPath="${path}"><Page ${props} /></Router>; }`,
       resolveDir: process.cwd(),
       sourcefile: 'assessment-page-fixture.tsx',
       loader: 'tsx',
@@ -32,14 +32,15 @@ async function renderPage(entry: string, path: string) {
   return new JSDOM(renderToStaticMarkup(React.createElement(module.exports.default))).window.document;
 }
 
-test('/assessment is the same public landing content as / with matching offer metadata', async () => {
-  const home = await renderPage('client/src/Landing', '/');
+test('/assessment retains the legacy landing content and matching offer metadata', async () => {
+  const home = await renderPage('client/src/Landing', '/', '');
   const alias = await renderPage('client/src/Assessment', '/assessment');
   const homePricing = home.querySelector('.pricing-tiers');
   const aliasPricing = alias.querySelector('.pricing-tiers');
   assert(homePricing);
   assert(aliasPricing);
-  assert.equal(alias.body.innerHTML, home.body.innerHTML, 'Assessment.tsx must render the same Landing component');
+  assert.equal(alias.body.innerHTML, home.body.innerHTML, 'Assessment.tsx must retain the legacy Landing content');
+  assert.equal(alias.querySelector('h1')?.textContent, 'MCP security assessment your buyer\'s review will accept.');
   assert.equal(homePricing.querySelector('h2')?.textContent, 'Independent MCP security assessments');
 
   const expectedTiers = [
@@ -74,4 +75,33 @@ test('/assessment is the same public landing content as / with matching offer me
   assert.equal(metadata.description, rootMetadata.description);
   assert.equal(metadata.canonical, `${PUBLIC_SITE_ORIGIN}/assessment`);
   assert.equal(metadata.robots, 'index, follow');
+});
+
+test('homepage variant uses the requested copy, three assessment triggers, and retains below-hero sections', async () => {
+  const home = await renderPage('client/src/Landing', '/', 'homepageVariant={true}');
+  const legacy = await renderPage('client/src/Landing', '/', '');
+
+  assert.equal(home.querySelector('h1')?.textContent, 'The connector is what gets breached.');
+  const paragraphs = Array.from(home.querySelectorAll('.hero-copy > p'))
+    .map((paragraph) => paragraph.textContent);
+  assert(paragraphs.includes('In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.'));
+  assert(paragraphs.includes('An independent assessment of your MCP server records how it handles sign-in, what it exposes without a credential, and what changes when you ship a fix. The report carries a hash a second party can recompute by re-running the same checks on the same server, so your buyer can verify it instead of trusting it.'));
+  assert(paragraphs.includes('One server, 1750 dollars. Full assessment with one retest, 3500 dollars.'));
+  assert.deepEqual(
+    Array.from(home.querySelector('.hero-copy')?.children || []).slice(0, 5).map((element) => element.textContent),
+    [
+      'The connector is what gets breached.',
+      'In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.',
+      'An independent assessment of your MCP server records how it handles sign-in, what it exposes without a credential, and what changes when you ship a fix. The report carries a hash a second party can recompute by re-running the same checks on the same server, so your buyer can verify it instead of trusting it.',
+      'One server, 1750 dollars. Full assessment with one retest, 3500 dollars.',
+      'Start an assessment',
+    ],
+  );
+  assert.equal(home.querySelectorAll('.hero-copy > button').length, 1);
+  assert.equal(home.querySelectorAll('.pricing-tier').length, 2);
+  assert.equal(home.querySelectorAll('.pricing-start-button').length, 2);
+  assert.equal(home.querySelector('.hero-copy > button')?.textContent, 'Start an assessment');
+  assert.equal(home.querySelector('.trust-band')?.innerHTML, legacy.querySelector('.trust-band')?.innerHTML);
+  assert.equal(home.querySelectorAll('.landing-section').length, legacy.querySelectorAll('.landing-section').length);
+  assert.equal(home.querySelectorAll('.service-teaser').length, legacy.querySelectorAll('.service-teaser').length);
 });

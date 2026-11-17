@@ -86,3 +86,59 @@ test('start opens the required plain form; failed save/email is visible and succ
   assert.equal(document.querySelector('form'), null);
   assert.equal(document.querySelector('[role=status]')!.textContent, 'Scope received. You will get a written reply.');
 });
+
+test('homepage, single-server, and full-assessment triggers open the same complete scope form', async t => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'https://scope.example' });
+  const originals = new Map<string, PropertyDescriptor | undefined>();
+  const globals: Record<string, unknown> = {
+    window: dom.window,
+    document: dom.window.document,
+    FormData: dom.window.FormData,
+    IS_REACT_ACT_ENVIRONMENT: true,
+    fetch: async () => Response.json({ available: true, challenge: 'synthetic-challenge' }),
+  };
+  for (const [key, value] of Object.entries(globals)) {
+    originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
+  }
+  const root = createRoot(dom.window.document.getElementById('root')!);
+  t.after(async () => {
+    await act(async () => root.unmount());
+    for (const [key, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+    dom.window.close();
+  });
+
+  await act(async () => root.render(
+    <PricingTiers
+      emailHref="mailto:owner@example.invalid"
+      homepageVariant
+      renderLead={(openForm) => <button type="button" onClick={openForm}>Start an assessment</button>}
+    />,
+  ));
+  const document = dom.window.document;
+  const buttons = Array.from(document.querySelectorAll('button'));
+  assert.equal(buttons.length, 3);
+  const verifyCompleteForm = () => {
+    const form = document.querySelector('form.written-scope-form');
+    assert(form);
+    assert.equal(form.querySelectorAll('textarea').length, 3);
+    assert.deepEqual(
+      Array.from(form.querySelectorAll('input, textarea')).map((field) => field.getAttribute('name')),
+      ['name', 'email', 'company', 'endpoints', 'authority', 'buyerContext', 'publicationPermission', 'authorized'],
+    );
+  };
+
+  await act(async () => buttons[0].click());
+  verifyCompleteForm();
+  await act(async () => buttons[2].click());
+  assert.equal(document.querySelector('form.written-scope-form'), null);
+  await act(async () => buttons[1].click());
+  verifyCompleteForm();
+  await act(async () => buttons[1].click());
+  assert.equal(document.querySelector('form.written-scope-form'), null);
+  await act(async () => buttons[2].click());
+  verifyCompleteForm();
+});

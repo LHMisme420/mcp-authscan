@@ -4,15 +4,33 @@ import { assessmentEmailFor } from './AssessmentSections';
 import PricingTiers from './PricingTiers';
 import './commercial.css';
 
-export default function Landing() {
+export default function Landing({ homepageVariant = false }: { homepageVariant?: boolean }) {
   return (
     <PublicSiteLayout className="landing">
       <section className="wrap hero">
         <div className="hero-copy">
-          <span className="eyebrow">Independent MCP security assessment</span>
-          <h1>MCP security assessment your buyer&apos;s review will accept.</h1>
-          <p>An independent, written review of your MCP server&apos;s authorization surface, signed by the researcher who ran it.</p>
-          <PricingTiers emailHref={assessmentEmailFor()} />
+          {homepageVariant ? (
+            <PricingTiers
+              emailHref={assessmentEmailFor()}
+              homepageVariant
+              renderLead={(openForm) => (
+                <>
+                  <h1>The connector is what gets breached.</h1>
+                  <p>In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.</p>
+                  <p>An independent assessment of your MCP server records how it handles sign-in, what it exposes without a credential, and what changes when you ship a fix. The report carries a hash a second party can recompute by re-running the same checks on the same server, so your buyer can verify it instead of trusting it.</p>
+                  <p>One server, 1750 dollars. Full assessment with one retest, 3500 dollars.</p>
+                  <button className="button" type="button" onClick={openForm}>Start an assessment</button>
+                </>
+              )}
+            />
+          ) : (
+            <>
+              <span className="eyebrow">Independent MCP security assessment</span>
+              <h1>MCP security assessment your buyer&apos;s review will accept.</h1>
+              <p>An independent, written review of your MCP server&apos;s authorization surface, signed by the researcher who ran it.</p>
+              <PricingTiers emailHref={assessmentEmailFor()} />
+            </>
+          )}
           <p className="hero-note">Scope and written authorization are agreed before testing. A report may support a buyer review; acceptance is up to the buyer.</p>
           <div className="hero-ctas">
             <a className="button" href={assessmentEmailFor()}>Email us to request an assessment</a>

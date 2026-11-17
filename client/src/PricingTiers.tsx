@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
 const tiers = [
   {
@@ -15,7 +15,15 @@ const tiers = [
   },
 ];
 
-export default function PricingTiers({ emailHref }: { emailHref: string }) {
+export default function PricingTiers({
+  emailHref,
+  homepageVariant = false,
+  renderLead,
+}: {
+  emailHref: string;
+  homepageVariant?: boolean;
+  renderLead?: (openForm: () => void) => ReactNode;
+}) {
   const [formOpen, setFormOpen] = useState(false);
   const [challenge, setChallenge] = useState<string | null>(null);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
@@ -23,6 +31,7 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
   const [challengeReady, setChallengeReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const openForm = () => setFormOpen(true);
 
   useEffect(() => {
     if (!formOpen) return;
@@ -117,6 +126,8 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
   }
 
   return (
+    <>
+    {renderLead?.(openForm)}
     <section className="pricing-tiers" aria-labelledby="pricing-tiers-title">
       <h2 id="pricing-tiers-title">Independent MCP security assessments</h2>
       <div className="pricing-tier-grid">
@@ -126,7 +137,7 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
             <p>{tier.body}</p>
-            {tier.name === 'Full assessment' && (
+            {(tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (
               <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
                 {formOpen ? 'Close assessment form' : 'Start an assessment'}
               </button>
@@ -181,5 +192,6 @@ export default function PricingTiers({ emailHref }: { emailHref: string }) {
         </div>
       )}
     </section>
+    </>
   );
 }
