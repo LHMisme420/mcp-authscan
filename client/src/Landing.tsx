@@ -14,6 +14,25 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
               emailHref={assessmentEmailFor()}
               homepageVariant
               afterCards={
+                <>
+                <section aria-labelledby="home-sample-report-title" style={{ overflowWrap: 'anywhere' }}>
+                  <h2 id="home-sample-report-title">Sample report</h2>
+                  <p>A real run, published with the operator's agreement and redacted, from a free scan rather than a paid assessment.</p>
+                  <dl>
+                    <dt>Target:</dt><dd>agentpaystore.com/book/mcp</dd>
+                    <dt>Server:</dt><dd>agentpay-bookings 1.0.0</dd>
+                    <dt>Tool:</dt><dd>mcp-authscan 1.1.24</dd>
+                    <dt>Probe set:</dt><dd>2026.11.16.2</dd>
+                    <dt>Verdict:</dt><dd>HIGH</dd>
+                    <dt>Findings:</dt><dd>1</dd>
+                    <dt>Coverage:</dt><dd>1 of 1 testable</dd>
+                    <dt>Excluded:</dt><dd>15</dd>
+                    <dt>Hash:</dt><dd>e08ed15790a437ed93573757e377f153aedd043a430cf1e3de93ddea514063e5</dd>
+                  </dl>
+                  <p>Fifteen probes returned no verdict on this target. Twelve of them share one reason: the server publishes no authorization server, so the OAuth discovery, issuer, token and client-registration checks had nothing to test against. They are recorded as excluded, not passed, and the report says so on its face.</p>
+                  <p>The hash covers graded content only, the probe results, findings, severities and the basis for each severity, and leaves out timestamps and server-varying headers. A second party can re-run the same probe set on the same target and either recompute the same hash or name the fields that differ.</p>
+                  <a href="/sample-report" className="button secondary">View the sample report</a>
+                </section>
                 <div className="scope-closing-block">
                   <p>Send the server URL and who authorizes the test. Scope and written authorization are agreed by email before anything is tested. Do not include credentials, tokens or secrets in email.</p>
                   <div className="hero-ctas">
@@ -22,6 +41,7 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
                     <a className="button secondary" href={assessmentEmailFor()}>Email Leroy</a>
                   </div>
                 </div>
+                </>
               }
               renderLead={(openForm) => (
                 <>
