@@ -76,7 +76,7 @@ enabledForHosting = false
 [userenv]
 
 [userenv.production]
-VATA_PORT = "24678"
+VATA_PORT = "5000"
 PUBLIC_APP_URL = "https://mcpauth-scan.com"
 VATA_BILLING_MODE = "disabled"
 VATA_PREPARE_LIVE_BILLING = "0"
