@@ -40,23 +40,23 @@ def altprobe(url, allowed=None):
             conn.request("POST", sse, body=b"{}", headers=hdrs)
             resp = conn.getresponse()
             status = resp.status
-            ctype = (resp.getheader("Content-Type") or "").lower()
+            ctype = (resp.getheader("Content-Type") or "").lower(); hh = dict(resp.getheaders())
             raw = resp.read(4096)
         finally:
             conn.close()
     except (OSError, http.client.HTTPException) as e:
         return skip(url, name, str(e))
     if status in (401, 403):
-        return record(TID, name, "PASS", http_status=status, body=raw, endpoint=url, detail="sibling transport answered " + str(status) + " with authentication enforced")
+        return record(TID, name, "PASS", http_status=status, body=raw, headers=hh, endpoint=url, detail="sibling transport answered " + str(status) + " with authentication enforced")
     if status == 200:
         if "text/event-stream" in ctype:
-            return record(TID, name, "FAIL", http_status=status, body=raw, endpoint=url, severity="HIGH", detail="sibling transport streamed with no credential")
+            return record(TID, name, "FAIL", http_status=status, body=raw, headers=hh, endpoint=url, severity="HIGH", detail="sibling transport streamed with no credential")
         try:
             doc = json.loads(raw.decode("utf-8", "replace") or "{}")
         except ValueError:
             doc = None
         if isinstance(doc, dict) and "jsonrpc" in doc:
-            return record(TID, name, "FAIL", http_status=status, body=raw, endpoint=url, severity="HIGH", detail="sibling transport answered JSON-RPC with no credential")
+            return record(TID, name, "FAIL", http_status=status, body=raw, headers=hh, endpoint=url, severity="HIGH", detail="sibling transport answered JSON-RPC with no credential")
         return skip(url, name, "200 whose body cannot be graded", status=status, body=raw)
     return skip(url, name, "sibling transport answered " + str(status), status=status, body=raw)
 

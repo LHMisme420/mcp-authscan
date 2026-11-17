@@ -613,7 +613,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     _raw = resp.read(65536).decode("utf-8", "replace")
-                    if "jsonrpc" not in _raw:
+                    if "jsonrpc" not in _raw or chr(34)+"result"+chr(34) not in _raw:
                         return None, None
                     _de, _di = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
                     if _de:
@@ -799,7 +799,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     body = resp.read(65536).decode(errors='ignore')
                     try:
                         data = json.loads(sse_payload(body))
-                        if isinstance(data, dict) and ('jsonrpc' in data or ('result' in data or 'error' in data)):
+                        if isinstance(data, dict) and 'jsonrpc' in data and 'result' in data:
                             mcp_verified = True
                             r = data.get('result') or {}
                             i = r.get('serverInfo') or {}
@@ -2652,7 +2652,7 @@ def main():
                 "response_preview": discovery_info.get("response_preview", "HTTP 200 - MCP endpoint accessible"),
                 # Set from the tool-call probe outcome once it is known (see severity_basis).
                 "interpretation": "MCP server requires no authentication.",
-                "remediation": "Implement authentication and authorization controls for all MCP endpoints."
+                "remediation": "Confirm whether unauthenticated clients are intended to reach this MCP surface. If they are not, add authentication and authorization controls; if they are, state that explicitly in the server record so a reviewer reads the open handshake as design rather than omission."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
             from mcp_authscan.target_probes import counts as _tcounts
@@ -2702,6 +2702,7 @@ def main():
                     pass  # Continue - OAuth records exist
                 else:
                     # No OAuth either - fail
+                    print("VERDICT INCONCLUSIVE | %s | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set %s" % (urlparse(args.target).hostname or args.target, PROBE_SET_VERSION), file=verdict_out)
                     sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)
@@ -2804,6 +2805,39 @@ def main():
             F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
     auth_block = ""
     metadata_block = ""
+    t=((getattr(args,"content_observed",{}) or {}).get("inspected") or {}).get("tools") or 0
+    _tc_out = tool_call_probe.get("outcome") if tool_call_probe is not None else None
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_basis = "tool-call probe not run"
+    elif _tc_out == "REFUSED":
+        _tc_basis = "tool-call probe REFUSED"
+    elif _tc_out == "EXECUTED":
+        _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
+    elif _tc_out == "UNKNOWN":
+        _tc_basis = "tool-call probe UNKNOWN"
+    else:
+        _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
+    _tc_open = "MCP server completed the handshake with no authentication" + (
+        " and listed %d tool(s)." % t if t else ".")
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_interp = _tc_open + " Tool invocation was not tested (tool-call probe not run)."
+    elif _tc_out == "REFUSED":
+        _tc_interp = _tc_open + " The tool-call probe was refused without a credential, so tool invocation was not shown to be open."
+    elif _tc_out == "EXECUTED":
+        _tc_interp = ("MCP server requires no authentication. Any client can call tools, resources and prompts. "
+                      "The tool-call probe executed %s with no credential." % (tool_call_probe.get("tool") or "none"))
+    elif _tc_out == "UNKNOWN":
+        _tc_interp = _tc_open + " The tool-call probe ran but its result was inconclusive (UNKNOWN), so tool invocation was not established."
+    else:
+        _tc_interp = _tc_open + " The tool-call probe returned unexpected outcome %r, so tool invocation was not established." % (_tc_out,)
+    for f in F:
+        if f.get("rule") == "ZERO-AUTH":
+            f["interpretation"] = _tc_interp
+    if t:
+     for f in F:
+      if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
+       f["severity"]="HIGH"
+       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
     findings_by_severity = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for finding in F:
         sev = finding.get("severity", "LOW")
@@ -3115,39 +3149,6 @@ def main():
         canonical_payload.pop(key, None)
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
-    t=((canonical_payload.get("content_observed") or {}).get("inspected") or {}).get("tools") or 0
-    _tc_out = tool_call_probe.get("outcome") if tool_call_probe is not None else None
-    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
-        _tc_basis = "tool-call probe not run"
-    elif _tc_out == "REFUSED":
-        _tc_basis = "tool-call probe REFUSED"
-    elif _tc_out == "EXECUTED":
-        _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
-    elif _tc_out == "UNKNOWN":
-        _tc_basis = "tool-call probe UNKNOWN"
-    else:
-        _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
-    _tc_open = "MCP server completed the handshake with no authentication" + (
-        " and listed %d tool(s)." % t if t else ".")
-    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
-        _tc_interp = _tc_open + " Tool invocation was not tested (tool-call probe not run)."
-    elif _tc_out == "REFUSED":
-        _tc_interp = _tc_open + " The tool-call probe was refused without a credential, so tool invocation was not shown to be open."
-    elif _tc_out == "EXECUTED":
-        _tc_interp = ("MCP server requires no authentication. Any client can call tools, resources and prompts. "
-                      "The tool-call probe executed %s with no credential." % (tool_call_probe.get("tool") or "none"))
-    elif _tc_out == "UNKNOWN":
-        _tc_interp = _tc_open + " The tool-call probe ran but its result was inconclusive (UNKNOWN), so tool invocation was not established."
-    else:
-        _tc_interp = _tc_open + " The tool-call probe returned unexpected outcome %r, so tool invocation was not established." % (_tc_out,)
-    for f in F:
-        if f.get("rule") == "ZERO-AUTH":
-            f["interpretation"] = _tc_interp
-    if t:
-     for f in F:
-      if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
-       f["severity"]="HIGH"
-       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
