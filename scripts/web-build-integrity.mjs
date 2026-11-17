@@ -108,7 +108,14 @@ export async function assertArtifacts(root, graphs) {
       client.includes('View synthetic sample report') || client.includes('tool-call probe not run,… Show more')) {
     fail('Generated frontend contains a retired synthetic sample or truncated report.');
   }
-  if (client.includes('https://buy.stripe.com/')) fail('Generated frontend includes a retired recurring checkout link.');
+  // Only the two owner-approved, one-time assessment links are permitted.
+  const assessmentCheckouts = new Set([
+    'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01',
+    'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02',
+  ]);
+  for (const [url] of client.matchAll(/https:\/\/buy\.stripe\.com\/[A-Za-z0-9_/-]+/g)) {
+    if (!assessmentCheckouts.has(url)) fail('Generated frontend includes a retired recurring checkout link.');
+  }
   if (!html.includes('Independent MCP Security Assessments | MCP AuthScan')) fail('Generated HTML uses an old homepage template.');
   const homepage = await readFile(path.join(root, 'build/server/home.html'), 'utf8');
   const closing = homepage.match(/<div class="scope-closing-block">([\s\S]*?)<\/div><\/div>/)?.[1];

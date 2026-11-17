@@ -87,18 +87,18 @@ test('homepage variant uses the requested copy, three assessment triggers, and r
   assert.equal(incidentSource?.getAttribute('rel'), 'noopener noreferrer');
   assert.equal(
     home.querySelector('a[href="https://therecord.media/cyberattack-germany-ai-mittwald"]')?.textContent,
-    'Eight days inside, 56 customer projects reached.',
+    'eight days in they had reached 56 customer projects.',
   );
   const paragraphs = Array.from(home.querySelectorAll('.hero-copy > p'))
     .map((paragraph) => paragraph.textContent);
-  assert(paragraphs.includes('In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.'));
+  assert(paragraphs.includes('In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console, they broke the connector in front of it, and eight days in they had reached 56 customer projects.'));
   assert(paragraphs.includes('An independent assessment of your MCP server records how it handles sign-in, what it exposes without a credential, and what changes when you ship a fix. The report carries a hash a second party can recompute by re-running the same checks on the same server, so your buyer can verify it instead of trusting it.'));
   assert(paragraphs.includes('One server, 1750 dollars. Full assessment with one retest, 3500 dollars.'));
   assert.deepEqual(
     Array.from(home.querySelector('.hero-copy')?.children || []).slice(0, 5).map((element) => element.textContent),
     [
       'The connector is what gets breached.',
-      'In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console. They broke the connector standing in front of it, and the keys to the console passed through that connector. Eight days inside, 56 customer projects reached.',
+      'In late October 2026 a German hosting company was breached through the MCP server it built so customers could attach an AI assistant to their console. The attacker did not break the console, they broke the connector in front of it, and eight days in they had reached 56 customer projects.',
       'An independent assessment of your MCP server records how it handles sign-in, what it exposes without a credential, and what changes when you ship a fix. The report carries a hash a second party can recompute by re-running the same checks on the same server, so your buyer can verify it instead of trusting it.',
       'One server, 1750 dollars. Full assessment with one retest, 3500 dollars.',
       'Start an assessment',

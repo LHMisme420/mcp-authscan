@@ -1,4 +1,3 @@
-import { Link } from 'wouter';
 import PublicSiteLayout from './PublicSiteLayout';
 
 // Owner-frozen wording: do not edit for tone. Any copy change requires the
@@ -49,7 +48,10 @@ export default function SampleReport() {
           <p>
             This server has not been retested. An assessment includes one retest of the same endpoint after fixes, and the two hashes side by side are the before and after.
           </p>
-          <Link className="button" href="/scope">Start a scope request</Link>
+          <div className="hero-ctas">
+            <a className="button" href="https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01">Single-server assessment — $1,750</a>{' '}
+            <a className="button secondary" href="https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02">Full assessment — $3,500</a>
+          </div>
         </article>
       </div>
     </PublicSiteLayout>

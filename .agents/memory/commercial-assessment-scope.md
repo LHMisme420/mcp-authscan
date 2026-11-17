@@ -27,7 +27,7 @@ Freeze the named-client sample's wording. Do not edit it later for tone without 
 
 **How to apply:** Enforce the approved-copy regression fixture. Only change the copy or that fixture following a specific owner-approved correction. The owner supplied the complete severity basis and hash-header wording; the earlier truncation was caused by the chat client, not by the report.
 
-Use the written-scope form as the assessment offer's primary action. Submit opens a prefilled mailto draft to the existing assessment inbox; it does not call status, save online, or send server-side. Keep Resend connected but unused by this form.
+Use the written-scope form as the assessment offer's primary action, except the sample report's closing actions: the owner explicitly chose direct, price-labeled one-time Stripe assessment links there (pay then scope). Submit opens a prefilled mailto draft to the existing assessment inbox; it does not call status, save online, or send server-side. Keep Resend connected but unused by this form.
 
 **Why:** The owner explicitly replaced server-side delivery with the visitor's email client so a status or sending-service failure cannot block the request. Invoicing follows agreed scope; submission never authorizes testing.
 

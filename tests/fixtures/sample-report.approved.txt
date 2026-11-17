@@ -23,4 +23,4 @@ A second party re-runs the same probe set on the same target. MATCH means identi
 WHAT THIS DOES NOT CLAIM
 Not a certification. Not a guarantee of security. No claim that the scanner is right; the point is that the claim is inspectable. Acceptance is the buyer's decision.
 This server has not been retested. An assessment includes one retest of the same endpoint after fixes, and the two hashes side by side are the before and after.
-Start a scope request
+Single-server assessment — $1,750 Full assessment — $3,500

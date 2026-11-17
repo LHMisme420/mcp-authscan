@@ -206,7 +206,7 @@ test('assessment closing links follow the cards before the unchanged report meth
   assert.equal(document.querySelector('.public-site-nav a[href="/sample-report"]')?.textContent, 'Sample report');
 });
 
-test('/sample-report preserves the supplied observations and digests without prices or a form', async () => {
+test('/sample-report preserves observations and digests with two price-labeled checkout links and no form', async () => {
   const document = await renderComponent('client/src/SampleReport.tsx', '/sample-report');
   const report = document.querySelector('#sample-report-text')!;
   assert(report, 'A real report page must render, not a SPA redirect');
@@ -225,10 +225,12 @@ test('/sample-report preserves the supplied observations and digests without pri
     'This server has not been retested.',
   ]) assert(text.includes(exact), `Supplied report changed: ${exact}`);
   assert.equal(document.querySelectorAll('form, input, textarea').length, 0);
-  assert(!/\$|1750 dollars|3500 dollars|2500 dollars|pricing-tier/.test(document.body.textContent || ''));
-  const cta = report.lastElementChild?.querySelector('a') ?? report.lastElementChild;
-  assert.equal(cta?.textContent, 'Start a scope request');
-  assert.equal(cta?.getAttribute('href'), '/scope');
+  const checkout = [...report.querySelectorAll('.hero-ctas a')];
+  assert.deepEqual(checkout.map(a => [a.textContent, a.getAttribute('href')]), [
+    ['Single-server assessment — $1,750', 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01'],
+    ['Full assessment — $3,500', 'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02'],
+  ]);
+  assert.equal(report.querySelector('a[href="/scope"]'), null);
   const app = await readFile('client/src/App.tsx', 'utf8');
   assert(app.includes('path="/sample-report" component={SampleReport}'));
   assert(app.includes('path="/sample-assessment"><Redirect to="/sample-report"'));
