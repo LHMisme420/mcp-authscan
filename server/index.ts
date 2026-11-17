@@ -26,9 +26,10 @@ app.set('trust proxy', 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 const start = await startApplication(app, httpServer);
 app.use(publicDocuments);
+app.get(['/sample-assessment', '/sample-assessment/'], (_req, res) => res.redirect(301, '/sample-report'));
 if (process.env.NODE_ENV === 'production') {
   // Public marketing HTML must not wait for authentication to initialize.
-  app.get(['/', '/assessments', '/assessments/', '/scope', '/scope/', '/request-assessment', '/request-assessment/', '/sample-assessment', '/sample-assessment/'], sendFrontendPage);
+  app.get(['/', '/assessments', '/assessments/', '/scope', '/scope/', '/request-assessment', '/request-assessment/', '/sample-report', '/sample-report/'], sendFrontendPage);
 }
 app.use('/contact', assessmentInquiryRoutes());
 app.use('/contact', assessmentInquiryRoutes({ kind: 'scope' }));

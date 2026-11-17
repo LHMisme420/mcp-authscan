@@ -76,7 +76,7 @@ export function AssessmentServices() {
           <div className="tooling-links" aria-label="Scanner project links">
             <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">mcp-authscan on GitHub</a>
             <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
-            <Link className="text-link" href="/sample-assessment">View synthetic sample report</Link>
+            <Link className="text-link" href="/sample-report">View sample report</Link>
           </div>
         </div>
       </div>

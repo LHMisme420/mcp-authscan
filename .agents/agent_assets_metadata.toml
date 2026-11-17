@@ -84,3 +84,17 @@ mtime_ms = 1794749471251
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/3f1ce672-39e9-4eac-8cb1-ce0c7ef91101/0b556bd1-1f01-4680-b55d-09ad4dc0e5f8"
 storage_version_token = "1794749558462822"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "wUs_ykS2F6YJzh9TRRHbd"
+uri = "file://generated-artifacts/private-assessment-drafts/agentpaystore-sample.html"
+type = "html"
+title = "Private sample assessment draft"
+description = "Not approved for publication. Supplied report text preserved verbatim, with separate warnings about the truncated finding, unverified hashes and unconfirmed publication permission. Not deployed to the website."
+logical_id = "9bb40b5a-dd5b-4c5b-8fa3-bfe5ae7c7297"
+content_hash = "sha256:0ca467beeb38e1985ffe4384740cc45ab242abba438f71dd169380a745366b82"
+size = 11793
+mtime_ms = 1794912812727
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:184b23cb-4223-44dd-9991-815029eef61d/9bb40b5a-dd5b-4c5b-8fa3-bfe5ae7c7297/11e861ec-7562-45af-8f7e-d963cdbb3012"
+storage_version_token = "1794912850963787"
+content_type = "text/html"

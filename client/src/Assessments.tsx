@@ -43,7 +43,7 @@ export default function Assessments() {
             <div className="tooling-links">
               <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">mcp-authscan on GitHub</a>
               <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
-              <Link className="text-link" href="/sample-assessment">Read the synthetic sample</Link>
+              <Link className="text-link" href="/sample-report">Read the sample report</Link>
               <Link className="text-link" href="/request-assessment">Discuss a scope</Link>
             </div>
           </div>

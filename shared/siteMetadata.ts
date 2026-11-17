@@ -31,11 +31,11 @@ export function metadataForPath(pathname: string) {
       robots: 'index, follow',
     };
   }
-  if (path === '/sample-assessment') {
+  if (path === '/sample-report' || path === '/sample-assessment') {
     return {
-      title: 'Synthetic Sample Assessment | MCP AuthScan',
-      description: 'An explicitly synthetic MCP security assessment example showing scope, illustrative evidence, limitations, remediation, and retest criteria. Not a customer engagement.',
-      canonical: `${PUBLIC_SITE_ORIGIN}/sample-assessment`,
+      title: 'Sample Assessment Report | MCP AuthScan',
+      description: 'A supplied redacted sample MCP assessment report with scope, observations, exclusions, repeatability and retest status.',
+      canonical: `${PUBLIC_SITE_ORIGIN}/sample-report`,
       robots: 'index, follow',
     };
   }

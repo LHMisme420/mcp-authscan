@@ -6,6 +6,7 @@ export const frontendModules = [
   'client/src/main.tsx', 'client/src/App.tsx',
   'client/src/Assessments.tsx', 'client/src/RequestAssessment.tsx',
   'client/src/writtenScopeMailto.ts',
+  'client/src/SampleReport.tsx',
 ];
 export const serverModules = ['server/index.ts', 'server/assessmentInquiry.ts', 'shared/assessmentInquiry.ts', 'server/scopeStore.ts', 'shared/writtenScope.ts'];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -61,7 +62,7 @@ export async function assertSource(root, expected) {
     fail(`Staged source differs from the approved publish fingerprint. Expected ${expected}; got ${snapshot.fingerprint}. No build or database operation was started.`);
   }
   const app = await readFile(path.join(root, 'client/src/App.tsx'), 'utf8');
-  for (const [route, component] of [['/assessments', 'Assessments'], ['/request-assessment', 'RequestAssessment']]) {
+  for (const [route, component] of [['/assessments', 'Assessments'], ['/request-assessment', 'RequestAssessment'], ['/sample-report', 'SampleReport']]) {
     if (!app.includes(`path="${route}" component={${component}}`)) fail(`Missing actual route binding: ${route}`);
   }
   const server = await readFile(path.join(root, 'server/index.ts'), 'utf8');
@@ -89,7 +90,8 @@ export async function assertArtifacts(root, graphs) {
     client += await readFile(path.join(root, 'build/client', name.slice(1)), 'utf8');
   }
   for (const marker of [
-    '/assessments', '/request-assessment', '/sample-assessment',
+    '/assessments', '/request-assessment', '/sample-assessment', '/sample-report',
+    'See a sample report',
     'Email us to request an assessment', 'mailto:lhmisme2011@gmail.com',
     '/assessment', '1750 dollars', '3500 dollars',
     'Independent MCP security assessments', 'Single-server assessment',
@@ -97,10 +99,15 @@ export async function assertArtifacts(root, graphs) {
     encodeURIComponent('Written assessment request — MCP security assessment'),
     'Your email app should open with a plain-text draft. It has not been sent; review it and press Send.',
     'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
-    'Synthetic Demonstration — Not a Real Client Assessment.',
+    'SAMPLE ASSESSMENT REPORT',
+    'zero-auth, 15 tools listed with no authentication, tool-call probe not run.',
     'MCP security assessment your buyer',
     'How the report stands up', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
   ]) if (!client.includes(marker)) fail(`Generated frontend lacks required content: ${marker}`);
+  if (client.includes('Synthetic Demonstration — Not a Real Client Assessment.') ||
+      client.includes('View synthetic sample report') || client.includes('tool-call probe not run,… Show more')) {
+    fail('Generated frontend contains a retired synthetic sample or truncated report.');
+  }
   if (client.includes('https://buy.stripe.com/')) fail('Generated frontend includes a retired recurring checkout link.');
   if (!html.includes('Independent MCP Security Assessments | MCP AuthScan')) fail('Generated HTML uses an old homepage template.');
   const server = await readFile(path.join(root, 'build/server/index.js'), 'utf8');

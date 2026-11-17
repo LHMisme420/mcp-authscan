@@ -8,7 +8,7 @@ import Landing from './Landing';
 import { AuthLoading } from './AuthLoading';
 import { JoinTeamPage } from './PlanFeatures';
 import { PageMetadata } from './PageMetadata';
-import SampleAssessment from './SampleAssessment';
+import SampleReport from './SampleReport';
 import Assessments from './Assessments';
 import RequestAssessment from './RequestAssessment';
 import BlastRadius from './BlastRadius';
@@ -212,7 +212,8 @@ function ClerkRoutes() {
         <Route path="/assessment" component={Assessment} />
         <Route path="/scope" component={Scope} />
         <Route path="/request-assessment" component={RequestAssessment} />
-        <Route path="/sample-assessment" component={SampleAssessment} />
+        <Route path="/sample-assessment"><Redirect to="/sample-report" /></Route>
+        <Route path="/sample-report" component={SampleReport} />
         <Route path="/blast-radius" component={BlastRadius} />
         <Route path="/user-portal" component={UserPortalRoute} />
         <Route path="/join-team" component={JoinTeamRoute} />

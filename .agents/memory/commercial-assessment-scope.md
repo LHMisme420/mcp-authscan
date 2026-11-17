@@ -15,11 +15,17 @@ Make the landing page assessment-first, not workspace- or recurring-plan-first. 
 
 **How to apply:** Sell single-server and full assessments as scoped engagements, each with one written report and one retest. Do not promise a call, walkthrough, meeting, booking or calendar step in either package. Preserve existing account/scanning/history behavior and never add inquiry storage to findings tables. Do not republish production automatically.
 
-There is no approved redacted client report available for publication. Use only the existing synthetic sample, labeled "Synthetic Demonstration — Not a Real Client Assessment." Do not search for, fabricate, or publish a real client's report.
+Replace the public synthetic sample with the owner-supplied real report. Do not publish the synthetic demonstration alongside it or leave placeholder samples linked anywhere on the site.
 
-**Why:** The owner explicitly superseded the real-report staging request and made verified deployment of the existing assessment pages the immediate priority.
+**Why:** The owner explicitly rejected keeping synthetic evidence on a site whose argument is that evidence can be checked.
 
-**How to apply:** Keep the synthetic example distinct from owner-summary observations. Do not insert those observations or a fabricated evidence hash into the demonstration. Any future real-report work needs a new explicit request and approved source material.
+**How to apply:** Keep all sample links pointed at the real report and retire the former synthetic route with a redirect. Preserving supplied claims is not independent verification of them. Never invent evidence or hash characters.
+
+Freeze the named-client sample's wording. Do not edit it later for tone without the owner's review.
+
+**Why:** The owner stated that the report names a client who gave permission and explicitly asked to freeze the wording.
+
+**How to apply:** Enforce the approved-copy regression fixture. Only change the copy or that fixture following a specific owner-approved correction. The owner supplied the complete severity basis and hash-header wording; the earlier truncation was caused by the chat client, not by the report.
 
 Use the written-scope form as the assessment offer's primary action. Submit opens a prefilled mailto draft to the existing assessment inbox; it does not call status, save online, or send server-side. Keep Resend connected but unused by this form.
 

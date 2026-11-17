@@ -103,6 +103,16 @@ test('an old product-first homepage or recurring checkout cannot pass verificati
   await assert.rejects(assertArtifacts(dir, release.graphs), /retired recurring checkout link/);
 });
 
+test('a retired synthetic or truncated sample cannot be reintroduced into the release', async t => {
+  const { dir, release } = await fixture(t);
+  const js = Object.keys(release.artifacts).find(name => /^build\/client\/assets\/.*\.js$/.test(name));
+  const original = await readFile(path.join(dir, js), 'utf8');
+  for (const marker of ['Synthetic Demonstration — Not a Real Client Assessment.', 'tool-call probe not run,… Show more']) {
+    await writeFile(path.join(dir, js), original + `\n/* ${marker} */`);
+    await assert.rejects(assertArtifacts(dir, release.graphs), /retired synthetic sample or truncated report/);
+  }
+});
+
 test('missing verification manifest stops npm entry before database or scanner initialization', async t => {
   const { dir } = await fixture(t);
   await rm(path.join(dir, 'build/release-manifest.json'));

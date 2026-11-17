@@ -33,7 +33,7 @@ function checkEmailLink(anchor: HTMLAnchorElement, packageLabel?: string) {
 test('public and account routes get honest titles, canonical URLs, and indexing rules', async () => {
   assert.equal(PUBLIC_SITE_ORIGIN, 'https://mcpauth-scan.com');
   const template = await readFile('client/index.html', 'utf8');
-  for (const route of ['/', '/assessment', '/assessments', '/scope', '/request-assessment', '/sample-assessment', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
+  for (const route of ['/', '/assessment', '/assessments', '/scope', '/request-assessment', '/sample-assessment', '/sample-report', '/sign-in', '/sign-in/sso-callback', '/sign-up', '/user-portal', '/join-team']) {
     const expected = metadataForPath(route);
     const document = new JSDOM(renderPageMetadata(template, route)).window.document;
     assert.match(document.title, /MCP AuthScan|VATA/);
@@ -49,19 +49,19 @@ test('public and account routes get honest titles, canonical URLs, and indexing 
   }
   // Price dollar signs must survive HTML template replacement literally.
   assert.match(renderPageMetadata(template, '/assessments'), /\$1,750/);
-  assert.equal(metadataForPath('/sample-assessment/?campaign=example').canonical, `${PUBLIC_SITE_ORIGIN}/sample-assessment`);
+  assert.equal(metadataForPath('/sample-assessment/?campaign=example').canonical, `${PUBLIC_SITE_ORIGIN}/sample-report`);
 });
 
 test('public HTML and discovery documents do not require an account or call the private API', async t => {
   const app = express();
   app.use(publicDocuments);
-  app.get(['/', '/assessments', '/scope', '/request-assessment', '/sample-assessment'], sendFrontendPage);
+  app.get(['/', '/assessments', '/scope', '/request-assessment', '/sample-assessment', '/sample-report'], sendFrontendPage);
   app.use('/api', (_req, res) => res.status(401).json({ error: 'Unauthorized' }));
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  for (const route of ['/', '/assessments', '/scope', '/request-assessment', '/sample-assessment']) {
+  for (const route of ['/', '/assessments', '/scope', '/request-assessment', '/sample-assessment', '/sample-report']) {
     const response = await fetch(`${origin}${route}`);
     assert.equal(response.status, 200);
     const document = new JSDOM(await response.text()).window.document;
@@ -84,7 +84,7 @@ test('public HTML and discovery documents do not require an account or call the 
     'https://mcpauth-scan.com/', 'https://mcpauth-scan.com/blast-radius',
     'https://mcpauth-scan.com/assessment', 'https://mcpauth-scan.com/assessments',
     'https://mcpauth-scan.com/request-assessment', 'https://mcpauth-scan.com/scope',
-    'https://mcpauth-scan.com/sample-assessment',
+    'https://mcpauth-scan.com/sample-report',
   ]);
   assert(!xml.includes('user-portal'));
   assert.equal((await fetch(`${origin}/api/findings`)).status, 401);
@@ -139,7 +139,7 @@ test('homepage sells named independent assessments without recurring offers or c
   const links = Array.from(document.querySelectorAll('a'));
   assert(links.some(link => link.href === 'https://pypi.org/project/mcp-authscan/'));
   assert(links.some(link => link.href === 'https://github.com/LHMisme420/mcp-authscan'));
-  assert(links.some(link => link.getAttribute('href') === '/sample-assessment'));
+  assert(links.some(link => link.getAttribute('href') === '/sample-report'));
   assert(links.some(link => link.getAttribute('href') === '/sign-in'));
   assert(links.some(link => link.getAttribute('href') === '/sign-up'));
   assert.equal(links.filter(link => /stripe\.com/.test(link.href)).length, 0);
@@ -200,6 +200,39 @@ test('assessment closing links follow the cards before the unchanged report meth
   assert.match(closing.textContent || '', /Do not include credentials, tokens or secrets in email/);
   const secondary = [...closing.querySelectorAll('a')].find(link => link.textContent === 'Email Leroy');
   assert(secondary?.getAttribute('href')?.startsWith('mailto:lhmisme2011@gmail.com'));
+  const sample = closing.querySelector('a[href="/sample-report"]');
+  assert.equal(sample?.textContent, 'See a sample report');
+  assert(sample?.classList.contains('secondary'));
+  assert.equal(document.querySelector('.public-site-nav a[href="/sample-report"]')?.textContent, 'Sample report');
+});
+
+test('/sample-report preserves the supplied observations and digests without prices or a form', async () => {
+  const document = await renderComponent('client/src/SampleReport.tsx', '/sample-report');
+  const report = document.querySelector('#sample-report-text')!;
+  assert(report, 'A real report page must render, not a SPA redirect');
+  const text = report.textContent || '';
+  for (const exact of [
+    'SAMPLE ASSESSMENT REPORT',
+    'AgentPayStore, redacted',
+    'Target: agentpaystore.com/book/mcp',
+    'Scanner: mcp-authscan 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1',
+    'VERDICT HIGH. One finding.',
+    'tool-call probe not run.',
+    'One probe passed. Fifteen were excluded. Coverage, 1 of 1 testable probe.',
+    'Sibling transport and origin parity were excluded on a 404.',
+    'e08ed15790a437ed93573757e377f153aedd043a430cf1e3de93ddea514063e5',
+    'd66a10a3c4d4e66a041476f3598920092a915a34c33c61083609440c1242d607',
+    'This server has not been retested.',
+  ]) assert(text.includes(exact), `Supplied report changed: ${exact}`);
+  assert.equal(document.querySelectorAll('form, input, textarea').length, 0);
+  assert(!/\$|1750 dollars|3500 dollars|2500 dollars|pricing-tier/.test(document.body.textContent || ''));
+  const cta = report.lastElementChild?.querySelector('a') ?? report.lastElementChild;
+  assert.equal(cta?.textContent, 'Start a scope request');
+  assert.equal(cta?.getAttribute('href'), '/scope');
+  const app = await readFile('client/src/App.tsx', 'utf8');
+  assert(app.includes('path="/sample-report" component={SampleReport}'));
+  assert(app.includes('path="/sample-assessment"><Redirect to="/sample-report"'));
+  assert(!text.includes('Show more'));
 });
 
 test('/scope directly renders the existing written-scope form without replacing other intake routes', async () => {
@@ -248,7 +281,7 @@ test('inquiry page makes supported email prominent without a misleading submissi
   assert(!text.includes('Resend'));
   const source = await readFile('client/src/RequestAssessment.tsx', 'utf8');
   assert(!source.includes('fetch('), 'Email-only page must not fetch challenges or send inquiries');
-  assert(document.querySelector('a[href="/sample-assessment"]'));
+  assert(document.querySelector('a[href="/sample-report"]'));
 });
 
 test('email templates allow only fixed packages and never inject query text or mail headers', async () => {
@@ -285,24 +318,24 @@ test('public content is not gated on sign-in loading and protected routes retain
   assert(server.includes("res.status(401).json({ error: 'Unauthorized' })"));
 });
 
-test('sample report is clearly synthetic, bounded, and not a customer or scanner coverage claim', async () => {
-  const document = await renderComponent('client/src/SampleAssessment.tsx');
-  const text = document.body.textContent || '';
-  assert.equal(document.querySelector('.synthetic-banner strong')?.textContent, 'Synthetic Demonstration — Not a Real Client Assessment.');
-  for (const privateObservation of ['1bcfda42', '2026.11.10.1', '2026.11.07.1']) {
-    assert(!text.includes(privateObservation), 'Owner-summary observations must not appear in the synthetic sample');
+test('owner-approved sample report wording is frozen, including counts, hashes and limitations', async () => {
+  // This is a copy lock, NOT verification of the report's evidence hash.
+  // Never update this fixture for tone: obtain the owner's review first.
+  const document = await renderComponent('client/src/SampleReport.tsx', '/sample-report');
+  const actual = [...document.querySelector('#sample-report-text')!.children].map(node => node.textContent!.trim());
+  const approved = (await readFile('tests/fixtures/sample-report.approved.txt', 'utf8')).trim().split('\n');
+  assert.deepEqual(actual, approved, 'Sample report wording changed without an approved copy update');
+});
+
+test('the synthetic report is retired everywhere in the public frontend', async () => {
+  for (const entry of ['Landing', 'Assessments', 'Assessment', 'RequestAssessment', 'SampleReport', 'Scope']) {
+    const document = await renderComponent(`client/src/${entry}.tsx`);
+    assert(!/synthetic|illustrative|demonstration/i.test(document.body.textContent || ''), `Retired sample copy remains on ${entry}`);
+    assert.equal(document.querySelectorAll('a[href="/sample-assessment"]').length, 0);
+    assert(document.querySelector('.public-site-nav a[href="/sample-report"]'));
   }
-  assert.match(text, /synthetic/i);
-  assert.match(text, /no.*requests.*sent|no.*target.*contacted/i);
-  assert.match(text, /not.*customer|not.*client/i);
-  assert.match(text, /mcp\.example\.invalid/);
-  for (const phrase of ['PASS', 'FAIL', 'NOT_OBSERVED', 'EXCLUDED', 'Cache-Control', 'no-store', '503', '401']) {
-    assert(text.includes(phrase), `Missing sample detail ${phrase}`);
-  }
-  assert.match(text, /retest/i);
-  assert.match(text, /scope/i);
-  assert.match(text, /illustrative|illustration/i);
-  assert(!text.includes('replace-with-real-sha256'));
-  assert(!text.includes('Token-CORS'));
-  assert.equal(document.querySelectorAll('form').length, 0);
+  const app = await readFile('client/src/App.tsx', 'utf8');
+  assert(!app.includes("import SampleAssessment"));
+  const server = await readFile('server/index.ts', 'utf8');
+  assert(server.includes("app.get(['/sample-assessment', '/sample-assessment/'], (_req, res) => res.redirect(301, '/sample-report'))"));
 });

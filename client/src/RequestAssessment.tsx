@@ -55,7 +55,7 @@ export default function RequestAssessment() {
           <p>Testing begins only after scope and written authorization are approved. An inquiry does not start a scan or reserve an engagement.</p>
           <p>Your email is handled by your email provider and the recipient under their respective privacy and retention policies. This website does not submit or store your inquiry. Email delivery depends on the providers involved and is not guaranteed.</p>
           <p>Actual testing is limited to agreed scope, available credentials, supported techniques, and written authorization. No certification, complete-coverage, or security guarantee is implied.</p>
-          <p><Link className="text-link" href="/sample-assessment">Review the synthetic sample report</Link></p>
+          <p><Link className="text-link" href="/sample-report">Review the sample report</Link></p>
           <p>Need to compare packages first? <Link className="text-link" href="/assessments">Review assessment details</Link>.</p>
         </aside>
       </section>

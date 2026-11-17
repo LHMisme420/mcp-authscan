@@ -24,7 +24,7 @@ export default function PublicSiteLayout({ children, className = '', footerNote 
         </Link>
         <nav className="public-site-nav" aria-label="Public site navigation">
           <Link href="/assessments">Assessments</Link>
-          <Link href="/sample-assessment">Sample report</Link>
+          <Link href="/sample-report">Sample report</Link>
           <Link href="/request-assessment">Request assessment</Link>
           <a href={pypiUrl} target="_blank" rel="noopener noreferrer">PyPI</a>
           <a href={githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -43,7 +43,7 @@ export default function PublicSiteLayout({ children, className = '', footerNote 
         </div>
         <nav className="public-footer-links" aria-label="Footer links">
           <Link href="/assessments">Assessments</Link>
-          <Link href="/sample-assessment">Sample report</Link>
+          <Link href="/sample-report">Sample report</Link>
           <Link href="/request-assessment">Request assessment</Link>
           <a href={pypiUrl} target="_blank" rel="noopener noreferrer">PyPI package</a>
           <a href={githubUrl} target="_blank" rel="noopener noreferrer">GitHub source</a>
