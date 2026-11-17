@@ -24,7 +24,12 @@ test('public verifier offers JSON input without target, login or payment gates',
   assert.match(html, /id="verify-json"/);
   assert.match(html, /type="file"/);
   assert.match(html, /Verify report/);
-  assert.match(html, /someone who changes the content can also recompute/);
+  assert.match(html, /Two questions, answered separately/);
+  assert.match(html, /Integrity\./);
+  assert.match(html, /Authenticity\./);
+  assert.match(html, /NOT SIGNED/);
+  assert.match(html, /does not create them or hold private keys/);
+  assert.match(html, /hash alone can be recomputed by anyone/);
   assert.match(html, /Schema-3 reports using verdict-v3 only/);
   assert.doesNotMatch(html, /name="target"|type="password"/);
 });

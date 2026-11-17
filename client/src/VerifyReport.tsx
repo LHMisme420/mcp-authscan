@@ -6,21 +6,35 @@ import './VerifyReport.css';
 const MAX_REPORT_BYTES = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 
-type VerifyResult = {
+type IntegrityResult = {
   verdict: 'INTACT' | 'ALTERED' | 'UNREADABLE';
   reason: string;
   algorithm: string | null;
   probe_set_version: string | null;
 };
+type VerifyResult = {
+  integrity: IntegrityResult;
+  authenticity: {
+    verdict: 'SIGNED BY' | 'NOT SIGNED' | 'SIGNATURE INVALID' | 'UNKNOWN KEY' | 'UNREADABLE';
+    key_id: string | null;
+    reason: string;
+  };
+};
 
 function isVerifyResult(value: unknown): value is VerifyResult {
   if (!value || typeof value !== 'object') return false;
-  const result = value as Record<string, unknown>;
+  const response = value as VerifyResult;
+  const result = response.integrity;
+  const authenticity = response.authenticity;
   return (
+    !!result && !!authenticity &&
     (result.verdict === 'INTACT' || result.verdict === 'ALTERED' || result.verdict === 'UNREADABLE') &&
     typeof result.reason === 'string' &&
     (typeof result.algorithm === 'string' || result.algorithm === null) &&
-    (typeof result.probe_set_version === 'string' || result.probe_set_version === null)
+    (typeof result.probe_set_version === 'string' || result.probe_set_version === null) &&
+    ['SIGNED BY', 'NOT SIGNED', 'SIGNATURE INVALID', 'UNKNOWN KEY', 'UNREADABLE'].includes(authenticity.verdict) &&
+    typeof authenticity.reason === 'string' &&
+    (typeof authenticity.key_id === 'string' || authenticity.key_id === null)
   );
 }
 
@@ -148,9 +162,9 @@ export default function VerifyReport() {
     }
   }
 
-  const resultLabel = result?.verdict === 'INTACT'
+  const resultLabel = result?.integrity.verdict === 'INTACT'
     ? 'Digest matches'
-    : result?.verdict === 'ALTERED'
+    : result?.integrity.verdict === 'ALTERED'
       ? 'Digest does not match'
       : 'Could not verify';
 
@@ -160,18 +174,15 @@ export default function VerifyReport() {
         <header className="verify-heading">
           <span className="eyebrow">A free, local-to-this-service check</span>
           <h1>Verify a report</h1>
-          <p>
-            Reports in the supported format include a digest over graded content: probe results,
-            findings, severities, and the stated reason for each severity. Timestamps and elapsed
-            time are excluded.
-          </p>
-          <p>Paste the JSON or select the file. We recompute the digest and compare it with the stored value.</p>
+          <p>Two questions, answered separately.</p>
+          <p><strong>Integrity.</strong> Does this file still match the hash it carries? Intact, altered, or unreadable with the reason printed.</p>
+          <p><strong>Authenticity.</strong> Is it signed by the key it claims? Signed by that key, not signed, signature invalid, or unknown key.</p>
         </header>
 
         <section className="verify-workspace" aria-labelledby="verify-form-title">
           <div className="verify-form-intro">
             <span className="eyebrow">Report check</span>
-            <h2 id="verify-form-title">Check the report’s stored digest</h2>
+            <h2 id="verify-form-title">Check integrity and authenticity</h2>
             <p>Supported reports use schema 3 and verdict-v3. No account is needed.</p>
           </div>
 
@@ -228,46 +239,64 @@ export default function VerifyReport() {
 
         {result && !pending && (
           <section
-            className={`verify-result verify-result-${result.verdict.toLowerCase()}`}
+            className={`verify-result verify-result-${result.integrity.verdict.toLowerCase()}`}
             aria-labelledby="verify-result-title"
             aria-live="polite"
           >
             <div className="verify-result-heading">
-              <span className="eyebrow">Verification result</span>
-              <span className={`verify-verdict verify-verdict-${result.verdict.toLowerCase()}`}>{result.verdict}</span>
+              <span className="eyebrow">Integrity</span>
+              <span className={`verify-verdict verify-verdict-${result.integrity.verdict.toLowerCase()}`}>{result.integrity.verdict}</span>
             </div>
             <h2 id="verify-result-title">{resultLabel}</h2>
-            <p className="verify-result-reason">{result.reason}</p>
+            <p className="verify-result-reason">{result.integrity.reason}</p>
             <dl className="verify-result-meta">
               <div>
                 <dt>Algorithm</dt>
-                <dd>{result.algorithm ?? 'Not declared'}</dd>
+                <dd>{result.integrity.algorithm ?? 'Not declared'}</dd>
               </div>
               <div>
                 <dt>Declared probe set</dt>
-                <dd>{result.probe_set_version ?? 'Not declared'}</dd>
+                <dd>{result.integrity.probe_set_version ?? 'Not declared'}</dd>
               </div>
+            </dl>
+          </section>
+        )}
+
+        {result && !pending && (
+          <section className="verify-result" aria-labelledby="verify-authenticity-title" aria-live="polite">
+            <div className="verify-result-heading">
+              <span className="eyebrow">Authenticity</span>
+              <span className="verify-verdict">
+                {result.authenticity.verdict}{result.authenticity.verdict === 'SIGNED BY' ? ` ${result.authenticity.key_id}` : ''}
+              </span>
+            </div>
+            <h2 id="verify-authenticity-title">Signature verification</h2>
+            <p className="verify-result-reason">{result.authenticity.reason}</p>
+            <dl className="verify-result-meta">
+              <div><dt>Claimed key_id</dt><dd>{result.authenticity.key_id ?? 'Not declared'}</dd></div>
+              <div><dt>Published keys</dt><dd><a href="/keys.json">/keys.json</a></dd></div>
             </dl>
           </section>
         )}
 
         <section className="verify-limits" aria-labelledby="verify-limits-title">
           <span className="eyebrow">What this check tells you</span>
-          <h2 id="verify-limits-title">A digest comparison, not a provenance claim.</h2>
+          <h2 id="verify-limits-title">Two independent answers.</h2>
           <p>
-            An <strong>INTACT</strong> result means the graded content matches the digest currently
-            stored in the report. It does not prove who produced the report or that it was never
-            edited: someone who changes the content can also recompute and replace an unkeyed hash.
+            A hash alone can be recomputed by anyone who can edit the file. Integrity means
+            the graded content matches the hash it carries, not that nobody edited it.
+            A valid signature means the canonical graded content was signed by whoever holds
+            the private half of the published key. Both answers apply to graded content,
+            not to excluded fields such as timestamps.
           </p>
           <p>
-            <strong>ALTERED</strong> means the content does not match its stored digest.
-            <strong> UNREADABLE</strong> means this verifier could not evaluate the report, with the
-            reason shown above. This check does not establish that a server was secure or that a scan
-            was authorized; review the report’s scope and authorization separately.
+            Read the scope section of a report to see what was authorized and what was not tested.
+            Neither answer proves that the server was secure. A hash cannot tell you which field changed.
+            Malformed input is reported as UNREADABLE with a reason.
           </p>
           <div className="verify-support-note">
             <strong>Supported format</strong>
-            <span>Schema-3 reports using verdict-v3 only. This tool does not scan or rerun tests, and it does not retain submitted reports.</span>
+            <span>Schema-3 reports using verdict-v3 only. This site checks Ed25519 signatures; it does not create them or hold private keys. Signing belongs in the CLI on the signer’s machine. Unsigned reports show NOT SIGNED. This tool does not scan or rerun tests, and it does not retain submitted reports.</span>
           </div>
         </section>
       </div>

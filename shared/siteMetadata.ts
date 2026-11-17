@@ -10,7 +10,7 @@ export function metadataForPath(pathname: string) {
   if (path === '/verify') {
     return {
       title: 'Verify a Report | MCP AuthScan',
-      description: 'Recompute a schema-3 report hash using the scanner’s canonical verdict-v3 algorithm. No scanning, accounts or report storage.',
+      description: 'Check report integrity with the canonical verdict-v3 hash and authenticity with Ed25519 signatures, independently. No scanning, accounts or report storage.',
       canonical: `${PUBLIC_SITE_ORIGIN}/verify`,
       robots: 'index, follow',
     };

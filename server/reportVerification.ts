@@ -1,5 +1,6 @@
 import express from 'express';
 import { spawn } from 'node:child_process';
+import { publishedKeys, verifyAuthenticity } from './reportAuthenticity';
 
 // Independent of accounts, findings storage, scanner readiness and target URLs.
 // Raw bytes go only to the offline canonicalization adapter, never to disk/logs.
@@ -7,7 +8,8 @@ export function reportVerificationRoutes() {
   const router = express.Router();
   let active = 0;
   const unreadable = (reason: string) => ({
-    verdict: 'UNREADABLE', reason, algorithm: null, probe_set_version: null,
+    integrity: { verdict: 'UNREADABLE', reason, algorithm: null, probe_set_version: null },
+    authenticity: { verdict: 'UNREADABLE', reason: 'The report could not be evaluated.', key_id: null },
   });
   router.use((_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -41,19 +43,32 @@ export function reportVerificationRoutes() {
     }, 5000);
     child.stdout.on('data', chunk => {
       output += chunk.toString();
-      if (output.length > 16384) {
+      if (output.length > 12 * 1024 * 1024) {
         child.kill('SIGKILL');
         finish(unreadable('Verifier response exceeded its limit.'), 503);
       }
     });
     child.on('error', () => finish(unreadable('Canonical verifier is unavailable.'), 503));
     child.stdin.on('error', () => {}); // Early worker exit is handled by close.
-    child.on('close', code => {
+    child.on('close', async code => {
       if (finished) return;
       try {
         const value = JSON.parse(output);
         if (code !== 0 || !['INTACT', 'ALTERED', 'UNREADABLE'].includes(value.verdict)) throw new Error();
-        finish(value);
+        const { verdict, reason, algorithm, probe_set_version } = value;
+        const integrity = { verdict, reason, algorithm, probe_set_version };
+        const bytes = typeof value.canonical_bytes === 'string'
+          ? Buffer.from(value.canonical_bytes, 'base64') : null;
+        let authenticity;
+        try {
+          // Neither answer is derived from the other. Signature verification can
+          // succeed even when the stored report_hash is absent or altered.
+          const keys = value.signature_present ? await publishedKeys() : [];
+          authenticity = verifyAuthenticity(value.signature_present, value.signature, bytes, keys);
+        } catch {
+          authenticity = { verdict: 'UNREADABLE', reason: 'Public verification keys are unavailable.', key_id: null };
+        }
+        finish({ integrity, authenticity });
       } catch {
         finish(unreadable('Canonical verifier is unavailable.'), 503);
       }

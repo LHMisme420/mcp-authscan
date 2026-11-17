@@ -2,17 +2,22 @@
 import json
 import re
 import sys
+import base64
 
-from .report_verify import HASH_SCHEME, SCHEMA_VERSION, compute
+from .report_verify import HASH_SCHEME, SCHEMA_VERSION, canonical_report, compute, serialize
 
 
 def verify_text(text):
     algorithm = None
     probe_set = None
+    signature_present = None
+    signature = None
+    canonical_bytes = None
 
     def result(verdict, reason):
         return dict(verdict=verdict, reason=reason, algorithm=algorithm,
-                    probe_set_version=probe_set)
+                    probe_set_version=probe_set, signature_present=signature_present,
+                    signature=signature, canonical_bytes=canonical_bytes)
 
     def unique_object(pairs):
         value = {}
@@ -28,6 +33,8 @@ def verify_text(text):
                                  ValueError("Non-finite JSON number")))
         if not isinstance(payload, dict):
             return result("UNREADABLE", "The report must be a JSON object.")
+        signature_present = "signature" in payload
+        signature = payload.get("signature")
         scheme = payload.get("hash_scheme")
         algorithm = "SHA-256 / " + scheme if isinstance(scheme, str) else None
         probe_set = payload.get("probe_set_version")
@@ -36,14 +43,18 @@ def verify_text(text):
         if scheme != HASH_SCHEME or payload.get("schema_version") != SCHEMA_VERSION:
             return result("UNREADABLE", "Only verdict-v3 schema version 3 is supported; legacy hashes are not reinterpreted.")
         claimed = payload.pop("report_hash", None)
-        if not isinstance(claimed, str) or not re.fullmatch(r"[0-9a-f]{64}", claimed):
-            return result("UNREADABLE", "A complete lowercase SHA-256 report_hash is required.")
         findings = payload.get("findings")
         if not isinstance(findings, list) or any(not isinstance(f, dict) for f in findings):
             return result("UNREADABLE", "The report must contain a complete findings array.")
         if probe_set is None:
             return result("UNREADABLE", "A declared probe_set_version string is required.")
         actual, _ = compute(payload, findings)
+        # Use the CLI's serializer/projection, not a second implementation in JS.
+        # This internal transport is never returned to the browser or persisted.
+        canonical_bytes = base64.b64encode(
+            serialize(canonical_report(payload, findings))).decode("ascii")
+        if not isinstance(claimed, str) or not re.fullmatch(r"[0-9a-f]{64}", claimed):
+            return result("UNREADABLE", "A complete lowercase SHA-256 report_hash is required.")
         if actual == claimed:
             return result("INTACT", "Graded content matches the stored hash; this does not authenticate the report's author.")
         return result("ALTERED", "Graded content does not match the stored hash; a hash cannot identify which field changed.")
