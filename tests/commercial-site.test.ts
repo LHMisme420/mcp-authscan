@@ -70,15 +70,20 @@ test('public HTML and discovery documents do not require an account or call the 
   }
   const robots = await fetch(`${origin}/robots.txt`);
   assert.equal(robots.status, 200);
+  assert.match(robots.headers.get('content-type') || '', /text\/plain/);
   const robotsText = await robots.text();
+  assert.match(robotsText, /^User-agent: \*\nAllow: \//);
   assert.match(robotsText, /Disallow: \/api\//);
   assert.match(robotsText, /Sitemap: https:\/\/mcpauth-scan\.com\/sitemap\.xml/);
   const sitemap = await fetch(`${origin}/sitemap.xml`);
   assert.equal(sitemap.status, 200);
+  assert.match(sitemap.headers.get('content-type') || '', /(?:application|text)\/xml/);
   const xml = await sitemap.text();
   const sitemapDocument = new JSDOM(xml, { contentType: 'application/xml' }).window.document;
   assert.deepEqual([...sitemapDocument.querySelectorAll('loc')].map(node => node.textContent), [
     'https://mcpauth-scan.com/', 'https://mcpauth-scan.com/blast-radius',
+    'https://mcpauth-scan.com/assessment', 'https://mcpauth-scan.com/assessments',
+    'https://mcpauth-scan.com/request-assessment', 'https://mcpauth-scan.com/sample-assessment',
   ]);
   assert(!xml.includes('user-portal'));
   assert.equal((await fetch(`${origin}/api/findings`)).status, 401);

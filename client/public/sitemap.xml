@@ -2,4 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://mcpauth-scan.com/</loc></url>
   <url><loc>https://mcpauth-scan.com/blast-radius</loc></url>
+  <url><loc>https://mcpauth-scan.com/assessment</loc></url>
+  <url><loc>https://mcpauth-scan.com/assessments</loc></url>
+  <url><loc>https://mcpauth-scan.com/request-assessment</loc></url>
+  <url><loc>https://mcpauth-scan.com/sample-assessment</loc></url>
 </urlset>
