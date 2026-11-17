@@ -18,7 +18,8 @@ export function publicDocuments(req: Request, res: Response, next: NextFunction)
 
 export async function sendFrontendPage(req: Request, res: Response, next: NextFunction) {
   try {
-    const html = await readFile(path.resolve('build/client/index.html'), 'utf8');
+    const templatePath = req.path === '/' ? 'build/server/home.html' : 'build/client/index.html';
+    const html = await readFile(path.resolve(templatePath), 'utf8');
     res.setHeader('Cache-Control', 'no-cache');
     res.type('html').send(renderPageMetadata(html, req.path));
   } catch (error) {

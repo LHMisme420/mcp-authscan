@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { assertSource, assertArtifacts, artifactSnapshot, verifyRelease } from './web-build-integrity.mjs';
 
@@ -35,6 +35,23 @@ export async function buildWeb(expected) {
     packages: 'external', platform: 'node', format: 'esm',
     outfile: 'build/server/index.js', metafile: true, logLevel: 'info',
   });
+  // Pre-render only the public home page. Other SPA responses, including the
+  // scope form and frozen report, keep their existing index.html untouched.
+  const rendererPath = path.join(root, 'build/homepage-renderer.mjs');
+  try {
+    await esbuild({
+      absWorkingDir: root, entryPoints: ['server/homepageMarkup.tsx'],
+      bundle: true, packages: 'external', platform: 'node', format: 'esm',
+      jsx: 'automatic', loader: { '.css': 'empty' }, outfile: rendererPath, logLevel: 'silent',
+    });
+    const { default: homepageMarkup } = await import(`${pathToFileURL(rendererPath).href}?source=${source.fingerprint}`);
+    const template = await readFile(path.join(root, 'build/client/index.html'), 'utf8');
+    if (!template.includes('<div id="root"></div>')) throw new Error('Homepage HTML mount point is missing.');
+    await writeFile(path.join(root, 'build/server/home.html'),
+      template.replace('<div id="root"></div>', () => `<div id="root">${homepageMarkup()}</div>`));
+  } finally {
+    await rm(rendererPath, { force: true });
+  }
   const graphs = { frontend: [...modules].sort(), server: Object.keys(result.metafile.inputs).sort() };
   const scripts = await assertArtifacts(root, graphs);
   // A mid-build edit invalidates the release, rather than mixing two snapshots.

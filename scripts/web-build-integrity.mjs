@@ -74,7 +74,7 @@ export async function assertSource(root, expected) {
 }
 
 export async function artifactSnapshot(root) {
-  return fingerprints(root, [...await filesIn(root, 'build/client'), 'build/server/index.js']);
+  return fingerprints(root, [...await filesIn(root, 'build/client'), 'build/server/index.js', 'build/server/home.html']);
 }
 
 export async function assertArtifacts(root, graphs) {
@@ -110,6 +110,15 @@ export async function assertArtifacts(root, graphs) {
   }
   if (client.includes('https://buy.stripe.com/')) fail('Generated frontend includes a retired recurring checkout link.');
   if (!html.includes('Independent MCP Security Assessments | MCP AuthScan')) fail('Generated HTML uses an old homepage template.');
+  const homepage = await readFile(path.join(root, 'build/server/home.html'), 'utf8');
+  const closing = homepage.match(/<div class="scope-closing-block">([\s\S]*?)<\/div><\/div>/)?.[1];
+  if (!closing) fail('Generated homepage is missing its actual closing block HTML.');
+  const links = [...closing.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)];
+  if (links.length !== 3 || links[0][1] !== '/scope' || links[0][2] !== 'Start a scope request' ||
+      links[1][1] !== '/sample-report' || links[1][2] !== 'See a sample report' ||
+      !links[2][1].startsWith('mailto:lhmisme2011@gmail.com?') || links[2][2] !== 'Email Leroy') {
+    fail('Generated homepage lacks the three ordered native closing anchors.');
+  }
   const server = await readFile(path.join(root, 'build/server/index.js'), 'utf8');
   if (!/app\.use\(["']\/contact["'],\s*assessmentInquiryRoutes\(\)\)/.test(server) ||
       !/router\.post\(\s*route/.test(server) ||

@@ -50,3 +50,9 @@ Use the verified custom domain as the primary public site while preserving the e
 **Why:** The owner requested full custom-domain support without breaking existing access or changing DNS, customer data, scanner behavior, or billing.
 
 **How to apply:** Keep canonical metadata, generated links, production public URL and authentication origin checks consistent. Do not assume rendering the sign-in form proves OAuth completion or authenticated actions work.
+
+Verify the home page's closing links in the published HTTP HTML, not only in a JavaScript-rendered DOM or a passing build.
+
+**Why:** The owner found that prior successful releases returned an empty SPA mount without the links in fetched HTML, and explicitly rejected build-only success claims.
+
+**How to apply:** The closing block must contain native anchors in this order: Start a scope request, See a sample report, Email Leroy. Distinguish prepared HTML from publicly served HTML, and report each live anchor as found or absent. Keep changes confined to the homepage when requested.

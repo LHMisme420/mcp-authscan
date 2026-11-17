@@ -80,6 +80,14 @@ test('post-verification artifact tampering is rejected even when route markers r
   await assert.rejects(verifyRelease(dir), /Built files changed/);
 });
 
+test('a homepage without its ordered native HTML anchors cannot pass release verification', async t => {
+  const { dir, release } = await fixture(t);
+  const homepage = path.join(dir, 'build/server/home.html');
+  const original = await readFile(homepage, 'utf8');
+  await writeFile(homepage, original.replace('href="/scope" class="button">Start a scope request</a>', 'href="/missing-scope" class="button">Start a scope request</a>'));
+  await assert.rejects(assertArtifacts(dir, release.graphs), /three ordered native closing anchors/);
+});
+
 test('a release without the supported email inquiry path cannot pass verification', async t => {
   const { dir, release } = await fixture(t);
   const js = Object.keys(release.artifacts).find(name => /^build\/client\/assets\/.*\.js$/.test(name));

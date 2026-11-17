@@ -14,12 +14,12 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
               emailHref={assessmentEmailFor()}
               homepageVariant
               afterCards={
-                <div>
+                <div className="scope-closing-block">
                   <p>Send the server URL and who authorizes the test. Scope and written authorization are agreed by email before anything is tested. Do not include credentials, tokens or secrets in email.</p>
                   <div className="hero-ctas">
-                    <Link href="/scope" className="button">Start a scope request</Link>
+                    <a href="/scope" className="button">Start a scope request</a>
+                    <a href="/sample-report" className="button secondary">See a sample report</a>
                     <a className="button secondary" href={assessmentEmailFor()}>Email Leroy</a>
-                    <Link href="/sample-report" className="button secondary">See a sample report</Link>
                   </div>
                 </div>
               }
@@ -53,12 +53,14 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
               />
             </>
           )}
-          <p className="hero-note">Scope and written authorization are agreed before testing. A report may support a buyer review; acceptance is up to the buyer.</p>
+          <p className="hero-note">{homepageVariant
+            ? 'A report may support a buyer review; acceptance is up to the buyer.'
+            : 'Scope and written authorization are agreed before testing. A report may support a buyer review; acceptance is up to the buyer.'}</p>
           <div className="hero-ctas">
             <a className="button" href={assessmentEmailFor()}>Email us to request an assessment</a>
             <Link href="/sign-in" className="button secondary">Workspace sign in</Link>
           </div>
-          <div className="hero-note">No credentials, tokens, passwords, or other secrets in email.</div>
+          {!homepageVariant && <div className="hero-note">No credentials, tokens, passwords, or other secrets in email.</div>}
         </div>
         <div className="hero-art" aria-label="Illustration of an MCP security review" role="img">
           <div className="scan-orbit" />
