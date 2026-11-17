@@ -106,6 +106,13 @@ test('homepage variant uses the requested copy, three assessment triggers, and r
   );
   assert.equal(home.querySelectorAll('.hero-copy > button').length, 1);
   assert.equal(home.querySelectorAll('.pricing-tier').length, 2);
+  const checkout = home.querySelector('.assessment-checkout-links')!;
+  assert(checkout);
+  assert.equal(checkout.previousElementSibling?.className, 'pricing-tier-grid');
+  assert.deepEqual([...checkout.querySelectorAll('a')].map(a => [a.textContent, a.getAttribute('href')]), [
+    ['Single-server assessment — $1,750', 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01'],
+    ['Full assessment — $3,500', 'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02'],
+  ]);
   assert.equal(home.querySelectorAll('.pricing-start-button').length, 2);
   assert.equal(home.querySelector('.hero-copy > button')?.textContent, 'Start an assessment');
   assert.equal(home.querySelector('.trust-band')?.innerHTML, legacy.querySelector('.trust-band')?.innerHTML);

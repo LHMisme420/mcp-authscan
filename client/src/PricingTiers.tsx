@@ -46,6 +46,12 @@ export default function PricingTiers(props: {
           </article>
         ))}
       </div>
+      {homepageVariant && (
+        <div className="hero-ctas assessment-checkout-links">
+          <a className="button" href="https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01">Single-server assessment — $1,750</a>
+          <a className="button secondary" href="https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02">Full assessment — $3,500</a>
+        </div>
+      )}
       {afterCards}
       {formOpen && (
         <div className="written-scope-form-wrap">
