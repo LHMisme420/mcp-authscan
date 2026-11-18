@@ -62,7 +62,7 @@ mcp-authscan = "mcp_authscan.cli_wrapper:main"
 
 [tool.setuptools]
 # This project root is the package itself; web imports keep their existing paths.
-packages = ["mcp_authscan"]
+packages = ["mcp_authscan", "mcp_authscan.evidence"]
 package-dir = {mcp_authscan = "mcp_authscan"}
 
 [tool.mypy]
