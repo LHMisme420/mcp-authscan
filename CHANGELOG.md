@@ -12,7 +12,10 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.25] - 2026-11-18
+
 ### Added
+- Probe 17 (audience-binding, OAuth-17): against a running endpoint it mints a token whose `aud` is a sibling resource the same issuer serves and presents it. Honouring it — a 2xx carrying a real `initialize` result — is FAIL, HIGH (`severity_basis` records the read/initialize surface; CRITICAL is reserved for a separately demonstrated reachable write/execute surface). Refusal (401/403) is PASS. A 2xx carrying a JSON-RPC error, or no parseable result, is NOT_OBSERVED with the http status kept and the reason named. The probe is **opt-in and EXCLUDED by default**: it runs only when `MCPAUTHSCAN_AUDIENCE_RESOURCE` names a sibling resource and the issuer will mint for it, and names the missing prerequisite otherwise. Distinct from probe 11 (token-audience), which mints for a sentinel resource the issuer does not serve; probe 11 and the cross-tenant probe are untouched. Both outcomes are pinned in `bench/answer-key/` as committed fixtures scanned by the full CLI (`audience_accept`, `audience_refuse`, `audience_jsonrpc_error`). Probe set 2026.11.18.1.
 - Rate limiting is now probed and reported: a 429 inside the authorised budget passes, no 429 inside it is not observed, and a scan with no budget is excluded with the reason named.
 
 ### Fixed
