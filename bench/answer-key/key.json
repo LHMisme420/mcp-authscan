@@ -36,5 +36,18 @@
     "expect_findings": 0,
     "expect_exit": 5,
     "reason": "server returns HTTP 200 with a JSON-RPC error only; a refusal is not a verified MCP surface. Exit changed 4 to 5 on 2026-11-16: the scan completes and prints VERDICT INCONCLUSIVE, and exit 4 is reserved for a scan that could not complete, matching html_page."
+  },
+  {
+    "fixture": "audience_jsonrpc_error",
+    "port": 8936,
+    "expect_verdict": "PASS",
+    "expect_findings": 0,
+    "expect_exit": 5,
+    "env": {
+      "MCPAUTHSCAN_AUDIENCE_RESOURCE": "http://127.0.0.1:{port}/sibling",
+      "MCPAUTHSCAN_CLIENT_ID": "ak-client",
+      "MCPAUTHSCAN_CLIENT_SECRET": "ak-secret"
+    },
+    "reason": "probe 17 (audience-binding) mints a token for a sibling resource and presents it; the resource answers 200 with a JSON-RPC error, not an initialize result. A 200 carrying an error is not proof the token was honoured, so probe 17 is NOT_OBSERVED, not FAIL. 0 findings, not exit 1: a regression that graded any 2xx as FAIL would turn this HIGH 1f exit1 and MISS."
   }
 ]

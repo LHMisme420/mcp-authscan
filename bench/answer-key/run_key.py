@@ -8,7 +8,10 @@ for e in K:
     p=subprocess.Popen([sys.executable,os.path.join(B,'fixtures',e['fixture']+'.py'),str(port)])
     time.sleep(1.2)
     c=['mcp-authscan','--brief','--contact','lhmisme2011@gmail.com','--authorized-by','Leroy H. Mason','--auth-basis','Own fixture, local loopback','--allow-private','http://127.0.0.1:%d/mcp'%port]
-    r=subprocess.run(c,capture_output=True,text=True)
+    env=dict(os.environ)
+    for k,v in (e.get('env') or {}).items():
+        env[k]=v.replace('{port}',str(port))
+    r=subprocess.run(c,capture_output=True,text=True,env=env)
     p.terminate()
     p.wait()
     L=[x for x in r.stdout.splitlines() if x.startswith('VERDICT')]

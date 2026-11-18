@@ -1892,12 +1892,46 @@ def probe_audience_binding(mcp_url, metadata=None, client=None):
                       detail="A token minted for %s was refused with %s" % (other, res_status),
                       endpoint=mcp_url)
     if 200 <= res_status < 300:
+        # A FAIL must be a 2xx whose body carries a real initialize result. A 2xx that
+        # instead carries a JSON-RPC error, or no parseable result, is not proof the
+        # resource honoured the foreign-audience token: record NOT_OBSERVED, keep the
+        # http status, and name the reason.
+        raw = (res_body or b"").decode("utf-8", "replace")
+        text = raw
+        if "data:" in raw and not raw.lstrip().startswith("{"):   # text/event-stream
+            text = "\n".join(line[5:].strip() for line in raw.splitlines() if line.startswith("data:"))
+        try:
+            msg = json.loads(text)
+        except ValueError:
+            msg = None
+        if not isinstance(msg, dict):
+            return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                          probe_class="authserver", http_status=res_status, body=res_body,
+                          detail="HTTP %s with no parseable JSON-RPC body; audience enforcement not judged"
+                                 % res_status,
+                          endpoint=mcp_url)
+        if "error" in msg:
+            err = msg.get("error")
+            code = err.get("code") if isinstance(err, dict) else None
+            emsg = err.get("message") if isinstance(err, dict) else None
+            return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                          probe_class="authserver", http_status=res_status, body=res_body,
+                          detail="HTTP %s carried a JSON-RPC error (code %s: %s); the resource did not "
+                                 "return a result for the foreign-audience token" % (res_status, code, emsg),
+                          endpoint=mcp_url)
+        result = msg.get("result")
+        if not isinstance(result, dict):
+            return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                          probe_class="authserver", http_status=res_status, body=res_body,
+                          detail="HTTP %s with no initialize result in the body; audience enforcement not judged"
+                                 % res_status,
+                          endpoint=mcp_url)
         rec = record(probe_id=17, name="audience-binding", status="FAIL",
                      probe_class="authserver", http_status=res_status, body=res_body,
                      severity="HIGH",
-                     detail=("Honoured a token whose aud is %s, a different resource: the "
-                             "resource does not check the token's audience. severity_basis: %s"
-                             % (other, basis)),
+                     detail=("Honoured a token whose aud is %s, a different resource, returning an "
+                             "initialize result: the resource does not check the token's audience. "
+                             "severity_basis: %s" % (other, basis)),
                      endpoint=mcp_url)
         rec.severity_basis = basis
         return rec
