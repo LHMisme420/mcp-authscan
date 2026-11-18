@@ -7,12 +7,16 @@ const tiers = [
     price: '1750 dollars',
     body: 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.',
     className: '',
+    checkout: 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01',
+    buyLabel: 'Buy the single-server assessment',
   },
   {
     name: 'Full assessment',
     price: '3500 dollars',
     body: 'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
     className: 'pricing-tier-expanded',
+    checkout: 'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02',
+    buyLabel: 'Buy the full assessment',
   },
 ];
 
@@ -38,6 +42,7 @@ export default function PricingTiers(props: {
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
             <p>{tier.body}</p>
+            <a className="button" href={tier.checkout}>{tier.buyLabel}</a>
             {(tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (
               <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
                 {formOpen ? 'Close assessment form' : 'Start an assessment'}

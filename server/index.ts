@@ -37,6 +37,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 app.use('/contact', assessmentInquiryRoutes());
 app.use('/contact', assessmentInquiryRoutes({ kind: 'scope' }));
+app.use('/contact', assessmentInquiryRoutes({ kind: 'scope-request' }));
 // Retired payment URLs remain explicit tombstones, including old webhook URLs.
 // No environment variable can reactivate payments in this release.
 app.use(['/api/test-checkout', '/api/checkout', '/api/billing', '/api/stripe'], (_req, res) => {

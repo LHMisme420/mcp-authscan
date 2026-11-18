@@ -5,6 +5,7 @@ import { assessmentPackages, emailPattern, validateInquiry, type AssessmentInqui
 import { trustedAppOrigins } from './appOrigin';
 import { scopeEmailText, validateWrittenScope, type WrittenScope } from '../shared/writtenScope';
 import { saveScope, markScopeEmailed, scopeStorageReady, type SavedScope } from './scopeStore';
+import { scopeRequestEmail, validateScopeRequest, type ScopeRequest } from '../shared/scopeRequest';
 
 type DeliveryConfig = { from: string; to: string };
 type Message = DeliveryConfig & { replyTo: string; subject: string; text: string; idempotencyKey: string };
@@ -13,7 +14,7 @@ type Options = {
   send?: (message: Message) => Promise<string>;
   now?: () => number;
   origins?: () => string[];
-  kind?: 'inquiry' | 'scope';
+  kind?: 'inquiry' | 'scope' | 'scope-request';
   storageReady?: () => Promise<boolean>;
   save?: (id: string, value: WrittenScope) => Promise<SavedScope>;
   markEmailed?: (id: string, reference: string) => Promise<void>;
@@ -72,7 +73,8 @@ function emailText(value: AssessmentInquiry) {
 export function assessmentInquiryRoutes(options: Options = {}) {
   const router = express.Router();
   const scopeMode = options.kind === 'scope';
-  const route = scopeMode ? '/scope' : '/assessment';
+  const shortScopeMode = options.kind === 'scope-request';
+  const route = scopeMode ? '/scope' : shortScopeMode ? '/scope-request' : '/assessment';
   const storageReady = options.storageReady ?? scopeStorageReady;
   const save = options.save ?? saveScope;
   const markEmailed = options.markEmailed ?? markScopeEmailed;
@@ -119,7 +121,7 @@ export function assessmentInquiryRoutes(options: Options = {}) {
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
     const delivery = config();
-    const available = Boolean(delivery) && deliveryUnavailableUntil <= now() &&
+    const available = Boolean(delivery) && (!shortScopeMode || delivery?.to.toLowerCase() === 'lhmisme2011@gmail.com') && deliveryUnavailableUntil <= now() &&
       (!scopeMode || (delivery?.to.toLowerCase() === 'lhmisme2011@gmail.com' && await storageReady()));
     return res.json({ available, testMode: Boolean(config()?.from.toLowerCase().endsWith('@resend.dev')), challenge: available ? challenge(ip) : null });
   });
@@ -138,14 +140,15 @@ export function assessmentInquiryRoutes(options: Options = {}) {
         res.setHeader('Retry-After', '900');
         return res.status(429).json({ error: 'Too many requests. Please try again later or use the email link.' });
       }
-      const { value, errors } = scopeMode ? validateWrittenScope(req.body) : validateInquiry(req.body);
+      const { value, errors } = scopeMode ? validateWrittenScope(req.body)
+        : shortScopeMode ? validateScopeRequest(req.body) : validateInquiry(req.body);
       if (!value) return res.status(400).json({ error: 'Please correct the highlighted fields.', errors });
       if (req.body.websiteExtra !== '' || !validChallenge(req.body.challenge, ip)) {
         return res.status(400).json({ error: 'Form verification expired or failed. Refresh form verification, wait two seconds, then retry.' });
       }
       const delivery = config();
       if (!delivery || deliveryUnavailableUntil > now()) return res.status(503).json({ error: 'Inquiry delivery is unavailable. Please use the email link instead.' });
-      if (scopeMode && delivery.to.toLowerCase() !== 'lhmisme2011@gmail.com') {
+      if ((scopeMode || shortScopeMode) && delivery.to.toLowerCase() !== 'lhmisme2011@gmail.com') {
         return res.status(503).json({ error: 'Scope delivery is not configured for the assessment inbox.' });
       }
       for (const [id, entry] of requests) if (entry.until <= now()) requests.delete(id);
@@ -166,7 +169,9 @@ export function assessmentInquiryRoutes(options: Options = {}) {
         }
         const reference = existingReference ?? await send({
           ...delivery, replyTo: value.email, subject: `${delivery.from.toLowerCase().endsWith('@resend.dev') ? '[TEST] ' : ''}MCP AuthScan assessment inquiry`,
-          text: scopeMode ? scopeEmailText(value as WrittenScope, timestamp!) : emailText(value as AssessmentInquiry),
+          text: scopeMode ? scopeEmailText(value as WrittenScope, timestamp!)
+            : shortScopeMode ? scopeRequestEmail(value as ScopeRequest, new Date(now()).toISOString())
+            : emailText(value as AssessmentInquiry),
           idempotencyKey: `assessment-${id}`,
         });
         if (scopeMode && !existingReference) await markEmailed(id, reference);
@@ -175,6 +180,7 @@ export function assessmentInquiryRoutes(options: Options = {}) {
       if (!previous) requests.set(id, { digest, until: now() + TTL, promise });
       try {
         const reference = await promise;
+        if (shortScopeMode) return res.status(202).json({ accepted: true, reference });
         if (scopeMode) {
           // A repeated submission shares the promise; read its original durable timestamp.
           timestamp ??= (await save(id, value as WrittenScope)).timestamp;
