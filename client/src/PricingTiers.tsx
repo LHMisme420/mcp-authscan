@@ -41,8 +41,8 @@ export default function PricingTiers(props: {
             <span className="pricing-tier-index">0{index + 1}</span>
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
+            <a className="button" href={tier.checkout} target="_blank" rel="noopener">{tier.buyLabel}</a>
             <p>{tier.body}</p>
-            <a className="button" href={tier.checkout}>{tier.buyLabel}</a>
             {(tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (
               <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
                 {formOpen ? 'Close assessment form' : 'Start an assessment'}
