@@ -2513,6 +2513,9 @@ def main():
 
     ap.add_argument("--brief", action="store_true",
                     help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
+    ap.add_argument("--evidence-dir", metavar="DIR",
+                    help="where a completed live scan writes its security-state-v1 and observation-v1 JSON "
+                         "(default: the --output file's directory, else ./mcp-authscan-evidence)")
 
     args = ap.parse_args()
     if args.sign and (not args.json or args.html or args.sarif):
@@ -3366,7 +3369,32 @@ def main():
             print(f"{len(F)} finding(s).")
         print_verdict(F, counts, target_host, verdict_out if args.brief else None)
 
+    emit_evidence(args, scan_mode, canonical_payload)
     sys.exit(exit_code)
+
+
+def emit_evidence(args, scan_mode, canonical_payload):
+    """Write security-state-v1 + observation-v1 for a completed live scan (schemas/).
+
+    Halted scans exit earlier and never reach here. Source-code scans have no
+    endpoint boundary, so they emit nothing. A write failure is a scan error (exit 4).
+    """
+    if scan_mode != "LIVE_ENDPOINT_ASSESSMENT" or canonical_payload.get("status") != "completed":
+        return
+    from mcp_authscan import evidence_emit
+    try:
+        credentialed = bool(os.environ.get("MCPAUTHSCAN_TOKEN"))
+        state, unestablished = evidence_emit.build_state(canonical_payload, credentialed)
+        observation = evidence_emit.build_observation(
+            state, unestablished, canonical_payload, scanner_version=VERSION)
+        directory = evidence_emit.evidence_dir(getattr(args, "evidence_dir", None), args.output)
+        state_path, obs_path = evidence_emit.write_evidence(directory, state, observation)
+    except (OSError, ValueError, KeyError) as e:
+        print(f"[!] Evidence not written: {type(e).__name__}: {e}", file=sys.stderr)
+        sys.exit(4)
+    print(f"[+] STATE ID: {observation['state_id']}", file=sys.stderr)
+    print(f"[+] Evidence: {state_path}", file=sys.stderr)
+    print(f"[+] Evidence: {obs_path}", file=sys.stderr)
 
 
 def verdict_grade(findings, counts):

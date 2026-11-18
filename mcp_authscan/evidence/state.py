@@ -6,6 +6,7 @@ Pure module: standard library only, no I/O, no scanner imports.
 """
 import hashlib
 import json
+from urllib.parse import urlsplit
 
 SCHEMA = "security-state-v1"
 
@@ -52,6 +53,27 @@ def canonical_json(obj) -> str:
         ensure_ascii=True,
         allow_nan=False,
     )
+
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def normalize_target(url: str) -> str:
+    """Normalize a target URL per security-state-v1 §3.
+
+    Lowercase scheme and host, drop the scheme's default port, keep the path
+    as given, drop query, fragment and userinfo.
+    """
+    parts = urlsplit(url)
+    scheme = parts.scheme.lower()
+    if scheme not in _DEFAULT_PORTS or not parts.hostname:
+        raise ValueError(f"target must be an absolute http(s) URL: {url!r}")
+    host = parts.hostname.lower()
+    if ":" in host:
+        host = f"[{host}]"
+    port = parts.port
+    netloc = host if port is None or port == _DEFAULT_PORTS[scheme] else f"{host}:{port}"
+    return f"{scheme}://{netloc}{parts.path}"
 
 
 def _check_list(path, value):

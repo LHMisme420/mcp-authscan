@@ -34,6 +34,7 @@ An observation is the envelope that records **how** a security state was seen: w
 | `coverage.excluded` | integer ≥ 0 | yes | Probes that could not run. Not part of `in_scope`. |
 | `not_observed` | list | yes | One entry per NOT_OBSERVED probe (§4). MAY be empty. |
 | `excluded` | list | yes | One entry per EXCLUDED probe (§4). MAY be empty. |
+| `unestablished` | list | no (SHOULD) | One entry per `null` field in `state`, giving the reason the field was not established (§4.1). |
 
 Producers MAY add extra top-level keys. Consumers MUST ignore keys they do not recognize. This is safe because the observation is never hashed into a STATE ID.
 
@@ -78,6 +79,17 @@ Consistency rule: if a field listed in any entry's `affects` was not established
 
 Both lists SHOULD be sorted by `probe_id`.
 
+### 4.1 Unestablished fields
+
+Some state fields are `null` because no probe in the run covers them at all, not because a probe was inconclusive. For example, the scanner may not have an Origin-validation probe, or may record a tool count but not tool names. Those fields would otherwise have no recorded reason. Each entry in `unestablished`:
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `field` | string | yes | Dotted state path, for example `"tool_visibility.unauthenticated_tools"`. |
+| `reason` | string | yes | Why the producer could not establish it. |
+
+When present, `unestablished` MUST have exactly one entry for every `null` field in `state`, and no entries for non-null fields. It SHOULD be sorted by `field`.
+
 ## 5. Verification
 
 A consumer verifying an observation MUST:
@@ -86,5 +98,6 @@ A consumer verifying an observation MUST:
 2. Recompute the STATE ID of `state` and compare it with `state_id`.
 3. Check the coverage invariants in §3.
 4. Check `observed_at.end >= observed_at.start`.
+5. If `unestablished` is present, check that its `field` values are exactly the set of `null` fields in `state`.
 
 If any check fails, the observation is invalid.
