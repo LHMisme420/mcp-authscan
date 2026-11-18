@@ -26,3 +26,14 @@ Preserve uploaded JSON text rather than parsing and reserializing it in JavaScri
 **Why:** Python's existing canonical serializer distinguishes a floating-point `1.0` from integer `1`. A JavaScript JSON round trip can normalize the former to the latter and invalidate a legitimate signature even when a test intended to change only the stored digest.
 
 **How to apply:** Keep the raw-text upload path. For independence tests, replace only the intended field in the original JSON text; do not change canonicalization to accommodate JavaScript numeric normalization.
+
+CLI signing key IDs are the full lowercase SHA-256 hex digest of the raw
+Ed25519 public key, not a shortened or prefixed ID. Hashing and signing must
+consume the same serialized schema-3 canonical bytes.
+
+**Why:** The owner explicitly specified this signing contract after rejecting
+signing a separate reconstruction or a format not shared with the verifier.
+
+**How to apply:** Keep signatures outside the covered projection and leave
+probe logic unchanged. Test timestamp independence and signed/unsigned hash
+equality with disposable keys, without publishing a test identity.

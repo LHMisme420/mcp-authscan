@@ -44,14 +44,16 @@ def canonical_report(payload, findings):
         raise ValueError("Incomplete findings: schema-3 exports cannot truncate")
     if result["severity_counts"] != severity_counts(result["findings"]):
         raise ValueError("Severity counts do not match the complete findings")
-    # Validate JSON types, NaN and infinity before either producer can hash.
-    serialize(result)
     return result
 
 
-def compute(payload, findings):
+def compute(payload, findings, *, include_bytes=False):
     canonical = canonical_report(payload, findings)
-    return hashlib.sha256(serialize(canonical)).hexdigest(), sorted(canonical)
+    # Serialize the projected report once. Signing receives these exact bytes,
+    # not a second reconstruction of the report or its hexadecimal digest.
+    content = serialize(canonical)
+    result = hashlib.sha256(content).hexdigest(), sorted(canonical)
+    return (*result, content) if include_bytes else result
 
 
 def verify(path):

@@ -2461,6 +2461,8 @@ def main():
 
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
+    ap.add_argument("--sign", action="store_true",
+                    help="sign schema-3 JSON with ~/.config/mcp-authscan/report-signing.pem (Ed25519)")
     ap.add_argument("--verbose", "-v", action="store_true",
                     help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
@@ -2513,6 +2515,8 @@ def main():
                     help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
 
     args = ap.parse_args()
+    if args.sign and (not args.json or args.html or args.sarif):
+        ap.error("--sign requires --json and cannot be combined with --html or --sarif")
     if args.brief and (args.json or args.html or args.sarif):
         ap.error("--brief applies to the text output; it cannot be combined with --json, --html or --sarif")
     # --brief changes only what prints: everything that would go to stdout goes to devnull
@@ -3171,9 +3175,12 @@ def main():
         for key in ("rule", "severity", "severity_basis", "endpoint", "remediation"):
             finding.setdefault(key, None)
     canonical_payload["severity_counts"] = severity_counts(F)
-    payload_hash, covered = compute(canonical_payload, F)
+    payload_hash, covered, report_bytes = compute(canonical_payload, F, include_bytes=True)
     canonical_payload["report_hash"] = payload_hash
     canonical_payload["hash_covers"] = covered
+    if args.sign:
+        from mcp_authscan.report_signing import sign_report
+        sign_report(canonical_payload, report_bytes)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
