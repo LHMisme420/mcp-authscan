@@ -1,0 +1,9 @@
+{
+  "resource": "http://127.0.0.1:8412/mcp",
+  "owning_resource": "http://127.0.0.1:8411/mcp",
+  "tools": [
+    {"name": "get_record", "access": "read"},
+    {"name": "list_records", "access": "read"},
+    {"name": "delete_record", "access": "write"}
+  ]
+}
