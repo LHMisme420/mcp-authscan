@@ -48,6 +48,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+[project.optional-dependencies]
+signing = ["cryptography>=50.0.2,<51"]
+
 [project.urls]
 Homepage = "https://github.com/LHMisme420/mcp-authscan"
 Repository = "https://github.com/LHMisme420/mcp-authscan"

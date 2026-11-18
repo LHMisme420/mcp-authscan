@@ -613,7 +613,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     _raw = resp.read(65536).decode("utf-8", "replace")
-                    if "jsonrpc" not in _raw or chr(34)+"result"+chr(34) not in _raw:
+                    if "jsonrpc" not in _raw:
                         return None, None
                     _de, _di = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
                     if _de:
@@ -799,7 +799,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     body = resp.read(65536).decode(errors='ignore')
                     try:
                         data = json.loads(sse_payload(body))
-                        if isinstance(data, dict) and 'jsonrpc' in data and 'result' in data:
+                        if isinstance(data, dict) and ('jsonrpc' in data or ('result' in data or 'error' in data)):
                             mcp_verified = True
                             r = data.get('result') or {}
                             i = r.get('serverInfo') or {}
@@ -969,9 +969,6 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     "interpretation": record.detail or "OAuth configuration issue",
                     "remediation": "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it" if record.probe_id == 4 else "Review OAuth server configuration",
                 })
-                _sb = getattr(record, "severity_basis", None)
-                if _sb:
-                    findings[-1]["severity_basis"] = _sb
         
         alias_of = {}
         for r in oauth_records:
@@ -1011,7 +1008,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         status_from_counts(probe_status, count_probes(all_records))
         return findings + target_findings, True, probe_status, discovery_info, (all_records, probe_results)
     else:
-        if not mcp_verified and discovery_info and discovery_info.get("status") == "ZERO_AUTH_DETECTED":
+        if not mcp_verified:
             # Discovery did not establish an OAuth surface either. Do not
             # misreport an HTML/non-MCP target as a verified OAuth challenge.
             return findings, False, probe_status, preflight_info, ([], [])
@@ -1051,7 +1048,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.18.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.16.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2438,7 +2435,9 @@ def generate_html_report(findings, target, output_file, payload=None):
         '<h2>Findings</h2>', body,
         "<p>%s</p>" % escape(footer_line(payload)),
         '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
-        '<p>Hash covers: %s.</p><p>Evidence and remediation text are outside the hash.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
+        '<p>Schema version 3 (verdict-v3). Hash covers: %s.</p>'
+        '<p>Finding descriptions and remediation are covered; raw response evidence, '
+        'timestamps, session IDs and server-varying headers are excluded.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
         '</div></body></html>',
     ])
 
@@ -2462,6 +2461,8 @@ def main():
 
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
+    ap.add_argument("--sign", action="store_true",
+                    help="sign schema-3 JSON with ~/.config/mcp-authscan/report-signing.pem (Ed25519)")
     ap.add_argument("--verbose", "-v", action="store_true",
                     help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
@@ -2514,6 +2515,8 @@ def main():
                     help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
 
     args = ap.parse_args()
+    if args.sign and (not args.json or args.html or args.sarif):
+        ap.error("--sign requires --json and cannot be combined with --html or --sarif")
     if args.brief and (args.json or args.html or args.sarif):
         ap.error("--brief applies to the text output; it cannot be combined with --json, --html or --sarif")
     # --brief changes only what prints: everything that would go to stdout goes to devnull
@@ -2655,7 +2658,7 @@ def main():
                 "response_preview": discovery_info.get("response_preview", "HTTP 200 - MCP endpoint accessible"),
                 # Set from the tool-call probe outcome once it is known (see severity_basis).
                 "interpretation": "MCP server requires no authentication.",
-                "remediation": "Confirm whether unauthenticated clients are intended to reach this MCP surface. If they are not, add authentication and authorization controls; if they are, state that explicitly in the server record so a reviewer reads the open handshake as design rather than omission."
+                "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
             from mcp_authscan.target_probes import counts as _tcounts
@@ -2705,7 +2708,6 @@ def main():
                     pass  # Continue - OAuth records exist
                 else:
                     # No OAuth either - fail
-                    print("VERDICT INCONCLUSIVE | %s | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set %s" % (urlparse(args.target).hostname or args.target, PROBE_SET_VERSION), file=verdict_out)
                     sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)
@@ -2808,39 +2810,6 @@ def main():
             F.sort(key=lambda x: (order.get(x["severity"], 9), x["file"], x["line"]))
     auth_block = ""
     metadata_block = ""
-    t=((getattr(args,"content_observed",{}) or {}).get("inspected") or {}).get("tools") or 0
-    _tc_out = tool_call_probe.get("outcome") if tool_call_probe is not None else None
-    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
-        _tc_basis = "tool-call probe not run"
-    elif _tc_out == "REFUSED":
-        _tc_basis = "tool-call probe REFUSED"
-    elif _tc_out == "EXECUTED":
-        _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
-    elif _tc_out == "UNKNOWN":
-        _tc_basis = "tool-call probe UNKNOWN"
-    else:
-        _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
-    _tc_open = "MCP server completed the handshake with no authentication" + (
-        " and listed %d tool(s)." % t if t else ".")
-    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
-        _tc_interp = _tc_open + " Tool invocation was not tested (tool-call probe not run)."
-    elif _tc_out == "REFUSED":
-        _tc_interp = _tc_open + " The tool-call probe was refused without a credential, so tool invocation was not shown to be open."
-    elif _tc_out == "EXECUTED":
-        _tc_interp = ("MCP server requires no authentication. Any client can call tools, resources and prompts. "
-                      "The tool-call probe executed %s with no credential." % (tool_call_probe.get("tool") or "none"))
-    elif _tc_out == "UNKNOWN":
-        _tc_interp = _tc_open + " The tool-call probe ran but its result was inconclusive (UNKNOWN), so tool invocation was not established."
-    else:
-        _tc_interp = _tc_open + " The tool-call probe returned unexpected outcome %r, so tool invocation was not established." % (_tc_out,)
-    for f in F:
-        if f.get("rule") == "ZERO-AUTH":
-            f["interpretation"] = _tc_interp
-    if t:
-     for f in F:
-      if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
-       f["severity"]="HIGH"
-       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
     findings_by_severity = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for finding in F:
         sev = finding.get("severity", "LOW")
@@ -3152,6 +3121,39 @@ def main():
         canonical_payload.pop(key, None)
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
+    t=((canonical_payload.get("content_observed") or {}).get("inspected") or {}).get("tools") or 0
+    _tc_out = tool_call_probe.get("outcome") if tool_call_probe is not None else None
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_basis = "tool-call probe not run"
+    elif _tc_out == "REFUSED":
+        _tc_basis = "tool-call probe REFUSED"
+    elif _tc_out == "EXECUTED":
+        _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
+    elif _tc_out == "UNKNOWN":
+        _tc_basis = "tool-call probe UNKNOWN"
+    else:
+        _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
+    _tc_open = "MCP server completed the handshake with no authentication" + (
+        " and listed %d tool(s)." % t if t else ".")
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_interp = _tc_open + " Tool invocation was not tested (tool-call probe not run)."
+    elif _tc_out == "REFUSED":
+        _tc_interp = _tc_open + " The tool-call probe was refused without a credential, so tool invocation was not shown to be open."
+    elif _tc_out == "EXECUTED":
+        _tc_interp = ("MCP server requires no authentication. Any client can call tools, resources and prompts. "
+                      "The tool-call probe executed %s with no credential." % (tool_call_probe.get("tool") or "none"))
+    elif _tc_out == "UNKNOWN":
+        _tc_interp = _tc_open + " The tool-call probe ran but its result was inconclusive (UNKNOWN), so tool invocation was not established."
+    else:
+        _tc_interp = _tc_open + " The tool-call probe returned unexpected outcome %r, so tool invocation was not established." % (_tc_out,)
+    for f in F:
+        if f.get("rule") == "ZERO-AUTH":
+            f["interpretation"] = _tc_interp
+    if t:
+     for f in F:
+      if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
+       f["severity"]="HIGH"
+       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
@@ -3159,34 +3161,26 @@ def main():
     canonical_payload["exit_condition"] = exit_condition
     canonical_payload["exit_code"] = exit_code
     canonical_payload["fail_on"] = args.fail_on
-    # The hash covers the verdict structure only. Evidence and detail prose can carry
-    # values the server generates per run, so it is excluded by construction here
-    # rather than redacted case by case.
-    HASHED_KEYS = (
-        "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage", "completed",
-        "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
-        "exit_code", "fail_on", "authorization", "hash_scheme",
-    )
-    hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
-    if isinstance(hashed.get("probes"), list):
-        VOL = ("mcp-session-id", "date", "set-cookie", "request-id", "x-request-id", "traceparent", "tracestate")
-        def _strip_probe(p):
-            if not isinstance(p, dict):
-                return str(p)
-            q = dict(p)
-            h = q.get("headers_observed")
-            if isinstance(h, dict):
-                q["headers_observed"] = dict((k, v) for k, v in h.items() if k.lower() not in VOL)
-            return json.dumps(q, sort_keys=True)
-        hashed["probes"] = sorted(_strip_probe(p) for p in hashed["probes"])
-    hashed["findings"] = sorted(
-        ({k: f[k] for k in ("severity", "rule", "title", "endpoint", "severity_basis") if k in f} for f in F),
-        key=lambda d: json.dumps(d, sort_keys=True),
-    )
-    payload_json = json.dumps(hashed, sort_keys=True)
-    payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+    from mcp_authscan.report_verify import compute, severity_counts
+    canonical_payload["schema_version"] = 3
+    canonical_payload["status"] = "completed" if not halted else "incomplete"
+    canonical_payload["total_checks"] = counts["in_scope"]
+    canonical_payload["findings_count"] = len(F)
+    # Explicit adapters preserve the CLI's original title/detail fields outside
+    # the shared hash. The covered description is the stable finding description.
+    for finding in F:
+        finding.setdefault("server_name", args.target)
+        finding.setdefault("vector_type", finding.get("rule"))
+        finding.setdefault("description", finding.get("title"))
+        for key in ("rule", "severity", "severity_basis", "endpoint", "remediation"):
+            finding.setdefault(key, None)
+    canonical_payload["severity_counts"] = severity_counts(F)
+    payload_hash, covered, report_bytes = compute(canonical_payload, F, include_bytes=True)
     canonical_payload["report_hash"] = payload_hash
-    canonical_payload["hash_covers"] = sorted(hashed)
+    canonical_payload["hash_covers"] = covered
+    if args.sign:
+        from mcp_authscan.report_signing import sign_report
+        sign_report(canonical_payload, report_bytes)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
