@@ -68,7 +68,7 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["env", "VATA_SQLITE_DURABILITY=postgres", "DB_FILE=/tmp/vata-findings.sqlite", "npm", "run", "start"]
-build = ["node", "scripts/deployment-web.mjs", "b4dc03ba94860099269520431b1ccc4da90bc2d85a600b5055cdad7af8e481d6"]
+build = ["node", "scripts/deployment-web.mjs", "33c0c5c0c291f4c79280318df2f605930ddb77935687fcac6499b88577f5f77e"]
 
 [packager.features]
 enabledForHosting = false
