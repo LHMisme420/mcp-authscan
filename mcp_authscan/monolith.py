@@ -969,6 +969,9 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     "interpretation": record.detail or "OAuth configuration issue",
                     "remediation": "Restrict Access-Control-Allow-Origin on the token endpoint to the specific origins that need it" if record.probe_id == 4 else "Review OAuth server configuration",
                 })
+                _sb = getattr(record, "severity_basis", None)
+                if _sb:
+                    findings[-1]["severity_basis"] = _sb
         
         alias_of = {}
         for r in oauth_records:
@@ -1048,7 +1051,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.16.2"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.18.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""

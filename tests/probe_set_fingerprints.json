@@ -268,6 +268,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
       },
       "fingerprint": "81f1fa8ca8905b39e1b41c66cb20a31b06e6778068367f981e3f614fbbc65f3c"
+    },
+    "2026.11.18.1": {
+      "changed": "2026-11-18, probe 17 audience-binding: a resource must reject a validly issued token whose aud names a different resource",
+      "components": {
+        "code": "42580de9e1c5d957cab589487addd89f192451c1bce3a7520095bdeb3d593d7b",
+        "probe_order": "096290d2b3e3e643a1eada67fd1c3b4ffcc3d127db71e20c8a537d757df3c7b7",
+        "probe_records": "c6c2611c5b1824ac71a2358a9346023b95c50057e506e0b071d76640a1c30953",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40"
+      },
+      "fingerprint": "93bc6c38b959da0973d68215cf8ce370e997f7d2282b85c7adb8ebe02305b0ab"
     }
   },
   "withdrawn": {
