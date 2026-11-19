@@ -2,156 +2,79 @@
 
 Specification: schemas/boundary-delta-v1.md
 
-Pure module: standard library only, no I/O, no scanner imports.
+Pure module: no I/O. A state only describes one access class, so states of
+different classes are never compared: the result is ACCESS_CLASS_CHANGED.
 """
-from .state import compute_state_id, validate_state
+from .state import LIST_KEYS, compute_state_id, validate_state
 
 SCHEMA = "boundary-delta-v1"
 
 NO_CHANGE = "NO_CHANGE"
+ACCESS_CLASS_CHANGED = "ACCESS_CLASS_CHANGED"
 AUTHORIZATION_REGRESSION = "AUTHORIZATION_REGRESSION"
-EXPOSURE_COMPENSATED = "EXPOSURE_COMPENSATED"
-BOUNDARY_LOOSENED = "BOUNDARY_LOOSENED"
-INDETERMINATE = "INDETERMINATE"
-BOUNDARY_TIGHTENED = "BOUNDARY_TIGHTENED"
-CHANGED_NEUTRAL = "CHANGED_NEUTRAL"
-
-# Field directions.
-UNCHANGED = "unchanged"
-TIGHTENED = "tightened"
-LOOSENED = "loosened"
-MIXED = "mixed"
-UNDETERMINED = "undetermined"
-
-# Compensating dimensions and how each field is compared.
-#   "bool_true_tighter"  : false -> true tightens, true -> false loosens
-#   "bool_false_tighter" : true -> false tightens, false -> true loosens
-#   "allowlist"          : proper subset tightens, proper superset loosens,
-#                          neither (entries both added and removed) is mixed
-DIMENSIONS = {
-    "audience": {
-        "enforced": "bool_true_tighter",
-        "accepted_audiences": "allowlist",
-    },
-    "origin": {
-        "validated": "bool_true_tighter",
-        "allowed_origins": "allowlist",
-    },
-    "cors": {
-        "allow_origin_wildcard": "bool_false_tighter",
-        "allow_credentials": "bool_false_tighter",
-        "allowed_origins": "allowlist",
-    },
-}
-
-TOOL_LISTS = ("unauthenticated_tools", "authenticated_tools")
-
-
-def _field_direction(kind, before, after):
-    if before == after:
-        return UNCHANGED
-    if before is None or after is None:
-        return UNDETERMINED
-    if kind == "bool_true_tighter":
-        return TIGHTENED if after else LOOSENED
-    if kind == "bool_false_tighter":
-        return LOOSENED if after else TIGHTENED
-    b, a = set(before), set(after)
-    if a < b:
-        return TIGHTENED
-    if a > b:
-        return LOOSENED
-    return MIXED
+SURFACE_EXPANDED = "SURFACE_EXPANDED"
+SURFACE_REDUCED = "SURFACE_REDUCED"
+DEFINITIONS_CHANGED = "DEFINITIONS_CHANGED"
 
 
 def _set_diff(before, after):
-    if before is None or after is None:
-        if before == after:
-            return {"comparable": False, "added": [], "removed": []}
-        return {"comparable": False, "added": None, "removed": None}
     b, a = set(before), set(after)
-    return {
-        "comparable": True,
-        "added": sorted(a - b),
-        "removed": sorted(b - a),
-    }
-
-
-def _dimension(name, prev, curr):
-    changes = []
-    for field in sorted(DIMENSIONS[name]):
-        kind = DIMENSIONS[name][field]
-        before = prev[name][field]
-        after = curr[name][field]
-        direction = _field_direction(kind, before, after)
-        if direction != UNCHANGED:
-            changes.append({
-                "field": field,
-                "before": before,
-                "after": after,
-                "direction": direction,
-            })
-    directions = {c["direction"] for c in changes}
-    loosened = bool(directions & {LOOSENED, MIXED})
-    tightened = TIGHTENED in directions and not loosened
-    return {
-        "tightened": tightened,
-        "loosened": loosened,
-        "undetermined": UNDETERMINED in directions,
-        "changes": changes,
-    }
+    return {"added": sorted(a - b), "removed": sorted(b - a)}
 
 
 def compute_delta(prev: dict, curr: dict) -> dict:
-    """Return the boundary-delta-v1 object describing prev -> curr.
+    """Return the boundary-delta-v1 object for prev -> curr.
 
-    Raises ValueError if either state is invalid or the targets differ.
+    Raises ValueError if either state is invalid.
     """
     validate_state(prev)
     validate_state(curr)
-    if prev["target"] != curr["target"]:
-        raise ValueError("cannot compute a delta across different targets")
-
     from_id = compute_state_id(prev)
     to_id = compute_state_id(curr)
+    access = {"from": prev["access_class"], "to": curr["access_class"]}
 
-    tools = {
-        name: _set_diff(prev["tool_visibility"][name], curr["tool_visibility"][name])
-        for name in TOOL_LISTS
-    }
-    dims = {name: _dimension(name, prev, curr) for name in sorted(DIMENSIONS)}
+    if access["from"] != access["to"]:
+        return {
+            "schema": SCHEMA,
+            "access_class": access,
+            "from_state_id": from_id,
+            "to_state_id": to_id,
+            "tools": None,
+            "prompts": None,
+            "resources": None,
+            "surface_digest_changed": None,
+            "instructions_changed": None,
+            "classification": ACCESS_CLASS_CHANGED,
+            "rule": "BD-R1",
+        }
 
-    unauth = tools["unauthenticated_tools"]
-    any_tightened = any(d["tightened"] for d in dims.values())
-    any_loosened = any(d["loosened"] for d in dims.values())
-    any_undetermined = any(d["undetermined"] for d in dims.values())
+    diffs = {key: _set_diff(prev[key], curr[key]) for key in LIST_KEYS}
+    added = any(d["added"] for d in diffs.values())
+    removed = any(d["removed"] for d in diffs.values())
+    surface_changed = prev["surface_digest"] != curr["surface_digest"]
+    instructions_changed = prev["instructions_digest"] != curr["instructions_digest"]
 
     if from_id == to_id:
         classification, rule = NO_CHANGE, "BD-R0"
-    elif unauth["comparable"] and unauth["added"]:
-        if any_tightened:
-            classification, rule = EXPOSURE_COMPENSATED, "BD-R2"
-        else:
-            classification, rule = AUTHORIZATION_REGRESSION, "BD-R1"
-    elif any_loosened:
-        classification, rule = BOUNDARY_LOOSENED, "BD-R3"
-    elif not unauth["comparable"] and unauth["added"] is None:
-        classification, rule = INDETERMINATE, "BD-R4"
-    elif any_undetermined:
-        classification, rule = INDETERMINATE, "BD-R4"
-    elif any_tightened or (unauth["comparable"] and unauth["removed"]):
-        classification, rule = BOUNDARY_TIGHTENED, "BD-R5"
+    elif access["to"] == "anonymous" and diffs["tools"]["added"]:
+        classification, rule = AUTHORIZATION_REGRESSION, "BD-R2"
+    elif added:
+        classification, rule = SURFACE_EXPANDED, "BD-R3"
+    elif removed:
+        classification, rule = SURFACE_REDUCED, "BD-R4"
     else:
-        classification, rule = CHANGED_NEUTRAL, "BD-R6"
+        classification, rule = DEFINITIONS_CHANGED, "BD-R5"
 
     return {
         "schema": SCHEMA,
-        "target": curr["target"],
+        "access_class": access,
         "from_state_id": from_id,
         "to_state_id": to_id,
-        "tool_visibility": tools,
-        "dimensions": dims,
-        "compensating_tightening": [n for n in sorted(dims) if dims[n]["tightened"]],
+        "tools": diffs["tools"],
+        "prompts": diffs["prompts"],
+        "resources": diffs["resources"],
+        "surface_digest_changed": surface_changed,
+        "instructions_changed": instructions_changed,
         "classification": classification,
         "rule": rule,
     }

@@ -1,124 +1,135 @@
 # security-state-v1
 
 **Status:** Draft, normative
-**Identifier:** `security-state-v1`
-**Reference implementation:** `mcp_authscan/evidence/state.py` (you don't need it to implement this spec)
+**Reference implementation:** `mcp_authscan/evidence/state.py` (with `mcp_authscan/surface.py` for the canonical form and `surface_digest`). This spec does not depend on either file.
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ## 1. Purpose
 
-A security state describes the **intrinsic authorization boundary** of one MCP endpoint: what the endpoint exposes, and to whom. It holds only facts about the target. It holds no facts about the scan that observed them (when the scan ran, which tool ran it, how many probes it ran). Those go in the observation envelope ([observation-v1](observation-v1.md)).
+A security state records **what one MCP server exposes at one access class**: the names of the tools, prompts and resources it lists, plus digests of their full definitions and of its instructions.
 
-Two scans that see the same boundary MUST produce byte-identical canonical JSON, and so the same STATE ID, even if they ran at different times or with different scanner versions.
+A server has two separate boundaries: what an anonymous client sees and what an authenticated client sees. The access class is therefore part of the state itself, not a note about how the state was collected. It is hashed into the STATE ID, so two states captured at different access classes **never** share an ID.
+
+A state contains no timestamps, no target and no coverage. Those belong to the observation envelope ([observation-v1](observation-v1.md)). Two captures of the same surface at the same access class MUST produce the same STATE ID, whenever and wherever they ran.
 
 ## 2. Object structure
 
-A security state is a JSON object. Every field below is **required**. A field marked *nullable* MUST be present. It is set to `null` when the producer could not establish its value. `null` means "not determined". It never means "false" or "empty".
+Every content key is **required**. No other content keys are permitted.
 
-| Path | Type | Nullable | Meaning |
-|---|---|---|---|
-| `schema` | string | no | MUST be exactly `"security-state-v1"`. |
-| `target` | string | no | Normalized URL of the MCP endpoint (§3). |
-| `tool_visibility` | object | no | |
-| `tool_visibility.unauthenticated_tools` | list of string | yes | Tool names returned by `tools/list` with no credentials. `[]` means the call succeeded or was refused and no tools were visible. `null` means it was not determined. |
-| `tool_visibility.authenticated_tools` | list of string | yes | Tool names returned by `tools/list` with valid credentials. `null` when no credentials were available. |
-| `audience` | object | no | Token audience binding. |
-| `audience.enforced` | boolean | yes | `true` if the endpoint rejects tokens whose audience is not this resource. |
-| `audience.accepted_audiences` | list of string | yes | Audience values the endpoint was shown to accept. |
-| `origin` | object | no | `Origin` request-header validation. |
-| `origin.validated` | boolean | yes | `true` if the endpoint rejects requests that carry a disallowed `Origin`. |
-| `origin.allowed_origins` | list of string | yes | Origins the endpoint was shown to accept. |
-| `cors` | object | no | CORS response policy. |
-| `cors.allow_origin_wildcard` | boolean | yes | `true` if `Access-Control-Allow-Origin` is `*` **or** the endpoint reflects any supplied origin. A server that reflects origins is a wildcard for this purpose. |
-| `cors.allow_credentials` | boolean | yes | `true` if `Access-Control-Allow-Credentials: true` is returned. |
-| `cors.allowed_origins` | list of string | yes | Specific origins granted by CORS. |
-
-Two keys MAY also appear at the top level. They are reserved for chaining ([boundary-ledger-v1](boundary-ledger-v1.md)):
-
-| Path | Type | Meaning |
+| Key | Type | Meaning |
 |---|---|---|
-| `state_id` | string or null | This state's STATE ID (§5). |
-| `previous_state_id` | string or null | The STATE ID of the preceding ledger entry. |
+| `state_version` | string | MUST be exactly `"1"`. |
+| `access_class` | string | `"anonymous"` (captured with no credential) or `"authenticated"` (captured with a credential). |
+| `surface_digest` | string | 64 lowercase hex characters. SHA-256 of the canonical surface (§4). Covers the full definitions, not just the names. |
+| `tools` | list of string | The `name` of every tool in `tools/list`, sorted (§3). |
+| `prompts` | list of string | The `name` of every prompt in `prompts/list`, sorted. |
+| `resources` | list of string | The `uri` of every resource in `resources/list`, sorted. |
+| `instructions_digest` | string | 64 lowercase hex characters. SHA-256 of the UTF-8 bytes of the `instructions` string from `initialize`, or of the empty string if none was given. |
 
-If present, each MUST be either `null` or 64 lowercase hexadecimal characters.
+Two chaining keys MAY be present. They are **never** part of the STATE ID:
 
-**No other keys are permitted** at the top level or inside any section. A consumer MUST reject a state with unknown keys. This keeps the STATE ID stable: v1 cannot be extended silently. Any new field needs a new schema version.
+| Key | Type | Meaning |
+|---|---|---|
+| `state_id` | string or null | This state's STATE ID (§5). If present and non-null, it MUST equal the recomputed value. |
+| `previous_state_id` | string or null | The STATE ID of the preceding ledger entry ([boundary-ledger-v1](boundary-ledger-v1.md)). |
 
-## 3. Target normalization
+A consumer MUST reject a state that has an unknown key, a missing content key, a wrong `state_version` or `access_class`, a malformed digest, an unsorted list, or a `state_id` that does not match its content. The error SHOULD name the offending key. A consumer MUST NOT silently re-sort or repair a state: rejecting it is what lets the STATE ID work as an integrity check.
 
-Producers MUST normalize `target` before emitting it:
+## 3. Identifier lists
 
-- Scheme and host in lowercase.
-- Default port removed (`:443` for `https`, `:80` for `http`).
-- Path kept as given, with no trailing-slash rewriting.
-- No query string, no fragment, no userinfo.
+Each list holds the identifier field (`name` for tools and prompts, `uri` for resources) of every listed item that is a JSON object whose identifier is a string.
 
-Two states that differ only in `target` describe different endpoints and have different STATE IDs.
+- Items that are not objects, or whose identifier is not a string, are left out of the list. They are still covered by `surface_digest`.
+- Duplicates are kept. A server that lists a name twice has a list with that name twice.
+- Lists are sorted in ascending **Unicode code point** order. This is not UTF-16 code-unit order and not locale collation. JavaScript implementers MUST compare by code point explicitly.
 
-## 4. List rules
+## 4. Canonical surface and `surface_digest`
 
-Every list-valued field (all `*_tools`, `*_audiences` and `*_origins` lists) MUST:
+The canonical surface is a JSON object with exactly four keys:
 
-1. Contain only strings.
-2. Contain no duplicates.
-3. Be **sorted in ascending Unicode code point order**. This is not UTF-16 code-unit order and not locale collation. Implementers in languages whose default string sort uses UTF-16 code units (for example JavaScript) MUST sort by code point explicitly.
+- `instructions`: the instructions string, or `""` if absent.
+- `tools`: one row per tool. A row is the tool object reduced to whichever of `name`, `description`, `inputSchema` and `annotations` are present. Rows are sorted by `name`, with a missing name treated as `""`.
+- `prompts`: one row per prompt object. A row is the prompt reduced to whichever of `name`, `description` and `arguments` are present. Rows are sorted by `name`. Items that are not objects are skipped.
+- `resources`: one row per resource object. A row is the resource reduced to whichever of `uri`, `name`, `description` and `mimeType` are present. Rows are sorted by `uri`. Items that are not objects are skipped.
 
-A consumer MUST reject, not silently re-sort, a state whose lists violate these rules. Rejecting is what lets the STATE ID act as an integrity check.
+The sort is stable, so rows with equal sort keys keep their input order. `tools` items MUST be JSON objects.
+
+`surface_digest` = SHA-256, as lowercase hex, of the UTF-8 bytes of the canonical surface serialized as canonical JSON (§5.2).
 
 ## 5. STATE ID
 
-The STATE ID is computed as follows:
+### 5.1 Rule
 
-1. Take the state object. Remove the top-level keys `state_id` and `previous_state_id` if they are present. Remove nothing else.
-2. Serialize the result as **canonical JSON**:
-   - Object keys sorted in ascending order at every nesting level.
-   - No insignificant whitespace. The separators are exactly `,` and `:`.
-   - ASCII-only output (`ensure_ascii=True`). Every character above U+007F is escaped as `\uXXXX` with lowercase hex digits. Characters above U+FFFF are escaped as a UTF-16 surrogate pair (`😀`).
-   - Characters below U+0020 are escaped as `\b \f \n \r \t`, or as `\u00XX` otherwise. `"` becomes `\"` and `\` becomes `\\`. `/` is **not** escaped.
-   - `true`, `false` and `null` are written as JSON literals. v1 has no numeric fields.
-3. Encode the string as ASCII bytes. This is identical to UTF-8 here.
-4. STATE ID = SHA-256 of those bytes, written as **64 lowercase hex characters** with no prefix.
+STATE ID = SHA-256, as 64 lowercase hex characters, of the UTF-8 bytes of the canonical JSON of the state **with `state_id` and `previous_state_id` removed**. Nothing else is removed.
 
-These rules match Python's `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`.
+### 5.2 Canonical JSON
 
-Because `previous_state_id` is excluded, the STATE ID addresses content only. Identical boundaries have identical IDs wherever they sit in a history. Ordering is recorded by the ledger, not by the ID.
+- Object keys sorted ascending at every nesting level.
+- No insignificant whitespace. The separators are exactly `,` and `:`.
+- ASCII-only output (`ensure_ascii=True`). Characters above U+007F are written as `\uXXXX` with lowercase hex. Characters above U+FFFF are written as a UTF-16 surrogate pair (`😀`).
+- Below U+0020: `\b \f \n \r \t`, or `\u00XX` otherwise. `"` becomes `\"` and `\` becomes `\\`. `/` is **not** escaped.
 
-## 6. Test vector
+This is Python's `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`. A security state contains only strings and lists of strings, so number formatting never arises.
 
-Input state:
+## 6. Test vectors
+
+Input surface:
 
 ```json
 {
-  "schema": "security-state-v1",
-  "target": "https://mcp.example.com/mcp",
-  "tool_visibility": {
-    "unauthenticated_tools": ["list_docs"],
-    "authenticated_tools": ["delete_doc", "list_docs", "write_doc"]
-  },
-  "audience": {"enforced": true, "accepted_audiences": ["https://mcp.example.com/mcp"]},
-  "origin": {"validated": true, "allowed_origins": ["https://app.example.com"]},
-  "cors": {"allow_origin_wildcard": false, "allow_credentials": false, "allowed_origins": ["https://app.example.com"]}
+  "instructions": "Use list_docs before write_doc.",
+  "tools": [
+    {"name": "write_doc", "description": "Write a document", "inputSchema": {"type": "object"}},
+    {"name": "list_docs", "description": "List documents", "inputSchema": {"type": "object"}}
+  ],
+  "prompts": [{"name": "summarize", "description": "Summarize a doc"}],
+  "resources": [{"uri": "file:///docs/b.md", "name": "b"}, {"uri": "file:///docs/a.md", "name": "a"}]
 }
 ```
 
-Canonical preimage (one line):
+Canonical surface:
 
 ```
-{"audience":{"accepted_audiences":["https://mcp.example.com/mcp"],"enforced":true},"cors":{"allow_credentials":false,"allow_origin_wildcard":false,"allowed_origins":["https://app.example.com"]},"origin":{"allowed_origins":["https://app.example.com"],"validated":true},"schema":"security-state-v1","target":"https://mcp.example.com/mcp","tool_visibility":{"authenticated_tools":["delete_doc","list_docs","write_doc"],"unauthenticated_tools":["list_docs"]}}
+{"instructions":"Use list_docs before write_doc.","prompts":[{"description":"Summarize a doc","name":"summarize"}],"resources":[{"name":"a","uri":"file:///docs/a.md"},{"name":"b","uri":"file:///docs/b.md"}],"tools":[{"description":"List documents","inputSchema":{"type":"object"},"name":"list_docs"},{"description":"Write a document","inputSchema":{"type":"object"},"name":"write_doc"}]}
+```
+
+Anonymous-class state:
+
+```json
+{
+  "state_version": "1",
+  "access_class": "anonymous",
+  "surface_digest": "97b21b2bd8b9057e5e6196bad5bac627dfab07ae9ab780f5a570d17429c2a186",
+  "tools": ["list_docs", "write_doc"],
+  "prompts": ["summarize"],
+  "resources": ["file:///docs/a.md", "file:///docs/b.md"],
+  "instructions_digest": "09dc366d4fe480877cf5660c3c51300f9927e11ab16cda93bbbbd6c651c6ee61"
+}
+```
+
+Canonical preimage:
+
+```
+{"access_class":"anonymous","instructions_digest":"09dc366d4fe480877cf5660c3c51300f9927e11ab16cda93bbbbd6c651c6ee61","prompts":["summarize"],"resources":["file:///docs/a.md","file:///docs/b.md"],"state_version":"1","surface_digest":"97b21b2bd8b9057e5e6196bad5bac627dfab07ae9ab780f5a570d17429c2a186","tools":["list_docs","write_doc"]}
 ```
 
 STATE ID:
 
 ```
-bb047be12442528b0cdd570f9a83b0b57ef2518f07604d18a513891057ea0f5c
+b1208b5f7f7bc9efc82553a985da05d9a241a5d1e3cd3fbd858968c9bf0ec477
 ```
 
-Adding `"state_id": "bb04…"` and `"previous_state_id": null` to the object MUST NOT change this value.
+The same surface with `"access_class": "authenticated"` has STATE ID:
 
-Escaping vector: `{"b":"é \n/","a":"😀"}` canonicalizes to `{"a":"😀","b":"é \n/"}`.
+```
+4ea87f47989d6299671564d77b9c7be2788e46b564546216315af5ea1fbeb184
+```
+
+Escaping: `{"b":"é \n/","a":"😀"}` canonicalizes to `{"a":"😀","b":"é \n/"}`.
 
 ## 7. Out of scope
 
-- Timestamps, scanner identity, probe verdicts and coverage. See [observation-v1](observation-v1.md).
-- Authenticity. A STATE ID shows that a state's content was not changed. It does not show who produced the state or that the state is true. Authenticity needs a signature, which v1 does not define.
+- **Target, timestamps, scanner identity and coverage.** These are in [observation-v1](observation-v1.md).
+- **Authorization controls such as audience binding, Origin validation and CORS.** v1 records what is exposed at each access class, not how access is enforced.
+- **Authenticity.** A STATE ID shows that a state's content was not changed after its ID was computed. It does not show who produced the state. Proving that needs a signature, which v1 does not define.

@@ -123,6 +123,3 @@ tools/scope*
 tools/final*.py
 tests/testscope.py
 tests/scope*
-
-# security-state-v1 / observation-v1 default output
-mcp-authscan-evidence/

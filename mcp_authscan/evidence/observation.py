@@ -2,39 +2,31 @@
 
 Specification: schemas/observation-v1.md
 
-Pure module: standard library only, no I/O, no scanner imports.
+Pure module: no I/O.
 """
 import re
 
-from .state import SECTIONS, compute_state_id
+from .state import compute_state_id, normalize_target, validate_state
 
 SCHEMA = "observation-v1"
 _RFC3339_Z = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
 _COUNT_KEYS = ("in_scope", "pass", "fail", "not_observed", "excluded")
 
 
-def null_fields(state: dict) -> list:
-    """Dotted paths of every null field in a security state, sorted."""
-    return sorted(
-        f"{section}.{field}"
-        for section in SECTIONS
-        for field, value in state[section].items()
-        if value is None
-    )
-
-
 def verify_observation(obs: dict) -> None:
     """Raise ValueError unless obs passes observation-v1 §5."""
     if not isinstance(obs, dict) or obs.get("schema") != SCHEMA:
         raise ValueError(f"schema must be {SCHEMA!r}")
+    target = obs.get("target")
+    if not isinstance(target, str) or normalize_target(target) != target:
+        raise ValueError("target must be a normalized http(s) URL")
     state = obs.get("state")
     if not isinstance(state, dict):
         raise ValueError("state must be a JSON object")
-    recomputed = compute_state_id(state)  # validates the state too
+    validate_state(state)
+    recomputed = compute_state_id(state)
     if obs.get("state_id") != recomputed:
         raise ValueError(f"state_id {obs.get('state_id')!r} != recomputed {recomputed}")
-    if state.get("state_id") is not None and state["state_id"] != recomputed:
-        raise ValueError("state.state_id disagrees with the envelope state_id")
 
     observed = obs.get("observed_at") or {}
     start, end = observed.get("start"), observed.get("end")
@@ -65,10 +57,3 @@ def verify_observation(obs: dict) -> None:
         for e in entries:
             if not isinstance(e.get("probe_id"), str) or not isinstance(e.get(field), str):
                 raise ValueError(f"{key} entries need string probe_id and {field}")
-            if not isinstance(e.get("affects"), list):
-                raise ValueError(f"{key} entries need an affects list")
-
-    if "unestablished" in obs:
-        listed = sorted(e.get("field") for e in obs["unestablished"])
-        if listed != null_fields(state):
-            raise ValueError(f"unestablished fields {listed} != null state fields {null_fields(state)}")
