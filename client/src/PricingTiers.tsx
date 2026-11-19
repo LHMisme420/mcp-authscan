@@ -41,7 +41,6 @@ export default function PricingTiers(props: {
             <span className="pricing-tier-index">0{index + 1}</span>
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
-            <a className="button" href={tier.checkout} target="_blank" rel="noopener">{tier.buyLabel}</a>
             <p>{tier.body}</p>
             {(tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (
               <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
@@ -51,12 +50,6 @@ export default function PricingTiers(props: {
           </article>
         ))}
       </div>
-      {homepageVariant && (
-        <div className="hero-ctas assessment-checkout-links">
-          <a className="button" href="https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01">Single-server assessment — $1,750</a>
-          <a className="button secondary" href="https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02">Full assessment — $3,500</a>
-        </div>
-      )}
       {afterCards}
       {formOpen && (
         <div className="written-scope-form-wrap">
