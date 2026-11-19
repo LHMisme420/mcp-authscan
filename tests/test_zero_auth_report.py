@@ -6,25 +6,52 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-BODY = json.dumps({
-    "result": {
-        "protocolVersion": "2025-06-18",
-        "capabilities": {"tools": {"listChanged": True}},
-        "serverInfo": {"name": "zeroauth-fixture", "version": "0.0.1"},
-        "instructions": "x".ljust(900, "x"),
-    }
-}).encode()
+INITIALIZE = {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {"tools": {"listChanged": True}},
+    "serverInfo": {"name": "zeroauth-fixture", "version": "0.0.1"},
+    "instructions": "x".ljust(900, "x"),
+}
 
 
 class _H(BaseHTTPRequestHandler):
+    """A zero-auth MCP server that exposes no tools.
+
+    Until 2026-11-19 this answered every POST with the same initialize result and no JSON-RPC
+    envelope, and GET with the default 501. c573ea0 (2026-11-15) grades zero-auth only on a
+    JSON-RPC reply, on purpose (an HTML page or a bare JSON document is not an MCP answer), so
+    this fixture stopped being an MCP server to the scanner and the test failed. It now answers
+    per method with jsonrpc and the request id, an empty tools list, 202 for notifications and
+    404 for GET, like the sample-report fixture.
+    """
+    def _send(self, obj, code=200):
+        body = b"" if obj is None else json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
-        self.rfile.read(n)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(BODY)))
-        self.end_headers()
-        self.wfile.write(BODY)
+        try:
+            msg = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            msg = {}
+        method, rid = msg.get("method"), msg.get("id")
+        if method == "initialize":
+            self._send({"jsonrpc": "2.0", "id": rid, "result": INITIALIZE})
+        elif method == "tools/list":
+            self._send({"jsonrpc": "2.0", "id": rid, "result": {"tools": []}})
+        elif method in ("prompts/list", "resources/list"):
+            self._send({"jsonrpc": "2.0", "id": rid, "result": {method.split("/")[0]: []}})
+        elif rid is None:
+            self._send(None, 202)
+        else:
+            self._send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": "not found"}})
+
+    def do_GET(self):
+        self._send({"error": "not found"}, 404)
 
     def log_request(self, code="-", size="-"):
         pass
