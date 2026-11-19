@@ -10,7 +10,24 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
-## [1.1.25] - 2026-11-19
+## [1.1.26] - 2026-11-19
+
+**Wheel sha256: `0bde0ae7f124f4424a67211e82156e65b826004885e197ee940c3f04a8da2254`** (`mcp_authscan-1.1.26-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `4bd5fad` with `SOURCE_DATE_EPOCH=1795088756`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.26 && sha256sum mcp_authscan-1.1.26-py3-none-any.whl`. No sdist is published for this release: the sdist is not byte-reproducible, so it cannot be an anchor.
+
+1.1.26 is the release 1.1.25 was meant to be: the same committed source (evidence package, signed reports, `report_verify`, probe set `2026.11.16.1`, severity calibration `2026.11.07.1`, content probe `2026.11.03.1`), with only the version strings and the probe-set release map changed. It is the first release in this repository whose published wheel was built from a commit and checked against a recorded hash before upload. The release workflow now refuses to upload, or to create a GitHub release, unless the wheel it builds and the wheel on PyPI both match the anchor for the tag.
+
+## [1.1.25] - 2026-11-19 [YANKED]
+
+**Yanked. The wheel on PyPI is not this entry's build and does not correspond to any commit.** What follows below this notice describes the audited build anchored at `b0b4f2d0…`, which was never uploaded.
+
+The PyPI wheel (`d8cdff8dfb656feec73ea9761cffb0c3a76191aa62158d191bbb036bfc37b532`, uploaded 2026-11-19 11:08 UTC) was built by hand from a local working tree, without `SOURCE_DATE_EPOCH`, at tag `v1.1.25` = `88218d1`. That commit is on no branch and does not descend from the audited history. Against the audited build the wheel:
+
+- has no `mcp_authscan.evidence` package and no `evidence_emit`, so none of the signing, ledger or surface-state features listed below are installed;
+- ships different `report_signing`, `report_verify` and ten other modules, plus `boundary`, `boundary_live` and `originprobe`, which the audited build does not have;
+- ships a `content_probe.py` that no commit contains: `CONTENT_PROBE_VERSION` moved to `2026.11.18.1` while the injection-directive pattern lost `you must`, `always (call|use|read|send)` and `before (using|calling) this tool`. The stamp moved; the probe got weaker; nothing was committed or reviewed;
+- still reports probe set `2026.11.16.1`, so a report stamped `2026.11.16.1` from 1.1.25 does not name reproducible code.
+
+This is the failure mcp-authscan exists to catch, a published claim that does not match what shipped, and the project's own release produced it. The published hash `b0b4f2d0…` described a wheel that was audited but never uploaded; the wheel that was uploaded was never audited. The tag `v1.1.25` is left at `88218d1` as the record of the yanked build. Use 1.1.26.
 
 **Wheel sha256: `b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5`** (`mcp_authscan-1.1.25-py3-none-any.whl`). This is the release's anchor. The wheel is byte-reproducible from commit `c60b174` with `SOURCE_DATE_EPOCH=1795083301`, `python -m build --no-isolation`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.25 && sha256sum mcp_authscan-1.1.25-py3-none-any.whl`. The sdist is not byte-reproducible (setuptools' tarball varies per build), so it is not an anchor.
 
