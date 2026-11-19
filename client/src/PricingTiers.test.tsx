@@ -20,6 +20,15 @@ test('pricing offers two written assessment options with one start action', () =
   assert.match(html, /<p>A server or fleet[^<]*<\/p><button class="button pricing-start-button"/);
 });
 
+test('assessment-page prices use currency without changing default pricing copy', () => {
+  const html = renderToStaticMarkup(<PricingTiers emailHref="mailto:security@example.com" currencyPrices />);
+  const document = new JSDOM(html).window.document;
+  assert.deepEqual(
+    [...document.querySelectorAll('.pricing-tier-price')].map(price => price.textContent),
+    ['$1,750', '$3,500'],
+  );
+});
+
 test('Submit opens a fixed-recipient draft with every entered answer and never sends it automatically', async t => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://scope.example' });
   const originals = new Map<string, PropertyDescriptor | undefined>();

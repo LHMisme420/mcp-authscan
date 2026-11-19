@@ -23,6 +23,7 @@ const tiers = [
 export default function PricingTiers(props: {
   emailHref: string;
   homepageVariant?: boolean;
+  currencyPrices?: boolean;
   renderLead?: (openForm: () => void) => ReactNode;
   afterCards?: ReactNode;
 }) {
@@ -40,7 +41,7 @@ export default function PricingTiers(props: {
           <article className={`pricing-tier ${tier.className}`} key={tier.name}>
             <span className="pricing-tier-index">0{index + 1}</span>
             <h3>{tier.name}</h3>
-            <strong className="pricing-tier-price">{tier.price}</strong>
+            <strong className="pricing-tier-price">{props.currencyPrices ? ['$1,750', '$3,500'][index] : tier.price}</strong>
             <a className="button" href={tier.checkout} target="_blank" rel="noopener">{tier.buyLabel}</a>
             <p>{tier.body}</p>
             {(tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (

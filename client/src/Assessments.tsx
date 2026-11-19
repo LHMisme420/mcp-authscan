@@ -26,7 +26,7 @@ export default function Assessments() {
 
       <section className="landing-section commercial-section" aria-label="Assessment packages">
         <div className="wrap">
-          <PricingTiers emailHref={assessmentEmailFor()} />
+          <PricingTiers emailHref={assessmentEmailFor()} currencyPrices />
           <div className="package-notice">
             Testing requires written authorization and is limited to agreed targets, available access, and supported techniques.
             The named report and authorized tool-call check are part of the paid agreed scope, not guaranteed coverage or tests
@@ -38,7 +38,7 @@ export default function Assessments() {
               <span className="eyebrow">For enterprise security reviews</span>
               <h3>Start with the free handshake checks.</h3>
               <p>The MIT-licensed mcp-authscan scanner is available on GitHub and PyPI for buyers to run themselves. The free scanner checks the handshake; paid work adds an authorized tool-call check within agreed, supported scope and a named written report.</p>
-              <p>A report carries a hash over its graded content. With authorization, a second party can rerun the same probe set and compare. MATCH, DIVERGENCE, and NOT REPRODUCIBLE describe comparison methodology, not an implemented one-click comparison UI. The method does not claim which result is correct; it can help catch a difference.</p>
+              <p>A report carries a hash over its graded content. With authorization, a second party can rerun the same probe set and compare. MATCH, DIVERGENCE, and NOT REPRODUCIBLE describe comparison methodology. The method does not claim which result is correct; it can help catch a difference.</p>
             </div>
             <div className="tooling-links">
               <a className="text-link" href="https://github.com/LHMisme420/mcp-authscan" target="_blank" rel="noopener noreferrer">mcp-authscan on GitHub</a>
