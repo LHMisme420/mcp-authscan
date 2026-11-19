@@ -170,7 +170,7 @@ test('dedicated assessment details share exact pricing without package-call clai
   const document = await renderComponent('client/src/Assessments.tsx');
   const text = document.body.textContent || '';
   for (const phrase of ['Independent MCP security assessments', '1750 dollars', '3500 dollars',
-    'Single-server assessment', 'Full assessment', 'Start an assessment',
+    'Single-server assessment', 'Full assessment',
     'Who signs the report: Leroy H. Mason.',
     'Hash over graded report content', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
     'written authorization', 'available access', 'supported techniques']) {
@@ -179,7 +179,23 @@ test('dedicated assessment details share exact pricing without package-call clai
   assert.match(text, /MIT-licensed mcp-authscan scanner/);
   assert.equal(document.querySelectorAll('.pricing-tier').length, 2);
   assert.equal(document.querySelectorAll('.pricing-tier a[href^="mailto:"]').length, 0);
-  assert(!document.querySelector('a[href*="stripe.com"]'), 'Assessments are scoped engagements, not automatic checkout');
+  // Checkout is live on this page (owner decision): price and payment sit together,
+  // but the scope form comes first so a payment always arrives with a named target.
+  const scopeForm = document.querySelector('.written-scope-form-wrap form');
+  assert(scopeForm, 'The scope form must be visible on arrival, above checkout');
+  assert.equal(document.querySelectorAll('.pricing-start-button').length, 0, 'No toggle: the form is always shown here');
+  assert.equal(document.querySelectorAll('.pricing-tier a[href*="stripe.com"]').length, 0, 'No Buy buttons inside the cards, above the form');
+  const checkout = document.querySelector('.assessment-checkout')!;
+  assert(checkout, 'Checkout section must render on /assessments');
+  assert(scopeForm.compareDocumentPosition(checkout) & 4, 'Checkout must follow the scope form');
+  assert.deepEqual([...document.querySelectorAll('a[href*="stripe.com"]')].map(a => [a.textContent, a.getAttribute('href')]), [
+    ['Pay for the single-server assessment — $1,750', 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01'],
+    ['Pay for the full assessment — $3,500', 'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02'],
+  ]);
+  const next = checkout.textContent || '';
+  assert.match(next, /does not start a test/);
+  assert.match(next, /agree the written scope and authorization for the server named in the form/);
+  assert.match(next, /Nothing is tested until both are agreed in writing/);
   assert(!/subscription|monthly|a month|scheduled re.check|\$49/i.test(text));
   assert(!/walkthrough|walk your team|meeting/i.test(text));
   assert.match(text, /Hash over graded report content/);

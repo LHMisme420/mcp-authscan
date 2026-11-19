@@ -8,7 +8,7 @@ const tiers = [
     body: 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.',
     className: '',
     checkout: 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01',
-    buyLabel: 'Buy the single-server assessment',
+    buyLabel: 'Pay for the single-server assessment — $1,750',
   },
   {
     name: 'Full assessment',
@@ -16,7 +16,7 @@ const tiers = [
     body: 'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.',
     className: 'pricing-tier-expanded',
     checkout: 'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02',
-    buyLabel: 'Buy the full assessment',
+    buyLabel: 'Pay for the full assessment — $3,500',
   },
 ];
 
@@ -25,9 +25,11 @@ export default function PricingTiers(props: {
   homepageVariant?: boolean;
   renderLead?: (openForm: () => void) => ReactNode;
   afterCards?: ReactNode;
+  /** Show the scope form on arrival with the Stripe checkout links beneath it (/assessments only). */
+  checkout?: boolean;
 }) {
-  const { homepageVariant = false, renderLead, afterCards } = props;
-  const [formOpen, setFormOpen] = useState(false);
+  const { homepageVariant = false, renderLead, afterCards, checkout = false } = props;
+  const [formOpen, setFormOpen] = useState(checkout);
   const openForm = () => setFormOpen(true);
 
   return (
@@ -42,7 +44,7 @@ export default function PricingTiers(props: {
             <h3>{tier.name}</h3>
             <strong className="pricing-tier-price">{tier.price}</strong>
             <p>{tier.body}</p>
-            {(tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (
+            {!checkout && (tier.name === 'Full assessment' || (homepageVariant && tier.name === 'Single-server assessment')) && (
               <button className="button pricing-start-button" type="button" onClick={() => setFormOpen((open) => !open)}>
                 {formOpen ? 'Close assessment form' : 'Start an assessment'}
               </button>
@@ -55,6 +57,29 @@ export default function PricingTiers(props: {
         <div className="written-scope-form-wrap">
           <WrittenScopeForm />
         </div>
+      )}
+      {checkout && (
+        <section className="assessment-checkout" aria-labelledby="assessment-checkout-title">
+          <h3 id="assessment-checkout-title">Pay after the form names your server</h3>
+          <p>
+            Paying reserves the assessment; it does not start a test. After payment, Leroy replies by email to agree
+            the written scope and authorization for the server named in the form. Nothing is tested until both are
+            agreed in writing.
+          </p>
+          <div className="hero-ctas assessment-checkout-links">
+            {tiers.map((tier, index) => (
+              <a
+                className={index === 0 ? 'button' : 'button secondary'}
+                href={tier.checkout}
+                target="_blank"
+                rel="noopener noreferrer"
+                key={tier.name}
+              >
+                {tier.buyLabel}
+              </a>
+            ))}
+          </div>
+        </section>
       )}
     </section>
     </>
