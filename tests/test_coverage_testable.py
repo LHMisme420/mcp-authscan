@@ -1,7 +1,7 @@
 """Coverage = (PASS + FAIL) / testable, testable = in_scope - EXCLUDED (owner decision, 2026-10-30).
 
-Fixture 9002 (tests/test_fixture_with_findings.py, no client credentials): 9 declared, exactly
-pkce-s256 and redirect-uri-exact EXCLUDED, 7 testable, 7 conclusive, so JSON coverage is 1.0 and
+Fixture 9002 (tests/test_fixture_with_findings.py, no client credentials): 14 in scope, 7
+EXCLUDED, 7 testable, 7 conclusive, so JSON coverage is 1.0 and
 the printed Coverage line shows the same value over the same denominator.
 """
 import json
@@ -38,9 +38,12 @@ class CoverageOverTestable(unittest.TestCase):
         report = json.loads(j.stdout[j.stdout.find("{"):])
         counts = report["counts"]
         excluded = sorted(x["name"] for x in report["probes"] if x["status"] == "EXCLUDED")
-        self.assertEqual(13, counts["in_scope"])  # 11 OAuth records plus CORS and rate-limit
-        self.assertEqual(["cross-origin read on the MCP endpoint", "pkce-s256", "rate limiting on the endpoint", "redirect-uri-exact", "token-audience", "token-cors"], excluded)
-        self.assertEqual(6, counts["EXCLUDED"])
+        # 11 OAuth records plus CORS, rate-limit and, since 367ea5f, alternate transport (probe 15),
+        # which this fixture answers 404 on /sse and so EXCLUDES. Testable stays 7.
+        self.assertEqual(14, counts["in_scope"])
+        self.assertEqual(["alternate transport on the same host", "cross-origin read on the MCP endpoint", "pkce-s256",
+                          "rate limiting on the endpoint", "redirect-uri-exact", "token-audience", "token-cors"], excluded)
+        self.assertEqual(7, counts["EXCLUDED"])
         testable = counts["in_scope"] - counts["EXCLUDED"]
         self.assertEqual(7, testable)
         self.assertEqual(7, counts["PASS"] + counts["FAIL"])
@@ -51,7 +54,7 @@ class CoverageOverTestable(unittest.TestCase):
         self.assertIsNotNone(m, "printed coverage line: %r" % lines[0])
         self.assertEqual((7, 7), (int(m.group(1)), int(m.group(2))))
         self.assertEqual(report["coverage"], float(m.group(3)))
-        self.assertIn("6 excluded", lines[0])
+        self.assertIn("7 excluded", lines[0])
 
 
 if __name__ == "__main__":

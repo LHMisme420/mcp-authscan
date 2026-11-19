@@ -148,7 +148,9 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
         server.server_close()
 
     counts = count_probes(records)
-    assert counts["in_scope"] == 13  # 11 OAuth records plus CORS and rate-limit
+    # 11 OAuth records plus CORS, rate-limit and, since 367ea5f, alternate transport (probe 15).
+    assert counts["in_scope"] == 14
+    assert "alternate transport on the same host" in {r.name for r in records}
     assert len({r.name for r in records}) == counts["in_scope"]
     assert [r.name for r in records if r.status == "NOT_IMPLEMENTED"] == []
     excluded = {r.name: r.limitation for r in records if r.status == "EXCLUDED"}
