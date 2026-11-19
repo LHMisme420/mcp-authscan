@@ -40,7 +40,8 @@ test('reproducible sample names a published release, its wheel hash and the expe
   assert.match(section, /b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5/);
   assert.match(section, /d5d24b8ca41adaaf3bb70a6e5f66cf21d361f84db08f3f493776e476d92479c1/);
   const blocks = [...section.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) => unescape(m[1]));
-  assert.equal(blocks.length, 5);
+  assert.equal(blocks.length, 7);
+  assert.match(section, /SIGNED BY followed by your key id/);
   // The fixture a reader copies must be valid Python as rendered (catches JSX escaping mistakes).
   const dir = process.env.SAMPLE_BLOCKS_DIR || mkdtempSync(join(tmpdir(), 'sample-'));
   blocks.forEach((b, i) => writeFileSync(join(dir, `block${i + 1}.txt`), b + '\n'));
