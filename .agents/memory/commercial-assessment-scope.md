@@ -53,6 +53,8 @@ The landing scope form asks what buyer or review is waiting on the assessment an
 
 **How to apply:** Include both answers in the saved inquiry and notification. Keep publication consent separate from testing authority and never preselect it.
 
+/scope does not render that form. Since c22e439 (2026-11-18) it has its own short mailto request: MCP server URL, name, email, who authorizes the test (all required), and what the buyer needs the report to prove (optional), sent from the visitor's email client. It has no ownership-attestation or publish-permission checkbox; publication consent is therefore never given on /scope. tests/commercial-site.test.ts pins those five fields. Restoring the attestation there is an open owner question (2026-11-19), not a default.
+
 Use the verified custom domain as the primary public site while preserving the existing Replit hostname where safe. Trust only exact approved origins; do not use wildcard origins or weaken authentication/CSRF checks.
 
 **Why:** The owner requested full custom-domain support without breaking existing access or changing DNS, customer data, scanner behavior, or billing.
