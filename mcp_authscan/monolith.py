@@ -3449,9 +3449,10 @@ def write_evidence_files(args, observations):
 def open_ledgers(args, observations, canonical_payload):
     """Lock, verify and pre-check one ledger per observed access class.
 
-    Records only for --sign runs (or --ledger-unsigned). Writes the chain key
-    and pre-run head into canonical_payload["evidence"] so the signature
-    covers them. Any refusal (tampered ledger, header for another target or
+    Records only for --sign runs (or --ledger-unsigned). Writes the chain key,
+    the pre-run head and the head row itself (prior_row, with its own
+    signature) into canonical_payload["evidence"] so the report signature
+    covers them and a reader holding only the report can check the prior state. Any refusal (tampered ledger, header for another target or
     class, unwritable root) exits 4 before signing: no report.
     Returns the open PendingAppend handles (locks held until commit/exit).
     """
@@ -3472,7 +3473,7 @@ def open_ledgers(args, observations, canonical_payload):
             sys.exit(4)
         handle.key = evidence_emit.ledger_key(obs["target"], klass)
         pending.append(handle)
-        chains[klass] = (handle.key, handle.head)
+        chains[klass] = (handle.key, handle.lines[-1] if len(handle.lines) > 1 else None)
     states = [(o["state"]["access_class"], o["state"], None) for o in observations]
     canonical_payload["evidence"] = evidence_emit.evidence_binding(states, chains)
     return pending

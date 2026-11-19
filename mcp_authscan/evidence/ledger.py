@@ -72,19 +72,20 @@ def row_statement(header: dict, row: dict) -> bytes:
 
 
 def _check_record(n, record):
+    where = n if isinstance(n, str) else f"line {n}"
     if not isinstance(record, dict) or sorted(record) != ["attestation", "observed_at", "report_hash"]:
-        raise ValueError(f"line {n}: record must be {{report_hash, observed_at, attestation}}")
+        raise ValueError(f"{where}: record must be {{report_hash, observed_at, attestation}}")
     if not _is_hex64(record["report_hash"]):
-        raise ValueError(f"line {n}: record.report_hash must be 64 lowercase hex characters")
+        raise ValueError(f"{where}: record.report_hash must be 64 lowercase hex characters")
     observed = record["observed_at"]
     if not isinstance(observed, dict) or sorted(observed) != ["end", "start"] or not all(
             isinstance(v, str) for v in observed.values()):
-        raise ValueError(f"line {n}: record.observed_at must be {{start, end}}")
+        raise ValueError(f"{where}: record.observed_at must be {{start, end}}")
     att = record["attestation"]
     if att is not None and (not isinstance(att, dict) or sorted(att) != ["alg", "key_id", "value"]
                             or att["alg"] != "ed25519" or not _is_hex64(att["key_id"])
                             or not isinstance(att["value"], str)):
-        raise ValueError(f"line {n}: record.attestation must be null or {{alg: ed25519, key_id, value}}")
+        raise ValueError(f"{where}: record.attestation must be null or {{alg: ed25519, key_id, value}}")
 
 
 def attestation_status(header: dict, row: dict, keys) -> str:
@@ -150,6 +151,25 @@ def verify_ledger(lines: list, keys=None) -> str | None:
                 raise ValueError(f"line {n}: attestation {status}")
         prev_id = row["state_id"]
     return prev_id
+
+
+def verify_row(header: dict, row: dict, keys) -> str:
+    """Verify one row on its own (no chain): structure, STATE ID, class, attestation.
+
+    Returns the attestation status (SIGNED, UNSIGNED, UNKNOWN KEY, SIGNATURE
+    INVALID); raises ValueError if the row is malformed. This is what lets a
+    row travel outside its ledger, e.g. inline in a report.
+    """
+    make_header(header["target"], header["access_class"])
+    if not isinstance(row, dict) or "record" not in row:
+        raise ValueError("row: must carry a record")
+    _check_record("row", row["record"])
+    validate_state(row_state(row))
+    if "state_id" not in row or "previous_state_id" not in row:
+        raise ValueError("row: must carry state_id and previous_state_id")
+    if row["access_class"] != header["access_class"]:
+        raise ValueError("row: access_class differs from the header's")
+    return attestation_status(header, row, keys)
 
 
 def row_state(row: dict) -> dict:

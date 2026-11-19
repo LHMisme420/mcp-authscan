@@ -18,20 +18,22 @@ A **completed live scan** writes the following. A source-code scan, or a live sc
 
 ```json
 "evidence": {
-  "scheme": "evidence-binding-v2",
+  "scheme": "evidence-binding-v3",
   "states": [
-    {"access_class": "anonymous",     "state_id": "<64 hex>",
-     "ledger": "<host>_<port>-<sha16>/anonymous.jsonl", "ledger_head": "<64 hex> | null"},
-    {"access_class": "authenticated", "state_id": "<64 hex>",
-     "ledger": "<host>_<port>-<sha16>/authenticated.jsonl", "ledger_head": "<64 hex> | null"}
+    {"access_class": "anonymous",
+     "state_id":    "<64 hex>",
+     "ledger":      "<host>_<port>-<sha16>/anonymous.jsonl" | null,
+     "ledger_head": "<64 hex>" | null,
+     "prior_row":   { <the head row: full state, state_id, previous_state_id, record with its own attestation> } | null}
   ]
 }
 ```
 
-- **`ledger`** names the chain this state was recorded in, as its key under the ledger root. It is not an absolute path, so a published report never carries the scanning machine's home directory; the absolute path goes to stderr. It is `null` when no row was recorded, which is the case for unsigned runs (§1.3).
-- **`ledger_head`** is the chain's head before this run. It is `null` for a new chain. If it equals `state_id`, the boundary was unchanged and no row was added. Otherwise the row this run added has `previous_state_id == ledger_head`.
+- **`ledger`** names the chain this state was recorded in, as its key under the ledger root. It is never an absolute path, so a published report doesn't carry the scanning machine's home directory. It is `null` when no row was recorded, for example on unsigned runs (§1.3).
+- **`ledger_head`** is the chain's head before this run, or `null` for a new chain. If it equals `state_id`, the boundary was unchanged and no row was added.
+- **`prior_row`** is **that head row itself**, inline: the full prior state plus its `record` (`report_hash`, `observed_at`) and **its own Ed25519 attestation**. It is present exactly when `ledger_head` is, and `prior_row.state_id` MUST equal `ledger_head`. This is what turns `ledger_head` from an assertion into evidence: a reader holding only this report, the current observation and the published keys can check the prior surface and compute the delta (`evidence.delta.delta_from_report`), with no ledger file and no earlier report.
 - `states` is sorted by `access_class`, with no duplicates, and MAY be empty. No other keys are allowed.
-- The binding is **signed and not hashed** (§3). `evidence-binding-v1` (entries `{access_class, state_id}` only) is still accepted when verifying.
+- The whole binding, `prior_row` included, is **signed and not hashed** (§3). So `prior_row` carries two signatures: its own row attestation, and the report signature over the binding. Bindings `evidence-binding-v1` (`{access_class, state_id}`) and `-v2` (no `prior_row`) are still accepted when verifying.
 
 ### 1.2 Files next to the report
 
@@ -84,9 +86,9 @@ Each row carries the run's **`report_hash`** and its own **Ed25519 attestation**
 | 4–6: signing, evidence files, row build | 4 | none | none |
 | 7: report can't be staged (disk full, missing directory) | 4 | none | none |
 | 8: any class's row can't be written | 4 | none | **none for any class** (two-phase: temp files first, renames after) |
-| 9: final rename of the report | 4 | none | recorded; stderr names them and the `report_hash` they carry |
+| 9: final rename of the report | 4 | none | recorded; stderr names them |
 
-The last row of that table is the only way a row can exist without its report. The row is then still signed, names exactly which report hash is missing, and stderr says so. An append-only row can't be amended afterwards to "say why", so the design shrinks that case to a single rename after everything else has succeeded.
+The last row of that table is the only way a row can exist without its report, and it loses nothing the chain depends on. A row stores the **full state**, and its signature covers `state_id`, `previous_state_id`, `report_hash` and `observed_at` (boundary-ledger-v1 §2.1). So the chain is self-contained: the next run diffs against that row, and a reader can verify it without the report. What is lost is the graded findings of that one run, and the row's `report_hash` names exactly which report that was.
 
 The passport is specified, but the scanner doesn't write it yet.
 
@@ -139,7 +141,8 @@ Old reports without `sig_version` keep verifying unchanged. `verify_upload` retu
 2. **The STATE ID is signed, not hashed** (§3). A report whose signature isn't checked gives no assurance about which states it was produced alongside. `report_hash` alone says nothing about evidence.
 3. **What is signed.** The report (graded content plus the evidence binding, including each chain's `ledger` key and `ledger_head`) and each ledger row (its row statement) are signed. State and observation files are not. A state file can be checked against a signed report or row by its STATE ID, and an observation file can't be checked at all. The ledger **header** isn't signed, but every row statement repeats its target and class.
 4. **Ledger truncation is not detectable from the ledger alone** (boundary-ledger-v1 §5). It is detectable against any later signed report whose `ledger_head` names a row that's missing. A rewrite would need the signing key, because every row is attested.
-7. **A row can outlive its report** only if the final rename of the report fails after the ledger commit (§1.4). The row is signed and names the missing `report_hash`.
+7. **A row can outlive its report** only if the final rename of the report fails after the ledger commit (§1.4). The chain stays self-contained, because the row holds the full state and is signed. Only that run's graded findings are lost, and its `report_hash` is named.
+9. **The current state is bound, not inlined.** A report carries the *prior* head row inline, but only the *current* state's ID. Computing a delta from a report also needs the current observation or state file, which is checkable against the signed `state_id`.
 8. **The default ledger root is per user.** Two users on one machine, or two machines, keep separate chains for the same target unless they share `--ledger-dir` / `$MCP_AUTHSCAN_LEDGER_DIR`.
 5. **Observation coverage is the scan's probe coverage.** It describes the OAuth probes of the run, not the surface capture.
 6. **v1 states record exposure, not enforcement.** Audience binding, Origin validation and CORS are not part of the state.

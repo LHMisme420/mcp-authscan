@@ -28,9 +28,15 @@ A refusal is not a classification. No delta object exists for a refused pair.
 
 Two observations of the same target at different access classes produce a delta with classification `ACCESS_CLASS_CHANGED` and no comparison of their contents (§4, BD-R1). It is a valid statement of fact about the two inputs: they describe different boundaries.
 
-### 2.2 A delta from a ledger needs a signed head
+### 2.2 A delta from a ledger row needs a signed row
 
-`delta_from_ledger(ledger, curr, keys)` compares the ledger's head row with an observation. The head row MUST carry an attestation that verifies against a published key (boundary-ledger-v1 §2.1). An **unsigned** head row, an **unknown key** or an **invalid signature** is refused, so a boundary nothing attests to can never satisfy a delta. The same refusals as §2 also apply: the target and access class must match the ledger header, and `curr` must not be observed before the head row.
+Three entry points compare a ledger row with an observation, and all of them apply the same rule:
+
+- `delta_from_row(header, row, curr, keys)` takes one row, which needs no ledger file;
+- `delta_from_ledger(ledger, curr, keys)` verifies the whole ledger, then uses its head row;
+- `delta_from_report(report, access_class, curr, keys)` uses the `prior_row` a signed report carries inline (EVIDENCE.md §1.1).
+
+The rule: The row MUST carry an attestation that verifies against a published key (boundary-ledger-v1 §2.1). An **unsigned** head row, an **unknown key** or an **invalid signature** is refused, so a boundary nothing attests to can never satisfy a delta. The same refusals as §2 also apply: the target and access class must match the ledger header, and `curr` must not be observed before the head row.
 
 ## 3. Object structure
 

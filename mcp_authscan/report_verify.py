@@ -59,10 +59,12 @@ def compute(payload, findings, *, include_bytes=False):
 
 EVIDENCE_KEY = "evidence"
 EVIDENCE_SCHEME_V1 = "evidence-binding-v1"   # entries {access_class, state_id}
-EVIDENCE_SCHEME = "evidence-binding-v2"      # entries {access_class, state_id, ledger, ledger_head}
+EVIDENCE_SCHEME_V2 = "evidence-binding-v2"   # + ledger, ledger_head
+EVIDENCE_SCHEME = "evidence-binding-v3"      # + prior_row: the head row itself, with its own signature
 _ENTRY_KEYS = {
     EVIDENCE_SCHEME_V1: ["access_class", "state_id"],
-    EVIDENCE_SCHEME: ["access_class", "ledger", "ledger_head", "state_id"],
+    EVIDENCE_SCHEME_V2: ["access_class", "ledger", "ledger_head", "state_id"],
+    EVIDENCE_SCHEME: ["access_class", "ledger", "ledger_head", "prior_row", "state_id"],
 }
 _ACCESS_CLASSES = ("anonymous", "authenticated")
 _LEDGER_KEY = re.compile(r"^[A-Za-z0-9._-]+/(anonymous|authenticated)\.jsonl$")
@@ -70,6 +72,28 @@ _LEDGER_KEY = re.compile(r"^[A-Za-z0-9._-]+/(anonymous|authenticated)\.jsonl$")
 
 def _hex64(value):
     return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+
+def _check_prior_row(payload, entry):
+    """prior_row must be exactly the row ledger_head names (or both null), and well formed.
+
+    Its own attestation is checked against published keys by
+    evidence.delta.delta_from_report / evidence.ledger.verify_row, not here:
+    integrity and report-signature verification need no keys beyond the report's.
+    """
+    row, head = entry["prior_row"], entry["ledger_head"]
+    if (row is None) != (head is None):
+        raise ValueError("evidence.states prior_row must be present exactly when ledger_head is")
+    if row is None:
+        return
+    from mcp_authscan.evidence.ledger import UNKNOWN_KEY, UNSIGNED, verify_row
+    from mcp_authscan.evidence.state import normalize_target
+    if not isinstance(row, dict) or row.get("state_id") != head:
+        raise ValueError("evidence.states prior_row.state_id must equal ledger_head")
+    header = {"schema": "boundary-ledger-v1", "target": normalize_target(payload.get("target", "")),
+              "access_class": entry["access_class"]}
+    if verify_row(header, row, []) not in (UNKNOWN_KEY, UNSIGNED):   # structure only; no keys here
+        raise ValueError("evidence.states prior_row is malformed")
 
 
 def evidence_binding(payload):
@@ -96,7 +120,7 @@ def evidence_binding(payload):
         if (not isinstance(entry, dict) or sorted(entry) != keys
                 or entry["access_class"] not in _ACCESS_CLASSES or not _hex64(entry["state_id"])):
             raise ValueError(f"evidence.states entries must be {{{', '.join(keys)}}}")
-        if ev["scheme"] == EVIDENCE_SCHEME:
+        if ev["scheme"] in (EVIDENCE_SCHEME_V2, EVIDENCE_SCHEME):
             ledger, head = entry["ledger"], entry["ledger_head"]
             if ledger is not None and (not isinstance(ledger, str) or not _LEDGER_KEY.match(ledger)
                                        or not ledger.endswith(f"/{entry['access_class']}.jsonl")):
@@ -105,6 +129,8 @@ def evidence_binding(payload):
                 raise ValueError("evidence.states ledger_head must be null or 64 lowercase hex")
             if ledger is None and head is not None:
                 raise ValueError("evidence.states ledger_head requires a ledger")
+        if ev["scheme"] == EVIDENCE_SCHEME:
+            _check_prior_row(payload, entry)
         classes.append(entry["access_class"])
     if classes != sorted(set(classes)):
         raise ValueError("evidence.states must be sorted by access_class with no duplicates")

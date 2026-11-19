@@ -53,7 +53,9 @@ The attestation signs the canonical JSON (sorted keys, `,` and `:` separators, `
  "state_id": ..., "previous_state_id": ..., "report_hash": ..., "observed_at": {...}}
 ```
 
-So a row is checkable **on its own**: it says which target, which class, which position in the chain, and which graded report, under the signer's key. That holds even if the report itself is lost.
+So a row is checkable **on its own**: it holds the full state, and under the signer's key it says which target, which class, which state, which position in the chain and which graded report. That holds even if the report is lost, so the chain is self-contained.
+
+A row MAY travel outside its ledger, inline in a report as `prior_row` (EVIDENCE.md §1.1). To verify a travelling row, rebuild the header `{schema, target, access_class}` from its context. Then check the row's structure, check that its `state_id` matches its content and that its class matches, and verify its attestation (`verify_row`). Chain checks need the ledger.
 
 ### 2.2 Signed and unsigned rows
 

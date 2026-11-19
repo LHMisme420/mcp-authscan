@@ -82,16 +82,19 @@ def capture_states(target, token, allowed_hosts, capture=None):
 def evidence_binding(states, ledgers=None):
     """The report's ``evidence`` field: signed, not hashed (report_verify.signed_content).
 
-    ``ledgers`` maps access_class -> (chain key, head before this run) for each
-    class being recorded; classes not recorded get ledger/ledger_head null.
+    ``ledgers`` maps access_class -> (chain key, head row before this run or
+    None) for each class being recorded. The head row travels inline as
+    ``prior_row`` with its own signature, so a reader can check the prior
+    state without the ledger file or the earlier report. Classes not
+    recorded get ledger, ledger_head and prior_row null.
     """
     ledgers = ledgers or {}
-    return {
-        "scheme": EVIDENCE_SCHEME,
-        "states": [{"access_class": c, "state_id": s["state_id"],
-                    "ledger": ledgers.get(c, (None, None))[0], "ledger_head": ledgers.get(c, (None, None))[1]}
-                   for c, s, _ in sorted(states, key=lambda x: x[0])],
-    }
+    out = []
+    for c, s, _ in sorted(states, key=lambda x: x[0]):
+        key, row = ledgers.get(c, (None, None))
+        out.append({"access_class": c, "state_id": s["state_id"], "ledger": key,
+                    "ledger_head": row["state_id"] if row else None, "prior_row": row})
+    return {"scheme": EVIDENCE_SCHEME, "states": out}
 
 
 def _utc_z(dt):
