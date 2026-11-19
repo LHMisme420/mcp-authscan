@@ -278,6 +278,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "2f17ec9a99224ae86215ddef26e874677494ecc83f27a2b850b758bc5cac6560"
       }
+    },
+    "2026.11.19.2": {
+      "changed": "2026-11-19, every probe runs isolated (a raising probe is NOT_OBSERVED, the scan continues); probe 15 records the headers behind its verdict",
+      "fingerprint": "6545c6946c7cb180d97baa5ff92697ffc3bc2726f4e160fdca50149ff89479ec",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "b74b66964b800da2099ca036c16c9e8cd1a954f6b100796ac2c4b2a00e5f4252",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "03013c299cd64658b1b5c907ddbd091164772e212d1db75a0264576fea12c238"
+      }
     }
   },
   "withdrawn": {

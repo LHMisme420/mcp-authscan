@@ -126,8 +126,18 @@ def _closure():
 def _probe_order(oauth):
     """Names of the probe_* functions run_oauth_assessment calls, in source order."""
     run = oauth.defs["run_oauth_assessment"]
-    order = [(c.lineno, c.col_offset, c.func.id) for c in ast.walk(run)
-             if isinstance(c, ast.Call) and isinstance(c.func, ast.Name) and c.func.id.startswith("probe_")]
+    order = []
+    for c in ast.walk(run):
+        if not (isinstance(c, ast.Call) and isinstance(c.func, ast.Name)):
+            continue
+        if c.func.id.startswith("probe_"):
+            order.append((c.lineno, c.col_offset, c.func.id))
+        # Since 2026.11.19.2 each probe runs as isolated(probe_id, name, probe_fn, ...): the probe
+        # is the third positional argument. Without this the order came out empty and a reordered
+        # or dropped probe would not have changed the fingerprint.
+        elif c.func.id == "isolated" and len(c.args) >= 3 and isinstance(c.args[2], ast.Name) \
+                and c.args[2].id.startswith("probe_"):
+            order.append((c.lineno, c.col_offset, c.args[2].id))
     return [name for _, _, name in sorted(order)]
 
 

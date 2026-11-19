@@ -8,7 +8,7 @@ import sys
 from urllib.error import HTTPError, URLError
 from .errors import EgressRefusalError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
-from ._common import record, redact_secrets, SEVERITY_ORDER, debug
+from ._common import isolated, record, redact_secrets, SEVERITY_ORDER, debug
 from urllib.parse import urlparse, urlencode, urlsplit, urlunsplit, urljoin, parse_qsl, quote_plus
 import base64
 import hashlib
@@ -1519,23 +1519,24 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     TOKEN_REVOCATION.clear()
     TOKEN_REVOCATION.update(unconfirmed=None, not_revoked=[], revocation=None, client_id=None)
     records = []
-    records.append(probe_issuer_identity(metadata_url, metadata))
-    rb = probe_resource_binding(resource_metadata, mcp_url)
+    records.append(isolated(1, "issuer-identity", probe_issuer_identity, metadata_url, metadata))
+    rb = isolated(2, "resource-binding", probe_resource_binding, resource_metadata, mcp_url)
     if rb:
         records.append(rb)
-    rs = probe_resource_authorization_servers(resource_metadata, mcp_url); records.append(rs) if rs else None
-    records.append(probe_token_cache_control(metadata.get("token_endpoint")))
-    records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=grant_client,
-                                    registration_note=grant_note))
-    records.append(probe_jwks_keys(metadata.get("jwks_uri")))
-    records.append(probe_password_grant(metadata.get("token_endpoint"), metadata=metadata, client=grant_client,
-                                        registration_note=grant_note))
-    records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
-    records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
-    records.append(probe_client_auth(metadata.get("token_endpoint")))
+    rs = isolated(12, "resource-authservers", probe_resource_authorization_servers, resource_metadata, mcp_url); records.append(rs) if rs else None
+    records.append(isolated(3, "token-cache-control", probe_token_cache_control, metadata.get("token_endpoint")))
+    records.append(isolated(4, "token-cors", probe_token_cors, metadata.get("token_endpoint"), metadata=metadata,
+                            client=grant_client, registration_note=grant_note))
+    records.append(isolated(5, "jwks-keys", probe_jwks_keys, metadata.get("jwks_uri")))
+    records.append(isolated(6, "password-grant", probe_password_grant, metadata.get("token_endpoint"), metadata=metadata,
+                            client=grant_client, registration_note=grant_note))
+    records.append(isolated(7, "pkce-s256", probe_pkce_s256, metadata, client=client, registration_note=registration_note))
+    records.append(isolated(8, "redirect-uri-exact", probe_redirect_uri_exact, metadata, client=client,
+                            registration_note=registration_note))
+    records.append(isolated(9, "client-auth", probe_client_auth, metadata.get("token_endpoint")))
     if os.environ.get("MCPAUTHSCAN_CROSS_TENANT") == "1":
-        records.append(probe_cross_tenant(mcp_url))
-    records.append(probe_token_audience(mcp_url, metadata=metadata, client=client))
+        records.append(isolated(10, "cross-tenant", probe_cross_tenant, mcp_url))
+    records.append(isolated(11, "token-audience", probe_token_audience, mcp_url, metadata=metadata, client=client))
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the

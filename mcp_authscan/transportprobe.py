@@ -42,21 +42,22 @@ def altprobe(url, allowed=None):
             status = resp.status
             ctype = (resp.getheader("Content-Type") or "").lower()
             raw = resp.read(4096)
+            seen = dict(resp.getheaders())
         finally:
             conn.close()
     except (OSError, http.client.HTTPException) as e:
         return skip(url, name, str(e))
     if status in (401, 403):
-        return record(TID, name, "PASS", http_status=status, body=raw, endpoint=url, detail="sibling transport answered " + str(status) + " with authentication enforced")
+        return record(TID, name, "PASS", http_status=status, body=raw, headers=seen, endpoint=url, detail="sibling transport answered " + str(status) + " with authentication enforced")
     if status == 200:
         if "text/event-stream" in ctype:
-            return record(TID, name, "FAIL", http_status=status, body=raw, endpoint=url, severity="HIGH", detail="sibling transport streamed with no credential")
+            return record(TID, name, "FAIL", http_status=status, body=raw, headers=seen, endpoint=url, severity="HIGH", detail="sibling transport streamed with no credential")
         try:
             doc = json.loads(raw.decode("utf-8", "replace") or "{}")
         except ValueError:
             doc = None
         if isinstance(doc, dict) and "jsonrpc" in doc:
-            return record(TID, name, "FAIL", http_status=status, body=raw, endpoint=url, severity="HIGH", detail="sibling transport answered JSON-RPC with no credential")
+            return record(TID, name, "FAIL", http_status=status, body=raw, headers=seen, endpoint=url, severity="HIGH", detail="sibling transport answered JSON-RPC with no credential")
         return skip(url, name, "200 whose body cannot be graded", status=status, body=raw)
     return skip(url, name, "sibling transport answered " + str(status), status=status, body=raw)
 

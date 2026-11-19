@@ -4,7 +4,7 @@ import json
 
 from urllib.request import Request
 
-from ._common import record
+from ._common import isolated, record
 from .oauth_probes_v2 import _egress_guard
 from .errors import EgressRefusalError
 
@@ -79,8 +79,11 @@ def run_target_probes(target_url, allowed_hosts=None, allow_private=False, rate_
         rec = cors_probe(target_url, allowed_hosts=allowed_hosts, allow_private=allow_private)
     except Exception as e:
         rec = record(CORS_PROBE_ID, "cross-origin read on the MCP endpoint", "NOT_OBSERVED", limitation=str(e), endpoint=target_url)
-    rate_rec = rate_limit_probe(target_url, count=rate_limit_count, window=rate_limit_window, allowed_hosts=allowed_hosts, allow_private=allow_private)
-    t_rec = altprobe(target_url, allowed=allowed_hosts)
+    rate_rec = isolated(RATE_LIMIT_PROBE_ID, "rate limiting on the endpoint", rate_limit_probe, target_url,
+                        count=rate_limit_count, window=rate_limit_window, allowed_hosts=allowed_hosts,
+                        allow_private=allow_private, endpoint=target_url)
+    t_rec = isolated(15, "alternate transport on the same host", altprobe, target_url, allowed=allowed_hosts,
+                     endpoint=target_url)
     records = [rec, rate_rec, t_rec]
     if rec.status != "FAIL":
         return records, t_findings(target_url, t_rec)

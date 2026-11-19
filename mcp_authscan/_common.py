@@ -97,6 +97,29 @@ def record(probe_id, name, status, *, http_status=None, headers=None, body=b"",
     )
 
 
+def isolated(probe_id, name, fn, *args, endpoint=None, **kwargs):
+    """Run one probe so that it cannot end the scan.
+
+    A probe that raises (including record() refusing a PASS or FAIL that has no evidence behind
+    it) yields NOT_OBSERVED for that probe alone, named on the terminal and in the record, and the
+    scan goes on to write its report. Before 2026.11.19.2 one raising probe ended the whole scan
+    with "Internal scan error" and exit 4, and no report. Scope refusals still propagate: they
+    are an enforcement decision (exit 6), not a probe failure.
+    """
+    from .errors import EgressRefusalError
+    try:
+        return fn(*args, **kwargs)
+    except EgressRefusalError:
+        raise
+    except Exception as e:
+        why = redact_secrets(("%s: %s" % (type(e).__name__, e)).encode("utf-8", "replace"))[:300]
+        why = why.decode("utf-8", "replace")
+        print("[!] probe %s (%s) raised %s; recorded NOT_OBSERVED, scan continues" % (probe_id, name, why),
+              file=sys.stderr)
+        return record(probe_id, name, "NOT_OBSERVED", endpoint=endpoint,
+                      limitation="The probe raised %s, so no verdict was reached" % why)
+
+
 def send(session, method, url, **kw):
     """Returns (response, error). Never raises, never hides a failure."""
     import requests
