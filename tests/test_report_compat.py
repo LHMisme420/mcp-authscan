@@ -26,9 +26,14 @@ def _load(name):
     return json.loads((FIX / name).read_text())
 
 
-@pytest.mark.parametrize("name", LEGACY + [SIGNED])
-def test_report_verify_matches(name):
-    assert rv.verify(str(FIX / name))[0] == "MATCH"
+def test_schema3_report_verify_matches():
+    assert rv.verify(str(FIX / SIGNED))[0] == "MATCH"
+
+
+@pytest.mark.parametrize("name", LEGACY)
+def test_legacy_report_matches_under_a_distinct_word(name):
+    # Never plain MATCH: a 1.1.24 report must not read like a schema-3 one.
+    assert rv.verify(str(FIX / name))[0] == "LEGACY_MATCH"
 
 
 @pytest.mark.parametrize("name", LEGACY)
@@ -38,7 +43,7 @@ def test_pre_schema3_report_reads_as_it_did_in_1_1_24(name):
     result = verify_text(json.dumps(report))
     assert result["verdict"] == "INTACT"
     assert result["canonical_bytes"] is None          # never signed, so can never read as signed
-    assert "Pre-schema-3 report" in result["reason"]
+    assert "LEGACY: pre-schema-3 report" in result["reason"] and "unsigned" in result["reason"]
 
 
 @pytest.mark.parametrize("name", LEGACY)
@@ -46,7 +51,7 @@ def test_pre_schema3_tamper_is_caught(name, tmp_path):
     report = _load(name)
     report["exit_code"] = 99                           # a field the 1.1.24 hash covers
     (tmp_path / "t.json").write_text(json.dumps(report))
-    assert rv.verify(str(tmp_path / "t.json"))[0] == "MISMATCH"
+    assert rv.verify(str(tmp_path / "t.json"))[0] == "LEGACY_MISMATCH"
     assert verify_text(json.dumps(report))["verdict"] == "ALTERED"
 
 
@@ -81,6 +86,37 @@ def test_signed_schema3_from_main_still_verifies_and_authenticates():
     assert verify_text(json.dumps(tampered))["verdict"] == "ALTERED"
 
 
-def test_cli_verifier(tmp_path, capsys):
-    assert rv.main([str(FIX / n) for n in LEGACY + [SIGNED]]) == 0
-    assert capsys.readouterr().out.count("MATCH") == 3
+def _keys(tmp_path):
+    keys = tmp_path / "keys.json"
+    keys.write_text(json.dumps([json.loads((FIX / "signed-schema3-main-1a7d08c.pubkey.json").read_text())]))
+    return str(keys)
+
+
+def _lines(capsys):
+    return {next(p for p in line.split() if p.endswith(".json")).rsplit("/", 1)[-1]: line
+            for line in capsys.readouterr().out.splitlines()}
+
+
+def test_cli_legacy_and_signed_never_print_the_same_words(tmp_path, capsys):
+    assert rv.main(["--keys", _keys(tmp_path)] + [str(FIX / n) for n in LEGACY + [SIGNED]]) == 0
+    lines = _lines(capsys)
+    for name in LEGACY:
+        assert lines[name].startswith("LEGACY MATCH ")
+        assert "UNSIGNED (pre-1.1.25 algorithm, releases 1.1.21-1.1.24)" in lines[name]
+        assert "SIGNED BY" not in lines[name]
+    assert lines[SIGNED].startswith("MATCH ") and " SIGNED BY " in lines[SIGNED]
+
+
+def test_cli_without_keys_does_not_claim_signed(capsys):
+    assert rv.main([str(FIX / SIGNED)]) == 0
+    line = capsys.readouterr().out
+    assert "SIGNATURE NOT CHECKED" in line and "SIGNED BY" not in line
+
+
+def test_cli_bad_signature_fails(tmp_path, capsys):
+    report = _load(SIGNED)
+    report["signature"]["value"] = "A" + report["signature"]["value"][1:]
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(report))
+    assert rv.main(["--keys", _keys(tmp_path), str(bad)]) == 1
+    assert "SIGNATURE INVALID" in capsys.readouterr().out

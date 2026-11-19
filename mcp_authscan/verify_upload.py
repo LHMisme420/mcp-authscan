@@ -31,8 +31,8 @@ def _legacy_result(payload, result):
     if any(k not in payload for k in LEGACY_HASHED_KEYS):
         return result("UNREADABLE", "A pre-schema-3 report must contain every field its hash covers.")
     actual, _ = compute_legacy(payload, findings)
-    note = (" Pre-schema-3 report (releases " + ", ".join(LEGACY_RELEASES) + "), checked with that format's own"
-            " algorithm; this format was never signed.")
+    note = (" LEGACY: pre-schema-3 report (releases " + ", ".join(LEGACY_RELEASES) + "), checked with that"
+            " format's own pre-1.1.25 algorithm; unsigned, nothing attests to it.")
     if actual == claimed:
         return result("INTACT", "Graded content matches the stored hash; this does not authenticate the report's author." + note)
     return result("ALTERED", "Graded content does not match the stored hash; a hash cannot identify which field changed." + note)

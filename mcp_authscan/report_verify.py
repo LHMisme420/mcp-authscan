@@ -41,6 +41,9 @@ def severity_counts(findings):
 # and schema-3 reports never take this path. Releases before 1.1.21 shipped
 # no verifier. The format was never signed.
 LEGACY_RELEASES = ("1.1.21", "1.1.22", "1.1.23", "1.1.24")
+LEGACY_MATCH = "LEGACY_MATCH"
+LEGACY_MISMATCH = "LEGACY_MISMATCH"
+LEGACY_NOTE = "pre-1.1.25 algorithm, releases 1.1.21-1.1.24"
 LEGACY_HASHED_KEYS = ("target", "scan_mode", "probe_set_version", "probes", "counts", "coverage", "completed",
                       "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition", "exit_code",
                       "fail_on", "authorization", "hash_scheme")
@@ -217,10 +220,12 @@ def verify(path):
         missing = [k for k in LEGACY_HASHED_KEYS if k not in payload]
         if missing:
             return "NOT_REPRODUCIBLE", "missing covered keys: " + ",".join(missing)
+        # A distinct verdict, never plain MATCH: a 1.1.24 report must not read like a
+        # schema-3 report, and nothing attests to it (the format was never signed).
         got, covered = compute_legacy(payload, payload.get("findings") or [])
         if got == payload["report_hash"]:
-            return "MATCH", got
-        return "MISMATCH", f"claimed {payload['report_hash']}, recomputed {got} over {len(covered)} covered fields"
+            return LEGACY_MATCH, got
+        return LEGACY_MISMATCH, f"claimed {payload['report_hash']}, recomputed {got} over {len(covered)} covered fields"
     if payload.get("hash_scheme") != HASH_SCHEME or payload.get("schema_version") != SCHEMA_VERSION:
         return "NOT_REPRODUCIBLE", "requires verdict-v3 schema version 3; legacy hashes are not reinterpreted"
     try:
@@ -234,23 +239,79 @@ def verify(path):
     )
 
 
+def authenticity(payload, keys):
+    """One word for the signature column: SIGNED BY <key_id>, SIGNATURE INVALID, UNKNOWN KEY,
+    UNSIGNED, or SIGNATURE NOT CHECKED (no --keys given, or cryptography not installed)."""
+    if is_legacy(payload):
+        return "UNSIGNED (" + LEGACY_NOTE + ")"
+    sig = payload.get("signature")
+    if sig is None:
+        return "UNSIGNED"
+    if keys is None:
+        return "SIGNATURE NOT CHECKED (pass --keys KEYS.json)"
+    if not isinstance(sig, dict) or sorted(sig) != ["alg", "key_id", "value"] or sig.get("alg") != "ed25519":
+        return "SIGNATURE INVALID"
+    entry = next((k for k in keys if isinstance(k, dict) and k.get("key_id") == sig["key_id"]
+                  and k.get("alg") == "ed25519"), None)
+    if entry is None:
+        return "UNKNOWN KEY"
+    try:
+        import base64
+
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError:
+        return "SIGNATURE NOT CHECKED (install mcp-authscan[signing])"
+    try:
+        content = signed_content(payload, payload.get("findings") or [])
+        raw = base64.urlsafe_b64decode(entry["public_key"] + "=" * (-len(entry["public_key"]) % 4))
+        value = base64.urlsafe_b64decode(sig["value"] + "=" * (-len(sig["value"]) % 4))
+        Ed25519PublicKey.from_public_bytes(raw).verify(value, content)
+    except (InvalidSignature, ValueError, TypeError, KeyError):
+        return "SIGNATURE INVALID"
+    return "SIGNED BY " + sig["key_id"]
+
+
+def _load_keys(path):
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if isinstance(data, dict) and "keys" in data:
+        data = data["keys"]
+    return data if isinstance(data, list) else [data]
+
+
 def main(argv=None):
-    """python -m mcp_authscan.report_verify REPORT.json [...]: recompute each report_hash."""
-    paths = list(sys.argv[1:] if argv is None else argv)
-    if not paths:
-        print("usage: python -m mcp_authscan.report_verify REPORT.json [...]", file=sys.stderr)
+    """python -m mcp_authscan.report_verify [--keys KEYS.json] REPORT.json [...]
+
+    One line per report: integrity verdict, authenticity verdict, path, detail.
+    Integrity is MATCH / MISMATCH for schema 3 and LEGACY MATCH / LEGACY MISMATCH
+    for the 1.1.21-1.1.24 format, so the two can never print the same word.
+    Exit 0 only if every integrity verdict is a match and no signature is
+    invalid or from an unknown key.
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+    keys = None
+    if args[:1] == ["--keys"]:
+        if len(args) < 2:
+            print("usage: python -m mcp_authscan.report_verify [--keys KEYS.json] REPORT.json [...]", file=sys.stderr)
+            return 2
+        keys = _load_keys(args[1])
+        args = args[2:]
+    if not args:
+        print("usage: python -m mcp_authscan.report_verify [--keys KEYS.json] REPORT.json [...]", file=sys.stderr)
         return 2
     ok = True
-    for path in paths:
+    for path in args:
         try:
             status, detail = verify(path)
+            with open(path, encoding="utf-8") as fh:
+                auth = authenticity(json.load(fh), keys)
         except (OSError, ValueError) as e:
-            status, detail = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}"
-        print(f"{status}  {path}  {detail}")
-        ok = ok and status == "MATCH"
+            status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
+        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}")
+        ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY"))
     return 0 if ok else 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -6,4 +6,4 @@ if len(sys.argv)<2:
 status,detail=verify(sys.argv[1])
 print(status)
 print(detail)
-sys.exit(0 if status=="MATCH" else (1 if status=="MISMATCH" else 3))
+sys.exit(0 if status in ("MATCH","LEGACY_MATCH") else (1 if status in ("MISMATCH","LEGACY_MISMATCH") else 3))
