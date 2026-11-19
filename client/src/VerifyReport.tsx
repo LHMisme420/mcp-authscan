@@ -296,7 +296,7 @@ export default function VerifyReport() {
           </p>
           <div className="verify-support-note">
             <strong>Supported format</strong>
-            <span>Schema-3 reports using verdict-v3 only. This site checks Ed25519 signatures; it does not create them or hold private keys. Signing belongs in the CLI on the signer’s machine. Unsigned reports show NOT SIGNED. This tool does not scan or rerun tests, and it does not retain submitted reports.</span>
+            <span>Schema-3 reports using verdict-v3, plus the pre-schema-3 format written by releases 1.1.21 to 1.1.24. That format is checked with its own pre-1.1.25 algorithm and its result is marked LEGACY; it was never signed, so it always shows NOT SIGNED. This site checks Ed25519 signatures; it does not create them or hold private keys. Signing belongs in the CLI on the signer’s machine. Unsigned reports show NOT SIGNED. This tool does not scan or rerun tests, and it does not retain submitted reports.</span>
           </div>
         </section>
       </div>

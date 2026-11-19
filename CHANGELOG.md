@@ -12,14 +12,16 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [1.1.25] - 2026-11-19
 
+**Wheel sha256: `b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5`** (`mcp_authscan-1.1.25-py3-none-any.whl`). This is the release's anchor. The wheel is byte-reproducible from commit `c60b174` with `SOURCE_DATE_EPOCH=1795083301`, `python -m build --no-isolation`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.25 && sha256sum mcp_authscan-1.1.25-py3-none-any.whl`. The sdist is not byte-reproducible (setuptools' tarball varies per build), so it is not an anchor.
+
 Ships probe set `2026.11.16.1`, which no earlier release carried. Its recorded change (tests/probe_set_fingerprints.json): merged alternate-transport target probes and updated OAuth grading while retaining schema-3 report serialization. `python -m mcp_authscan.releases` maps any report's `probe_set_version` to the releases that ship it.
 
 ### Compatibility
-- Reports from 1.1.21 to 1.1.24 (hash_scheme `verdict-v3` with no `schema_version`) still verify. They are checked with that format's own algorithm, reproduced verbatim from the 1.1.24 verifier, and are never reinterpreted as schema 3. They give the same `MATCH`/`MISMATCH` as 1.1.24, and `INTACT`/`ALTERED` from `verify_upload`. This format was never signed, so it never reads as signed. Real 1.1.24 reports are kept as test fixtures (tests/fixtures/compat).
+- Reports from 1.1.21 to 1.1.24 (hash_scheme `verdict-v3` with no `schema_version`) still verify. They are checked with that format's own algorithm, reproduced verbatim from the 1.1.24 verifier, and are never reinterpreted as schema 3. They read **`LEGACY MATCH` / `LEGACY MISMATCH`, never plain `MATCH`**, with `UNSIGNED (pre-1.1.25 algorithm, releases 1.1.21-1.1.24)` on the line where a signed schema-3 report reads `SIGNED BY`. `verify_upload` keeps `INTACT`/`ALTERED`, and its reason says `LEGACY … unsigned`. This format was never signed, so it never reads as signed. Real 1.1.24 reports are kept as test fixtures (tests/fixtures/compat).
 - Signed schema-3 reports made before `sig_version` existed verify unchanged. A signed fixture from main 1a7d08c is kept.
 
 ### Added
-- `python -m mcp_authscan.report_verify REPORT.json` recomputes a report_hash from the command line.
+- `python -m mcp_authscan.report_verify [--keys KEYS.json] REPORT.json` prints integrity and authenticity per report. Without `--keys`, a signed report reads `SIGNATURE NOT CHECKED`, never `SIGNED BY`.
 - `python -m mcp_authscan.releases [REPORT.json | --stamp STAMP]`: probe set to release mapping, read from the published wheels.
 - Evidence protocol (schemas/EVIDENCE.md): security-state-v1 and observation-v1 written next to each completed live scan; `evidence` binding (v3) signed into `--sign` reports; boundary-ledger-v1 rows recorded for signed runs; boundary-delta-v1 with `AUTHORIZATION_REGRESSION`.
 - `--sign` is fail-closed: the key comes from `$MCP_AUTHSCAN_SIGNING_KEY`, else `~/.config/mcp-authscan/report-signing.pem`. A missing key exits 2 before any request, and a failure to sign exits 4 with no report.

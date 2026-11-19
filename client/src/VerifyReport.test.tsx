@@ -30,6 +30,7 @@ test('public verifier offers JSON input without target, login or payment gates',
   assert.match(html, /NOT SIGNED/);
   assert.match(html, /does not create them or hold private keys/);
   assert.match(html, /hash alone can be recomputed by anyone/);
-  assert.match(html, /Schema-3 reports using verdict-v3 only/);
+  assert.match(html, /Schema-3 reports using verdict-v3, plus the pre-schema-3 format written by releases 1.1.21 to 1.1.24/);
+  assert.match(html, /marked LEGACY; it was never signed, so it always shows NOT SIGNED/);
   assert.doesNotMatch(html, /name="target"|type="password"/);
 });
