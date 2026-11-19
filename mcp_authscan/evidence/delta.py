@@ -1,11 +1,16 @@
-"""boundary-delta-v1: deterministic transition between two security states.
+"""boundary-delta-v1: deterministic transition between two observations.
 
 Specification: schemas/boundary-delta-v1.md
 
-Pure module: no I/O. A state only describes one access class, so states of
-different classes are never compared: the result is ACCESS_CLASS_CHANGED.
+compute_delta takes two observation-v1 envelopes, not bare states. The
+observation carries the target, so a cross-target pair is refused
+structurally (ValueError) instead of relying on callers to keep ledgers
+straight; the state itself stays a pure boundary with no target in it.
+
+Pure module: no I/O.
 """
-from .state import LIST_KEYS, compute_state_id, validate_state
+from .observation import verify_observation
+from .state import LIST_KEYS, compute_state_id
 
 SCHEMA = "boundary-delta-v1"
 
@@ -22,37 +27,44 @@ def _set_diff(before, after):
     return {"added": sorted(a - b), "removed": sorted(b - a)}
 
 
-def compute_delta(prev: dict, curr: dict) -> dict:
-    """Return the boundary-delta-v1 object for prev -> curr.
+def compute_delta(prev_obs: dict, curr_obs: dict) -> dict:
+    """Return the boundary-delta-v1 object for prev_obs -> curr_obs.
 
-    Raises ValueError if either state is invalid.
+    Raises ValueError if either observation is invalid, if the targets
+    differ, or if curr_obs was observed before prev_obs.
     """
-    validate_state(prev)
-    validate_state(curr)
+    verify_observation(prev_obs)
+    verify_observation(curr_obs)
+    if prev_obs["target"] != curr_obs["target"]:
+        raise ValueError(
+            f"target: refusing to compare different targets "
+            f"({prev_obs['target']!r} -> {curr_obs['target']!r})")
+    # Swapping prev and curr turns a regression into a reduction, so the
+    # direction is checked, not assumed. RFC 3339 Z strings of equal format
+    # sort in time order.
+    if curr_obs["observed_at"]["start"] < prev_obs["observed_at"]["start"]:
+        raise ValueError("observed_at: curr was observed before prev")
+
+    prev, curr = prev_obs["state"], curr_obs["state"]
     from_id = compute_state_id(prev)
     to_id = compute_state_id(curr)
     access = {"from": prev["access_class"], "to": curr["access_class"]}
+    base = {
+        "schema": SCHEMA,
+        "target": curr_obs["target"],
+        "access_class": access,
+        "from_state_id": from_id,
+        "to_state_id": to_id,
+    }
 
     if access["from"] != access["to"]:
-        return {
-            "schema": SCHEMA,
-            "access_class": access,
-            "from_state_id": from_id,
-            "to_state_id": to_id,
-            "tools": None,
-            "prompts": None,
-            "resources": None,
-            "surface_digest_changed": None,
-            "instructions_changed": None,
-            "classification": ACCESS_CLASS_CHANGED,
-            "rule": "BD-R1",
-        }
+        return dict(base, tools=None, prompts=None, resources=None,
+                    surface_digest_changed=None, instructions_changed=None,
+                    classification=ACCESS_CLASS_CHANGED, rule="BD-R1")
 
     diffs = {key: _set_diff(prev[key], curr[key]) for key in LIST_KEYS}
     added = any(d["added"] for d in diffs.values())
     removed = any(d["removed"] for d in diffs.values())
-    surface_changed = prev["surface_digest"] != curr["surface_digest"]
-    instructions_changed = prev["instructions_digest"] != curr["instructions_digest"]
 
     if from_id == to_id:
         classification, rule = NO_CHANGE, "BD-R0"
@@ -65,16 +77,13 @@ def compute_delta(prev: dict, curr: dict) -> dict:
     else:
         classification, rule = DEFINITIONS_CHANGED, "BD-R5"
 
-    return {
-        "schema": SCHEMA,
-        "access_class": access,
-        "from_state_id": from_id,
-        "to_state_id": to_id,
-        "tools": diffs["tools"],
-        "prompts": diffs["prompts"],
-        "resources": diffs["resources"],
-        "surface_digest_changed": surface_changed,
-        "instructions_changed": instructions_changed,
-        "classification": classification,
-        "rule": rule,
-    }
+    return dict(
+        base,
+        tools=diffs["tools"],
+        prompts=diffs["prompts"],
+        resources=diffs["resources"],
+        surface_digest_changed=prev["surface_digest"] != curr["surface_digest"],
+        instructions_changed=prev["instructions_digest"] != curr["instructions_digest"],
+        classification=classification,
+        rule=rule,
+    )

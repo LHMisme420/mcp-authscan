@@ -69,4 +69,5 @@ The verifier SHOULD report the failing line number and which check failed.
 - **Truncation.** Cutting entries off the end still leaves a valid ledger. Detect it by comparing against a head ID recorded elsewhere, such as a passport.
 - **Wholesale rewrite.** STATE IDs depend only on content, so anyone can produce a consistent ledger. Authenticity needs a signature, which v1 does not define.
 - **Which target.** Target binding lives outside the ledger (see §1).
+- **Cross-class exposure.** The two ledgers of one target are never compared with each other, so a server opening anonymous access for the first time leaves no delta. See boundary-delta-v1 §5.
 - **Truth.** The ledger shows consistency, not correctness. The evidence for each state is in its observation.
