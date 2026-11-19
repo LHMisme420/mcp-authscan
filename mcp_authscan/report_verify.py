@@ -1,6 +1,7 @@
 """Shared schema-3 report projection and byte serialization for CLI and web."""
 import hashlib
 import json
+import re
 
 HASH_SCHEME = "verdict-v3"
 SCHEMA_VERSION = 3
@@ -57,32 +58,53 @@ def compute(payload, findings, *, include_bytes=False):
 
 
 EVIDENCE_KEY = "evidence"
-EVIDENCE_SCHEME = "evidence-binding-v1"
+EVIDENCE_SCHEME_V1 = "evidence-binding-v1"   # entries {access_class, state_id}
+EVIDENCE_SCHEME = "evidence-binding-v2"      # entries {access_class, state_id, ledger, ledger_head}
+_ENTRY_KEYS = {
+    EVIDENCE_SCHEME_V1: ["access_class", "state_id"],
+    EVIDENCE_SCHEME: ["access_class", "ledger", "ledger_head", "state_id"],
+}
 _ACCESS_CLASSES = ("anonymous", "authenticated")
+_LEDGER_KEY = re.compile(r"^[A-Za-z0-9._-]+/(anonymous|authenticated)\.jsonl$")
+
+
+def _hex64(value):
+    return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
 
 
 def evidence_binding(payload):
     """Return the validated evidence binding, or None if the report has none.
 
     The binding names the security-state-v1 STATE IDs this report was
-    produced alongside. It is outside report_hash (graded content only) and
+    produced alongside and, in v2, the ledger chain each was recorded in:
+    ``ledger`` is the chain's key under the ledger root (null when no row was
+    recorded) and ``ledger_head`` the chain head before this run (null for a
+    new or absent chain). It is outside report_hash (graded content only) and
     inside the signature. Raises ValueError if present but malformed.
     """
     if EVIDENCE_KEY not in payload:
         return None
     ev = payload[EVIDENCE_KEY]
-    if not isinstance(ev, dict) or sorted(ev) != ["scheme", "states"] or ev["scheme"] != EVIDENCE_SCHEME:
-        raise ValueError(f"evidence must be {{scheme: {EVIDENCE_SCHEME}, states: [...]}}")
+    if not isinstance(ev, dict) or sorted(ev) != ["scheme", "states"] or ev["scheme"] not in _ENTRY_KEYS:
+        raise ValueError(f"evidence must be {{scheme: {EVIDENCE_SCHEME} or {EVIDENCE_SCHEME_V1}, states: [...]}}")
+    keys = _ENTRY_KEYS[ev["scheme"]]
     states = ev["states"]
     if not isinstance(states, list):
         raise ValueError("evidence.states must be a list")
     classes = []
     for entry in states:
-        if (not isinstance(entry, dict) or sorted(entry) != ["access_class", "state_id"]
-                or entry["access_class"] not in _ACCESS_CLASSES
-                or not isinstance(entry["state_id"], str) or len(entry["state_id"]) != 64
-                or any(c not in "0123456789abcdef" for c in entry["state_id"])):
-            raise ValueError("evidence.states entries must be {access_class, state_id}")
+        if (not isinstance(entry, dict) or sorted(entry) != keys
+                or entry["access_class"] not in _ACCESS_CLASSES or not _hex64(entry["state_id"])):
+            raise ValueError(f"evidence.states entries must be {{{', '.join(keys)}}}")
+        if ev["scheme"] == EVIDENCE_SCHEME:
+            ledger, head = entry["ledger"], entry["ledger_head"]
+            if ledger is not None and (not isinstance(ledger, str) or not _LEDGER_KEY.match(ledger)
+                                       or not ledger.endswith(f"/{entry['access_class']}.jsonl")):
+                raise ValueError("evidence.states ledger must be null or <chain>/<access_class>.jsonl")
+            if head is not None and not _hex64(head):
+                raise ValueError("evidence.states ledger_head must be null or 64 lowercase hex")
+            if ledger is None and head is not None:
+                raise ValueError("evidence.states ledger_head requires a ledger")
         classes.append(entry["access_class"])
     if classes != sorted(set(classes)):
         raise ValueError("evidence.states must be sorted by access_class with no duplicates")

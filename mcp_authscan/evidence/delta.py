@@ -44,14 +44,47 @@ def compute_delta(prev_obs: dict, curr_obs: dict) -> dict:
     # sort in time order.
     if curr_obs["observed_at"]["start"] < prev_obs["observed_at"]["start"]:
         raise ValueError("observed_at: curr was observed before prev")
+    return _classify(curr_obs["target"], prev_obs["state"], curr_obs["state"])
 
-    prev, curr = prev_obs["state"], curr_obs["state"]
+
+def delta_from_ledger(lines: list, curr_obs: dict, keys) -> dict:
+    """Delta from a ledger's head row to ``curr_obs``.
+
+    The head row must carry an attestation that verifies against ``keys``
+    (published-key list): an unsigned row, an unknown key or a bad signature
+    is refused, so a boundary nothing attests to can never satisfy a delta.
+    Also refuses a different target or access class, an empty ledger, and a
+    curr observed before the head row.
+    """
+    from .ledger import SIGNED, attestation_status, row_state, verify_ledger
+    verify_ledger(lines, keys)
+    verify_observation(curr_obs)
+    header = lines[0]
+    if len(lines) < 2:
+        raise ValueError("ledger: no rows to compare against")
+    head = lines[-1]
+    status = attestation_status(header, head, keys)
+    if status != SIGNED:
+        raise ValueError(f"attestation: ledger head is {status}; only a signed row can satisfy a delta")
+    if curr_obs["target"] != header["target"]:
+        raise ValueError(
+            f"target: refusing to compare different targets ({header['target']!r} -> {curr_obs['target']!r})")
+    if curr_obs["state"]["access_class"] != header["access_class"]:
+        raise ValueError(
+            f"access_class: ledger is {header['access_class']!r}, observation is "
+            f"{curr_obs['state']['access_class']!r}")
+    if curr_obs["observed_at"]["start"] < head["record"]["observed_at"]["start"]:
+        raise ValueError("observed_at: curr was observed before the ledger head")
+    return _classify(header["target"], row_state(head), curr_obs["state"])
+
+
+def _classify(target, prev, curr):
     from_id = compute_state_id(prev)
     to_id = compute_state_id(curr)
     access = {"from": prev["access_class"], "to": curr["access_class"]}
     base = {
         "schema": SCHEMA,
-        "target": curr_obs["target"],
+        "target": target,
         "access_class": access,
         "from_state_id": from_id,
         "to_state_id": to_id,

@@ -18,17 +18,20 @@ A **completed live scan** writes the following. A source-code scan, or a live sc
 
 ```json
 "evidence": {
-  "scheme": "evidence-binding-v1",
+  "scheme": "evidence-binding-v2",
   "states": [
-    {"access_class": "anonymous",     "state_id": "<64 hex>"},
-    {"access_class": "authenticated", "state_id": "<64 hex>"}
+    {"access_class": "anonymous",     "state_id": "<64 hex>",
+     "ledger": "<host>_<port>-<sha16>/anonymous.jsonl", "ledger_head": "<64 hex> | null"},
+    {"access_class": "authenticated", "state_id": "<64 hex>",
+     "ledger": "<host>_<port>-<sha16>/authenticated.jsonl", "ledger_head": "<64 hex> | null"}
   ]
 }
 ```
 
-- `states` has one entry per access class that produced a state, sorted by `access_class`, with no duplicates. It MAY be empty, when no class produced a state.
-- No other keys are allowed. A malformed binding makes the signature unverifiable, but does not affect `report_hash`.
-- The binding is **signed and not hashed** (§3).
+- **`ledger`** names the chain this state was recorded in, as its key under the ledger root. It is not an absolute path, so a published report never carries the scanning machine's home directory; the absolute path goes to stderr. It is `null` when no row was recorded, which is the case for unsigned runs (§1.3).
+- **`ledger_head`** is the chain's head before this run. It is `null` for a new chain. If it equals `state_id`, the boundary was unchanged and no row was added. Otherwise the row this run added has `previous_state_id == ledger_head`.
+- `states` is sorted by `access_class`, with no duplicates, and MAY be empty. No other keys are allowed.
+- The binding is **signed and not hashed** (§3). `evidence-binding-v1` (entries `{access_class, state_id}` only) is still accepted when verifying.
 
 ### 1.2 Files next to the report
 
@@ -45,26 +48,45 @@ The output directory is chosen in this order:
 
 ### 1.3 Ledger rows
 
-After signing, each observation's state is appended to the ledger for its target and access class:
+On **`--sign` runs**, each observation's state is recorded in the ledger for its target and access class:
 
 ```
-<ledger dir>/<host>_<port>-<sha256(target)[:16]>/<access_class>.jsonl
+<ledger root>/<host>_<port>-<sha256(target)[:16]>/<access_class>.jsonl
 ```
 
-`<ledger dir>` is `--ledger-dir DIR`, or `<evidence dir>/ledger` by default. Use the same directory across runs, or each run starts a new ledger. The file name only *locates* the ledger. Its header line `{schema, target, access_class}` *binds* it, and an append for a different target or class is refused. A state equal to the ledger head appends nothing.
+`<ledger root>` is chosen in this order:
+1. `--ledger-dir DIR`;
+2. else `$MCP_AUTHSCAN_LEDGER_DIR`;
+3. else **`~/.config/mcp-authscan/ledgers`**, next to the signing key.
+
+The default is per user and keyed only by target, so every run of a target meets the same chain whatever its `--output` path. The file name only *locates* the ledger. Its header line `{schema, target, access_class}` *binds* it, and an append for a different target or class is refused. A state equal to the head adds no row.
+
+Each row carries the run's **`report_hash`** and its own **Ed25519 attestation** over the target, class, chain position, report hash and observation time (boundary-ledger-v1 §2.1). A row stays checkable even if its report is lost.
+
+**Unsigned runs record no rows.** A row nothing attests to would turn the ledger into a log, with no way to tell which entries carry a signature. `--ledger-unsigned` records unsigned rows for local use. Their attestation is `null`, and a delta refuses them (boundary-delta-v1 §2.2).
 
 ### 1.4 Order and failure
 
 1. hash
 2. capture and bind
-3. sign
-4. **evidence files**
-5. **ledger rows**
-6. **report**
+3. **lock and verify each class's ledger**, and write `ledger`/`ledger_head` into the binding
+4. **sign**
+5. **evidence files**
+6. build and sign rows
+7. **stage the report** (write `--output.tmp` and fsync it)
+8. **commit every ledger row, all or nothing**
+9. **rename the report into place**
+10. print it
 
-If step 4 or 5 fails, the scan **exits 4 and writes no report**: no `--output` file and no stdout. A run never exits carrying a report that reads as recorded when its evidence or ledger row is missing. This covers an unwritable ledger, a ledger that fails verification (it is left untouched) and a header for another target or class.
+| Failure at | Exit | Report | Ledger rows |
+|---|---|---|---|
+| 3: ledger fails verification, header for another target or class, root unwritable | 4 | none | none; the ledger is left untouched |
+| 4–6: signing, evidence files, row build | 4 | none | none |
+| 7: report can't be staged (disk full, missing directory) | 4 | none | none |
+| 8: any class's row can't be written | 4 | none | **none for any class** (two-phase: temp files first, renames after) |
+| 9: final rename of the report | 4 | none | recorded; stderr names them and the `report_hash` they carry |
 
-When one class's ledger was appended before another failed, that row **stays**, and stderr names it (`Ledger already updated by this run: …`). The row is a true record of a boundary the scan observed. Re-running is safe, because an unchanged boundary is a no-op append.
+The last row of that table is the only way a row can exist without its report. The row is then still signed, names exactly which report hash is missing, and stderr says so. An append-only row can't be amended afterwards to "say why", so the design shrinks that case to a single rename after everything else has succeeded.
 
 The passport is specified, but the scanner doesn't write it yet.
 
@@ -115,7 +137,9 @@ Old reports without `sig_version` keep verifying unchanged. `verify_upload` retu
 
    Closing both needs one paired read across both classes of the same target. **Planned for v2.**
 2. **The STATE ID is signed, not hashed** (§3). A report whose signature isn't checked gives no assurance about which states it was produced alongside. `report_hash` alone says nothing about evidence.
-3. **Authenticity covers the report only.** State, observation, ledger and passport files are not signed in v1. The signed report binds STATE IDs, which are content hashes, so a state file can be checked against a signed report. Observations and ledgers can't be.
-4. **Ledger truncation and wholesale rewrite are not detectable** from the ledger alone (boundary-ledger-v1 §5).
+3. **What is signed.** The report (graded content plus the evidence binding, including each chain's `ledger` key and `ledger_head`) and each ledger row (its row statement) are signed. State and observation files are not. A state file can be checked against a signed report or row by its STATE ID, and an observation file can't be checked at all. The ledger **header** isn't signed, but every row statement repeats its target and class.
+4. **Ledger truncation is not detectable from the ledger alone** (boundary-ledger-v1 §5). It is detectable against any later signed report whose `ledger_head` names a row that's missing. A rewrite would need the signing key, because every row is attested.
+7. **A row can outlive its report** only if the final rename of the report fails after the ledger commit (§1.4). The row is signed and names the missing `report_hash`.
+8. **The default ledger root is per user.** Two users on one machine, or two machines, keep separate chains for the same target unless they share `--ledger-dir` / `$MCP_AUTHSCAN_LEDGER_DIR`.
 5. **Observation coverage is the scan's probe coverage.** It describes the OAuth probes of the run, not the surface capture.
 6. **v1 states record exposure, not enforcement.** Audience binding, Origin validation and CORS are not part of the state.

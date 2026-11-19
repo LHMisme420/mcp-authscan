@@ -49,6 +49,15 @@ def load_signing_key():
     return key
 
 
+def sign_statement(key, content):
+    """Ed25519-sign ``content``; return {alg, key_id, value} (key_id = sha256 of the raw public key)."""
+    from cryptography.hazmat.primitives import serialization
+    public = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    key_id = hashlib.sha256(public).hexdigest()
+    value = base64.urlsafe_b64encode(key.sign(content)).rstrip(b"=").decode("ascii")
+    return {"alg": "ed25519", "key_id": key_id, "value": value}
+
+
 def sign_report(report, content, key=None):
     """Sign the exact bytes the report's signature covers.
 
@@ -59,13 +68,8 @@ def sign_report(report, content, key=None):
     if report.get("schema_version") != 3 or report.get("hash_scheme") != "verdict-v3":
         raise ValueError("Signing requires verdict-v3 schema version 3")
     try:
-        from cryptography.hazmat.primitives import serialization
         key = key or load_signing_key()
-        public = key.public_key().public_bytes(
-            serialization.Encoding.Raw, serialization.PublicFormat.Raw,
-        )
-        key_id = hashlib.sha256(public).hexdigest()
-        value = base64.urlsafe_b64encode(key.sign(content)).rstrip(b"=").decode("ascii")
+        signature = sign_statement(key, content)
     except SigningError as error:
         print(f"[!] Signing failed: {error}.", file=sys.stderr)
         return False
@@ -75,6 +79,6 @@ def sign_report(report, content, key=None):
     except (ValueError, TypeError) as error:
         print(f"[!] Signing failed: {type(error).__name__}.", file=sys.stderr)
         return False
-    report["key_id"] = key_id
-    report["signature"] = {"alg": "ed25519", "key_id": key_id, "value": value}
+    report["key_id"] = signature["key_id"]
+    report["signature"] = signature
     return True

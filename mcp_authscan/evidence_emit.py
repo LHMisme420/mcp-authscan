@@ -79,11 +79,18 @@ def capture_states(target, token, allowed_hosts, capture=None):
     return states, skipped
 
 
-def evidence_binding(states):
-    """The report's ``evidence`` field: signed, not hashed (report_verify.signed_content)."""
+def evidence_binding(states, ledgers=None):
+    """The report's ``evidence`` field: signed, not hashed (report_verify.signed_content).
+
+    ``ledgers`` maps access_class -> (chain key, head before this run) for each
+    class being recorded; classes not recorded get ledger/ledger_head null.
+    """
+    ledgers = ledgers or {}
     return {
         "scheme": EVIDENCE_SCHEME,
-        "states": [{"access_class": c, "state_id": s["state_id"]} for c, s, _ in sorted(states, key=lambda x: x[0])],
+        "states": [{"access_class": c, "state_id": s["state_id"],
+                    "ledger": ledgers.get(c, (None, None))[0], "ledger_head": ledgers.get(c, (None, None))[1]}
+                   for c, s, _ in sorted(states, key=lambda x: x[0])],
     }
 
 
@@ -161,19 +168,37 @@ def write_evidence(directory, observation):
     return state_path, obs_path
 
 
-def ledger_dir(ledger_dir_arg, evidence_directory):
-    """--ledger-dir wins; otherwise <evidence dir>/ledger."""
-    return ledger_dir_arg or os.path.join(evidence_directory, "ledger")
+LEDGER_DIR_ENV = "MCP_AUTHSCAN_LEDGER_DIR"
 
 
-def ledger_path(directory, target, access_class):
-    """<dir>/<host>_<port>-<sha256(target)[:16]>/<access_class>.jsonl
+def ledger_dir(ledger_dir_arg=None):
+    """--ledger-dir, else $MCP_AUTHSCAN_LEDGER_DIR, else ~/.config/mcp-authscan/ledgers.
 
-    The file name only locates the ledger. Its header line carries the
-    normalized target and class, and appends refuse anything that differs.
+    A stable per-user default, next to the signing key, so every run of a
+    target meets the same chain whatever its --output path.
+    """
+    if ledger_dir_arg:
+        return ledger_dir_arg
+    configured = os.environ.get(LEDGER_DIR_ENV)
+    if configured:
+        return configured
+    from pathlib import Path
+    return str(Path.home() / ".config" / "mcp-authscan" / "ledgers")
+
+
+def ledger_key(target, access_class):
+    """<host>_<port>-<sha256(target)[:16]>/<access_class>.jsonl, relative to the ledger root.
+
+    This key, not an absolute path, is what a report names: it identifies the
+    chain without putting the scanning machine's home directory in the report.
+    The file name only locates the ledger; its header line binds target and class.
     """
     target = normalize_target(target)
     parts = urlsplit(target)
     label = re.sub(r"[^A-Za-z0-9.-]", "_", f"{parts.hostname}_{parts.port or ''}").rstrip("_")
     digest = hashlib.sha256(target.encode("utf-8")).hexdigest()[:16]
-    return os.path.join(directory, f"{label}-{digest}", f"{access_class}.jsonl")
+    return f"{label}-{digest}/{access_class}.jsonl"
+
+
+def ledger_path(directory, target, access_class):
+    return os.path.join(directory, *ledger_key(target, access_class).split("/"))

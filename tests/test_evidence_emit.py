@@ -158,8 +158,9 @@ def test_cli_emits_state_and_observation_next_to_report(tmp_path):
     state = json.loads(state_file.read_text())
     assert state == obs["state"] and state["tools"] == ["list_docs"]
     assert hashlib.sha256(canonical_json({k: v for k, v in state.items() if k != "state_id"}).encode()).hexdigest() == obs["state_id"]
-    assert report["evidence"] == {"scheme": "evidence-binding-v1",
-                                  "states": [{"access_class": "anonymous", "state_id": obs["state_id"]}]}
+    assert report["evidence"] == {"scheme": "evidence-binding-v2",
+                                  "states": [{"access_class": "anonymous", "state_id": obs["state_id"],
+                                              "ledger": None, "ledger_head": None}]}   # unsigned: no ledger row
     assert obs["report_hash"] == report["report_hash"]
     assert obs["capture"] == {"status": "complete", "reasons": []}
     assert not (tmp_path / "mcp-authscan-evidence").exists()
