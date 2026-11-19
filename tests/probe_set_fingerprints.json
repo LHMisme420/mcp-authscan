@@ -288,6 +288,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "03013c299cd64658b1b5c907ddbd091164772e212d1db75a0264576fea12c238"
       }
+    },
+    "2026.11.19.3": {
+      "changed": "2026-11-19, token-cors EXCLUDED with a named prerequisite on unsupported_grant_type (no client_credentials grant), as token-audience",
+      "fingerprint": "c326b74ec255812ed35f6653fe314d10ed47b2abcc20be18ca0cbda48e717be7",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "12557e906cc0ddbb46b5315edfada57e37633ace95f0dbc44fc50b45704877c1",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "17f76d39d22aad0cc148547185807532906c9c00ff99d413a7782c1b4be2c380"
+      }
     }
   },
   "withdrawn": {

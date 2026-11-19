@@ -258,9 +258,10 @@ class AcquiredVerdictContract(unittest.TestCase):
 
 
 # Plain mode (no --acquire-token) against the same 9004 server as the acquired entry above.
-# Registration runs in plain mode too, so the token-cors probe does carry a client credential and
-# a 2xx reaches a verdict: token-cors is judged on the token response and PASSES. Coverage 9 of 9.
-# Both 9004 entries must hold.
+# Registration runs in plain mode too, so token-cors sends the registered client. This server
+# offers no client_credentials grant and answers unsupported_grant_type, so since probe set
+# 2026.11.19.3 token-cors is EXCLUDED with that named reason (as token-audience), not
+# NOT_OBSERVED. Coverage 1.0, exit 0.
 PLAIN_FULL_FIXTURES = {
     9004: "test_fixture_full_authserver.py",
 }
@@ -271,7 +272,7 @@ PLAIN_FULL_EXPECTED = {
             "issuer-identity": "PASS",
             "resource-binding": "PASS",
             "token-cache-control": "PASS",
-            "token-cors": "EXCLUDED",  # plain mode sends no authorization request; the limitation names the missing client
+            "token-cors": "EXCLUDED",  # unsupported_grant_type: no client_credentials grant (2026.11.19.3)
             "jwks-keys": "PASS",
             "password-grant": "PASS",
             "pkce-s256": "PASS",
@@ -280,7 +281,9 @@ PLAIN_FULL_EXPECTED = {
 "token-audience": "EXCLUDED",
         },
         "coverage": 1.0,
-        "excluded": 3,
+        # token-cors and token-audience (no client_credentials grant), rate limiting (no budget),
+        # cross-origin read (401, since 4a20572) and alternate transport (probe 15, 367ea5f).
+        "excluded": 5,
         "exit_code": 0,
     },
 }

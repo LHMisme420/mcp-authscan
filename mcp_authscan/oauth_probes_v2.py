@@ -905,6 +905,17 @@ def probe_token_cors(token_endpoint, metadata=None, client=None, registration_no
             probe_class="authserver",
             detail="HTTP %d without an OAuth error body; not a token response, CORS not judged" % http_status
         )
+    # unsupported_grant_type is a positive statement that this target offers no
+    # client_credentials grant: the prerequisite for a token response is absent, so the probe is
+    # EXCLUDED with that named reason, the same as token-audience [11] (probe set 2026.11.19.3).
+    # Before, it was NOT_OBSERVED and a server built correctly without that grant scanned as
+    # incomplete (exit 5).
+    if http_status and 400 <= http_status < 500 and has_error_code \
+            and body_json.get("error") == "unsupported_grant_type":
+        return record(probe_id=4, name="token-cors", status="EXCLUDED", probe_class="authserver",
+                      http_status=http_status, body=body, prerequisite_met=False,
+                      prerequisites=("a client_credentials grant the token endpoint accepts",),
+                      limitation="No client-credentials grant (unsupported_grant_type)")
     # 5xx: server error; cannot assess. Return NOT_OBSERVED.
     if http_status and http_status >= 500:
         status = "NOT_OBSERVED"

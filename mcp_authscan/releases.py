@@ -35,7 +35,7 @@ PROBE_SET_RELEASES = {
     # no commit. No release ships the committed 2026.11.16.1 probes. See
     # CHANGELOG.md [1.1.25].
     "2026.11.16.1": ["1.1.25"],
-    "2026.11.19.2": ["1.1.26"],
+    "2026.11.19.3": ["1.1.26"],
 }
 
 

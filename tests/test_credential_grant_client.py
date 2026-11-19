@@ -64,3 +64,23 @@ def test_password_grant_unsupported_grant_type_is_a_pass(monkeypatch):
     monkeypatch.setattr(oauth_probes_v2, "_egress_guard",
                         lambda req, allow_private=False: (400, {}, b'{"error": "unsupported_grant_type"}'))
     assert oauth_probes_v2.probe_password_grant("http://127.0.0.1:1/token").status == "PASS"
+
+
+def test_token_cors_unsupported_grant_type_is_excluded_with_reason(monkeypatch):
+    # Probe set 2026.11.19.3: no client_credentials grant is a missing prerequisite, named, the
+    # same as token-audience [11]; it is not a result the probe failed to grade.
+    monkeypatch.setattr(oauth_probes_v2, "_pace", lambda: None)
+    monkeypatch.setattr(oauth_probes_v2, "_egress_guard",
+                        lambda req, allow_private=False: (400, {}, b'{"error": "unsupported_grant_type"}'))
+    client = oauth_probes_v2._Client("c", None, "registered", secret="s")
+    r = oauth_probes_v2.probe_token_cors("http://127.0.0.1:1/token", metadata={}, client=client)
+    assert r.status == "EXCLUDED" and r.prerequisite_met is False
+    assert r.limitation == "No client-credentials grant (unsupported_grant_type)"
+
+
+def test_token_cors_other_4xx_errors_stay_not_observed(monkeypatch):
+    monkeypatch.setattr(oauth_probes_v2, "_pace", lambda: None)
+    monkeypatch.setattr(oauth_probes_v2, "_egress_guard",
+                        lambda req, allow_private=False: (400, {}, b'{"error": "invalid_client"}'))
+    client = oauth_probes_v2._Client("c", None, "registered", secret="s")
+    assert oauth_probes_v2.probe_token_cors("http://127.0.0.1:1/token", metadata={}, client=client).status == "NOT_OBSERVED"
