@@ -1,7 +1,7 @@
 # boundary-contrast-v1
 
 **Status:** Draft, normative. Specified, not implemented: no code emits or verifies it yet.
-**Depends on:** [observation-v1](observation-v1.md) (EXCLUDED and NOT_OBSERVED keep their meanings from §3 there)
+**Depends on:** [observation-v1](observation-v1.md) (EXCLUDED and NOT_OBSERVED keep their meanings from §3 there), [boundary-ledger-v1](boundary-ledger-v1.md) (§7)
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -27,6 +27,10 @@ A contrast run MUST NOT start without an operator-supplied credential and a writ
 AuthScan MUST NOT register a client, issue a token, escalate a privilege, or acquire a credential itself.
 
 Eligible operations in v1 are `initialize`, `tools/list`, `resources/list` and `prompts/list`. If authorization for an operation cannot be established without changing state, that operation is EXCLUDED with the prerequisite `non-mutating baseline unavailable`. There is no sandbox flag, no accept-risk flag and no mutation exception: judging whether a claimed sandbox is isolated is a different trust problem.
+
+The assessment window and request ceiling in the grant are hard bounds. If either is reached before a pair completes, that pair's result MUST be NOT_OBSERVED with the reason `BUDGET_EXHAUSTED_DURING_PAIR` or `WINDOW_EXPIRED_DURING_PAIR`, and MUST NOT be graded on the executions that completed. A completed candidate beside an incomplete control is an observation, never an asymmetry.
+
+A run that ends with unresolved pairs MUST report how many there are and MUST NOT summarise the run as complete.
 
 ## 3. The experiment
 
@@ -69,7 +73,7 @@ Report language MUST take this form: *the declaration observed at assessment tim
 
 If the declaration changes during the assessment, the result is NOT_OBSERVED with the reason `DECLARATION_CHANGED_DURING_ASSESSMENT`.
 
-Known-probe search runs only after a result is established. It annotates the result and never decides it. It reports `NOT_FOUND`, or `MATCHED` with the probe id, always together with the probe-set version, the dimensions searched and the dimensions not searched. A probe-search result is never written as `NONE`.
+Known-probe search runs only after a result is established. It never changes the terminal; it decides only the counterexample field (§6). It reports `NOT_FOUND`, or `MATCHED` with the probe id, always together with the probe-set version, the dimensions searched and the dimensions not searched. A probe-search result is never written as `NONE`.
 
 ## 6. Levels, terminals and the warning
 
@@ -84,8 +88,18 @@ Each level meets its own requirements. No level inherits certainty from the one 
 
 Terminals: `EXCLUDED`, `NOT_OBSERVED`, `NO_ASYMMETRY`, `VERIFIED_ASYMMETRY`, `VERIFIED_DECLARED_CONTRAST`.
 
-The counterexample field is `NOT_ESTABLISHED` in every terminal except `VERIFIED_DECLARED_CONTRAST`, where it is `ESTABLISHED`. In v1 the severity field is always `NONE`, and so is the interpretation field.
+The counterexample field depends on two things, not one. It is `ESTABLISHED` only when the terminal is `VERIFIED_DECLARED_CONTRAST` and the known-probe search returns `NOT_FOUND` for that established result. When the same terminal is reached and the search returns `MATCHED`, the counterexample field MUST be `NOT_ESTABLISHED`, and the result MUST record the probe id that explains it together with the probe-set version. In every other terminal the counterexample field is `NOT_ESTABLISHED`. A declared contrast is a verified fact about behavior. A counterexample additionally claims that the existing probe set does not account for that fact, and only the search can establish that.
+
+In v1 the severity field is always `NONE`, and so is the interpretation field.
 
 Required warning, printed verbatim on every contrast report:
 
 > Boundary Contrast v1 is intentionally low-yield. A result of NO_ASYMMETRY across all eligible operations is a valid and expected assessment outcome. Absence of a verified asymmetry must never cause eligibility, baseline, repetition or equivalence requirements to be relaxed.
+
+## 7. Evidence carriage
+
+A contrast result MUST be carried in the same report envelope as an ordinary scan result. It MUST be hashed over the same canonical bytes, signed with the same report key and schema, and committed as a ledger row under the same rules ([boundary-ledger-v1](boundary-ledger-v1.md)), so a third party verifies it with the same published verifier and the same published keys.
+
+A contrast result that is unsigned, unledgered, or hashed under a different scheme MUST NOT be issued as an assessment deliverable. It MAY exist as a local working artifact and MUST then be labelled one.
+
+The report MUST name the contrast method version, the canonicalization version, the probe-set version and the calibration version beside the ledger chain it commits to, so a reader can reconstruct which scheme produced the result.
