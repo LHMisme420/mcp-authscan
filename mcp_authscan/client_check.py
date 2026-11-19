@@ -30,6 +30,19 @@ How it works:
        EXCLUDED (exit 2) neither happened (e.g. the SDK is not installed); the
                          reason names the cause, quoting the child's last stderr
                          line.
+       NOT_OBSERVED (exit 3) the client read the metadata and presented no
+                         credential, but either the paired control run (same
+                         client, issuer matching the decoy) never reached
+                         ``/token`` or the target's own stderr does not show the
+                         issuer-mismatch refusal, so a refusal cannot be told
+                         apart from a client that stopped after discovery.
+
+PASS requires all four: metadata read, no credential at ``/token``, the control
+reached ``/token``, and the target's stderr shows the issuer-mismatch refusal.
+
+Every case is paired with that control run. Its touches, captures and child
+stderr are written into the report under ``control``; the target run's child
+stderr is written under ``stderr``.
 
 The JSON report carries a ``kind`` field ("python" or "node") so rows from
 different client stacks are distinguishable.
@@ -129,6 +142,20 @@ def _build(provider_cls, mcp_url, expect_issuer):
             storage = _make_storage()
             if storage is not None:
                 kwargs[storage_name] = storage
+    if expect_issuer and "issuer" not in params:
+        # An issuer was requested but this provider declares no issuer
+        # parameter. Do not drop it and run the default path: record how the
+        # provider treats issuer= and stop before connecting.
+        try:
+            provider_cls(mcp_url, issuer=expect_issuer, **kwargs)
+            how = "accepts issuer= without declaring it, so it would be ignored"
+        except TypeError as exc:
+            how = "rejects issuer= outright (TypeError: %s)" % exc
+        sys.stderr.write(
+            "driver: issuer-unsupported: %s has no issuer parameter and %s\n"
+            % (provider_cls.__name__, how)
+        )
+        sys.exit(0)
     sys.stderr.write("driver: provider kwargs = %s\n" % sorted(kwargs))
     return provider_cls(mcp_url, **kwargs)
 
@@ -245,16 +272,24 @@ process.stderr.write("driver: done\n");
 
 _TOKEN_PATH = "/token"
 _RESOURCE_METADATA_MARKER = "oauth-protected-resource"
+# The refusal as raised by mcp.client.auth.extensions.client_credentials
+# (_require_metadata_for_configured_issuer): "Authorization server metadata
+# issuer mismatch: <metadata issuer> != <expected issuer>".
+_ISSUER_MISMATCH_MARKER = "issuer mismatch"
+# Written by the Python driver when --expect-issuer was given but the provider
+# declares no issuer parameter; the driver exits before connecting.
+_ISSUER_UNSUPPORTED_MARKER = "driver: issuer-unsupported: "
 
 
 def redact(value):
-    """First five and last four characters; never the raw value."""
+    """Scheme only, never any fragment of the credential: "Basic [redacted]".
+    A value with no scheme becomes "[redacted]"."""
     if not value:
         return value
-    text = str(value)
-    if len(text) <= 9:
-        return "*" * len(text)
-    return text[:5] + "..." + text[-4:]
+    parts = str(value).strip().split(None, 1)
+    if len(parts) == 2:
+        return parts[0] + " [redacted]"
+    return "[redacted]"
 
 
 def _last_stderr_line(stderr):
@@ -282,6 +317,26 @@ def _token_credential(captured):
         if path == _TOKEN_PATH and entry.get("authorization"):
             return entry
     return None
+
+
+def _reached_token(touches):
+    """True when the decoy saw any request to ``/token``."""
+    for touch in touches or []:
+        path = touch.split(" ", 1)[1] if touch.startswith("POST ") else touch
+        if path.split("?")[0] == _TOKEN_PATH:
+            return True
+    return False
+
+
+def _issuer_unsupported(stderr):
+    for line in (stderr or "").splitlines():
+        if line.startswith(_ISSUER_UNSUPPORTED_MARKER):
+            return line[len(_ISSUER_UNSUPPORTED_MARKER):].strip()
+    return None
+
+
+def _shows_issuer_refusal(stderr):
+    return _ISSUER_MISMATCH_MARKER in (stderr or "").lower()
 
 
 def _read_metadata(touches):
@@ -337,10 +392,13 @@ def _launch_node(mcp_url, client_node, node_cwd, expect_issuer):
     return child, None
 
 
-def run(client_python=None, client_name=None, expect_issuer=None,
-        client_kind="python", client_node="node", node_cwd="."):
+def _observe(client_kind, client_python, client_node, node_cwd, expect_issuer):
+    """One child run against a fresh decoy. ``expect_issuer`` may be a callable
+    taking the decoy base URL (used by the control run to match the issuer)."""
     server = start_decoy()
     mcp_url = server.base_url + "/mcp"
+    if callable(expect_issuer):
+        expect_issuer = expect_issuer(server.base_url)
     child = None
     launch_error = None
     try:
@@ -351,12 +409,43 @@ def run(client_python=None, client_name=None, expect_issuer=None,
     except subprocess.TimeoutExpired:
         launch_error = "client under test timed out before a verdict could be observed"
 
-    touches = list(server.touches)
-    captured_raw = list(server.captured)
+    obs = {
+        "child": child,
+        "launch_error": launch_error,
+        "touches": list(server.touches),
+        "captured_raw": list(server.captured),
+        "read_metadata": _read_metadata(server.touches),
+        "reached_token": _reached_token(server.touches),
+    }
+    stop_decoy(server)
+    return obs
+
+
+def run(client_python=None, client_name=None, expect_issuer=None,
+        client_kind="python", client_node="node", node_cwd="."):
+    target = _observe(client_kind, client_python, client_node, node_cwd, expect_issuer)
+    unsupported = _issuer_unsupported(target["child"].stderr if target["child"] else "")
+    if expect_issuer and unsupported:
+        # Settled before connecting: the issuer could not be forwarded, so the
+        # binding was never exercised. No control run, no /token requirement.
+        prerequisite = (
+            "client provider accepts no issuer parameter, so issuer binding "
+            "cannot be exercised on this version (" + unsupported + ")"
+        )
+        return _report(client_kind, client_name, "EXCLUDED",
+                       "issuer was requested but could not be forwarded: " + unsupported,
+                       target["touches"], _evidence(target["captured_raw"]), 2,
+                       target["child"].stderr, None, prerequisite)
+    # Paired control: same client, configured to expect the decoy's own issuer.
+    control = _observe(client_kind, client_python, client_node, node_cwd, lambda base: base)
+
+    child = target["child"]
+    launch_error = target["launch_error"]
+    touches = target["touches"]
+    captured_raw = target["captured_raw"]
     captured = _evidence(captured_raw)
     token_entry = _token_credential(captured_raw)
-    read_metadata = _read_metadata(server.touches)
-    stop_decoy(server)
+    read_metadata = target["read_metadata"]
 
     if token_entry is not None:
         verdict, code = "FAIL", 1
@@ -365,11 +454,26 @@ def run(client_python=None, client_name=None, expect_issuer=None,
             "endpoint, whose issuer did not match the protected resource "
             "(authorization: %s)" % redact(token_entry.get("authorization"))
         )
+    elif read_metadata and launch_error is None and not (
+            control["reached_token"]
+            and _shows_issuer_refusal(child.stderr if child else "")):
+        verdict, code = "NOT_OBSERVED", 3
+        missing = []
+        if not control["reached_token"]:
+            missing.append("the matching-issuer control run never reached the token endpoint")
+        if not _shows_issuer_refusal(child.stderr if child else ""):
+            missing.append("the target's stderr shows no issuer-mismatch refusal")
+        reason = (
+            "client read the protected-resource metadata and presented no "
+            "credential, but " + " and ".join(missing) + ", so a refusal was "
+            "not observed (exit 3)"
+        )
     elif read_metadata and launch_error is None:
         verdict, code = "PASS", 0
         reason = (
-            "client read the protected-resource metadata and presented no "
-            "credential to the token endpoint"
+            "client read the protected-resource metadata, presented no "
+            "credential to the token endpoint, refused on issuer mismatch, and "
+            "the matching-issuer control reached the token endpoint"
         )
     else:
         verdict, code = "EXCLUDED", 2
@@ -380,10 +484,21 @@ def run(client_python=None, client_name=None, expect_issuer=None,
             "endpoint and the flow did not complete); child stderr: " + cause
         )
 
-    return _report(client_kind, client_name, verdict, reason, touches, captured, code)
+    control_child = control["child"]
+    control_record = {
+        "expect_issuer": "decoy issuer (matching)",
+        "reached_token": control["reached_token"],
+        "launch_error": control["launch_error"],
+        "touches": control["touches"],
+        "captured": _evidence(control["captured_raw"]),
+        "stderr": control_child.stderr if control_child else "",
+    }
+    return _report(client_kind, client_name, verdict, reason, touches, captured, code,
+                   child.stderr if child else "", control_record)
 
 
-def _report(client_kind, client_name, verdict, reason, touches, captured, code):
+def _report(client_kind, client_name, verdict, reason, touches, captured, code,
+            stderr="", control=None, prerequisite=None):
     payload = {
         "check": "client-issuer-binding",
         "kind": client_kind,
@@ -392,7 +507,13 @@ def _report(client_kind, client_name, verdict, reason, touches, captured, code):
         "reason": reason,
         "touches": touches,
         "captured": captured,
+        "stderr": stderr,
+        "control": control,
+        "exit_code": code,
+        "exit_codes": {"FAIL": 1, "PASS": 0, "EXCLUDED": 2, "NOT_OBSERVED": 3},
     }
+    if prerequisite is not None:
+        payload["prerequisite"] = prerequisite
     print(json.dumps(payload, indent=2))
     return code
 

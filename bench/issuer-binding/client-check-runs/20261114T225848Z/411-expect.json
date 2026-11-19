@@ -1,0 +1,57 @@
+{
+  "check": "client-issuer-binding",
+  "kind": "python",
+  "client": "fastmcp 4.1.1",
+  "verdict": "FAIL",
+  "reason": "client presented an Authorization header to the decoy token endpoint, whose issuer did not match the protected resource (authorization: Basic...dA==)",
+  "touches": [
+    "POST /mcp",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-authorization-server",
+    "POST /token",
+    "POST /mcp",
+    "POST /mcp",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-authorization-server",
+    "POST /token",
+    "POST /mcp"
+  ],
+  "captured": [
+    {
+      "path": "/mcp",
+      "authorization": null,
+      "body_keys": []
+    },
+    {
+      "path": "/token",
+      "authorization": "Basic...dA==",
+      "body_keys": [
+        "grant_type",
+        "resource"
+      ]
+    },
+    {
+      "path": "/mcp",
+      "authorization": "Beare...oken",
+      "body_keys": []
+    },
+    {
+      "path": "/mcp",
+      "authorization": "Beare...oken",
+      "body_keys": []
+    },
+    {
+      "path": "/token",
+      "authorization": "Basic...dA==",
+      "body_keys": [
+        "grant_type",
+        "resource"
+      ]
+    },
+    {
+      "path": "/mcp",
+      "authorization": "Beare...oken",
+      "body_keys": []
+    }
+  ]
+}

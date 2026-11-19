@@ -7,6 +7,10 @@ import Dashboard from './Dashboard';
 import Landing from './Landing';
 import { AuthLoading } from './AuthLoading';
 import { JoinTeamPage } from './PlanFeatures';
+import { PageMetadata } from './PageMetadata';
+import SampleAssessment from './SampleAssessment';
+import Assessments from './Assessments';
+import RequestAssessment from './RequestAssessment';
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -94,8 +98,9 @@ const clerkAppearance = {
 
 function HomeRoute() {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <AuthLoading />;
-  return isSignedIn ? <Redirect to="/user-portal" /> : <Landing />;
+  // The public service description remains visible while Clerk initializes.
+  // Once authenticated, retain the existing workspace redirect.
+  return isLoaded && isSignedIn ? <Redirect to="/user-portal" /> : <Landing />;
 }
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -200,6 +205,9 @@ function ClerkRoutes() {
     >
       <Switch>
         <Route path="/" component={HomeRoute} />
+        <Route path="/assessments" component={Assessments} />
+        <Route path="/request-assessment" component={RequestAssessment} />
+        <Route path="/sample-assessment" component={SampleAssessment} />
         <Route path="/user-portal" component={UserPortalRoute} />
         <Route path="/join-team" component={JoinTeamRoute} />
         <Route path="/success"><Redirect to="/user-portal" /></Route>
@@ -215,6 +223,7 @@ function ClerkRoutes() {
 function App() {
   return (
     <WouterRouter base={basePath}>
+      <PageMetadata />
       <ClerkRoutes />
     </WouterRouter>
   );

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.23"  # single source of truth
+version = "1.1.25"  # single source of truth
 description = """MCP AuthScan
 Security scanner for MCP server deployments you are authorised to test. Python 3.11+.
 
@@ -47,6 +47,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+
+[project.optional-dependencies]
+signing = ["cryptography>=50.0.2,<51"]
 
 [project.urls]
 Homepage = "https://github.com/LHMisme420/mcp-authscan"

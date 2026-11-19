@@ -46,6 +46,12 @@ def cors_probe(mcp_url, allowed_hosts=None, allow_private=None):
     acao = (headers.get("access-control-allow-origin") or "").strip()
     acac = (headers.get("access-control-allow-credentials") or "").strip().lower()
 
+    if status in (401, 403):
+        return record(CORS_PROBE_ID, name, "EXCLUDED", http_status=status,
+        headers=headers, body=raw,
+        limitation="credential-free response needed; HTTP %s requires one" % status,
+        endpoint=mcp_url)
+
     if status in (401, 403, 404, 405) or status >= 500:
         return record(CORS_PROBE_ID, name, "NOT_OBSERVED", http_status=status,
                       headers=headers, body=raw,
@@ -74,10 +80,12 @@ def run_target_probes(target_url, allowed_hosts=None, allow_private=False, rate_
     except Exception as e:
         rec = record(CORS_PROBE_ID, "cross-origin read on the MCP endpoint", "NOT_OBSERVED", limitation=str(e), endpoint=target_url)
     rate_rec = rate_limit_probe(target_url, count=rate_limit_count, window=rate_limit_window, allowed_hosts=allowed_hosts, allow_private=allow_private)
-    records = [rec, rate_rec]
+    t_rec = altprobe(target_url, allowed=allowed_hosts)
+    o_rec = originprobe(target_url, allowed=allowed_hosts)
+    records = [rec, rate_rec, t_rec, o_rec]
     if rec.status != "FAIL":
-        return records, []
-    return records, [{
+        return records, t_findings(target_url, t_rec) + o_findings(target_url, o_rec)
+    return records, t_findings(target_url, t_rec) + o_findings(target_url, o_rec) + [{
         "rule": "CORS-1",
         "owasp": None,
         "severity": rec.severity or "HIGH",
@@ -163,3 +171,7 @@ def rate_limit_probe(url, count=None, window=None, allowed_hosts=None,
                   limitation="no 429 observed inside the authorised budget of %d requests in %d seconds" % (count, window),
                   endpoint=url)
 
+
+from mcp_authscan.transportprobe import altprobe, t_findings
+
+from mcp_authscan.originprobe import originprobe, o_findings

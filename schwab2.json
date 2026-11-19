@@ -1,0 +1,338 @@
+{
+  "surface_drift": null,
+  "probes": [
+    {
+      "probe_id": 1,
+      "name": "issuer-identity",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"issuer\": \"https://schwab-mcp.fastmcp.app/\"}",
+      "body_sha256": "c86371948ed08ee4b12f9f9486d6bcd220f38751e7a863374827a15818ca9a84",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "issuer=https://schwab-mcp.fastmcp.app/ base_url=https://schwab-mcp.fastmcp.app",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/.well-known/oauth-authorization-server"
+    },
+    {
+      "probe_id": 2,
+      "name": "resource-binding",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"resource\": \"https://schwab-mcp.fastmcp.app/mcp\"}",
+      "body_sha256": "f2ac6d3d3581497cb0f81e2a0c17dfef57deb618f7fe4a24772c523995b0e8ec",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "resource=https://schwab-mcp.fastmcp.app/mcp mcp_url=https://schwab-mcp.fastmcp.app/mcp",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/mcp"
+    },
+    {
+      "probe_id": 12,
+      "name": "resource-authservers",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"authorization_servers\": [\"https://schwab-mcp.fastmcp.app/\"]}",
+      "body_sha256": "771fdd21958d9a0e53b756c77e933cf3690e9f749190483a0ebc347326a03e56",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "authorization_servers=https://schwab-mcp.fastmcp.app/",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/mcp"
+    },
+    {
+      "probe_id": 3,
+      "name": "token-cache-control",
+      "status": "PASS",
+      "http_status": 401,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_client\", \"error_description\": \"Missing client_id\"}",
+      "body_sha256": "c2d4d45161409253ed1a9e2914b5e229b3b7934c5ad1e1a5708fa6314d3233fa",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Cache-Control: no-store",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/token"
+    },
+    {
+      "probe_id": 4,
+      "name": "token-cors",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "a client credential, registered or MCPAUTHSCAN_CLIENT_ID"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No client credential, so no credentialed request was sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 5,
+      "name": "jwks-keys",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "No JWKS endpoint",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 6,
+      "name": "password-grant",
+      "status": "PASS",
+      "http_status": 400,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_request\", \"error_description\": \": Input tag 'password' found using 'grant_type' does not match any of the expected tags: 'authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer'\"}",
+      "body_sha256": "83d902ca8323ba2b1908067d48193ec654bcd9634cdb2258b13896b2069dba18",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Error: invalid_request",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/token"
+    },
+    {
+      "probe_id": 7,
+      "name": "pkce-s256",
+      "status": "PASS",
+      "http_status": 302,
+      "headers_observed": {
+        "location": "http://localhost/mcp-authscan/callback?error=invalid_request&error_description=code_challenge_method%3A+Input+should+be+%27S256%27"
+      },
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "PKCE required and S256 the only accepted method: A (no code_challenge): refused, HTTP 302, Location http://localhost/mcp-authscan/callback?error=invalid_request&error_description=code_challenge%3A+Field+required (error=invalid_request); B (S256): proceeded, HTTP 302, Location http://localhost/mcp-authscan/callback?code=[redacted] (the redirect_uri sent); C (plain): refused, HTTP 302, Location http://localhost/mcp-authscan/callback?error=invalid_request&error_description=code_challenge_method%3A+Input+should+be+%27S256%27 (error=invalid_request)",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/authorize"
+    },
+    {
+      "probe_id": 8,
+      "name": "redirect-uri-exact",
+      "status": "PASS",
+      "http_status": 400,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_request\", \"error_description\": \"Redirect URI 'http://localhost/mcp-authscan/callbackx' not registered for client\"}",
+      "body_sha256": "54a544f74b1cd34492ec7c24747d105e980e4b29475b749c634a72716694d5d5",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Exact redirect_uri match enforced: P (registered redirect_uri): proceeded, HTTP 302, Location http://localhost/mcp-authscan/callback?code=[redacted] (the redirect_uri sent); N (http://localhost/mcp-authscan/callbackx): refused, HTTP 400, error=invalid_request",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/authorize"
+    },
+    {
+      "probe_id": 9,
+      "name": "client-auth",
+      "status": "PASS",
+      "http_status": 401,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_client\", \"error_description\": \"Missing client_id\"}",
+      "body_sha256": "c2d4d45161409253ed1a9e2914b5e229b3b7934c5ad1e1a5708fa6314d3233fa",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Error: invalid_client",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/token"
+    },
+    {
+      "probe_id": 11,
+      "name": "token-audience",
+      "status": "PASS",
+      "http_status": 400,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_request\", \"error_description\": \": Input tag 'client_credentials' found using 'grant_type' does not match any of the expected tags: 'authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer'\"}",
+      "body_sha256": "7b17db2832b16d8ea4e4a50580a79ce8a9400510de02bc381cef0a0099441a25",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Refused a token for a resource it does not serve (invalid_request)",
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/token"
+    },
+    {
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "NOT_OBSERVED",
+      "http_status": 401,
+      "headers_observed": {
+        "connection": "close",
+        "access-control-expose-headers": "horizon-request-id",
+        "www-authenticate": "Bearer resource_metadata=\"https://schwab-mcp.fastmcp.app/.well-known/oauth-protected-resource/mcp\"",
+        "horizon-request-id": "01a1cb8d-48ec-7567-8942-2eb5a13e4af8",
+        "horizon-target-region": "us-east-1",
+        "access-control-allow-origin": "*",
+        "x-amz-cf-pop": "ATL59-P15",
+        "x-amz-cf-id": "yLHJkG9fkMHFTbigFEX-8moqvbvXSIf-apqYafw0qud7998oLtnVhA=="
+      },
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "ACAO on rejected response HTTP 401, no cross-origin read of content demonstrated",
+      "probe_class": null,
+      "detail": null,
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/mcp"
+    },
+    {
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "no authorised request budget supplied, so no request was sent",
+      "probe_class": null,
+      "detail": null,
+      "severity": null,
+      "endpoint": "https://schwab-mcp.fastmcp.app/mcp"
+    }
+  ],
+  "target": "https://schwab-mcp.fastmcp.app/mcp",
+  "scan_mode": "LIVE_ENDPOINT_ASSESSMENT",
+  "discovery_status": null,
+  "probe_set_version": "2026.11.10.1",
+  "severity_calibration_version": null,
+  "owasp_mapping_version": "2026.11.02.1",
+  "findings_count": 0,
+  "findings": [],
+  "authorization": {
+    "authorized_by": "Lonnie VanZandt",
+    "date": "2026-11-11",
+    "basis": "Written authorisation 2026-11-11, named fastmcp.app hosts, GET only, 1 req/host/sec, no exploitation, no load testing",
+    "contact": "lhmisme2011@gmail.com",
+    "assessed_by": "Leroy H. Mason"
+  },
+  "counts": {
+    "in_scope": 13,
+    "attempted": 10,
+    "PASS": 9,
+    "FAIL": 0,
+    "NOT_OBSERVED": 1,
+    "EXCLUDED": 3,
+    "NOT_IMPLEMENTED": 0
+  },
+  "coverage": 0.9,
+  "completed": true,
+  "not_implemented": [],
+  "excluded": [
+    {
+      "name": "token-cors",
+      "reason": "No client credential, so no credentialed request was sent"
+    },
+    {
+      "name": "jwks-keys",
+      "reason": "No JWKS endpoint"
+    },
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    }
+  ],
+  "scope": "One live MCP endpoint on infrastructure the operator controls",
+  "not_tested": [
+    "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 \u2192 RFC 8414 discovery)",
+    "Source code review and design patterns",
+    "Dependency vulnerabilities (CVE check)",
+    "Secrets in repository history",
+    "Comments and documentation",
+    "Rate limiting (excluded): no authorised request budget supplied, so no request was sent"
+  ],
+  "content_observed": {
+    "version": "2026.11.03.1",
+    "inspected": {},
+    "reasons": [
+      "session not established: initialize returned HTTP 401"
+    ]
+  },
+  "exit_contract": "2026.11.02.4",
+  "hash_scheme": "verdict-v3",
+  "run_started_at": "2026-11-11T16:59:54+00:00",
+  "exit_condition": "not_observed_present",
+  "exit_code": 5,
+  "fail_on": "high",
+  "report_hash": "1784cae2f7170c85a5565405d895c2b0e41988b274b3eb93213a16d1c8c949d8",
+  "hash_covers": [
+    "authorization",
+    "completed",
+    "counts",
+    "coverage",
+    "exit_code",
+    "exit_condition",
+    "exit_contract",
+    "fail_on",
+    "findings",
+    "hash_scheme",
+    "not_implemented",
+    "not_tested",
+    "probe_set_version",
+    "probes",
+    "scan_mode",
+    "scope",
+    "target"
+  ],
+  "client_registration": [
+    {
+      "authorization_server": "https://schwab-mcp.fastmcp.app",
+      "client_registered": true,
+      "registration": "HTTP 201, client_id 6a17e160-ed99-447f-b1ed-ddf8d4822c58",
+      "client_source": "registered",
+      "client_id": "6a17e160-ed99-447f-b1ed-ddf8d4822c58",
+      "redirect_uri": "http://localhost/mcp-authscan/callback",
+      "client_removal": "client removal is out of scope for this tool: client_id 6a17e160-ed99-447f-b1ed-ddf8d4822c58 registered at https://schwab-mcp.fastmcp.app by this run was not removed",
+      "client_deleted": false,
+      "registered_client_id": "6a17e160-ed99-447f-b1ed-ddf8d4822c58",
+      "redirect_candidates_tried": [
+        {
+          "redirect_uri": "http://localhost/mcp-authscan/callback",
+          "result": "accepted, HTTP 201"
+        }
+      ],
+      "token_revocation": null,
+      "token_revocation_unconfirmed": null,
+      "token_types_unconfirmed": []
+    }
+  ],
+  "tools_digest": {
+    "captured": false,
+    "endpoint": "https://schwab-mcp.fastmcp.app/mcp",
+    "phase": "initialize",
+    "reason": "initialize returned HTTP 401",
+    "http_status": 401
+  }
+}

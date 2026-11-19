@@ -1,0 +1,2 @@
+/tmp/b411/lib/python3.13/site-packages/fastmcp/client/auth/client_credentials.py:240: MCPDeprecationWarning: Omitting `issuer` is deprecated and it will be required in 3.0. Without it, the MCP server decides which authorization server receives this client's credentials; pass issuer=<your authorization server's issuer URL> so they are only ever sent there.
+  super().__init__(

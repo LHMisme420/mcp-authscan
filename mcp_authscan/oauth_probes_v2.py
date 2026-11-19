@@ -1513,6 +1513,8 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     if os.environ.get("MCPAUTHSCAN_CROSS_TENANT") == "1":
         records.append(probe_cross_tenant(mcp_url))
     records.append(probe_token_audience(mcp_url, metadata=metadata, client=client))
+    if os.environ.get("MCPAUTHSCAN_AUDIENCE_RESOURCE"):
+        records.append(probe_audience_binding(mcp_url, metadata=metadata, client=client))
 
     # A token token-cors [4] obtained whose revocation was not confirmed is announced on the
     # terminal now and in the report. Only the token types are named. It does not change the
@@ -1766,6 +1768,174 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
                       endpoint=mcp_url)
 
     return record(probe_id=11, name="token-audience", status="NOT_OBSERVED",
+                  probe_class="authserver", http_status=res_status, body=res_body,
+                  detail="Unexpected response presenting the token: HTTP %s" % res_status,
+                  endpoint=mcp_url)
+
+
+def probe_audience_binding(mcp_url, metadata=None, client=None):
+    """A resource must reject a validly issued token whose aud names a different resource.
+
+    This is not probe 11 (token-audience). Probe 11 mints for a resource the issuer does
+    not serve -- a sentinel, ``foreign-resource.invalid`` -- and passes if the issuer or
+    the resource refuses it; it tests that nothing is honoured for a resource that does not
+    exist. Here the token is minted for a *real* sibling resource the same issuer serves
+    (supplied as ``MCPAUTHSCAN_AUDIENCE_RESOURCE``): a credential the vendor issues
+    legitimately. The finding is that the target honours it anyway -- it never checks who
+    the token was minted for. That is a boundary failure at the door, reachable with a
+    legitimately issued credential, and it defeats the control the design rests on.
+
+    Severity is HIGH on a read/initialize surface: that is all this probe exercises, and
+    severity_basis records it. CRITICAL is reserved for a separately demonstrated reachable
+    write or execute surface and is not asserted here.
+    """
+    other = os.environ.get("MCPAUTHSCAN_AUDIENCE_RESOURCE")
+    metadata = metadata or {}
+    token_endpoint = metadata.get("token_endpoint")
+
+    if not other:
+        return record(
+            probe_id=17, name="audience-binding", status="EXCLUDED", probe_class="authserver",
+            prerequisites=("MCPAUTHSCAN_AUDIENCE_RESOURCE (a sibling resource the issuer serves)",),
+            prerequisite_met=False,
+            limitation="No sibling resource supplied to mint a foreign-audience token for")
+    if not token_endpoint:
+        return record(
+            probe_id=17, name="audience-binding", status="EXCLUDED", probe_class="authserver",
+            prerequisites=("a token endpoint",), prerequisite_met=False,
+            limitation="No token endpoint advertised")
+
+    cid, csec = (client.client_id, client.secret) if client else _client_creds()[:2]
+    if not cid:
+        return record(
+            probe_id=17, name="audience-binding", status="EXCLUDED", probe_class="authserver",
+            prerequisites=("an accepted client credential",), prerequisite_met=False,
+            limitation="No client credential supplied")
+
+    # Mint a token legitimately bound to the sibling resource.
+    form = {"grant_type": "client_credentials", "resource": other, "client_id": cid}
+    req = Request(token_endpoint, method="POST")
+    req.add_header("User-Agent", USER_AGENT)
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        _apply_client_secret(req, form, cid, csec, metadata=metadata)
+        req.data = urlencode(form).encode()
+        _pace(); http_status, headers, body = _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
+    except EgressRefusalError:
+        return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Token endpoint outside allowed scope")
+    except Exception as e:
+        return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Token request failed: %s" % e)
+
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    error = payload.get("error", "")
+
+    if error in ("invalid_client", "unauthorized_client"):
+        return record(probe_id=17, name="audience-binding", status="EXCLUDED",
+                      probe_class="authserver", prerequisites=("an accepted client credential",),
+                      prerequisite_met=False, limitation="Client credential refused (%s)" % error)
+    if error in ("invalid_target", "invalid_resource", "invalid_request", "invalid_scope"):
+        # The issuer will not mint for the named sibling, so a validly issued foreign-aud
+        # token cannot be established and the target's aud check is never exercised.
+        return record(probe_id=17, name="audience-binding", status="EXCLUDED",
+                      probe_class="authserver",
+                      prerequisites=("a token the issuer will mint for %s" % other,),
+                      prerequisite_met=False,
+                      limitation="Issuer refused to mint for the sibling resource (%s)" % error)
+    if error in ("unsupported_grant_type", "invalid_grant"):
+        return record(probe_id=17, name="audience-binding", status="EXCLUDED",
+                      probe_class="authserver", prerequisite_met=False,
+                      prerequisites=("a grant the token endpoint accepts",),
+                      limitation="No client-credentials grant (%s)" % error)
+
+    token = payload.get("access_token")
+    if not (200 <= http_status < 300 and isinstance(token, str) and token.strip()):
+        return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                      probe_class="authserver", http_status=http_status, body=body,
+                      detail="Token endpoint returned %s without an access token" % http_status,
+                      endpoint=token_endpoint)
+    token = token.strip()
+
+    # Present the sibling-audience token to the target resource.
+    init = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                       "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                                  "clientInfo": {"name": "mcp-authscan", "version": "2.0.0"}}}).encode("utf-8")
+    pres = Request(mcp_url, method="POST", data=init)
+    pres.add_header("Content-Type", "application/json")
+    pres.add_header("Authorization", "Bearer " + token)
+    pres.add_header("User-Agent", USER_AGENT)
+    try:
+        _pace(); res_status, res_headers, res_body = _egress_guard(pres, allow_private=ALLOW_PRIVATE_TARGETS)
+    except HTTPError as exc:
+        res_status, res_body = exc.code, exc.read()
+    except EgressRefusalError:
+        return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                      probe_class="authserver", detail="Endpoint outside allowed scope")
+    except Exception as e:
+        return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                      probe_class="authserver",
+                      detail="Could not present the token to the endpoint: %s" % e)
+
+    _revoke_audience_token(token_endpoint, token, cid, csec, metadata)
+
+    basis = ("read/initialize surface accepted a token whose aud is %s; "
+             "no write or execute reachability demonstrated with the foreign token" % other)
+    if res_status in (401, 403):
+        return record(probe_id=17, name="audience-binding", status="PASS",
+                      probe_class="authserver", http_status=res_status, body=res_body,
+                      detail="A token minted for %s was refused with %s" % (other, res_status),
+                      endpoint=mcp_url)
+    if 200 <= res_status < 300:
+        # A FAIL must be a 2xx whose body carries a real initialize result. A 2xx that
+        # instead carries a JSON-RPC error, or no parseable result, is not proof the
+        # resource honoured the foreign-audience token: record NOT_OBSERVED, keep the
+        # http status, and name the reason.
+        raw = (res_body or b"").decode("utf-8", "replace")
+        text = raw
+        if "data:" in raw and not raw.lstrip().startswith("{"):   # text/event-stream
+            text = "\n".join(line[5:].strip() for line in raw.splitlines() if line.startswith("data:"))
+        try:
+            msg = json.loads(text)
+        except ValueError:
+            msg = None
+        if not isinstance(msg, dict):
+            return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                          probe_class="authserver", http_status=res_status, body=res_body,
+                          detail="HTTP %s with no parseable JSON-RPC body; audience enforcement not judged"
+                                 % res_status,
+                          endpoint=mcp_url)
+        if "error" in msg:
+            err = msg.get("error")
+            code = err.get("code") if isinstance(err, dict) else None
+            emsg = err.get("message") if isinstance(err, dict) else None
+            return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                          probe_class="authserver", http_status=res_status, body=res_body,
+                          detail="HTTP %s carried a JSON-RPC error (code %s: %s); the resource did not "
+                                 "return a result for the foreign-audience token" % (res_status, code, emsg),
+                          endpoint=mcp_url)
+        result = msg.get("result")
+        if not isinstance(result, dict):
+            return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
+                          probe_class="authserver", http_status=res_status, body=res_body,
+                          detail="HTTP %s with no initialize result in the body; audience enforcement not judged"
+                                 % res_status,
+                          endpoint=mcp_url)
+        rec = record(probe_id=17, name="audience-binding", status="FAIL",
+                     probe_class="authserver", http_status=res_status, body=res_body,
+                     severity="HIGH",
+                     detail=("Honoured a token whose aud is %s, a different resource, returning an "
+                             "initialize result: the resource does not check the token's audience. "
+                             "severity_basis: %s" % (other, basis)),
+                     endpoint=mcp_url)
+        rec.severity_basis = basis
+        return rec
+    return record(probe_id=17, name="audience-binding", status="NOT_OBSERVED",
                   probe_class="authserver", http_status=res_status, body=res_body,
                   detail="Unexpected response presenting the token: HTTP %s" % res_status,
                   endpoint=mcp_url)

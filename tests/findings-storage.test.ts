@@ -279,6 +279,8 @@ print('ownership and complete history preserved')
         assert.match(run.output(), /"event":"findings_storage_ready"/);
         assert.doesNotMatch(run.output(), /"event":"findings_storage_unavailable"/);
         if (label === 'process restart') {
+          const readyHealth = await fetch(`http://127.0.0.1:${run.gatewayPort}/health`);
+          assert.equal(readyHealth.status, 200);
           // Idle loss alerts immediately, not only after a scan request.
           await admin!.query(
             'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
@@ -292,7 +294,9 @@ print('ownership and complete history preserved')
           assert.equal(run.output().match(/"event":"findings_storage_unavailable"/g)?.length, 1);
           assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
         }
-      } finally { await stop(run.child); }
+      } finally {
+        await stop(run.child);
+      }
     });
   }
 
@@ -332,7 +336,7 @@ with sqlite3.connect(sys.argv[1]) as c: c.execute("INSERT INTO findings(descript
       assert.equal(failing.ready, false);
       assert.equal(events.length, 1);
       assert.equal(events[0].reason, 'backup_failed');
-    let invoked = false;
+      let invoked = false;
       await assert.rejects(failing.run(async () => { invoked = true; }), /backup unavailable/);
       assert.equal(invoked, false);
       assert.equal(events.length, 1);
@@ -369,6 +373,7 @@ print(sqlite3.connect(sys.argv[1]).execute("SELECT description FROM findings WHE
   await t.test('losing the writer-lock connection prevents further SQLite operations', async () => {
     const lost = store(path.join(temp, 'lost-connection.sqlite'));
     await lost.open();
+    assert.equal(lost.ready, true);
     await admin!.query(
       'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
       ['vata-findings:fixture-live'],
@@ -380,6 +385,7 @@ print(sqlite3.connect(sys.argv[1]).execute("SELECT description FROM findings WHE
     await assert.rejects(lost.run(async () => { invoked = true; }), /backup unavailable/);
     assert.equal(invoked, false);
     await lost.close();
+    assert.equal(lost.ready, false);
     assert.equal(alerts.get(lost)!.length, 1);
   });
 });

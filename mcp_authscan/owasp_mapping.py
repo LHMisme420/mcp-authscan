@@ -35,6 +35,7 @@ RULE_CATEGORY = {
     "OAuth-9": "MCP07",   # client-auth
     "OAuth-10": "MCP02",  # cross-tenant
     "OAuth-11": "MCP01",  # token-audience
+    "OAuth-17": "MCP01",  # audience-binding
     "potential_unauthenticated_sensitive_data": "MCP07",
     "cors": "MCP07",
     "ZERO-AUTH": "MCP07",

@@ -1,0 +1,5 @@
+mode: expect-issuer
+verdict: EXCLUDED
+reason: client never read the decoy metadata, so issuer binding was not exercised: provider construction failed: ClientCredentialsOAuthProvider.__init__() got an unexpected keyword argument 'issuer'
+touches: []
+captured: none

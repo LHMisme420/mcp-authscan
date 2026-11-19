@@ -160,7 +160,7 @@ def assert_url_is_fetchable(url, allow_private=None):
 
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise HTTPError(req.full_url, code, f"redirect refused: {newurl}", headers, fp)
+        raise EgressRefusalError(f"redirect refused: {newurl}")
 
 
 
@@ -176,23 +176,6 @@ def open_without_redirects(req, timeout=5):
 
 MAX_RESPONSE_SIZE = 10_000_000
 
-def safe_read_response(req, timeout=5, max_size=MAX_RESPONSE_SIZE):
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            data = b''
-            chunk_size = 65536
-            while len(data) < max_size:
-                chunk = resp.read(chunk_size)
-                if not chunk:
-                    break
-                data += chunk
-            if len(data) >= max_size:
-                raise ValueError(f"Response exceeded {max_size} bytes (DoS protection)")
-            return data
-    except HTTPError as e:
-        if e.fp:
-            e.fp.read()
-        raise
 
 class RateLimiter:
     def __init__(self, requests_per_second=10):
@@ -258,7 +241,20 @@ def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
                     md = json.loads(r2.read().decode())
             except Exception as e:
                 print(f"AS metadata failed for {meta_url}: {e}", file=sys.stderr)
-                continue
+                # RFC 8414 metadata failed: retry the same authorization
+                # server host with OpenID Connect discovery.
+                oidc_url = server.rstrip("/") + "/.well-known/openid-configuration"
+                try:
+                    assert_url_is_fetchable(oidc_url, allow_private=allow_private)
+                    req3 = Request(oidc_url)
+                    req3.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+                    with open_without_redirects(req3, timeout=5) as r3:
+                        md = json.loads(r3.read().decode())
+                    if not isinstance(md, dict):
+                        raise ValueError("openid-configuration is not a JSON object")
+                except Exception as e2:
+                    print(f"OIDC metadata failed for {oidc_url}: {e2}", file=sys.stderr)
+                    continue
             if md.get("token_endpoint"):
                 endpoints["token"] = md["token_endpoint"]
             if md.get("authorization_endpoint"):
@@ -345,6 +341,234 @@ def grade_zero_auth(response_body_text):
                     "execute action in the name" % len(tools))
 
 
+# ---- Opt-in tool-call probe (--probe-tools) ----
+# Runs only when --probe-tools is given and discovery reported ZERO_AUTH_DETECTED. One
+# unauthenticated tools/call to one read-only-named tool, graded from the response body.
+# Versioned separately from PROBE_SET_VERSION: it is not part of the OAuth probe set and is
+# never called from run_oauth_assessment or run_target_probes.
+TOOL_CALL_PROBE_VERSION = "2026.11.12.1"
+TOOL_CALL_TIMEOUT = 5
+TOOL_CALL_READ_ONLY_WORDS = frozenset(
+    ("list", "get", "read", "status", "version", "ping", "health", "search", "describe", "info"))
+TOOL_CALL_DENY_WORDS = frozenset(
+    ("write", "delete", "remove", "update", "create", "set", "drop", "exec", "run", "send",
+     "post", "admin", "revoke"))
+TOOL_CALL_NO_MATCH_REASON = "no read-only tool name matched"
+TOOL_CALL_REFUSED_OBSERVATION = "handshake open, tool call refused"
+_TC_CAMEL_LOWER_UPPER = re.compile(r"([a-z0-9])([A-Z])")
+_TC_CAMEL_ACRONYM = re.compile(r"([A-Z]+)([A-Z][a-z])")
+_TC_SEPARATORS = re.compile(r"[^A-Za-z0-9]+")
+
+
+def tool_name_words(name):
+    """Split a tool name into lower-case words for whole-word matching.
+
+    Tokenizer: every character that is not an ASCII letter or digit (_ - . / space and anything
+    else) separates words, and so does a camelCase boundary: lower-or-digit followed by upper
+    ("getStatus" -> get, status) and the end of an upper-case run before a capitalised word
+    ("getHTTPStatus" -> get, http, status). Digits stay attached to the letters beside them
+    ("ping2" is one word, so it does not match "ping"). Matching is on whole words only:
+    "settings" does not match "set" and "listing" does not match "list".
+    """
+    if not isinstance(name, str):
+        return []
+    spaced = _TC_CAMEL_ACRONYM.sub(r"\1 \2", _TC_CAMEL_LOWER_UPPER.sub(r"\1 \2", name))
+    return [w.lower() for w in _TC_SEPARATORS.split(spaced) if w]
+
+
+def select_probe_tool(tools):
+    """First tool, in server order, whose name has a read-only word and no deny word.
+
+    Deny wins over allow: "get_or_create" is never called. Returns (name, skipped_for_deny).
+    """
+    denied = []
+    for tool in tools or []:
+        name = tool.get("name") if isinstance(tool, dict) else None
+        if not isinstance(name, str) or not name:
+            continue
+        words = set(tool_name_words(name))
+        if words & TOOL_CALL_DENY_WORDS:
+            denied.append(name)
+            continue
+        if words & TOOL_CALL_READ_ONLY_WORDS:
+            return name, denied
+    return None, denied
+
+
+def _tc_parse(text):
+    """The JSON-RPC message in a response body, SSE data: framing unwrapped; None if it does not parse."""
+    payload = sse_payload(text)
+    if not payload or not payload.strip():
+        return None
+    try:
+        doc = json.loads(payload)
+    except (ValueError, TypeError):
+        return None
+    if isinstance(doc, dict) and ("result" in doc or "error" in doc):
+        return doc
+    return None
+
+
+def tcAuthShape(err):
+    if isinstance(err, dict):
+        msg = err.get("message", "")
+        data = err.get("data", "")
+        code = err.get("code")
+    else:
+        msg, data, code = err, "", None
+    if code in (401, 403):
+        return True
+    text = (str(msg) + " " + str(data)).lower()
+    for w in ("unauthor", "forbidden", "authentic", "authoriz", "permission", "credential", "token", "scope", "bearer", "login", "api key"):
+        if w in text:
+            return True
+    return False
+
+
+def grade_tool_call(status, body_text):
+    """Grade one tools/call response. Returns (outcome, reason, error, content).
+
+    REFUSED   HTTP 401 or 403; or an error or isError result that shows an authorization refusal
+              (tcAuthShape decides). Anything else is UNKNOWN with the error carried, so an invalid-params rejection cannot withdraw a finding.
+    EXECUTED  a JSON-RPC result object with isError absent or false.
+    UNKNOWN   empty body, a body that does not parse as JSON-RPC, or a result that is not an
+              object. Never graded as either of the other two.
+    Apart from 401/403 the status code is not read: the body decides.
+    """
+    doc = _tc_parse(body_text)
+    if status in (401, 403):
+        err = doc.get("error") if isinstance(doc, dict) else None
+        return "REFUSED", "HTTP %s" % status, err, None
+    if doc is None:
+        if not (body_text or "").strip():
+            return "UNKNOWN", "empty response body", None, None
+        return "UNKNOWN", "response body did not parse as JSON-RPC", None, None
+    if doc.get("error") is not None:
+        if not tcAuthShape(doc.get("error")): return "UNKNOWN", "JSON-RPC error that shows no authorization refusal", doc.get("error"), None
+        return "REFUSED", "JSON-RPC error object", doc.get("error"), None
+    result = doc.get("result")
+    if not isinstance(result, dict):
+        return "UNKNOWN", "JSON-RPC result is not an object", None, None
+    content = result.get("content", result)
+    if result.get("isError") is True:
+        if not tcAuthShape(content): return "UNKNOWN", "tool error that shows no authorization refusal", None, content
+        return "REFUSED", "JSON-RPC result with isError true", None, content
+    return "EXECUTED", "JSON-RPC result without an error", None, content
+
+
+def _tc_cap(value, limit=2000):
+    """Keep parsed error/content as JSON when small; a truncated string otherwise."""
+    if value is None:
+        return None
+    try:
+        text = json.dumps(value, sort_keys=True)
+    except (TypeError, ValueError):
+        text = str(value)
+    if len(text) <= limit:
+        return value
+    return text[:limit] + "...[truncated]"
+
+
+def _tc_post(url, payload, session_id, allow_private, allowed_hosts, timeout=TOOL_CALL_TIMEOUT):
+    """POST one JSON-RPC message with no credential, through the scan's egress guard."""
+    from mcp_authscan.oauth_probes_v2 import _egress_guard
+    from mcp_authscan.mcp_session import SESSION_HEADER, _header
+    hdrs = {
+        "User-Agent": f"mcp-authscan/{VERSION}",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+    }
+    if session_id:
+        hdrs[SESSION_HEADER] = session_id
+    req = Request(url, data=json.dumps(payload).encode(), headers=hdrs, method="POST")
+    status, headers, raw = _egress_guard(req, timeout=timeout, allow_private=allow_private,
+                                         allowed_hosts=allowed_hosts, follow_redirects=False)
+    return status, _header(headers, SESSION_HEADER), raw.decode("utf-8", "replace")
+
+
+def tool_call_not_attempted(target, reason):
+    return {"probe": "tool-call", "version": TOOL_CALL_PROBE_VERSION, "endpoint": target,
+            "outcome": "NOT_ATTEMPTED", "reason": reason, "tool": None, "http_status": None,
+            "error": None, "content": None, "tools_source": None, "tools_seen": [],
+            "tools_skipped_deny": []}
+
+
+def run_tool_call_probe(target, allow_private=None, allowed_hosts=None):
+    """--probe-tools: initialize, take tools from initialize or tools/list, call one read-only tool.
+
+    No Authorization header is ever sent. Exactly one tools/call at most, arguments {}.
+    """
+    from mcp_authscan.errors import EgressRefusalError as _Egress
+    rec = tool_call_not_attempted(target, None)
+    rec["outcome"] = None
+    sid = None
+    try:
+        init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                           "clientInfo": {"name": "mcp-authscan", "version": VERSION}}}
+        _st, sid, text = _tc_post(target, init, None, allow_private, allowed_hosts)
+        if sid:
+            try:
+                _tc_post(target, {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                         sid, allow_private, allowed_hosts)
+            except _Egress:
+                raise
+            except Exception:
+                pass
+        doc = _tc_parse(text)
+        res = doc.get("result") if isinstance(doc, dict) else None
+        tools = res.get("tools") if isinstance(res, dict) else None
+        if isinstance(tools, list) and tools:
+            rec["tools_source"] = "initialize"
+        else:
+            _st, _sid2, text = _tc_post(target, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                                        sid, allow_private, allowed_hosts)
+            doc = _tc_parse(text)
+            res = doc.get("result") if isinstance(doc, dict) else None
+            tools = res.get("tools") if isinstance(res, dict) else None
+            rec["tools_source"] = "tools/list"
+    except _Egress as e:
+        rec.update(outcome="UNKNOWN", reason="egress refused before tools/call: %s" % e)
+        return rec
+    except Exception as e:
+        rec.update(outcome="UNKNOWN", reason="tool list not obtained: %s: %s" % (type(e).__name__, e))
+        return rec
+    tools = tools if isinstance(tools, list) else []
+    rec["tools_seen"] = [t.get("name") for t in tools if isinstance(t, dict) and isinstance(t.get("name"), str)][:50]
+    name, denied = select_probe_tool(tools)
+    rec["tools_skipped_deny"] = denied[:50]
+    if name is None:
+        rec.update(outcome="NOT_ATTEMPTED", reason=TOOL_CALL_NO_MATCH_REASON)
+        return rec
+    rec["tool"] = name
+    call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": name, "arguments": {}}}
+    try:
+        status, _sid3, text = _tc_post(target, call, sid, allow_private, allowed_hosts,
+                                       timeout=TOOL_CALL_TIMEOUT)
+    except _Egress as e:
+        rec.update(outcome="UNKNOWN", reason="egress refused at tools/call: %s" % e)
+        return rec
+    except Exception as e:
+        rec.update(outcome="UNKNOWN", reason="tools/call request failed: %s: %s" % (type(e).__name__, e))
+        return rec
+    outcome, reason, error, content = grade_tool_call(status, text)
+    rec.update(outcome=outcome, reason=reason, http_status=status,
+               error=_tc_cap(error), content=_tc_cap(content))
+    return rec
+
+
+def tool_call_summary(rec):
+    """The short form carried on a finding and in SARIF properties."""
+    return {k: rec.get(k) for k in ("outcome", "tool", "http_status", "reason", "version")}
+
+
+def tool_call_line(rec):
+    return "%s tool=%s http=%s (%s; probe %s)" % (
+        rec.get("outcome"), rec.get("tool") or "none", rec.get("http_status"),
+        rec.get("reason"), rec.get("version"))
+
+
 def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
@@ -388,13 +612,15 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
         try:
             with urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
+                    _raw = resp.read(65536).decode("utf-8", "replace")
+                    if "jsonrpc" not in _raw:
+                        return None, None
                     _de, _di = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
                     if _de:
                         print('[*] metadata names an authorization server, assessing OAuth not zero-auth', file=sys.stderr)
                         return _de, _di
                     # Unauthenticated access - zero-auth vulnerability detected
                     print(f"[!] ZERO-AUTH: Target responds to /initialize without authentication", file=sys.stderr)
-                    _raw = resp.read(65536).decode("utf-8", "replace")
                     _zb = sse_payload(_raw)
                     _sev, _basis = grade_zero_auth(_zb)
                     zero_auth_info = {
@@ -480,7 +706,27 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                                 print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server}", file=sys.stderr)
 
                         except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError):
-                            continue
+                            # RFC 8414 metadata failed: retry the same authorization
+                            # server host with OpenID Connect discovery.
+                            try:
+                                oidc_metadata_url = oauth_server.rstrip("/") + "/.well-known/openid-configuration"
+                                assert_url_is_fetchable(oauth_server, allow_private=ALLOW_PRIVATE_TARGETS)
+                                req = Request(oidc_metadata_url)
+                                req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
+
+                                with open_without_redirects(req, timeout=5) as resp:
+                                    oidc_data = json.loads(resp.read().decode())
+
+                                    endpoints_found = {
+                                        "token": oidc_data.get("token_endpoint"),
+                                        "authorize": oidc_data.get("authorization_endpoint"),
+                                    }
+                                    endpoints_found = {k: v for k, v in endpoints_found.items() if v}
+                                    all_endpoints.update(endpoints_found)
+                                    print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server} via openid-configuration", file=sys.stderr)
+
+                            except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError, AttributeError):
+                                continue
 
                     if all_endpoints:
                         discovery_info = {
@@ -552,7 +798,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     # Should be JSON-RPC response
                     body = resp.read(65536).decode(errors='ignore')
                     try:
-                        data = json.loads(body)
+                        data = json.loads(sse_payload(body))
                         if isinstance(data, dict) and ('jsonrpc' in data or ('result' in data or 'error' in data)):
                             mcp_verified = True
                             r = data.get('result') or {}
@@ -598,7 +844,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         print(f"[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)", file=sys.stderr)
         preflight_info = {"status": "PREFLIGHT_FAILED"}
     else:
-        preflight_info = {"status": "MCP_VERIFIED"}
+        preflight_info = {"status": "MCP_VERIFIED", "preflight_verified": True}
 
     print(f"[*] Attempting OAuth discovery...", file=sys.stderr)
 
@@ -779,13 +1025,13 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
 
         # Report DISCOVERY_INCOMPLETE with forensic details
         print(f"[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed", file=sys.stderr)
-        print(f"[!] The preflight verified an MCP surface, but RFC 9728 → RFC 8414 chain did not complete", file=sys.stderr)
+        print("RFC 9728 to RFC 8414 discovery incomplete; no MCP surface established", file=sys.stderr)
         print(f"[!] Cannot test OAuth endpoints without discovery. Halting.", file=sys.stderr)
 
         # Return with DISCOVERY_INCOMPLETE status
         discovery_incomplete = {
             "status": "DISCOVERY_INCOMPLETE",
-            "preflight_verified": True,
+            "preflight_status": ("MCP_VERIFIED" if mcp_verified else "MCP_NOT_OBSERVED"),
             "preflight_status": "MCP_VERIFIED",
             "discovery_attempted": True,
             "discovery_failed_at": "resource_metadata_or_oauth_server_metadata",
@@ -802,7 +1048,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.10.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = "2026.11.16.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -1482,7 +1728,7 @@ def _ghsa_uri(ref):
     m = re.search(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}", ref or "", re.I)
     return f"https://github.com/advisories/{m.group(0)}" if m else None
 
-def to_sarif(findings, target):
+def to_sarif(findings, target, tool_call_probe=None):
     """Build a SARIF 2.1.0 log. Carries the same report_sha256 receipt as --json
     (over the identical findings payload) in run.properties so a SARIF run is as
     anchorable as a JSON one."""
@@ -1492,6 +1738,8 @@ def to_sarif(findings, target):
     for f in findings:
         if f["rule"] not in rule_ids:
             rule_ids.append(f["rule"])
+    if tool_call_probe is not None and "ZERO-AUTH" not in rule_ids:
+        rule_ids.append("ZERO-AUTH")
     rule_index = {rid: i for i, rid in enumerate(rule_ids)}
     rules = []
     for rid in rule_ids:
@@ -1506,6 +1754,8 @@ def to_sarif(findings, target):
                 "tags": ["security", "mcp", "oauth"] + meta.get("cwe", []),
             },
         })
+        if tool_call_probe is not None and rid == "ZERO-AUTH":
+            rules[-1]["properties"]["toolCallProbe"] = dict(tool_call_probe)
     results = []
     for f in findings:
         rid = f["rule"]
@@ -1522,6 +1772,8 @@ def to_sarif(findings, target):
             props["advisory"] = adv
         if f.get('severity_basis'):
             props['severityBasis'] = f['severity_basis']
+        if tool_call_probe is not None and f.get('tool_call_probe'):
+            props['toolCallProbe'] = f['tool_call_probe']
         results.append({
             "ruleId": rid,
             "ruleIndex": rule_index[rid],
@@ -2183,7 +2435,9 @@ def generate_html_report(findings, target, output_file, payload=None):
         '<h2>Findings</h2>', body,
         "<p>%s</p>" % escape(footer_line(payload)),
         '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
-        '<p>Hash covers: %s.</p><p>Evidence and remediation text are outside the hash.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
+        '<p>Schema version 3 (verdict-v3). Hash covers: %s.</p>'
+        '<p>Finding descriptions and remediation are covered; raw response evidence, '
+        'timestamps, session IDs and server-varying headers are excluded.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
         '</div></body></html>',
     ])
 
@@ -2207,6 +2461,8 @@ def main():
 
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
+    ap.add_argument("--sign", action="store_true",
+                    help="sign schema-3 JSON with ~/.config/mcp-authscan/report-signing.pem (Ed25519)")
     ap.add_argument("--verbose", "-v", action="store_true",
                     help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
@@ -2248,8 +2504,26 @@ def main():
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
+    ap.add_argument("--probe-tools", action=argparse.BooleanOptionalAction, default=False,
+                    help="after a zero-auth handshake, send one unauthenticated tools/call (arguments {}) "
+                         "to the first tool whose name is a read-only word (list, get, read, status, "
+                         "version, ping, health, search, describe, info) and none of write, delete, remove, "
+                         "update, create, set, drop, exec, run, send, post, admin, revoke. A refused call "
+                         "replaces the zero-auth finding with 'handshake open, tool call refused'. Off by default")
+
+    ap.add_argument("--brief", action="store_true",
+                    help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
 
     args = ap.parse_args()
+    if args.sign and (not args.json or args.html or args.sarif):
+        ap.error("--sign requires --json and cannot be combined with --html or --sarif")
+    if args.brief and (args.json or args.html or args.sarif):
+        ap.error("--brief applies to the text output; it cannot be combined with --json, --html or --sarif")
+    # --brief changes only what prints: everything that would go to stdout goes to devnull
+    # (or only to the --output file), and the VERDICT line alone reaches the terminal.
+    verdict_out = sys.stdout
+    if args.brief:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
     if args.output and not (args.html or args.json):
         sys.stdout = open_tee(args.output)
 
@@ -2306,6 +2580,10 @@ def main():
     probes_excluded = 0
     probes_not_implemented = 0
     discovery_info = None
+    tool_call_probe = None  # set only with --probe-tools
+    if getattr(args, "probe_tools", False) and not getattr(args, "allow_host", []):
+        tool_call_probe = tool_call_not_attempted(args.target, "no --allow-host given, so no tool call was attempted")
+        print("[*] Tool-call probe SKIPPED: %s" % tool_call_probe["reason"], file=sys.stderr)
     repo_url = None
     branch = None
     commit_sha_long = None
@@ -2378,13 +2656,29 @@ def main():
                 "response_status": discovery_info.get("response_status", 200),
                 "response_body": discovery_info.get("response_body", ""),
                 "response_preview": discovery_info.get("response_preview", "HTTP 200 - MCP endpoint accessible"),
-                "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+                # Set from the tool-call probe outcome once it is known (see severity_basis).
+                "interpretation": "MCP server requires no authentication.",
                 "remediation": "Implement authentication and authorization controls for all MCP endpoints."
             }]
             probe_status = {'attempted': 0, 'passed': 0, 'failed': 0, 'not_observed': 0, 'observation': 0}
             from mcp_authscan.target_probes import counts as _tcounts
             probe_status = _tcounts(oauth_records) if oauth_records else probe_status
             F = findings + list(F)
+            if getattr(args, "probe_tools", False) and getattr(args, "allow_host", []):
+                tool_call_probe = run_tool_call_probe(
+                    args.target, allow_private=args.allow_private, allowed_hosts=sorted(ALLOWED_HOSTS))
+                print("[*] Tool-call probe: %s" % tool_call_line(tool_call_probe), file=sys.stderr)
+                if tool_call_probe["outcome"] == "REFUSED":
+                    F = [f for f in F if f is not findings[0]]
+                    tool_call_probe["zero_auth_suppressed"] = True
+                    tool_call_probe["observation"] = TOOL_CALL_REFUSED_OBSERVATION
+                    print("[*] %s: zero-auth finding withdrawn for %s" % (TOOL_CALL_REFUSED_OBSERVATION, args.target),
+                          file=sys.stderr)
+                else:
+                    tool_call_probe["zero_auth_suppressed"] = False
+                    findings[0]["tool_call_probe"] = tool_call_summary(tool_call_probe)
+        elif getattr(args, "probe_tools", False) and getattr(args, "allow_host", []):
+            tool_call_probe = tool_call_not_attempted(args.target, "zero-auth handshake not observed")
 
         if is_http_target:
             from mcp_authscan import content_probe
@@ -2827,6 +3121,39 @@ def main():
         canonical_payload.pop(key, None)
     
     canonical_payload["content_observed"] = getattr(args, "content_observed", {})
+    t=((canonical_payload.get("content_observed") or {}).get("inspected") or {}).get("tools") or 0
+    _tc_out = tool_call_probe.get("outcome") if tool_call_probe is not None else None
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_basis = "tool-call probe not run"
+    elif _tc_out == "REFUSED":
+        _tc_basis = "tool-call probe REFUSED"
+    elif _tc_out == "EXECUTED":
+        _tc_basis = "tool-call probe EXECUTED %s" % (tool_call_probe.get("tool") or "none")
+    elif _tc_out == "UNKNOWN":
+        _tc_basis = "tool-call probe UNKNOWN"
+    else:
+        _tc_basis = "tool-call probe returned unexpected outcome %r" % (_tc_out,)
+    _tc_open = "MCP server completed the handshake with no authentication" + (
+        " and listed %d tool(s)." % t if t else ".")
+    if tool_call_probe is None or _tc_out == "NOT_ATTEMPTED":
+        _tc_interp = _tc_open + " Tool invocation was not tested (tool-call probe not run)."
+    elif _tc_out == "REFUSED":
+        _tc_interp = _tc_open + " The tool-call probe was refused without a credential, so tool invocation was not shown to be open."
+    elif _tc_out == "EXECUTED":
+        _tc_interp = ("MCP server requires no authentication. Any client can call tools, resources and prompts. "
+                      "The tool-call probe executed %s with no credential." % (tool_call_probe.get("tool") or "none"))
+    elif _tc_out == "UNKNOWN":
+        _tc_interp = _tc_open + " The tool-call probe ran but its result was inconclusive (UNKNOWN), so tool invocation was not established."
+    else:
+        _tc_interp = _tc_open + " The tool-call probe returned unexpected outcome %r, so tool invocation was not established." % (_tc_out,)
+    for f in F:
+        if f.get("rule") == "ZERO-AUTH":
+            f["interpretation"] = _tc_interp
+    if t:
+     for f in F:
+      if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
+       f["severity"]="HIGH"
+       f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
     exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
@@ -2834,25 +3161,26 @@ def main():
     canonical_payload["exit_condition"] = exit_condition
     canonical_payload["exit_code"] = exit_code
     canonical_payload["fail_on"] = args.fail_on
-    # The hash covers the verdict structure only. Evidence and detail prose can carry
-    # values the server generates per run, so it is excluded by construction here
-    # rather than redacted case by case.
-    HASHED_KEYS = (
-        "target", "scan_mode", "probe_set_version", "probes", "counts", "coverage", "completed",
-        "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition",
-        "exit_code", "fail_on", "authorization", "hash_scheme",
-    )
-    hashed = {k: canonical_payload[k] for k in HASHED_KEYS if k in canonical_payload}
-    if isinstance(hashed.get("probes"), list):
-        hashed["probes"] = sorted(str(p) for p in hashed["probes"])
-    hashed["findings"] = sorted(
-        ({k: f[k] for k in ("severity", "rule", "title", "endpoint", "severity_basis") if k in f} for f in F),
-        key=lambda d: json.dumps(d, sort_keys=True),
-    )
-    payload_json = json.dumps(hashed, sort_keys=True)
-    payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+    from mcp_authscan.report_verify import compute, severity_counts
+    canonical_payload["schema_version"] = 3
+    canonical_payload["status"] = "completed" if not halted else "incomplete"
+    canonical_payload["total_checks"] = counts["in_scope"]
+    canonical_payload["findings_count"] = len(F)
+    # Explicit adapters preserve the CLI's original title/detail fields outside
+    # the shared hash. The covered description is the stable finding description.
+    for finding in F:
+        finding.setdefault("server_name", args.target)
+        finding.setdefault("vector_type", finding.get("rule"))
+        finding.setdefault("description", finding.get("title"))
+        for key in ("rule", "severity", "severity_basis", "endpoint", "remediation"):
+            finding.setdefault(key, None)
+    canonical_payload["severity_counts"] = severity_counts(F)
+    payload_hash, covered, report_bytes = compute(canonical_payload, F, include_bytes=True)
     canonical_payload["report_hash"] = payload_hash
-    canonical_payload["hash_covers"] = sorted(hashed)
+    canonical_payload["hash_covers"] = covered
+    if args.sign:
+        from mcp_authscan.report_signing import sign_report
+        sign_report(canonical_payload, report_bytes)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
@@ -2861,12 +3189,15 @@ def main():
     except EgressRefusalError as e:
         print("[!] %s" % e, file=sys.stderr)
         canonical_payload["tools_digest"] = {"captured": False, "endpoint": args.target, "reason": "egress refused at capture"}
+    if tool_call_probe is not None and getattr(args, "probe_tools", False):
+        # Added after hashing, like tools_digest; present only with --probe-tools.
+        canonical_payload["tool_call_probe"] = tool_call_probe
 
     if args.html:
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html", canonical_payload)
         print(f"[+] HTML report saved to {html_file}")
     elif args.sarif:
-        print(json.dumps(to_sarif(F, args.target), indent=2))
+        print(json.dumps(to_sarif(F, args.target, tool_call_summary(tool_call_probe) if tool_call_probe is not None else None), indent=2))
     elif args.json:
         report_json = json.dumps(canonical_payload, indent=2)
         if args.output:
@@ -2881,9 +3212,7 @@ def main():
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
             print("DISCOVERY STATUS")
             print("-" * 80)
-            print("PREFLIGHT CHECK: PASSED")
-            print("  POST initialize answered with an MCP JSON-RPC response")
-            print("  Preflight verified an MCP surface; the OAuth discovery chain did not complete.")
+            print("PREFLIGHT CHECK: " + ("PASSED: POST initialize answered with an MCP JSON-RPC response" if discovery_info.get("preflight_verified") else "FAILED: no MCP JSON-RPC response observed"))
             print("")
             print("DISCOVERY CHAIN: INCOMPLETE")
             print("  RFC 9728 → RFC 8414 discovery attempted but did not complete.")
@@ -2916,7 +3245,19 @@ def main():
                     if ev:
                         print("  EVIDENCE: %s" % ev)
                     print("")
+            print_verdict(F, counts, target_host, verdict_out if args.brief else None)
             sys.exit(exit_code)  # halted scan exits on its findings
+
+        if tool_call_probe is not None:
+            report_lines.append("TOOL-CALL PROBE")
+            report_lines.append("-" * 80)
+            report_lines.append("Outcome: %s" % tool_call_line(tool_call_probe))
+            if tool_call_probe.get("outcome") not in ("EXECUTED", "REFUSED") and tool_call_probe.get("reason"):
+                report_lines.append("Skipped: %s (%s)" % (tool_call_probe.get("reason"), tool_call_probe.get("outcome")))
+            if tool_call_probe.get("observation"):
+                report_lines.append("Observation: %s" % tool_call_probe["observation"])
+            report_lines.append("-" * 80)
+            report_lines.append("")
 
         # Build summary from actual probe records (data-driven only)
         report_lines.append("PROBE RESULTS SUMMARY")
@@ -2951,6 +3292,8 @@ def main():
                         print('  also seen under: ' + ', '.join(x['also_seen_under']))
                     if x.get('severity_basis'):
                         print(f"  Severity basis: {x['severity_basis']}")
+                    if x.get('tool_call_probe'):
+                        print("  Tool-call probe: %s" % tool_call_line(x['tool_call_probe']))
                 else:
                     print(f"[{x['severity']}/{x['confidence']}] {x['rule']}  {x['title']}")
                     print(f"  {x['file']}:{x['line']}  ({x['ref']})")
@@ -3021,8 +3364,32 @@ def main():
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
         else:
             print(f"{len(F)} finding(s).")
+        print_verdict(F, counts, target_host, verdict_out if args.brief else None)
 
     sys.exit(exit_code)
+
+
+def verdict_grade(findings, counts):
+    """Printed grade only: reads the severities already on the findings, never re-grades."""
+    severities = {f.get("severity") for f in findings}
+    for sev in ("CRITICAL", "HIGH", "MEDIUM"):
+        if sev in severities:
+            return sev
+    # Nothing at MEDIUM or above: PASS only if some probe reached a verdict (PASS or FAIL),
+    # the same "conclusive" count counts.verdict_line uses; otherwise INCONCLUSIVE, never PASS.
+    if counts.get("PASS", 0) + counts.get("FAIL", 0) > 0:
+        return "PASS"
+    return "INCONCLUSIVE"
+
+
+def print_verdict(findings, counts, host, brief_out=None):
+    line = "VERDICT %s | %s | %d findings | %d passed | %d not observed | %d excluded | probe set %s" % (
+        verdict_grade(findings, counts), host, len(findings), counts.get("PASS", 0),
+        counts.get("NOT_OBSERVED", 0), counts.get("EXCLUDED", 0), PROBE_SET_VERSION)
+    print(line)
+    if brief_out is not None:
+        print(line, file=brief_out)
+        brief_out.flush()
 
 
 EXIT_CONTRACT = "2026.11.02.4"

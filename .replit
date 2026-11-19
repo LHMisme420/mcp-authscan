@@ -94,6 +94,10 @@ UV_PROJECT_ENVIRONMENT = ".pythonlibs"
 UV_PYTHON_DOWNLOADS = "never"
 UV_PYTHON_PREFERENCE = "only-system"
 
+[userenv.development]
+ASSESSMENT_EMAIL_FROM = "onboarding@resend.dev"
+ASSESSMENT_EMAIL_TO = "lhmisme2011@gmail.com"
+
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000

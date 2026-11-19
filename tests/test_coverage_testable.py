@@ -39,19 +39,19 @@ class CoverageOverTestable(unittest.TestCase):
         counts = report["counts"]
         excluded = sorted(x["name"] for x in report["probes"] if x["status"] == "EXCLUDED")
         self.assertEqual(13, counts["in_scope"])  # 11 OAuth records plus CORS and rate-limit
-        self.assertEqual(["pkce-s256", "rate limiting on the endpoint", "redirect-uri-exact", "token-audience", "token-cors"], excluded)
-        self.assertEqual(5, counts["EXCLUDED"])
+        self.assertEqual(["cross-origin read on the MCP endpoint", "pkce-s256", "rate limiting on the endpoint", "redirect-uri-exact", "token-audience", "token-cors"], excluded)
+        self.assertEqual(6, counts["EXCLUDED"])
         testable = counts["in_scope"] - counts["EXCLUDED"]
-        self.assertEqual(8, testable)
-        self.assertEqual(8, counts["PASS"] + counts["FAIL"])
+        self.assertEqual(7, testable)
+        self.assertEqual(7, counts["PASS"] + counts["FAIL"])
         self.assertEqual(1.0, report["coverage"])
         lines = [l for l in t.stdout.splitlines() if l.startswith("Coverage:")]
         self.assertEqual(1, len(lines), "exactly one printed Coverage line: %r" % lines)
         m = re.match(r"Coverage: (\d+) of (\d+) testable probes reached a verdict \((\d+\.\d+)\)", lines[0])
         self.assertIsNotNone(m, "printed coverage line: %r" % lines[0])
-        self.assertEqual((8, 8), (int(m.group(1)), int(m.group(2))))
+        self.assertEqual((7, 7), (int(m.group(1)), int(m.group(2))))
         self.assertEqual(report["coverage"], float(m.group(3)))
-        self.assertIn("5 excluded", lines[0])
+        self.assertIn("6 excluded", lines[0])
 
 
 if __name__ == "__main__":

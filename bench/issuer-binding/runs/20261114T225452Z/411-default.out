@@ -1,0 +1,5 @@
+mode: default
+verdict: FAIL
+reason: client presented credentials to an authorization server whose issuer did not match the protected resource
+touches: ['POST /mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-authorization-server', 'POST /token', 'POST /mcp', 'POST /mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-authorization-server', 'POST /token', 'POST /mcp']
+captured: present

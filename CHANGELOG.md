@@ -12,7 +12,10 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.25] - 2026-11-18
+
 ### Added
+- Probe 17 (audience-binding, OAuth-17): against a running endpoint it mints a token whose `aud` is a sibling resource the same issuer serves and presents it. Honouring it — a 2xx carrying a real `initialize` result — is FAIL, HIGH (`severity_basis` records the read/initialize surface; CRITICAL is reserved for a separately demonstrated reachable write/execute surface). Refusal (401/403) is PASS. A 2xx carrying a JSON-RPC error, or no parseable result, is NOT_OBSERVED with the http status kept and the reason named. The probe is **opt-in and EXCLUDED by default**: it runs only when `MCPAUTHSCAN_AUDIENCE_RESOURCE` names a sibling resource and the issuer will mint for it, and names the missing prerequisite otherwise. Distinct from probe 11 (token-audience), which mints for a sentinel resource the issuer does not serve; probe 11 and the cross-tenant probe are untouched. Both outcomes are pinned in `bench/answer-key/` as committed fixtures scanned by the full CLI (`audience_accept`, `audience_refuse`, `audience_jsonrpc_error`). Probe set 2026.11.18.1.
 - Rate limiting is now probed and reported: a 429 inside the authorised budget passes, no 429 inside it is not observed, and a scan with no budget is excluded with the reason named.
 
 ### Fixed
@@ -75,6 +78,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Probe set stamps
 
+- 2026.11.18.1: probe 17 added audience-binding (OAuth-17). Distinct from probe 11 (token-audience), which mints for a resource the issuer does not serve (foreign-resource.invalid) and passes if that is refused. Probe 17 mints a token for a real sibling resource the same issuer serves, supplied as MCPAUTHSCAN_AUDIENCE_RESOURCE -- a legitimately issued credential -- and presents it to the target. 401/403 is PASS; a 2xx initialize is FAIL HIGH, because the resource honoured a token whose aud is a different resource and so does not check the token's audience. Severity is HIGH on the read/initialize surface this probe exercises and severity_basis records that; CRITICAL is reserved for a separately demonstrated reachable write or execute surface and is not asserted here. The probe is opt-in (appended only when MCPAUTHSCAN_AUDIENCE_RESOURCE is set), so a default run is unchanged and no past report is regraded; probe 11 and probe_cross_tenant are untouched.
+- 2026.11.16.2: probe 16 added MCP-ORIGIN-PARITY-1. On a target path ending in mcp, an OPTIONS preflight carrying Origin: https://probe.invalid is sent to the sibling sse path on the same host. 200 echoing that origin is FAIL MEDIUM; 401, 403, a non-echoing response, 404, 405, 5xx and unreadable bodies are EXCLUDED with the reason recorded and the status kept. No new host is contacted and no tool is called, and the FAIL is merged into findings on both return paths of run_target_probes so a passing CORS check cannot hide it. 2026.11.16.1 stamped the transport probe in the same push; no past report is regraded.
 - 2026.11.10.2: preflight now records serverInfo.name, serverInfo.version and the negotiated protocolVersion from the unauthenticated initialize it already performs. NOT_OBSERVED when the response carries no result. No new request, no new host contacted.
 
 - 2026.11.10.1: recorded a probe set change that landed between 2026-11-07 and 2026-11-10 without a stamp bump; every component recomputed from the tree at the time of recording, fingerprint e2c0850f. No PASS or FAIL verdict changed, and no past report is regraded.

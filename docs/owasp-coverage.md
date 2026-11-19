@@ -12,7 +12,7 @@ Every report stamps this mapping version beside the probe-set version, so a repo
 
 | Category | State | Probes | Backing, or why not |
 | --- | --- | --- | --- |
-| MCP01 Token Mismanagement & Secret Exposure | covered | OAuth-3, OAuth-4, OAuth-5, OAuth-11 | - |
+| MCP01 Token Mismanagement & Secret Exposure | covered | OAuth-3, OAuth-4, OAuth-5, OAuth-11, OAuth-17 | - |
 | MCP02 Privilege Escalation via Scope Creep | partial | OAuth-10 | Only cross-tenant isolation, and only when MCPAUTHSCAN_CROSS_TENANT=1 is set. A default run leaves it untested. |
 | MCP03 Tool Poisoning | untested | MCPC-1 | Content is read and directive-like metadata is reported as a finding; a clean read demonstrates no property, so the category carries no verdict. |
 | MCP04 Software Supply Chain Attacks & Dependency Tampering | untested | - | Needs package, lockfile and provenance inspection; a running endpoint cannot show it. |

@@ -64,8 +64,8 @@ def test_fail_on_client_without_issuer_binding(capsys):
         if (row["path"] or "").split("?")[0] == "/token" and row["authorization"]
     ]
     assert token_rows, "expected a captured /token row with an Authorization header"
-    # Authorization must be redacted (first-five/last-four), never raw.
-    assert "..." in token_rows[0]["authorization"]
+    # Authorization must be redacted to the scheme only, never raw.
+    assert token_rows[0]["authorization"].endswith(" [redacted]")
     assert _no_raw_secret(raw), "raw secret/token leaked into the report"
 
 
@@ -85,7 +85,14 @@ def test_pass_on_client_with_issuer_binding(capsys):
     assert _no_raw_secret(raw)
 
 
-def test_redact_keeps_five_and_four():
-    assert client_check.redact("Basic QUJDREVGR0hJSg==") == "Basic...Sg=="
-    assert client_check.redact("short") == "*****"
+def test_redact_scheme_only():
+    assert client_check.redact("Basic QUJDREVGR0hJSg==") == "Basic [redacted]"
+    assert client_check.redact("Bearer abc.def.ghi") == "Bearer [redacted]"
+    # No fragment of the credential survives.
+    for value in ("Basic QUJDREVGR0hJSg==", "Bearer abc.def.ghi"):
+        credential = value.split(" ", 1)[1]
+        out = client_check.redact(value)
+        assert all(credential[i:i + 2] not in out for i in range(len(credential) - 1))
+    # A value with no scheme is fully redacted.
+    assert client_check.redact("short") == "[redacted]"
     assert client_check.redact(None) is None

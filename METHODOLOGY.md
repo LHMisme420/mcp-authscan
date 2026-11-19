@@ -97,6 +97,36 @@ checkout reproduces the reported numbers.
 - OpenSSF Scorecard (6.4/10) measures repository hygiene, not detection accuracy; the
   detection grade is the benchmark, external probe, and differential above.
 
+## Live OAuth probe: audience binding (probe 17)
+
+Against a running endpoint, probe 17 asks whether the server accepts a credential cut
+for a different service on the same issuer. It mints a token whose `aud` is a sibling
+resource and presents it to the target:
+
+- the target returns a real `initialize` result (2xx) → **FAIL, HIGH**: the resource does
+  not check the token's audience. Severity is HIGH on this read/initialize surface, and
+  `severity_basis` says so; CRITICAL is reserved for a separately demonstrated reachable
+  write or execute surface and is not asserted by this probe.
+- the target refuses with 401/403 → **PASS**.
+- the target returns 2xx carrying a JSON-RPC error, or no parseable initialize result →
+  **NOT_OBSERVED**, with the status kept and the reason named. A refusal returned as 200
+  is not proof the token was honoured.
+
+**Precondition — read this before concluding the check is empty.** Probe 17 is opt-in and
+its *default answer is EXCLUDED*. It runs only when you name a sibling resource the same
+issuer also serves, via `MCPAUTHSCAN_AUDIENCE_RESOURCE`, and only when that issuer will
+mint a token for it. With no sibling supplied the probe records EXCLUDED and names the
+missing prerequisite — it does not pass and does not fail. A target that serves a single
+resource has nothing for this probe to confront, by construction. This is distinct from
+probe 11 (token-audience), which mints for a sentinel resource the issuer does not serve;
+probe 17 is about a *legitimately issued* credential for a real neighbour.
+
+Both outcomes are pinned in the answer key (`bench/answer-key/`) as committed fixtures
+scanned by the full CLI: `audience_accept` (FAIL, HIGH, exit 1), `audience_refuse` (PASS,
+exit 5), and `audience_jsonrpc_error` (the 200-with-error case, NOT_OBSERVED). The grade
+is known before the scanner runs, so a regression that graded any 2xx as FAIL turns
+`audience_jsonrpc_error` into a MISS — a real regression test, not an assertion.
+
 ## Provenance
 Findings are live-reproduced before disclosure and filed through coordinated channels.
 Each detector rule carries a `VATA:` tag linking it to its seed finding.
