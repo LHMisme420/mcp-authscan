@@ -36,9 +36,9 @@ test('AgentPayStore sample is labelled a development build with an unreleased pr
 test('reproducible sample names a published release, its wheel hash and the expected report hash', async () => {
   const html = await render();
   const section = html.slice(html.indexOf('id="reproducible-sample"'));
-  assert.match(section, /mcp-authscan 1\.1\.25, probe set 2026\.11\.16\.1/);
-  assert.match(section, /b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5/);
-  assert.match(section, /d5d24b8ca41adaaf3bb70a6e5f66cf21d361f84db08f3f493776e476d92479c1/);
+  assert.match(section, /mcp-authscan 1\.1\.26, probe set 2026\.11\.19\.3/);
+  assert.match(section, /b67e59bc4bffa9291d66f20657e471308db5d3cf325a0dad95ebc6234989e7cf/);
+  assert.match(section, /f679fc77bc27f73836c147cefe7efa8fcf3f0e763c1292f179fdf40c244d2028/);
   const blocks = [...section.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) => unescape(m[1]));
   assert.equal(blocks.length, 7);
   assert.match(section, /SIGNED BY followed by your key id/);

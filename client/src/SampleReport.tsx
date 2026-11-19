@@ -3,9 +3,9 @@ import PublicSiteLayout from './PublicSiteLayout';
 // Owner-frozen wording: do not edit for tone. Any copy change requires the
 // owner's review and an explicit update to the approved-copy regression fixture.
 // 2026-11-19: owner-requested change. The AgentPayStore run is labelled a development
-// build (its probe set 2026.11.16.2 is in no release) and a reproducible 1.1.25 sample
+// build (its probe set 2026.11.16.2 is in no release) and a reproducible 1.1.26 sample
 // sits beside it in its own article, outside the approved-copy fixture.
-const RH_SHORT = 'd5d24b8c';
+const RH_SHORT = 'f679fc77';
 const FIXTURE = `import json, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class H(BaseHTTPRequestHandler):
@@ -87,14 +87,14 @@ export default function SampleReport() {
             Everything below uses a published release and a published probe set, so you can repeat it and compare
             your result with the one shown. The target is a small test server you run on your own machine.
           </p>
-          <p>Scanner: mcp-authscan 1.1.25, probe set 2026.11.16.1, severity calibration 2026.11.07.1.</p>
-          <p>Wheel sha256: b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5</p>
+          <p>Scanner: mcp-authscan 1.1.26, probe set 2026.11.19.3, severity calibration 2026.11.07.1.</p>
+          <p>Wheel sha256: b67e59bc4bffa9291d66f20657e471308db5d3cf325a0dad95ebc6234989e7cf</p>
           <h2>STEPS</h2>
           <p>1. Install the release and check you received the published wheel:</p>
           <pre><code>{`python3 -m venv v
-v/bin/pip install "mcp-authscan[signing]==1.1.25"
-v/bin/pip download --no-deps mcp-authscan==1.1.25 -d wheel
-sha256sum wheel/mcp_authscan-1.1.25-py3-none-any.whl`}</code></pre>
+v/bin/pip install "mcp-authscan[signing]==1.1.26"
+v/bin/pip download --no-deps mcp-authscan==1.1.26 -d wheel
+sha256sum wheel/mcp_authscan-1.1.26-py3-none-any.whl`}</code></pre>
           <p>2. Save this test server as fixture.py and start it. It answers MCP with no authentication and lists one tool:</p>
           <pre><code>{FIXTURE}</code></pre>
           <pre><code>{`python3 fixture.py 19191 &`}</code></pre>
@@ -104,14 +104,14 @@ sha256sum wheel/mcp_authscan-1.1.25-py3-none-any.whl`}</code></pre>
   --contact "you@example.com" --allow-private`}</code></pre>
           <h2>WHAT YOU SHOULD SEE</h2>
           <p>Exit code 1: one finding, HIGH, ZERO-AUTH, Unauthenticated MCP endpoint. Coverage 1.0.</p>
-          <p>Report hash: d5d24b8ca41adaaf3bb70a6e5f66cf21d361f84db08f3f493776e476d92479c1</p>
+          <p>Report hash: f679fc77bc27f73836c147cefe7efa8fcf3f0e763c1292f179fdf40c244d2028</p>
           <p>Security state ID (anonymous): 5699f598ef6b9664b4c5d908b457484e5108fcd19a2688e0ef68b1b7c4df0c73</p>
           <p>4. Verify it, and map it to the release that produced it:</p>
           <pre><code>{`v/bin/python -m mcp_authscan.report_verify report.json
 v/bin/python -m mcp_authscan.releases report.json`}</code></pre>
           <p>
-            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.25 for probe
-            set 2026.11.16.1 and installed_matches true. A different hash means different graded content: a
+            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.26 for probe
+            set 2026.11.19.3 and installed_matches true. A different hash means different graded content: a
             different release, probe set, server or URL. The port is part of the URL.
           </p>
           <p>
