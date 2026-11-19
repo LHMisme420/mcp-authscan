@@ -4,4 +4,4 @@
 # refuses when the wheel it builds, or the wheel already on PyPI, has another hash.
 # The hash here must be the one published in CHANGELOG.md and on the site.
 1.1.25	b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5	1795083301
-1.1.26	f1ea12271e270125564ba1825587da444f893898e0ac0b8cd3c358e6d9667037	1795093151
+1.1.26	b67e59bc4bffa9291d66f20657e471308db5d3cf325a0dad95ebc6234989e7cf	1795093151
