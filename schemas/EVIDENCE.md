@@ -43,11 +43,32 @@ The output directory is chosen in this order:
 | `<state_id>.state.json` | The security-state-v1 object, including `state_id`. It is content-addressed, so rescanning an unchanged boundary rewrites the same file with the same bytes. |
 | `observation-<YYYYMMDDTHHMMSSZ>-<access_class>-<state_id[:12]>.json` | The observation-v1 envelope for that state. One per run per access class. |
 
-All evidence files are written **before** the report. If any of them can't be written, the scan exits 4 and writes no report, so a report never names a STATE ID whose file is missing.
+### 1.3 Ledger rows
 
-The ledger and passport are specified but not written by the scanner yet. `mcp_authscan.evidence.ledger.append_observation(path, observation)` appends to a ledger.
+After signing, each observation's state is appended to the ledger for its target and access class:
 
-### 1.3 Which access classes are captured
+```
+<ledger dir>/<host>_<port>-<sha256(target)[:16]>/<access_class>.jsonl
+```
+
+`<ledger dir>` is `--ledger-dir DIR`, or `<evidence dir>/ledger` by default. Use the same directory across runs, or each run starts a new ledger. The file name only *locates* the ledger. Its header line `{schema, target, access_class}` *binds* it, and an append for a different target or class is refused. A state equal to the ledger head appends nothing.
+
+### 1.4 Order and failure
+
+1. hash
+2. capture and bind
+3. sign
+4. **evidence files**
+5. **ledger rows**
+6. **report**
+
+If step 4 or 5 fails, the scan **exits 4 and writes no report**: no `--output` file and no stdout. A run never exits carrying a report that reads as recorded when its evidence or ledger row is missing. This covers an unwritable ledger, a ledger that fails verification (it is left untouched) and a header for another target or class.
+
+When one class's ledger was appended before another failed, that row **stays**, and stderr names it (`Ledger already updated by this run: …`). The row is a true record of a boundary the scan observed. Re-running is safe, because an unchanged boundary is a no-op append.
+
+The passport is specified, but the scanner doesn't write it yet.
+
+### 1.5 Which access classes are captured
 
 | Class | Captured when | Gives a state when | Gives no state when |
 |---|---|---|---|

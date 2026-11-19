@@ -93,24 +93,49 @@ def read_ledger(path) -> list:
     return lines
 
 
+def _dump(obj) -> str:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":")) + "\n"
+
+
 def append_observation(path, observation: dict) -> dict | None:
     """Append ``observation``'s state to the ledger at ``path``.
 
     Creates the ledger (header from the observation) if the file does not
-    exist. Returns the appended entry, or None when the state equals the head.
+    exist. Returns the appended entry, or None when the state equals the head
+    (nothing written). Raises ValueError for a refused or invalid ledger or
+    observation, OSError for filesystem failures.
+
+    Crash-safe and serialized: an exclusive lock on ``<path>.lock`` is held
+    across read-verify-append, and the new ledger is written to a temporary
+    file, fsynced and renamed over the old one. The file on disk is always
+    either the previous ledger or the new one, never a partial line.
     """
-    if os.path.exists(path):
-        lines = read_ledger(path)
-    else:
-        lines = [make_header(observation["target"], observation["state"]["access_class"])]
-    entry = append_entry(lines, observation)
-    if entry is None and len(lines) > 1:
-        return None
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    mode = "a" if os.path.exists(path) else "w"
-    with open(path, mode, encoding="utf-8") as fh:
-        if mode == "w":
-            fh.write(json.dumps(lines[0], sort_keys=True, separators=(",", ":")) + "\n")
-        if entry is not None:
-            fh.write(json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n")
+    path = os.path.abspath(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".lock", "a", encoding="utf-8") as lock:
+        try:
+            import fcntl
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        except ImportError:  # pragma: no cover - non-POSIX: no cross-process lock
+            pass
+        if os.path.exists(path):
+            lines = read_ledger(path)
+            with open(path, encoding="utf-8") as fh:
+                existing = fh.read()
+        else:
+            lines = [make_header(observation["target"], observation["state"]["access_class"])]
+            existing = _dump(lines[0])
+        entry = append_entry(lines, observation)
+        if entry is None:
+            return None
+        tmp = f"{path}.tmp.{os.getpid()}"
+        try:
+            with open(tmp, "w", encoding="utf-8") as fh:
+                fh.write(existing + _dump(entry))
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
     return entry

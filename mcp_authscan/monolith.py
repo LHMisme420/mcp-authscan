@@ -2518,6 +2518,9 @@ def main():
     ap.add_argument("--evidence-dir", metavar="DIR",
                     help="where a completed live scan writes its security-state-v1 and observation-v1 JSON "
                          "(default: the --output file's directory, else ./mcp-authscan-evidence)")
+    ap.add_argument("--ledger-dir", metavar="DIR",
+                    help="boundary-ledger-v1 root; one append-only ledger per target and access class "
+                         "(default: <evidence dir>/ledger). Use the same DIR across runs")
 
     args = ap.parse_args()
     if args.sign and (not args.json or args.html or args.sarif):
@@ -3206,9 +3209,10 @@ def main():
             canonical_payload.pop(SIG_VERSION_KEY, None)
             print("[!] --sign: signing failed. No report written.", file=sys.stderr)
             sys.exit(4)
-    # Evidence files are written before the report, so a report never names a
-    # STATE ID whose state file failed to land.
+    # Evidence files and ledger rows are written before the report, so a report
+    # never names a STATE ID that failed to land on disk or in its ledger.
     write_evidence_files(args, observations)
+    append_ledgers(args, observations)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
@@ -3434,6 +3438,36 @@ def write_evidence_files(args, observations):
         print(f"[+] STATE ID ({obs['state']['access_class']}): {obs['state_id']}", file=sys.stderr)
         print(f"[+] Evidence: {state_path}", file=sys.stderr)
         print(f"[+] Evidence: {obs_path}", file=sys.stderr)
+
+
+def append_ledgers(args, observations):
+    """Append each observation's state to its target+class ledger (boundary-ledger-v1).
+
+    Any failure is a scan error: exit 4 and no report, so a run never exits
+    with a report that reads as recorded when its ledger row is missing. Rows
+    already appended by this run stay (each append is atomic, and re-running
+    the same boundary is a no-op), and stderr names them.
+    """
+    if not observations:
+        return
+    from mcp_authscan import evidence_emit
+    from mcp_authscan.evidence.ledger import append_observation
+    root = evidence_emit.ledger_dir(getattr(args, "ledger_dir", None),
+                                    evidence_emit.evidence_dir(getattr(args, "evidence_dir", None), args.output))
+    done = []
+    for obs in observations:
+        klass = obs["state"]["access_class"]
+        path = evidence_emit.ledger_path(root, obs["target"], klass)
+        try:
+            entry = append_observation(path, obs)
+        except (OSError, ValueError) as e:
+            for line in done:
+                print(f"[*] Ledger already updated by this run: {line}", file=sys.stderr)
+            print(f"[!] Ledger not updated ({klass}): {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+            sys.exit(4)
+        action = "appended" if entry is not None else "unchanged (state equals head)"
+        done.append(f"{klass} {path} {action}")
+        print(f"[+] Ledger ({klass}): {path} {action}, head {obs['state_id']}", file=sys.stderr)
 
 
 def verdict_grade(findings, counts):

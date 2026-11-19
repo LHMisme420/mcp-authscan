@@ -43,6 +43,8 @@ An append takes an observation-v1 `O` wrapping state `S`. With ledger head `H` (
 
 Lines MUST NOT be modified, reordered or deleted. A STATE ID MAY occur more than once, for example A → B → A.
 
+An append MUST be atomic and serialized. The reference implementation holds an exclusive lock on `<ledger>.lock` across read, verify and append, writes the whole new ledger to a temporary file, fsyncs it, and renames it over the old one. A crash therefore leaves either the previous ledger or the new one, never a partial line. Two concurrent appends cannot fork the chain.
+
 ## 4. Offline verification procedure
 
 ```

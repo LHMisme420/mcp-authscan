@@ -12,9 +12,12 @@ Capture rules (schemas/EVIDENCE.md):
 - authenticated: only with a credential, and only a complete capture gives a
   state. A refused credential gives no state.
 """
+import hashlib
 import json
 import os
+import re
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
 from .evidence.state import build_state, compute_state_id, normalize_target
 from .report_verify import EVIDENCE_SCHEME
@@ -156,3 +159,21 @@ def write_evidence(directory, observation):
             fh.write(json.dumps(obj, indent=2, sort_keys=True) + "\n")
         os.replace(tmp, path)
     return state_path, obs_path
+
+
+def ledger_dir(ledger_dir_arg, evidence_directory):
+    """--ledger-dir wins; otherwise <evidence dir>/ledger."""
+    return ledger_dir_arg or os.path.join(evidence_directory, "ledger")
+
+
+def ledger_path(directory, target, access_class):
+    """<dir>/<host>_<port>-<sha256(target)[:16]>/<access_class>.jsonl
+
+    The file name only locates the ledger. Its header line carries the
+    normalized target and class, and appends refuse anything that differs.
+    """
+    target = normalize_target(target)
+    parts = urlsplit(target)
+    label = re.sub(r"[^A-Za-z0-9.-]", "_", f"{parts.hostname}_{parts.port or ''}").rstrip("_")
+    digest = hashlib.sha256(target.encode("utf-8")).hexdigest()[:16]
+    return os.path.join(directory, f"{label}-{digest}", f"{access_class}.jsonl")
