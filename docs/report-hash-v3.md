@@ -3,8 +3,12 @@
 Both CLI and single-scan web exports call `mcp_authscan.report_verify.compute`.
 The scheme label remains `verdict-v3` as requested, with an explicit
 `schema_version: 3` discriminator. Earlier reports bearing that same scheme name
-but lacking schema version 3 are **not** silently reinterpreted or rewritten.
-Keep the original scanner release to verify those historical bytes.
+but lacking schema version 3 (releases 1.1.21 to 1.1.24) are **not** reinterpreted
+or rewritten as schema 3. From 1.1.25 they are verified with **their own**
+algorithm, reproduced verbatim from the 1.1.24 verifier
+(`report_verify.compute_legacy`), so a reader no longer needs the original
+release. They never authenticate, because that format was never signed.
+`python -m mcp_authscan.report_verify REPORT.json` checks either format.
 
 ## Covered content
 

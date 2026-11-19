@@ -2,6 +2,7 @@
 import hashlib
 import json
 import re
+import sys
 
 HASH_SCHEME = "verdict-v3"
 SCHEMA_VERSION = 3
@@ -28,6 +29,37 @@ def severity_counts(findings):
         name = str(finding.get("severity") or "UNKNOWN").upper()
         counts[name] = counts.get(name, 0) + 1
     return counts
+
+
+# ---- the pre-schema-3 format (releases 1.1.21 to 1.1.24) ---------------------------
+#
+# Those releases wrote hash_scheme "verdict-v3" with NO schema_version, and
+# hashed a different key set with a different serialization. Their verifier
+# was byte-identical across all four wheels on PyPI (sha256 2c87594ff614...).
+# A report in that format is verified with that algorithm, reproduced
+# verbatim below, and nothing else: it is never reinterpreted as schema 3,
+# and schema-3 reports never take this path. Releases before 1.1.21 shipped
+# no verifier. The format was never signed.
+LEGACY_RELEASES = ("1.1.21", "1.1.22", "1.1.23", "1.1.24")
+LEGACY_HASHED_KEYS = ("target", "scan_mode", "probe_set_version", "probes", "counts", "coverage", "completed",
+                      "not_implemented", "not_tested", "scope", "exit_contract", "exit_condition", "exit_code",
+                      "fail_on", "authorization", "hash_scheme")
+LEGACY_FINDING_KEYS = ("severity", "rule", "title", "endpoint", "severity_basis")
+
+
+def is_legacy(payload):
+    """True for the pre-schema-3 format: verdict-v3 with no schema_version key at all."""
+    return payload.get("hash_scheme") == HASH_SCHEME and "schema_version" not in payload
+
+
+def compute_legacy(payload, findings):
+    """The 1.1.21-1.1.24 report_hash, exactly as those releases computed it."""
+    hashed = {k: payload[k] for k in LEGACY_HASHED_KEYS if k in payload}
+    if isinstance(hashed.get("probes"), list):
+        hashed["probes"] = sorted(str(p) for p in hashed["probes"])
+    hashed["findings"] = sorted(({k: f[k] for k in LEGACY_FINDING_KEYS if k in f} for f in findings),
+                                key=lambda d: json.dumps(d, sort_keys=True))
+    return hashlib.sha256(json.dumps(hashed, sort_keys=True).encode()).hexdigest(), sorted(hashed)
 
 
 def canonical_report(payload, findings):
@@ -180,6 +212,15 @@ def verify(path):
         payload = json.load(source)
     if not payload.get("report_hash"):
         return "NOT_REPRODUCIBLE", "no report_hash in file"
+    if is_legacy(payload):
+        # Same checks and verdict strings as the 1.1.24 verifier.
+        missing = [k for k in LEGACY_HASHED_KEYS if k not in payload]
+        if missing:
+            return "NOT_REPRODUCIBLE", "missing covered keys: " + ",".join(missing)
+        got, covered = compute_legacy(payload, payload.get("findings") or [])
+        if got == payload["report_hash"]:
+            return "MATCH", got
+        return "MISMATCH", f"claimed {payload['report_hash']}, recomputed {got} over {len(covered)} covered fields"
     if payload.get("hash_scheme") != HASH_SCHEME or payload.get("schema_version") != SCHEMA_VERSION:
         return "NOT_REPRODUCIBLE", "requires verdict-v3 schema version 3; legacy hashes are not reinterpreted"
     try:
@@ -191,3 +232,25 @@ def verify(path):
     return "MISMATCH", "claimed %s, recomputed %s over %d covered fields" % (
         payload["report_hash"], got, len(covered),
     )
+
+
+def main(argv=None):
+    """python -m mcp_authscan.report_verify REPORT.json [...]: recompute each report_hash."""
+    paths = list(sys.argv[1:] if argv is None else argv)
+    if not paths:
+        print("usage: python -m mcp_authscan.report_verify REPORT.json [...]", file=sys.stderr)
+        return 2
+    ok = True
+    for path in paths:
+        try:
+            status, detail = verify(path)
+        except (OSError, ValueError) as e:
+            status, detail = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}"
+        print(f"{status}  {path}  {detail}")
+        ok = ok and status == "MATCH"
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+

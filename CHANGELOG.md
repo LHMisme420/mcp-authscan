@@ -10,9 +10,21 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.25] - 2026-11-19
 
-### Changed
+Ships probe set `2026.11.16.1`, which no earlier release carried. Its recorded change (tests/probe_set_fingerprints.json): merged alternate-transport target probes and updated OAuth grading while retaining schema-3 report serialization. `python -m mcp_authscan.releases` maps any report's `probe_set_version` to the releases that ship it.
+
+### Compatibility
+- Reports from 1.1.21 to 1.1.24 (hash_scheme `verdict-v3` with no `schema_version`) still verify. They are checked with that format's own algorithm, reproduced verbatim from the 1.1.24 verifier, and are never reinterpreted as schema 3. They give the same `MATCH`/`MISMATCH` as 1.1.24, and `INTACT`/`ALTERED` from `verify_upload`. This format was never signed, so it never reads as signed. Real 1.1.24 reports are kept as test fixtures (tests/fixtures/compat).
+- Signed schema-3 reports made before `sig_version` existed verify unchanged. A signed fixture from main 1a7d08c is kept.
+
+### Added
+- `python -m mcp_authscan.report_verify REPORT.json` recomputes a report_hash from the command line.
+- `python -m mcp_authscan.releases [REPORT.json | --stamp STAMP]`: probe set to release mapping, read from the published wheels.
+- Evidence protocol (schemas/EVIDENCE.md): security-state-v1 and observation-v1 written next to each completed live scan; `evidence` binding (v3) signed into `--sign` reports; boundary-ledger-v1 rows recorded for signed runs; boundary-delta-v1 with `AUTHORIZATION_REGRESSION`.
+- `--sign` is fail-closed: the key comes from `$MCP_AUTHSCAN_SIGNING_KEY`, else `~/.config/mcp-authscan/report-signing.pem`. A missing key exits 2 before any request, and a failure to sign exits 4 with no report.
+
+### Changed (unreleased on main since 1.1.24, first released here)
 - Single-scan web and CLI exports share the exact `verdict-v3` schema-3 canonical hash. Covered fields include probe version, coverage, severity counts and complete finding descriptions/remediation; timestamps and session/header metadata are excluded. Separate web single-scan PDF/JSON exports preserve the existing organization summary. Earlier hashes are not silently reinterpreted.
 - Probe set stamp `2026.11.15.1` records the report-contract change tracked by the source fingerprint guard; no probe execution or grading behavior changed.
 

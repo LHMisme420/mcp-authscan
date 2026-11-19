@@ -1,0 +1,406 @@
+{
+  "surface_drift": null,
+  "probes": [
+    {
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {
+        "content-type": "application/json"
+      },
+      "body_excerpt": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"result\": {\"protocolVersion\": \"2025-06-18\", \"capabilities\": {\"tools\": {}}, \"serverInfo\": {\"name\": \"evidence-fixture\", \"version\": \"0\"}, \"instructions\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}}",
+      "body_sha256": "26dd0004a269f74fd50850cf4ad7d97b2deb21914b8ebe55be7e9477a57c62a5",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": null,
+      "detail": "no Access-Control-Allow-Origin on HTTP 200",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:43611/mcp"
+    },
+    {
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "no authorised request budget supplied, so no request was sent",
+      "probe_class": null,
+      "detail": null,
+      "severity": null,
+      "endpoint": "http://127.0.0.1:43611/mcp"
+    },
+    {
+      "probe_id": 1,
+      "name": "issuer-identity",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 2,
+      "name": "resource-binding",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 3,
+      "name": "token-cache-control",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 4,
+      "name": "token-cors",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 5,
+      "name": "jwks-keys",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 6,
+      "name": "password-grant",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 7,
+      "name": "pkce-s256",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 8,
+      "name": "redirect-uri-exact",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 9,
+      "name": "client-auth",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 10,
+      "name": "cross-tenant",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 11,
+      "name": "token-audience",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 12,
+      "name": "resource-authservers",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "OAuth discovery RFC 9728 to RFC 8414"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No authorization server was discovered, so this probe was never sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    }
+  ],
+  "target": "http://127.0.0.1:43611/mcp",
+  "scan_mode": "LIVE_ENDPOINT_ASSESSMENT",
+  "discovery_status": "ZERO_AUTH_DETECTED",
+  "probe_set_version": "2026.11.10.1",
+  "severity_calibration_version": "2026.11.07.1",
+  "owasp_mapping_version": "2026.11.02.1",
+  "findings_count": 1,
+  "findings": [
+    {
+      "rule": "ZERO-AUTH",
+      "severity": "MEDIUM",
+      "severity_basis": "zero-auth endpoint; initialize response carried no tool list; body not inspected for record-level data",
+      "title": "Unauthenticated MCP endpoint",
+      "evidence": "POST /initialize responded with HTTP 200 without authentication",
+      "confidence": "HIGH",
+      "file": "http://127.0.0.1:43611/mcp",
+      "line": 0,
+      "ref": "ZERO-AUTH",
+      "is_live_finding": true,
+      "request_method": "POST",
+      "request_body": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"initialize\", \"params\": {\"protocolVersion\": \"2024-11-05\", \"capabilities\": {}, \"clientInfo\": {\"name\": \"mcp-authscan\", \"version\": \"1.1.24\"}}}",
+      "response_status": 200,
+      "response_body": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"result\": {\"protocolVersion\": \"2025-06-18\", \"capabilities\": {\"tools\": {}}, \"serverInfo\": {\"name\": \"evidence-fixture\", \"version\": \"0\"}, \"instructions\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}}",
+      "response_preview": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"result\": {\"protocolVersion\": \"2025-06-18\", \"capabilities\": {\"tools\": {}}, \"serverInfo\": {\"name\": \"evidence-fixture\", \"version\": \"0\"}, \"instructions\": \"xxxxxxxxxxxxxxxxxxxx",
+      "interpretation": "MCP server requires no authentication. Any client can call tools, resources and prompts.",
+      "remediation": "Implement authentication and authorization controls for all MCP endpoints."
+    }
+  ],
+  "authorization": {
+    "authorized_by": "T",
+    "date": "2026-11-19",
+    "basis": "owned fixture",
+    "contact": "t@example.test",
+    "assessed_by": "Leroy H. Mason"
+  },
+  "counts": {
+    "in_scope": 14,
+    "attempted": 1,
+    "PASS": 1,
+    "FAIL": 0,
+    "NOT_OBSERVED": 0,
+    "EXCLUDED": 13,
+    "NOT_IMPLEMENTED": 0
+  },
+  "coverage": 1.0,
+  "completed": true,
+  "not_implemented": [],
+  "excluded": [
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    },
+    {
+      "name": "issuer-identity",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "resource-binding",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "token-cache-control",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "token-cors",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "jwks-keys",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "password-grant",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "pkce-s256",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "redirect-uri-exact",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "client-auth",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "cross-tenant",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "token-audience",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "resource-authservers",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    }
+  ],
+  "scope": "OAuth authorization server configuration for http://127.0.0.1:43611/mcp",
+  "not_tested": [
+    "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 \u2192 RFC 8414 discovery)",
+    "Source code review and design patterns",
+    "Dependency vulnerabilities (CVE check)",
+    "Secrets in repository history",
+    "Comments and documentation",
+    "Rate limiting (excluded): no authorised request budget supplied, so no request was sent"
+  ],
+  "content_observed": {
+    "version": "2026.11.03.1",
+    "inspected": {},
+    "reasons": [
+      "session not established: no Mcp-Session-Id in initialize response"
+    ]
+  },
+  "exit_contract": "2026.11.02.4",
+  "hash_scheme": "verdict-v3",
+  "run_started_at": "2026-11-19T09:57:48+00:00",
+  "exit_condition": "below_threshold",
+  "exit_code": 0,
+  "fail_on": "high",
+  "report_hash": "b8471bd09ffeda49756aad231b2b77be93a6f10a143a397269eaca4072babcbe",
+  "hash_covers": [
+    "authorization",
+    "completed",
+    "counts",
+    "coverage",
+    "exit_code",
+    "exit_condition",
+    "exit_contract",
+    "fail_on",
+    "findings",
+    "hash_scheme",
+    "not_implemented",
+    "not_tested",
+    "probe_set_version",
+    "probes",
+    "scan_mode",
+    "scope",
+    "target"
+  ],
+  "client_registration": [],
+  "tools_digest": {
+    "captured": false,
+    "endpoint": "http://127.0.0.1:43611/mcp",
+    "phase": "initialize",
+    "reason": "no Mcp-Session-Id in initialize response",
+    "http_status": 200
+  }
+}
