@@ -4,7 +4,7 @@ import re
 import sys
 import base64
 
-from .report_verify import HASH_SCHEME, SCHEMA_VERSION, canonical_report, compute, serialize
+from .report_verify import HASH_SCHEME, SCHEMA_VERSION, compute, signed_content
 
 
 def verify_text(text):
@@ -51,8 +51,13 @@ def verify_text(text):
         actual, _ = compute(payload, findings)
         # Use the CLI's serializer/projection, not a second implementation in JS.
         # This internal transport is never returned to the browser or persisted.
-        canonical_bytes = base64.b64encode(
-            serialize(canonical_report(payload, findings))).decode("ascii")
+        # canonical_bytes are the bytes the signature covers: the graded report,
+        # plus the evidence binding when one is present (report_verify.signed_content).
+        # A malformed binding leaves integrity verdicts intact but authenticity unverifiable.
+        try:
+            canonical_bytes = base64.b64encode(signed_content(payload, findings)).decode("ascii")
+        except ValueError:
+            canonical_bytes = None
         if not isinstance(claimed, str) or not re.fullmatch(r"[0-9a-f]{64}", claimed):
             return result("UNREADABLE", "A complete lowercase SHA-256 report_hash is required.")
         if actual == claimed:

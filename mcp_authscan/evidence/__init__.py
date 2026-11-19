@@ -1,10 +1,11 @@
 """MCP AuthScan evidence protocol.
 
-Pure implementations of the public specifications in schemas/:
-security-state-v1 (state.py), observation-v1 (observation.py) and
-boundary-delta-v1 (delta.py).
+Implementations of the public specifications in schemas/:
+security-state-v1 (state.py), observation-v1 (observation.py),
+boundary-delta-v1 (delta.py) and boundary-ledger-v1 (ledger.py).
 
-Nothing in this package performs network or file I/O. The only scanner
-import is mcp_authscan.surface (stdlib-only), which supplies the canonical
+No network I/O anywhere in this package. File I/O is confined to
+ledger.read_ledger / ledger.append_observation. The only scanner import is
+mcp_authscan.surface (stdlib-only), which supplies the canonical
 serialization and surface_digest.
 """

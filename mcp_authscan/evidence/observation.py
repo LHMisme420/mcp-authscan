@@ -6,11 +6,12 @@ Pure module: no I/O.
 """
 import re
 
-from .state import compute_state_id, normalize_target, validate_state
+from .state import build_state, compute_state_id, normalize_target, validate_state
 
 SCHEMA = "observation-v1"
 _RFC3339_Z = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
 _COUNT_KEYS = ("in_scope", "pass", "fail", "not_observed", "excluded")
+CAPTURE_STATUSES = ("complete", "refused")
 
 
 def verify_observation(obs: dict) -> None:
@@ -57,3 +58,17 @@ def verify_observation(obs: dict) -> None:
         for e in entries:
             if not isinstance(e.get("probe_id"), str) or not isinstance(e.get(field), str):
                 raise ValueError(f"{key} entries need string probe_id and {field}")
+
+    if "capture" in obs:
+        capture = obs["capture"]
+        if (not isinstance(capture, dict) or sorted(capture) != ["reasons", "status"]
+                or capture["status"] not in CAPTURE_STATUSES
+                or not isinstance(capture["reasons"], list)
+                or not all(isinstance(r, str) for r in capture["reasons"])):
+            raise ValueError("capture must be {status: complete|refused, reasons: [str]}")
+        if capture["status"] == "refused":
+            # A refusal is only ever recorded around the empty anonymous state.
+            if recomputed != build_state({}, "anonymous")["state_id"]:
+                raise ValueError("capture: refused is only valid for the empty anonymous state")
+            if not capture["reasons"]:
+                raise ValueError("capture: a refusal must record its reason")

@@ -2462,7 +2462,9 @@ def main():
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--sign", action="store_true",
-                    help="sign schema-3 JSON with ~/.config/mcp-authscan/report-signing.pem (Ed25519)")
+                    help="sign schema-3 JSON (Ed25519). Key: $MCP_AUTHSCAN_SIGNING_KEY, else "
+                         "~/.config/mcp-authscan/report-signing.pem. If it cannot sign, the run exits "
+                         "non-zero and writes no report")
     ap.add_argument("--verbose", "-v", action="store_true",
                     help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
@@ -2513,10 +2515,23 @@ def main():
 
     ap.add_argument("--brief", action="store_true",
                     help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
+    ap.add_argument("--evidence-dir", metavar="DIR",
+                    help="where a completed live scan writes its security-state-v1 and observation-v1 JSON "
+                         "(default: the --output file's directory, else ./mcp-authscan-evidence)")
 
     args = ap.parse_args()
     if args.sign and (not args.json or args.html or args.sarif):
         ap.error("--sign requires --json and cannot be combined with --html or --sarif")
+    args.signing_key = None
+    if args.sign:
+        # --sign is an assertion: check the key before any request leaves, so an
+        # unsignable run never scans the target and never writes a report.
+        from mcp_authscan.report_signing import SigningError, load_signing_key
+        try:
+            args.signing_key = load_signing_key()
+        except SigningError as e:
+            print(f"[!] --sign: {e}. No scan run, no report written.", file=sys.stderr)
+            sys.exit(2)
     if args.brief and (args.json or args.html or args.sarif):
         ap.error("--brief applies to the text output; it cannot be combined with --json, --html or --sarif")
     # --brief changes only what prints: everything that would go to stdout goes to devnull
@@ -3175,12 +3190,22 @@ def main():
         for key in ("rule", "severity", "severity_basis", "endpoint", "remediation"):
             finding.setdefault(key, None)
     canonical_payload["severity_counts"] = severity_counts(F)
-    payload_hash, covered, report_bytes = compute(canonical_payload, F, include_bytes=True)
+    payload_hash, covered = compute(canonical_payload, F)
     canonical_payload["report_hash"] = payload_hash
     canonical_payload["hash_covers"] = covered
+    # Evidence: capture the surface per access class and bind the STATE IDs into
+    # the report. "evidence" is outside report_hash (graded content only) and
+    # inside the signature (report_verify.signed_content).
+    observations = prepare_evidence(args, scan_mode, canonical_payload)
     if args.sign:
         from mcp_authscan.report_signing import sign_report
-        sign_report(canonical_payload, report_bytes)
+        from mcp_authscan.report_verify import signed_content
+        if not sign_report(canonical_payload, signed_content(canonical_payload, F), key=args.signing_key):
+            print("[!] --sign: signing failed. No report written.", file=sys.stderr)
+            sys.exit(4)
+    # Evidence files are written before the report, so a report never names a
+    # STATE ID whose state file failed to land.
+    write_evidence_files(args, observations)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
@@ -3367,6 +3392,45 @@ def main():
         print_verdict(F, counts, target_host, verdict_out if args.brief else None)
 
     sys.exit(exit_code)
+
+
+def prepare_evidence(args, scan_mode, canonical_payload):
+    """Capture states for a completed live scan; set canonical_payload["evidence"].
+
+    Returns the observation-v1 objects to write. Halted and source-code scans
+    have no endpoint boundary and get no evidence field.
+    """
+    if scan_mode != "LIVE_ENDPOINT_ASSESSMENT" or canonical_payload.get("status") != "completed":
+        return []
+    from mcp_authscan import evidence_emit
+    try:
+        states, skipped = evidence_emit.capture_states(
+            args.target, os.environ.get("MCPAUTHSCAN_TOKEN") or None, sorted(ALLOWED_HOSTS))
+        for reason in skipped:
+            print(f"[*] Evidence: {reason}", file=sys.stderr)
+        canonical_payload["evidence"] = evidence_emit.evidence_binding(states)
+        return [evidence_emit.build_observation(state, record, canonical_payload, scanner_version=VERSION)
+                for _klass, state, record in states]
+    except (ValueError, KeyError) as e:
+        print(f"[!] Evidence not built: {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+        sys.exit(4)
+
+
+def write_evidence_files(args, observations):
+    """Write each observation and its state; a failure is a scan error (exit 4), before any report."""
+    if not observations:
+        return
+    from mcp_authscan import evidence_emit
+    directory = evidence_emit.evidence_dir(getattr(args, "evidence_dir", None), args.output)
+    try:
+        written = [evidence_emit.write_evidence(directory, obs) for obs in observations]
+    except OSError as e:
+        print(f"[!] Evidence not written: {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+        sys.exit(4)
+    for obs, (state_path, obs_path) in zip(observations, written, strict=True):
+        print(f"[+] STATE ID ({obs['state']['access_class']}): {obs['state_id']}", file=sys.stderr)
+        print(f"[+] Evidence: {state_path}", file=sys.stderr)
+        print(f"[+] Evidence: {obs_path}", file=sys.stderr)
 
 
 def verdict_grade(findings, counts):

@@ -57,8 +57,8 @@ The passport is never part of any STATE ID.
 
 ### 4.2 Against a ledger
 
-5. Verify the ledger per boundary-ledger-v1 §4, and check that its access class equals `access_class`.
-6. The ledger MUST have exactly `len(lineage)` entries, with entry `i` having `[previous_state_id, state_id] == lineage[i]`.
+5. Verify the ledger per boundary-ledger-v1 §4, and check that its header has `target == target` and `access_class == access_class`.
+6. The ledger MUST have exactly `len(lineage)` entries after the header, with entry `i` having `[previous_state_id, state_id] == lineage[i]`.
 7. The last ledger entry's `state_id` MUST equal `current_state.state_id`.
 
 ## 5. What a passport proves, and what it does not

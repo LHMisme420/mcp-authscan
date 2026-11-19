@@ -75,13 +75,10 @@ The flags and set-diffs always carry the full picture. `classification` names on
 
 ## 5. Known limits
 
-- **The anonymous and authenticated views are never compared with each other.** Each class is compared only with itself (BD-R1), and each class has its own ledger. The most serious regression, a tool that used to require a token and now appears anonymously, is caught in v1 only in part:
-  - **Caught:** the anonymous ledger already has a state, and the tool's name is new to it. BD-R2 fires.
-  - **Not caught: a closed server opening up.** If the server previously refused anonymous access entirely, there is no earlier anonymous state (observation-v1 §4: no state is emitted for a class whose lists could not be captured). The first anonymous state becomes a ledger genesis, and no delta is ever computed. A server going from fully gated to fully open produces no regression.
-  - **Not caught: why a tool is new.** BD-R2 cannot tell a brand-new tool apart from one that *crossed* from authenticated to anonymous. Both are reported identically, although a crossing is the more serious finding.
+The authoritative list is [EVIDENCE.md §4](EVIDENCE.md#4-known-limits). For deltas specifically:
 
-  Closing both gaps needs **one paired read across both classes of the same target at the same time**, which compares anonymous names against authenticated names directly. **Planned for v2, not specified in v1.**
-- **Authenticity.** A delta is only as trustworthy as its input observations. v1 does not sign them.
+- **The anonymous and authenticated views are never compared** (BD-R1). BD-R2 fires when a tool name is new to an anonymous state that already exists. That includes the empty anonymous state recorded when anonymous `initialize` is refused (observation-v1 §4.1), so a gated server opening up **is** caught, as long as a completed scan recorded the gated state first. It is not caught when no anonymous state was ever recorded, because the scan halted or the server was unreachable. A tool crossing from authenticated to anonymous is reported the same as a brand-new tool. A paired cross-class read is **planned for v2**.
+- **Authenticity.** A delta is only as trustworthy as its input observations, which v1 does not sign.
 
 ## 6. Test vectors
 

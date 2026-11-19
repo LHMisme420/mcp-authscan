@@ -11,7 +11,7 @@ A boundary ledger is the append-only history of distinct security states for **o
 
 A target with both anonymous and authenticated captures has **two ledgers**, one per access class. A delta never compares across classes, so their histories never mix.
 
-States carry no target. Which target a ledger belongs to is recorded outside the states: in its file name, for example `<host>/<access_class>.jsonl`, and in the observations and passports that reference it.
+States carry no target. The ledger's **header line** names the target and access class, and appends go through observations, which carry the target. An observation for a different target or access class is **refused**, so the binding is structural and does not depend on file naming.
 
 The ledger records **boundary changes**, not scans. A capture whose state matches the ledger head adds no entry. Its evidence goes in an [observation-v1](observation-v1.md) instead.
 
@@ -19,7 +19,13 @@ The ledger records **boundary changes**, not scans. A capture whose state matche
 
 JSON Lines: one JSON object per line, separated by `\n`, with no blank lines. The extension SHOULD be `.jsonl`.
 
-Each line is a security-state-v1 object that MUST carry both chaining keys:
+**Line 1 is the header**, and it has exactly these keys:
+
+```json
+{"schema": "boundary-ledger-v1", "target": "<normalized URL>", "access_class": "anonymous" | "authenticated"}
+```
+
+**Every later line** is a security-state-v1 object that MUST carry both chaining keys:
 
 | Key | Value |
 |---|---|
@@ -28,20 +34,23 @@ Each line is a security-state-v1 object that MUST carry both chaining keys:
 
 ## 3. Append rules
 
-To append state `S` to a ledger whose head has ID `H`:
+An append takes an observation-v1 `O` wrapping state `S`. With ledger head `H` (`null` for a header-only ledger):
 
-1. `S.access_class` MUST equal the ledger's access class (that of line 1).
-2. Compute `id = STATE_ID(S)`. If `id == H`, **do not append**.
-3. Otherwise, write `S` with `state_id = id` and `previous_state_id = H` (or `null` if the ledger is empty) as a new final line.
+1. Verify `O` (observation-v1 §5).
+2. `O.target` MUST equal the header's `target`, and `S.access_class` MUST equal the header's `access_class`. If either differs, **refuse**.
+3. Compute `id = STATE_ID(S)`. If `id == H`, **do not append**.
+4. Otherwise, write `S` with `state_id = id` and `previous_state_id = H` (or `null` if the ledger is empty) as a new final line.
 
 Lines MUST NOT be modified, reordered or deleted. A STATE ID MAY occur more than once, for example A → B → A.
 
 ## 4. Offline verification procedure
 
 ```
+header := line 1; require keys {schema, target, access_class}, schema == "boundary-ledger-v1",
+          target normalized, access_class valid      # fail: line 1
+klass   := header.access_class
 prev_id := null
-klass   := null
-for each line n (1-based):
+for each line n >= 2:
     obj := JSON-parse(line)                            # fail: malformed JSON
     validate obj against security-state-v1             # fail: schema violation
     require "state_id" in obj and "previous_state_id" in obj
@@ -49,8 +58,7 @@ for each line n (1-based):
     require recomputed == obj.state_id                 # fail: entry content altered
     require obj.previous_state_id == prev_id           # fail: chain broken / reordered / entry removed
     require obj.state_id != prev_id                    # fail: no-op append
-    if n == 1: klass := obj.access_class
-    require obj.access_class == klass                  # fail: mixed access classes
+    require obj.access_class == klass                  # fail: entry class differs from header
     prev_id := obj.state_id
 accept; ledger head := prev_id
 ```
@@ -68,6 +76,6 @@ The verifier SHOULD report the failing line number and which check failed.
 
 - **Truncation.** Cutting entries off the end still leaves a valid ledger. Detect it by comparing against a head ID recorded elsewhere, such as a passport.
 - **Wholesale rewrite.** STATE IDs depend only on content, so anyone can produce a consistent ledger. Authenticity needs a signature, which v1 does not define.
-- **Which target.** Target binding lives outside the ledger (see §1).
-- **Cross-class exposure.** The two ledgers of one target are never compared with each other, so a server opening anonymous access for the first time leaves no delta. See boundary-delta-v1 §5.
+- **Which target, authentically.** The header names the target, but the header is not signed.
+- **Cross-class exposure.** The two ledgers of one target are never compared with each other. See [EVIDENCE.md §4](EVIDENCE.md#4-known-limits).
 - **Truth.** The ledger shows consistency, not correctness. The evidence for each state is in its observation.
