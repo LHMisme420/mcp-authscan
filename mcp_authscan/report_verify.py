@@ -213,6 +213,14 @@ def signed_content(payload, findings):
 def verify(path):
     with open(path, encoding="utf-8") as source:
         payload = json.load(source)
+    return verify_payload(payload)
+
+
+def verify_payload(payload):
+    """verify() on an already-parsed report, so a caller that read the bytes once (the verify
+    MCP server) checks the hash and the signature of the same content."""
+    if not isinstance(payload, dict):
+        return "NOT_REPRODUCIBLE", "report is not a JSON object"
     if not payload.get("report_hash"):
         return "NOT_REPRODUCIBLE", "no report_hash in file"
     if is_legacy(payload):
