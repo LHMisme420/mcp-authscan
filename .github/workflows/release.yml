@@ -5,6 +5,13 @@ on:
   push:
     tags:
       - "v*"
+# Nothing reaches PyPI or a GitHub release unless the wheel matches the anchor
+# recorded in release/anchors.tsv (the hash published in CHANGELOG.md and on the
+# site). The intended order is: upload the audited wheel from the owner's machine,
+# then push the tag. This job then finds the version on PyPI, checks PyPI's wheel
+# against the anchor, uploads nothing, and attaches the verified wheel to the
+# GitHub release. If the version is not on PyPI yet, it uploads only a wheel whose
+# hash matches the anchor. The sdist is not reproducible, so CI never uploads one.
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -13,25 +20,101 @@ jobs:
       - uses: actions/setup-python@v7 # v5
         with:
           python-version: "3.12"
-      - name: Build sdist and wheel
+
+      - name: Look up the release anchor
+        id: anchor
         run: |
-          pip install build
-          python -m build ./mcp_authscan --outdir ./dist
-      - name: Publish to PyPI
+          set -euo pipefail
+          v="${GITHUB_REF_NAME#v}"
+          line=$(awk -F'\t' -v v="$v" '$1==v {print; exit}' release/anchors.tsv)
+          if [ -z "$line" ]; then
+            echo "::error::No anchor for $v in release/anchors.tsv. Refusing to build, upload or release."
+            exit 1
+          fi
+          IFS=$'\t' read -r ver sha epoch <<<"$line"
+          pv=$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          if [ "$pv" != "$v" ]; then
+            echo "::error::Tag says $v but pyproject.toml says $pv."
+            exit 1
+          fi
+          {
+            echo "version=$v"
+            echo "sha=$sha"
+            echo "epoch=$epoch"
+            echo "wheel=dist/mcp_authscan-$v-py3-none-any.whl"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build the wheel the way the anchor was made
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.anchor.outputs.epoch }}
+        run: |
+          set -euo pipefail
+          python -m pip install build==1.6.1 setuptools==84.2.1 wheel==0.48.0
+          python -m build --no-isolation --wheel --outdir dist .
+          ls -l dist
+
+      - name: Verify the built wheel against the anchor
+        run: |
+          set -euo pipefail
+          got=$(sha256sum "${{ steps.anchor.outputs.wheel }}" | cut -d' ' -f1)
+          echo "built:  $got"
+          echo "anchor: ${{ steps.anchor.outputs.sha }}"
+          if [ "$got" != "${{ steps.anchor.outputs.sha }}" ]; then
+            echo "::error::Built wheel does not match the anchor. Nothing uploaded."
+            exit 1
+          fi
+
+      - name: Check whether PyPI already has this version
+        id: pypi
+        env:
+          V: ${{ steps.anchor.outputs.version }}
+          ANCHOR: ${{ steps.anchor.outputs.sha }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o pypi.json -w '%{http_code}' "https://pypi.org/pypi/mcp-authscan/$V/json")
+          if [ "$code" = "404" ]; then
+            echo "PyPI has no $V yet."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::PyPI returned HTTP $code; cannot tell whether $V exists. Nothing uploaded."
+            exit 1
+          fi
+          python - <<'PY'
+          import json, os, sys
+          files = json.load(open("pypi.json"))["urls"]
+          wheels = [f for f in files if f["packagetype"] == "bdist_wheel"]
+          if not wheels:
+              sys.exit("::error::PyPI has this version but no wheel.")
+          for f in wheels:
+              print(f"pypi:   {f['digests']['sha256']}  {f['filename']}")
+          if any(f["digests"]["sha256"] != os.environ["ANCHOR"] for f in wheels):
+              sys.exit("::error::A wheel on PyPI does not match the anchor. Not creating a release.")
+          PY
+          echo "present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the verified wheel to PyPI (only if PyPI does not have it)
+        if: steps.pypi.outputs.present == 'false'
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
+          set -euo pipefail
           if [ -z "$TWINE_PASSWORD" ]; then
-            echo "PYPI_API_TOKEN secret not set — skipping PyPI publish (GitHub release still created)."
-            exit 0
+            echo "::error::PYPI_API_TOKEN not set and PyPI has no ${{ steps.anchor.outputs.version }}. Upload from the release machine first."
+            exit 1
           fi
           pip install twine
-          twine upload --non-interactive dist/*
-      - name: Create GitHub release with artifacts
+          twine upload --non-interactive "${{ steps.anchor.outputs.wheel }}"
+
+      - name: Create GitHub release with the verified wheel
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/* \
+          set -euo pipefail
+          (cd dist && sha256sum "$(basename "${{ steps.anchor.outputs.wheel }}")" > SHA256SUMS)
+          cat dist/SHA256SUMS
+          gh release create "${GITHUB_REF_NAME}" "${{ steps.anchor.outputs.wheel }}" dist/SHA256SUMS \
             --title "${GITHUB_REF_NAME}" \
-            --notes "Automated release for ${GITHUB_REF_NAME}. See CHANGELOG.md."
+            --notes "Wheel sha256 ${{ steps.anchor.outputs.sha }}, matching release/anchors.tsv and CHANGELOG.md. See CHANGELOG.md."
