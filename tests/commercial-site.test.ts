@@ -215,7 +215,7 @@ test('/sample-report preserves observations and digests with two price-labeled c
     'SAMPLE ASSESSMENT REPORT',
     'AgentPayStore, redacted',
     'Target: agentpaystore.com/book/mcp',
-    'Scanner: mcp-authscan 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1',
+    'Scanner: a development build of mcp-authscan that reported itself as 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1',
     'VERDICT HIGH. One finding.',
     'tool-call probe not run.',
     'One probe passed. Fifteen were excluded. Coverage, 1 of 1 testable probe.',
