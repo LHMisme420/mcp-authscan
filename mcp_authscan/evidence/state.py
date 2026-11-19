@@ -1,12 +1,21 @@
-"""security-state-v1: canonical serialization and STATE ID.
+"""Evidence states: canonical serialization and state IDs.
 
-Specification: schemas/security-state-v1.md
+Two independent state objects live here:
 
-Pure module: standard library only, no I/O, no scanner imports.
+- security-state-v1 (schemas/security-state-v1.md): the authorization
+  boundary. validate_state / compute_state_id.
+- surface state, state_version "1": what an MCP server exposes (tool,
+  prompt and resource identifiers plus digests). build_state / load_state /
+  surface_state_id. Its canonical form and digests come from
+  mcp_authscan.surface, which is stdlib-only and performs no I/O.
+
+No network I/O, no file I/O.
 """
 import hashlib
 import json
 from urllib.parse import urlsplit
+
+from mcp_authscan import surface as _surface
 
 SCHEMA = "security-state-v1"
 
@@ -146,3 +155,96 @@ def compute_state_id(state: dict) -> str:
     """STATE ID: lowercase hex SHA-256 of the canonical JSON of the state,
     with any top-level state_id / previous_state_id keys removed."""
     return hashlib.sha256(id_preimage(state).encode("ascii")).hexdigest()
+
+
+# ---- surface state, state_version "1" ----------------------------------------
+#
+# {
+#   "state_version": "1",
+#   "surface_digest": surface.surface_digest(surface),
+#   "tools":     sorted tool names,
+#   "prompts":   sorted prompt names,
+#   "resources": sorted resource uris,
+#   "instructions_digest": sha256 of the UTF-8 instructions string ("" if absent),
+#   "state_id":  sha256 of surface.compact(<this object without state_id>)
+# }
+#
+# No timestamps, no target, no coverage: two captures of the same surface
+# produce the same state_id wherever and whenever they ran.
+
+SURFACE_STATE_VERSION = "1"
+SURFACE_STATE_KEYS = (
+    "state_version", "surface_digest", "tools", "prompts", "resources",
+    "instructions_digest", "state_id",
+)
+_SURFACE_LISTS = (("tools", "name"), ("prompts", "name"), ("resources", "uri"))
+_DIGEST_KEYS = ("surface_digest", "instructions_digest", "state_id")
+
+
+def _sha256_hex(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _identifiers(items, field):
+    """Sorted identifiers of the dict items carrying a string ``field``.
+
+    Items that are not objects, or lack the field, contribute nothing here;
+    they are still covered by surface_digest. Duplicates are kept.
+    """
+    return sorted(
+        item[field] for item in items or []
+        if isinstance(item, dict) and isinstance(item.get(field), str)
+    )
+
+
+def surface_state_id(state: dict) -> str:
+    """sha256 of surface.compact(state) with any state_id key removed."""
+    body = {k: v for k, v in state.items() if k != "state_id"}
+    return _sha256_hex(_surface.compact(body))
+
+
+def build_state(surface: dict) -> dict:
+    """Build the surface state for a captured surface (capture_surface()['surface'])."""
+    surface = surface or {}
+    state = {
+        "state_version": SURFACE_STATE_VERSION,
+        "surface_digest": _surface.surface_digest(surface),
+    }
+    for key, field in _SURFACE_LISTS:
+        state[key] = _identifiers(surface.get(key), field)
+    state["instructions_digest"] = _sha256_hex(surface.get("instructions") or "")
+    state["state_id"] = surface_state_id(state)
+    return state
+
+
+def load_state(obj) -> dict:
+    """Validate a surface state and return it.
+
+    Raises ValueError naming the offending key for: unknown or missing keys,
+    a wrong state_version, a non-list or unsorted list, a malformed digest,
+    or a state_id that does not match the content.
+    """
+    if not isinstance(obj, dict):
+        raise ValueError("surface state must be a JSON object")
+    for key in sorted(obj):
+        if key not in SURFACE_STATE_KEYS:
+            raise ValueError(f"unknown key: {key}")
+    for key in SURFACE_STATE_KEYS:
+        if key not in obj:
+            raise ValueError(f"missing key: {key}")
+    if obj["state_version"] != SURFACE_STATE_VERSION:
+        raise ValueError(f"state_version: expected {SURFACE_STATE_VERSION!r}, got {obj['state_version']!r}")
+    for key, _field in _SURFACE_LISTS:
+        value = obj[key]
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ValueError(f"{key}: must be a list of strings")
+        if value != sorted(value):
+            raise ValueError(f"{key}: list is not sorted")
+    for key in _DIGEST_KEYS:
+        value = obj[key]
+        if not (isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)):
+            raise ValueError(f"{key}: must be 64 lowercase hex characters")
+    expected = surface_state_id(obj)
+    if obj["state_id"] != expected:
+        raise ValueError(f"state_id: does not match content (expected {expected})")
+    return obj

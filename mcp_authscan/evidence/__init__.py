@@ -1,7 +1,9 @@
 """MCP AuthScan evidence protocol.
 
-Pure, scanner-independent implementations of the public specifications in
-schemas/: security-state-v1 (state.py) and boundary-delta-v1 (delta.py).
+Pure implementations of the public specifications in
+schemas/: security-state-v1 (state.py), observation-v1 (observation.py),
+boundary-delta-v1 (delta.py); plus the surface state (state.py).
 
-Nothing in this package performs network I/O or imports scanner modules.
+Nothing in this package performs network or file I/O. The only scanner
+import is mcp_authscan.surface (stdlib-only; used for the surface state).
 """
