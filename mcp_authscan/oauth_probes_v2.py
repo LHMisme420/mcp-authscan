@@ -1513,8 +1513,12 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
 
     # Client source for probes 7 and 8: dynamic registration, else the environment, else EXCLUDED.
     tried = []
-    registered, registration = _register_client(metadata, tried)
-    client = registered if registered is not None and registered.usable else None
+    env_client = _env_client()
+    if env_client is not None and os.environ.get("MCPAUTHSCAN_REDIRECT_URI"):
+        client, registered, registration = env_client, None, "not attempted (MCPAUTHSCAN_CLIENT_ID set)"
+    else:
+        registered, registration = _register_client(metadata, tried)
+        client = registered if registered is not None and registered.usable else None
     registration_note = None if client else "Dynamic client registration unavailable: " + registration
     # Client for the credential-grant probes, token-cors [4] and password-grant [6]: the operator's
     # client from the environment when one is supplied, else the registered client. A client this
@@ -1566,8 +1570,10 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         deleted, removal = _remove_client(oauth_server_url, registered)
         if not deleted:
             print("[!] " + removal, file=sys.stderr)
-    if client is not None:
+    if registered is not None:
         source, client_id, redirect_uri = "registered", client.client_id, client.redirect_uri
+    elif client is not None:
+        source, client_id, redirect_uri = "environment (MCPAUTHSCAN_CLIENT_ID)", client.client_id, client.redirect_uri
     else:
         env_id, _, env_redirect = _client_creds()
         if env_id:

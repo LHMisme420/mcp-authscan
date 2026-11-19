@@ -24,6 +24,8 @@ def serve():
             args=params.get("arguments") or {}
             if params.get("name")!="verify": out({"jsonrpc":"2.0","id":mid,"error":{"code":-32602,"message":"unknown tool"}}); continue
             path=args.get("path") or "";base=os.path.realpath(os.path.expanduser(os.environ.get("MCP_AUTHSCAN_EVIDENCE") or "~/mcp-authscan-evidence"));real=os.path.realpath(os.path.expanduser(path)) if path else "";path=real
+            keysp=os.path.realpath(os.path.expanduser(args["keys"])) if args.get("keys") else ""
+            if keysp and not keysp.startswith(base+os.sep): out({"jsonrpc":"2.0","id":mid,"result":{"content":[{"type":"text","text":"ERROR keys must be inside the evidence directory"}]}}); continue
             if not real or not real.startswith(base+os.sep) or not os.path.isfile(real) or os.path.getsize(real)>5242880: out({"jsonrpc":"2.0","id":mid,"result":{"content":[{"type":"text","text":"ERROR report must be a file inside the evidence directory"}]}}); continue
             try:
                 verdict,detail=verify(path)
