@@ -2,6 +2,32 @@ import PublicSiteLayout from './PublicSiteLayout';
 
 // Owner-frozen wording: do not edit for tone. Any copy change requires the
 // owner's review and an explicit update to the approved-copy regression fixture.
+// 2026-11-19: owner-requested change. The AgentPayStore run is labelled a development
+// build (its probe set 2026.11.16.2 is in no release) and a reproducible 1.1.25 sample
+// sits beside it in its own article, outside the approved-copy fixture.
+const FIXTURE = `import json, sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+class H(BaseHTTPRequestHandler):
+    def _s(self, o, c=200):
+        b = b"" if o is None else json.dumps(o).encode()
+        self.send_response(c); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_POST(self):
+        m = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        meth, i = m.get("method"), m.get("id")
+        if meth == "initialize":
+            self._s({"jsonrpc": "2.0", "id": i, "result": {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}},
+                     "serverInfo": {"name": "fx", "version": "0"}, "instructions": "x" * 900}})
+        elif meth == "tools/list":
+            self._s({"jsonrpc": "2.0", "id": i, "result": {"tools": [{"name": "list_docs", "description": "d", "inputSchema": {"type": "object"}}]}})
+        elif meth in ("prompts/list", "resources/list"):
+            self._s({"jsonrpc": "2.0", "id": i, "result": {meth.split("/")[0]: []}})
+        elif i is None: self._s(None, 202)
+        else: self._s({"jsonrpc": "2.0", "id": i, "error": {"code": -32601, "message": "nf"}})
+    def do_GET(self): self._s({"error": "nf"}, 404)
+    def log_message(self, *a): pass
+ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+`;
 export default function SampleReport() {
   return (
     <PublicSiteLayout className="sample-page">
@@ -16,7 +42,8 @@ export default function SampleReport() {
           <p>Target: agentpaystore.com/book/mcp</p>
           <p>Authorized by: Shawn Lippert, written authorization, 16 November 2026</p>
           <p>Assessed by: Leroy H. Mason</p>
-          <p>Scanner: mcp-authscan 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1</p>
+          <p>Scanner: a development build of mcp-authscan that reported itself as 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1</p>
+          <p>Development build, not a release: no published version of mcp-authscan ships probe set 2026.11.16.2 (the published 1.1.24 ships 2026.11.10.1), so this run cannot be repeated from PyPI. The write-up and its hash are kept exactly as recorded. To run the checks yourself, use the reproducible sample below.</p>
           <p>Mode: live endpoint testing from outside, no credential issued</p>
           <p>Not tested: source code, dependency CVEs, secrets in history, prompt injection, tool poisoning, audit telemetry.</p>
           <h2>RESULT</h2>
@@ -52,6 +79,40 @@ export default function SampleReport() {
             <a className="button" href="https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01">Single-server assessment — $1,750</a>{' '}
             <a className="button secondary" href="https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02">Full assessment — $3,500</a>
           </div>
+        </article>
+        <article id="reproducible-sample" className="sample-section" style={{ overflowWrap: 'anywhere' }}>
+          <h2>REPRODUCIBLE SAMPLE: RUN IT YOURSELF</h2>
+          <p>
+            Everything below uses a published release and a published probe set, so you can repeat it and compare
+            your result with the one shown. The target is a small test server you run on your own machine.
+          </p>
+          <p>Scanner: mcp-authscan 1.1.25, probe set 2026.11.16.1, severity calibration 2026.11.07.1.</p>
+          <p>Wheel sha256: b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5</p>
+          <h2>STEPS</h2>
+          <p>1. Install the release and check you received the published wheel:</p>
+          <pre><code>{`python3 -m venv v
+v/bin/pip install "mcp-authscan[signing]==1.1.25"
+v/bin/pip download --no-deps mcp-authscan==1.1.25 -d wheel
+sha256sum wheel/mcp_authscan-1.1.25-py3-none-any.whl`}</code></pre>
+          <p>2. Save this test server as fixture.py and start it. It answers MCP with no authentication and lists one tool:</p>
+          <pre><code>{FIXTURE}</code></pre>
+          <pre><code>{`python3 fixture.py 19191 &`}</code></pre>
+          <p>3. Scan it. The names you give are recorded in the report but are not part of the hash:</p>
+          <pre><code>{`v/bin/mcp-authscan http://127.0.0.1:19191/mcp --json --output report.json \\
+  --authorized-by "Your Name" --auth-basis "my own local test server" \\
+  --contact "you@example.com" --allow-private`}</code></pre>
+          <h2>WHAT YOU SHOULD SEE</h2>
+          <p>Exit code 1: one finding, HIGH, ZERO-AUTH, Unauthenticated MCP endpoint. Coverage 1.0.</p>
+          <p>Report hash: d5d24b8ca41adaaf3bb70a6e5f66cf21d361f84db08f3f493776e476d92479c1</p>
+          <p>Security state ID (anonymous): 5699f598ef6b9664b4c5d908b457484e5108fcd19a2688e0ef68b1b7c4df0c73</p>
+          <p>4. Verify it, and map it to the release that produced it:</p>
+          <pre><code>{`v/bin/python -m mcp_authscan.report_verify report.json
+v/bin/python -m mcp_authscan.releases report.json`}</code></pre>
+          <p>
+            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.25 for probe
+            set 2026.11.16.1 and installed_matches true. A different hash means different graded content: a
+            different release, probe set, server or URL. The port is part of the URL.
+          </p>
         </article>
       </div>
     </PublicSiteLayout>

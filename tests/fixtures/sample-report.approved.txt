@@ -5,7 +5,8 @@ SCOPE
 Target: agentpaystore.com/book/mcp
 Authorized by: Shawn Lippert, written authorization, 16 November 2026
 Assessed by: Leroy H. Mason
-Scanner: mcp-authscan 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1
+Scanner: a development build of mcp-authscan that reported itself as 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1
+Development build, not a release: no published version of mcp-authscan ships probe set 2026.11.16.2 (the published 1.1.24 ships 2026.11.10.1), so this run cannot be repeated from PyPI. The write-up and its hash are kept exactly as recorded. To run the checks yourself, use the reproducible sample below.
 Mode: live endpoint testing from outside, no credential issued
 Not tested: source code, dependency CVEs, secrets in history, prompt injection, tool poisoning, audit telemetry.
 RESULT

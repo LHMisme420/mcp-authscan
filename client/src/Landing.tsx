@@ -21,8 +21,8 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
                   <dl>
                     <dt>Target:</dt><dd>agentpaystore.com/book/mcp</dd>
                     <dt>Server:</dt><dd>agentpay-bookings 1.0.0</dd>
-                    <dt>Tool:</dt><dd>mcp-authscan 1.1.24</dd>
-                    <dt>Probe set:</dt><dd>2026.11.16.2</dd>
+                    <dt>Tool:</dt><dd>development build of mcp-authscan (reported 1.1.24)</dd>
+                    <dt>Probe set:</dt><dd>2026.11.16.2, in no release; see the reproducible 1.1.25 sample on the sample report page</dd>
                     <dt>Verdict:</dt><dd>HIGH</dd>
                     <dt>Findings:</dt><dd>1</dd>
                     <dt>Coverage:</dt><dd>1 of 1 testable</dd>
