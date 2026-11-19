@@ -2,7 +2,7 @@
 import json
 from urllib.request import Request
 
-from .tools_digest_probe import EgressRefusalError, OAUTH_PROBE_VERSION, _egress_guard
+from .tools_digest_probe import OAUTH_PROBE_VERSION, EgressRefusalError, _egress_guard
 
 SSE_PREFIX = "data:"
 PROTOCOL_VERSION = "2025-06-18"
@@ -38,7 +38,8 @@ def decode_body(raw, resp_headers):
     return text
 
 
-def call_method(endpoint, method, params=None, token=None, session_id=None, allow_private=None, allowed_hosts=None):
+def call_method(endpoint, method, params=None, token=None, session_id=None, allow_private=None, allowed_hosts=None,
+                status_sink=None):
     payload = {"jsonrpc": "2.0", "id": method, "method": method}
     if params is not None:
         payload["params"] = params
@@ -52,6 +53,11 @@ def call_method(endpoint, method, params=None, token=None, session_id=None, allo
     except Exception as exc:
         return None, session_id, "%s not obtained: %s" % (method, exc)
     new_session = header_value(resp_headers, "mcp-session-id") or session_id
+    if status_sink is not None:
+        # The HTTP status of a response that arrived. Absent when no response
+        # arrived at all (connection refused, timeout), which is how a caller
+        # tells "the server refused" from "the server was not reached".
+        status_sink["status"] = int(status)
     if not (200 <= int(status) < 300):
         return None, new_session, "%s returned status %s" % (method, status)
     try:
@@ -73,7 +79,9 @@ def capture_surface(endpoint, token=None, allow_private=None, allowed_hosts=None
         "capabilities": {},
         "clientInfo": {"name": "mcp-authscan", "version": OAUTH_PROBE_VERSION},
     }
-    init, session_id, reason = call_method(endpoint, "initialize", init_params, token=token, allow_private=allow_private, allowed_hosts=allowed_hosts)
+    init_status = {}
+    init, session_id, reason = call_method(endpoint, "initialize", init_params, token=token, allow_private=allow_private, allowed_hosts=allowed_hosts,
+                                           status_sink=init_status)
     if reason:
         reasons.append(reason)
     instructions = init.get("instructions") if isinstance(init, dict) else None
@@ -91,4 +99,5 @@ def capture_surface(endpoint, token=None, allow_private=None, allowed_hosts=None
         surface[key] = items
         captured.add(key)
     digest = surface_digest(surface) if "tools" in captured else None
-    return {"surface": surface, "digest": digest, "captured": sorted(captured), "reasons": reasons}
+    return {"surface": surface, "digest": digest, "captured": sorted(captured), "reasons": reasons,
+            "initialize_status": init_status.get("status")}

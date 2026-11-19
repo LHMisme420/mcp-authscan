@@ -2462,7 +2462,9 @@ def main():
     ap.add_argument("target", help="path to MCP server repo/dir OR http(s)://host:port for live scanning")
     ap.add_argument("--json", action="store_true", help="emit JSON + report sha256")
     ap.add_argument("--sign", action="store_true",
-                    help="sign schema-3 JSON with ~/.config/mcp-authscan/report-signing.pem (Ed25519)")
+                    help="sign schema-3 JSON (Ed25519). Key: $MCP_AUTHSCAN_SIGNING_KEY, else "
+                         "~/.config/mcp-authscan/report-signing.pem. If it cannot sign, the run exits "
+                         "non-zero and writes no report")
     ap.add_argument("--verbose", "-v", action="store_true",
                     help="print [DEBUG] diagnostics (discovered endpoints, token Cache-Control) to stderr")
     ap.add_argument("--html", action="store_true", help="emit HTML report (shareable, print-friendly)")
@@ -2513,10 +2515,32 @@ def main():
 
     ap.add_argument("--brief", action="store_true",
                     help="text output only: print just the final VERDICT line. The scan runs exactly as without it")
+    ap.add_argument("--evidence-dir", metavar="DIR",
+                    help="where a completed live scan writes its security-state-v1 and observation-v1 JSON "
+                         "(default: the --output file's directory, else ./mcp-authscan-evidence)")
+    ap.add_argument("--ledger-dir", metavar="DIR",
+                    help="boundary-ledger-v1 root; one append-only ledger per target and access class. "
+                         "Default: $MCP_AUTHSCAN_LEDGER_DIR, else ~/.config/mcp-authscan/ledgers. "
+                         "Rows are recorded only for --sign runs")
+    ap.add_argument("--ledger-unsigned", action="store_true",
+                    help="local use: also record ledger rows for unsigned --json runs. Those rows carry no "
+                         "attestation and can never satisfy a delta")
 
     args = ap.parse_args()
     if args.sign and (not args.json or args.html or args.sarif):
         ap.error("--sign requires --json and cannot be combined with --html or --sarif")
+    args.signing_key = None
+    if args.sign:
+        # --sign is an assertion: check the key before any request leaves, so an
+        # unsignable run never scans the target and never writes a report.
+        from mcp_authscan.report_signing import SigningError, load_signing_key
+        try:
+            args.signing_key = load_signing_key()
+        except SigningError as e:
+            print(f"[!] --sign: {e}. No scan run, no report written.", file=sys.stderr)
+            sys.exit(2)
+    if args.ledger_unsigned and (not args.json or args.html or args.sarif):
+        ap.error("--ledger-unsigned requires --json and cannot be combined with --html or --sarif")
     if args.brief and (args.json or args.html or args.sarif):
         ap.error("--brief applies to the text output; it cannot be combined with --json, --html or --sarif")
     # --brief changes only what prints: everything that would go to stdout goes to devnull
@@ -3175,12 +3199,30 @@ def main():
         for key in ("rule", "severity", "severity_basis", "endpoint", "remediation"):
             finding.setdefault(key, None)
     canonical_payload["severity_counts"] = severity_counts(F)
-    payload_hash, covered, report_bytes = compute(canonical_payload, F, include_bytes=True)
+    payload_hash, covered = compute(canonical_payload, F)
     canonical_payload["report_hash"] = payload_hash
     canonical_payload["hash_covers"] = covered
+    # Evidence: capture the surface per access class and bind the STATE IDs into
+    # the report. "evidence" is outside report_hash (graded content only) and
+    # inside the signature (report_verify.signed_content).
+    observations = prepare_evidence(args, scan_mode, canonical_payload)
+    # Lock and verify each class's ledger BEFORE signing, so the signed report
+    # names the chain (ledger key) and the head it extends (ledger_head).
+    ledgers = open_ledgers(args, observations, canonical_payload)
     if args.sign:
         from mcp_authscan.report_signing import sign_report
-        sign_report(canonical_payload, report_bytes)
+        from mcp_authscan.report_verify import SIG_VERSION_KEY, sig_version_for, signed_content
+        # Declare the signed form explicitly; a verifier reads it, it does not guess it.
+        canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
+        if not sign_report(canonical_payload, signed_content(canonical_payload, F), key=args.signing_key):
+            canonical_payload.pop(SIG_VERSION_KEY, None)
+            print("[!] --sign: signing failed. No report written.", file=sys.stderr)
+            sys.exit(4)
+    # Evidence files are written before the report, so a report never names a
+    # STATE ID whose file failed to land. Ledger rows are prepared (signed) now
+    # and committed with the report in the JSON output step.
+    write_evidence_files(args, observations)
+    prepare_ledger_rows(args, ledgers, canonical_payload)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
     from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
@@ -3200,11 +3242,7 @@ def main():
         print(json.dumps(to_sarif(F, args.target, tool_call_summary(tool_call_probe) if tool_call_probe is not None else None), indent=2))
     elif args.json:
         report_json = json.dumps(canonical_payload, indent=2)
-        if args.output:
-            # --output is documented as the HTML/JSON report file; stdout keeps the report too.
-            with open(args.output, "w", encoding="utf-8") as fh:
-                fh.write(report_json + "\n")
-            print(f"[+] JSON report saved to {args.output}", file=sys.stderr)
+        commit_report_and_ledgers(args, report_json, ledgers, canonical_payload)
         print(report_json)
     else:
         # Text output with optional authorization header
@@ -3367,6 +3405,151 @@ def main():
         print_verdict(F, counts, target_host, verdict_out if args.brief else None)
 
     sys.exit(exit_code)
+
+
+def prepare_evidence(args, scan_mode, canonical_payload):
+    """Capture states for a completed live scan; set canonical_payload["evidence"].
+
+    Returns the observation-v1 objects to write. Halted and source-code scans
+    have no endpoint boundary and get no evidence field.
+    """
+    if scan_mode != "LIVE_ENDPOINT_ASSESSMENT" or canonical_payload.get("status") != "completed":
+        return []
+    from mcp_authscan import evidence_emit
+    try:
+        states, skipped = evidence_emit.capture_states(
+            args.target, os.environ.get("MCPAUTHSCAN_TOKEN") or None, sorted(ALLOWED_HOSTS))
+        for reason in skipped:
+            print(f"[*] Evidence: {reason}", file=sys.stderr)
+        canonical_payload["evidence"] = evidence_emit.evidence_binding(states)
+        return [evidence_emit.build_observation(state, record, canonical_payload, scanner_version=VERSION)
+                for _klass, state, record in states]
+    except (ValueError, KeyError) as e:
+        print(f"[!] Evidence not built: {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+        sys.exit(4)
+
+
+def write_evidence_files(args, observations):
+    """Write each observation and its state; a failure is a scan error (exit 4), before any report."""
+    if not observations:
+        return
+    from mcp_authscan import evidence_emit
+    directory = evidence_emit.evidence_dir(getattr(args, "evidence_dir", None), args.output)
+    try:
+        written = [evidence_emit.write_evidence(directory, obs) for obs in observations]
+    except OSError as e:
+        print(f"[!] Evidence not written: {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+        sys.exit(4)
+    for obs, (state_path, obs_path) in zip(observations, written, strict=True):
+        print(f"[+] STATE ID ({obs['state']['access_class']}): {obs['state_id']}", file=sys.stderr)
+        print(f"[+] Evidence: {state_path}", file=sys.stderr)
+        print(f"[+] Evidence: {obs_path}", file=sys.stderr)
+
+
+def open_ledgers(args, observations, canonical_payload):
+    """Lock, verify and pre-check one ledger per observed access class.
+
+    Records only for --sign runs (or --ledger-unsigned). Writes the chain key,
+    the pre-run head and the head row itself (prior_row, with its own
+    signature) into canonical_payload["evidence"] so the report signature
+    covers them and a reader holding only the report can check the prior state. Any refusal (tampered ledger, header for another target or
+    class, unwritable root) exits 4 before signing: no report.
+    Returns the open PendingAppend handles (locks held until commit/exit).
+    """
+    if not observations or not (args.sign or getattr(args, "ledger_unsigned", False)):
+        return []
+    from mcp_authscan import evidence_emit
+    from mcp_authscan.evidence.ledger import close_all, open_ledger
+    root = evidence_emit.ledger_dir(getattr(args, "ledger_dir", None))
+    pending, chains = [], {}
+    for obs in observations:
+        klass = obs["state"]["access_class"]
+        path = evidence_emit.ledger_path(root, obs["target"], klass)
+        try:
+            handle = open_ledger(path, obs)
+        except (OSError, ValueError) as e:
+            close_all(pending)
+            print(f"[!] Ledger refused ({klass}): {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+            sys.exit(4)
+        handle.key = evidence_emit.ledger_key(obs["target"], klass)
+        pending.append(handle)
+        chains[klass] = (handle.key, handle.lines[-1] if len(handle.lines) > 1 else None)
+    states = [(o["state"]["access_class"], o["state"], None) for o in observations]
+    canonical_payload["evidence"] = evidence_emit.evidence_binding(states, chains)
+    return pending
+
+
+def prepare_ledger_rows(args, ledgers, canonical_payload):
+    """Build each row with the report_hash and, on --sign runs, its own attestation."""
+    if not ledgers:
+        return
+    from functools import partial
+
+    from mcp_authscan.evidence.ledger import close_all
+    from mcp_authscan.report_signing import sign_statement
+    signer = partial(sign_statement, args.signing_key) if args.sign else None
+    try:
+        for handle in ledgers:
+            handle.prepare(canonical_payload["report_hash"], signer)
+    except (OSError, ValueError) as e:
+        close_all(ledgers)
+        print(f"[!] Ledger row not built: {type(e).__name__}: {e}. No report written.", file=sys.stderr)
+        sys.exit(4)
+
+
+def commit_report_and_ledgers(args, report_json, ledgers, canonical_payload):
+    """Stage the report, commit every ledger row (all or nothing), then publish the report.
+
+    1. write --output to a temp file and fsync it (a full disk fails here,
+       before anything is recorded);
+    2. commit_all(ledgers): every class's row lands, or none does;
+    3. rename the staged report into place.
+    A failure in 1 or 2 exits 4 with no report and no row. The only window in
+    which a row can exist without its report is a failure of the final
+    rename, reported on stderr with the report_hash the row carries.
+    """
+    from mcp_authscan.evidence.ledger import close_all, commit_all
+    staged = None
+    try:
+        if args.output:
+            staged = f"{args.output}.tmp.{os.getpid()}"
+            with open(staged, "w", encoding="utf-8") as fh:
+                fh.write(report_json + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+    except OSError as e:
+        close_all(ledgers)
+        if staged and os.path.exists(staged):
+            os.remove(staged)
+        print(f"[!] Report could not be staged: {type(e).__name__}: {e}. No report written; no ledger row recorded.",
+              file=sys.stderr)
+        sys.exit(4)
+    try:
+        commit_all(ledgers)
+    except (OSError, ValueError) as e:
+        close_all(ledgers)
+        if staged and os.path.exists(staged):
+            os.remove(staged)
+        print(f"[!] Ledger not updated: {type(e).__name__}: {e}. No report written; no ledger row recorded.",
+              file=sys.stderr)
+        sys.exit(4)
+    if staged:
+        try:
+            os.replace(staged, args.output)
+        except OSError as e:
+            recorded = [h.key for h in ledgers if h.row is not None]
+            print(f"[!] Report not written: {type(e).__name__}: {e}. Ledger rows were already recorded for "
+                  f"{recorded} with report_hash {canonical_payload.get('report_hash')}; "
+                  f"they are signed and name this report's hash.", file=sys.stderr)
+            sys.exit(4)
+        # --output is documented as the HTML/JSON report file; stdout keeps the report too.
+        print(f"[+] JSON report saved to {args.output}", file=sys.stderr)
+    for handle in ledgers:
+        action = "appended" if handle.row is not None else "unchanged (state equals head)"
+        att = "signed" if handle.row is not None and handle.row["record"]["attestation"] else (
+            "unsigned" if handle.row is not None else "-")
+        print(f"[+] Ledger ({handle.observation['state']['access_class']}): {handle.path} {action}, {att}",
+              file=sys.stderr)
 
 
 def verdict_grade(findings, counts):

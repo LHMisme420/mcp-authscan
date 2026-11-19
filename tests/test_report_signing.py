@@ -1,11 +1,12 @@
 """Signing tests use disposable test-owned keys, never the runner's default key."""
 import base64
-from copy import deepcopy
 import hashlib
 import json
-from pathlib import Path
+import os
 import subprocess
 import sys
+from copy import deepcopy
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -14,7 +15,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_authscan import report_verify as rv
-from mcp_authscan.report_signing import sign_report
+from mcp_authscan.report_signing import key_path, sign_report
 
 
 def report():
@@ -28,11 +29,21 @@ def report():
 
 
 @pytest.fixture
-def signing_key(tmp_path, monkeypatch):
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HOME", str(tmp_path))
-    path = tmp_path / ".config/mcp-authscan/report-signing.pem"
+def empty_home(tmp_path, monkeypatch):
+    """HOME with no default key, so only MCP_AUTHSCAN_SIGNING_KEY can supply one."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("MCP_AUTHSCAN_SIGNING_KEY", raising=False)
+    return home
+
+
+@pytest.fixture
+def signing_key(tmp_path, empty_home, monkeypatch):
+    path = tmp_path / "keys" / "test-signing.pem"
     path.parent.mkdir(parents=True)
+    monkeypatch.setenv("MCP_AUTHSCAN_SIGNING_KEY", str(path))
     key = Ed25519PrivateKey.generate()
     path.write_bytes(key.private_bytes(
         serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
@@ -70,22 +81,33 @@ def test_identical_bytes_hash_signature_and_timestamp_exclusion(signing_key):
                       rv.compute(changed, [], include_bytes=True)[2])
 
 
-def test_missing_key_one_warning_unchanged_report(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+def test_missing_key_one_warning_unchanged_report(empty_home, capsys):
     value = report()
     before = deepcopy(value)
     assert not sign_report(value, rv.compute(value, [], include_bytes=True)[2])
     assert value == before
-    assert capsys.readouterr().err.count("Report unsigned:") == 1
+    assert capsys.readouterr().err.count("Signing failed:") == 1
+
+
+def test_env_var_wins_over_home_default(tmp_path, empty_home, monkeypatch):
+    default = empty_home / ".config/mcp-authscan/report-signing.pem"
+    default.parent.mkdir(parents=True)
+    default.write_text("NOT A KEY")
+    chosen = tmp_path / "chosen.pem"
+    monkeypatch.setenv("MCP_AUTHSCAN_SIGNING_KEY", str(chosen))
+    assert key_path() == chosen
+    monkeypatch.delenv("MCP_AUTHSCAN_SIGNING_KEY")
+    assert key_path() == default
 
 
 def test_invalid_key_does_not_disclose_contents(signing_key, capsys):
-    (Path.home() / ".config/mcp-authscan/report-signing.pem").write_text("PRIVATE TEST CONTENT")
+    key_path().write_text("PRIVATE TEST CONTENT")
     value = report()
     assert not sign_report(value, rv.compute(value, [], include_bytes=True)[2])
     error = capsys.readouterr().err
     assert "PRIVATE TEST CONTENT" not in error
-    assert error.count("Report unsigned:") == 1
+    assert str(key_path()) not in error
+    assert error.count("Signing failed:") == 1
     assert "signature" not in value
 
 
@@ -160,3 +182,35 @@ def test_cli_sign_uses_hash_bytes_without_scanning_network(tmp_path, signing_key
     unsigned_report = json.loads(output.read_text())
     assert "signature" not in unsigned_report
     assert unsigned_report["report_hash"] == digest
+
+
+def _owned_source(tmp_path):
+    target = tmp_path / "owned-repo"
+    target.mkdir()
+    (target / "server.py").write_text("# Harmless owned source fixture\n")
+    return target
+
+
+SIGN_ARGS = ["--json", "--sign", "--contact", "test@example.invalid", "--authorized-by", "Fixture owner",
+             "--auth-basis", "Owned local test directory", "--scope", "Local fixture only"]
+
+
+@pytest.mark.parametrize("key_state", ["missing", "garbage"])
+def test_cli_sign_without_usable_key_exits_nonzero_and_writes_nothing(tmp_path, empty_home, key_state):
+    key = tmp_path / "keys" / "absent.pem"
+    if key_state == "garbage":
+        key.parent.mkdir(parents=True)
+        key.write_text("PRIVATE TEST CONTENT")
+    output = tmp_path / "out" / "report.json"
+    output.parent.mkdir()
+    env = dict(os.environ, MCP_AUTHSCAN_SIGNING_KEY=str(key), HOME=str(empty_home))
+    proc = subprocess.run(
+        [sys.executable, "-m", "mcp_authscan.cli_wrapper", str(_owned_source(tmp_path)),
+         "--output", str(output), *SIGN_ARGS],
+        capture_output=True, text=True, timeout=30, env=env,
+    )
+    assert proc.returncode == 2, proc.stderr
+    assert proc.stdout == ""
+    assert "No scan run, no report written" in proc.stderr
+    assert "PRIVATE TEST CONTENT" not in proc.stderr and str(key) not in proc.stderr
+    assert list(output.parent.iterdir()) == []

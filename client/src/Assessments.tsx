@@ -26,7 +26,7 @@ export default function Assessments() {
 
       <section className="landing-section commercial-section" aria-label="Assessment packages">
         <div className="wrap">
-          <PricingTiers emailHref={assessmentEmailFor()} />
+          <PricingTiers emailHref={assessmentEmailFor()} checkout />
           <div className="package-notice">
             Testing requires written authorization and is limited to agreed targets, available access, and supported techniques.
             The named report and authorized tool-call check are part of the paid agreed scope, not guaranteed coverage or tests

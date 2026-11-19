@@ -1,0 +1,6 @@
+# version	wheel_sha256	source_date_epoch
+# One line per release. .github/workflows/release.yml refuses to build, upload
+# or create a GitHub release for a tag whose version has no line here, and
+# refuses when the wheel it builds, or the wheel already on PyPI, has another hash.
+# The hash here must be the one published in CHANGELOG.md and on the site.
+1.1.25	b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5	1795083301

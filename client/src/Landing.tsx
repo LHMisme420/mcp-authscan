@@ -21,8 +21,8 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
                   <dl>
                     <dt>Target:</dt><dd>agentpaystore.com/book/mcp</dd>
                     <dt>Server:</dt><dd>agentpay-bookings 1.0.0</dd>
-                    <dt>Tool:</dt><dd>mcp-authscan 1.1.24</dd>
-                    <dt>Probe set:</dt><dd>2026.11.16.2</dd>
+                    <dt>Tool:</dt><dd>development build of mcp-authscan (reported 1.1.24)</dd>
+                    <dt>Probe set:</dt><dd>2026.11.16.2, in no release; see the reproducible 1.1.25 sample on the sample report page</dd>
                     <dt>Verdict:</dt><dd>HIGH</dd>
                     <dt>Findings:</dt><dd>1</dd>
                     <dt>Coverage:</dt><dd>1 of 1 testable</dd>
@@ -146,6 +146,7 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
             </div>
             <div className="tooling-links" aria-label="Scanner project links">
               <pre className="free-run-command"><code>pip install mcp-authscan{"\n"}mcp-authscan https://api.example.com/mcp --authorized-by &quot;Your Name&quot; --auth-basis &quot;written consent&quot; --contact &quot;you@example.com&quot;</code></pre>
+              <p className="release-anchor">Current release: mcp-authscan 1.1.25, probe set 2026.11.16.1. Wheel sha256 <code>b0b4f2d0456b0aaee95913b5c4f53c056af406477f960706e975df2b81183be5</code>. Compare it: <code>pip download --no-deps mcp-authscan==1.1.25</code>, then <code>sha256sum</code> the wheel.</p>
               <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
               <Link className="text-link" href="/sample-report">View sample report</Link>
               <Link className="text-link assessment-discovery-link" href="/assessment">An MCP AuthScan assessment</Link>

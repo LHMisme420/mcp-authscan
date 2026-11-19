@@ -170,7 +170,7 @@ test('dedicated assessment details share exact pricing without package-call clai
   const document = await renderComponent('client/src/Assessments.tsx');
   const text = document.body.textContent || '';
   for (const phrase of ['Independent MCP security assessments', '1750 dollars', '3500 dollars',
-    'Single-server assessment', 'Full assessment', 'Start an assessment',
+    'Single-server assessment', 'Full assessment',
     'Who signs the report: Leroy H. Mason.',
     'Hash over graded report content', 'MATCH', 'DIVERGENCE', 'NOT REPRODUCIBLE',
     'written authorization', 'available access', 'supported techniques']) {
@@ -179,7 +179,23 @@ test('dedicated assessment details share exact pricing without package-call clai
   assert.match(text, /MIT-licensed mcp-authscan scanner/);
   assert.equal(document.querySelectorAll('.pricing-tier').length, 2);
   assert.equal(document.querySelectorAll('.pricing-tier a[href^="mailto:"]').length, 0);
-  assert(!document.querySelector('a[href*="stripe.com"]'), 'Assessments are scoped engagements, not automatic checkout');
+  // Checkout is live on this page (owner decision): price and payment sit together,
+  // but the scope form comes first so a payment always arrives with a named target.
+  const scopeForm = document.querySelector('.written-scope-form-wrap form');
+  assert(scopeForm, 'The scope form must be visible on arrival, above checkout');
+  assert.equal(document.querySelectorAll('.pricing-start-button').length, 0, 'No toggle: the form is always shown here');
+  assert.equal(document.querySelectorAll('.pricing-tier a[href*="stripe.com"]').length, 0, 'No Buy buttons inside the cards, above the form');
+  const checkout = document.querySelector('.assessment-checkout')!;
+  assert(checkout, 'Checkout section must render on /assessments');
+  assert(scopeForm.compareDocumentPosition(checkout) & 4, 'Checkout must follow the scope form');
+  assert.deepEqual([...document.querySelectorAll('a[href*="stripe.com"]')].map(a => [a.textContent, a.getAttribute('href')]), [
+    ['Pay for the single-server assessment — $1,750', 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01'],
+    ['Pay for the full assessment — $3,500', 'https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02'],
+  ]);
+  const next = checkout.textContent || '';
+  assert.match(next, /does not start a test/);
+  assert.match(next, /agree the written scope and authorization for the server named in the form/);
+  assert.match(next, /Nothing is tested until both are agreed in writing/);
   assert(!/subscription|monthly|a month|scheduled re.check|\$49/i.test(text));
   assert(!/walkthrough|walk your team|meeting/i.test(text));
   assert.match(text, /Hash over graded report content/);
@@ -215,7 +231,7 @@ test('/sample-report preserves observations and digests with two price-labeled c
     'SAMPLE ASSESSMENT REPORT',
     'AgentPayStore, redacted',
     'Target: agentpaystore.com/book/mcp',
-    'Scanner: mcp-authscan 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1',
+    'Scanner: a development build of mcp-authscan that reported itself as 1.1.24, probe set 2026.11.16.2, severity calibration 2026.11.07.1',
     'VERDICT HIGH. One finding.',
     'tool-call probe not run.',
     'One probe passed. Fifteen were excluded. Coverage, 1 of 1 testable probe.',
@@ -237,23 +253,31 @@ test('/sample-report preserves observations and digests with two price-labeled c
   assert(!text.includes('Show more'));
 });
 
-test('/scope directly renders the existing written-scope form without replacing other intake routes', async () => {
+test('/scope renders its short mailto scope request on arrival without replacing other intake routes', async () => {
+  // Since c22e439 /scope has its own five-field request (the full WrittenScopeForm,
+  // with the ownership attestation and publish-permission questions, stays on the
+  // homepage and /assessments). Authorization is still asked here and still agreed
+  // in writing by email before any test.
   const document = await renderComponent('client/src/Scope.tsx', '/scope');
   const form = document.querySelector('form')!;
   assert(form, 'The scope form must already be visible on arrival');
-  assert.deepEqual([...form.querySelectorAll('label')].map(label => label.textContent?.replace(/\s+/g, ' ').trim()).map(text => text?.replace(/\s+(Yes|No)$/, '')), [
-    'Your name',
-    'Work email',
-    'Company',
-    'MCP endpoint or URL',
-    'Who authorizes the test and on what basis',
-    'What buyer or review is waiting on it',
-    'Permission to publish a redacted result',
-    'I confirm I own this endpoint, or am authorized to approve testing of it, and I will confirm the scope in writing before any test runs.',
+  assert.deepEqual([...form.querySelectorAll('label')].map(label => label.textContent?.replace(/\s+/g, ' ').trim()), [
+    'MCP server URL',
+    'Name',
+    'Email',
+    'Who authorizes the test',
+    'What the buyer needs the report to prove (optional)',
   ]);
+  const required = (id: string) => form.querySelector<HTMLInputElement>(`#${id}`)?.required;
+  for (const id of ['request-endpoint', 'request-name', 'request-email', 'request-authority']) assert.equal(required(id), true, `${id} must be required`);
+  assert.equal(required('request-buyer-needs'), false);
+  assert.equal(form.querySelector<HTMLInputElement>('#request-endpoint')?.type, 'url');
+  assert.match(document.body.textContent || '', /Scope and written authorization are agreed by email before anything is tested/);
   assert(!/\b(true|false)\b/.test(form.textContent || ''), 'Visitors must not see raw booleans');
-  assert.equal(form.querySelector('button[type="submit"]')?.textContent, 'Submit');
-  assert.match(form.querySelector('.written-scope-email-fallback a')?.getAttribute('href') || '', /^mailto:lhmisme2011@gmail.com/);
+  assert.equal(form.querySelectorAll('button[type="submit"], input[type="submit"]').length, 0, 'Nothing is submitted from this site');
+  const send = [...form.querySelectorAll('a.button')].find(a => a.textContent === 'Email scope request');
+  assert.match(send?.getAttribute('href') || '', /^mailto:lhmisme2011@gmail.com/);
+  assert.match(form.textContent || '', /nothing is sent from this site/);
   const app = await readFile('client/src/App.tsx', 'utf8');
   assert(app.includes('path="/scope" component={Scope}'));
   assert(app.includes('path="/request-assessment" component={RequestAssessment}'));

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.24"  # single source of truth
+version = "1.1.25"  # single source of truth
 description = """MCP AuthScan
 Security scanner for MCP server deployments you are authorised to test. Python 3.11+.
 
@@ -17,7 +17,7 @@ FAIL the property was demonstrably absent, with a severity attached
 NOT_OBSERVED the probe ran but the response established neither
 EXCLUDED the probe could not run, with the missing prerequisite named, and it leaves the coverage denominator
 
-Coverage is conclusive probes over the in-scope set; EXCLUDED is counted separately. Text, JSON and SARIF 2.1.0 output. --fail-on severity gates CI. Baselines carry an expiry date and a reason. Every report records target, start and end, exit code, tool version, probe-set version and a content hash covering the authorization, scan mode, verdicts and findings, with the header block outside the hash. Tokens, cookies, API keys and email addresses are redacted from the captured evidence.
+Coverage is conclusive probes over the in-scope set; EXCLUDED is counted separately. Text, JSON and SARIF 2.1.0 output. --fail-on severity gates CI. Baselines carry an expiry date and a reason. Every report records target, start and end, exit code, probe-set version (python -m mcp_authscan.releases maps it to the release that ships it) and a content hash covering the authorization, scan mode, verdicts and findings, with the header block outside the hash. Tokens, cookies, API keys and email addresses are redacted from the captured evidence.
 
 Use it only against targets you own or have written permission to test. Reports are written to be handed to someone who wasn't on the call.
 
@@ -62,7 +62,7 @@ mcp-authscan = "mcp_authscan.cli_wrapper:main"
 
 [tool.setuptools]
 # This project root is the package itself; web imports keep their existing paths.
-packages = ["mcp_authscan"]
+packages = ["mcp_authscan", "mcp_authscan.evidence"]
 package-dir = {mcp_authscan = "mcp_authscan"}
 
 [tool.mypy]

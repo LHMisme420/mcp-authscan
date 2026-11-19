@@ -27,7 +27,15 @@ Freeze the named-client sample's wording. Do not edit it later for tone without 
 
 **How to apply:** Enforce the approved-copy regression fixture. Only change the copy or that fixture following a specific owner-approved correction. The owner supplied the complete severity basis and hash-header wording; the earlier truncation was caused by the chat client, not by the report.
 
-Use the written-scope form as the assessment offer's primary action, except the sample report's closing actions: the owner explicitly chose direct, price-labeled one-time Stripe assessment links there (pay then scope). Submit opens a prefilled mailto draft to the existing assessment inbox; it does not call status, save online, or send server-side. Keep Resend connected but unused by this form.
+Stripe checkout placement (owner decision 2026-11-19, supersedes the sample-report-only rule written 2026-11-17, the evening before checkout went live):
+- Homepage (both the live homepageVariant and the legacy Landing / /assessment alias): zero Stripe links. The homepage narrates and has one primary action, the scope request. tests/commercial-site.test.ts and client/src/Assessment.test.tsx enforce this.
+- /assessments: checkout is live. The written-scope form is shown on arrival, and the two price-labeled Stripe links sit BELOW it (PricingTiers `checkout` prop), never inside the cards above it, with text saying what happens next: payment reserves the assessment, Leroy then agrees written scope and authorization by email for the server named in the form, nothing is tested until both are agreed in writing.
+- /sample-report closing actions: the owner's direct, price-labeled one-time Stripe links (pay then scope), unchanged.
+Do not add Stripe links anywhere else, and do not remove these, without a new owner decision.
+
+**Why:** At $3,500 a purchase with no named target is not a sale, it is an email the owner has to send; transacting belongs next to the price, after the target is named.
+
+Use the written-scope form as the assessment offer's primary action. Submit opens a prefilled mailto draft to the existing assessment inbox; it does not call status, save online, or send server-side. Keep Resend connected but unused by this form.
 
 **Why:** The owner explicitly replaced server-side delivery with the visitor's email client so a status or sending-service failure cannot block the request. Invoicing follows agreed scope; submission never authorizes testing.
 
@@ -44,6 +52,8 @@ The landing scope form asks what buyer or review is waiting on the assessment an
 **Why:** The owner explicitly requested these questions; publication permission must not be assumed from a request for testing.
 
 **How to apply:** Include both answers in the saved inquiry and notification. Keep publication consent separate from testing authority and never preselect it.
+
+/scope does not render that form. Since c22e439 (2026-11-18) it has its own short mailto request: MCP server URL, name, email, who authorizes the test (all required), and what the buyer needs the report to prove (optional), sent from the visitor's email client. It has no ownership-attestation or publish-permission checkbox; publication consent is therefore never given on /scope. tests/commercial-site.test.ts pins those five fields. Restoring the attestation there is an open owner question (2026-11-19), not a default.
 
 Use the verified custom domain as the primary public site while preserving the existing Replit hostname where safe. Trust only exact approved origins; do not use wildcard origins or weaken authentication/CSRF checks.
 
