@@ -17,7 +17,7 @@ def serve():
         method=req.get("method")
         params=req.get("params") or {}
         if method=="initialize":
-            out({"jsonrpc":"2.0","id":mid,"result":{"protocolVersion":params.get("protocolVersion") or "2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mcp-authscan-verify","version":"0.1.2"}}})
+            out({"jsonrpc":"2.0","id":mid,"result":{"protocolVersion":params.get("protocolVersion") or "2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mcp-authscan-verify","version":"0.1.3"}}})
         elif method=="tools/list":
             out({"jsonrpc":"2.0","id":mid,"result":{"tools":[TOOL]}})
         elif method=="tools/call":
