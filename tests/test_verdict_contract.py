@@ -127,7 +127,10 @@ ACQUIRED_EXPECTED = {
 "token-audience": "EXCLUDED",
         },
         "coverage": 1.0,
-        "excluded": 2,
+        # token-audience (no client_credentials grant), rate limiting (no budget), cross-origin
+        # read (401 is not a graded CORS posture since 4a20572) and alternate transport (probe 15,
+        # 367ea5f; /sse answers 404). Was 2 before those two probe-set changes.
+        "excluded": 4,
         "exit_code": 0,
         "token_revocation_populated": True,
     },
@@ -148,7 +151,10 @@ ACQUIRED_EXPECTED = {
 "token-audience": "EXCLUDED",
         },
         "coverage": 1.0,
-        "excluded": 2,
+        # token-audience (no client_credentials grant), rate limiting (no budget), cross-origin
+        # read (401 is not a graded CORS posture since 4a20572) and alternate transport (probe 15,
+        # 367ea5f; /sse answers 404). Was 2 before those two probe-set changes.
+        "excluded": 4,
         "exit_code": 0,
         "token_revocation_populated": True,
     },
