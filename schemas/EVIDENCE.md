@@ -9,6 +9,7 @@
 | [boundary-delta-v1](boundary-delta-v1.md) | Classification of `prev → curr` for two observations of one target. |
 | [boundary-ledger-v1](boundary-ledger-v1.md) | Append-only chain of states for one target at one access class. |
 | [boundary-passport-v1](boundary-passport-v1.md) | Portable proof of the current state and its lineage. Specified, not emitted yet. |
+| [boundary-contrast-v1](boundary-contrast-v1.md) | Separate credentialed mode: reproducible anonymous-vs-credentialed differences against declared expectations. Specified, not implemented. |
 
 ## 1. What a scan writes
 
