@@ -128,7 +128,6 @@ def patch():
     lines[start:end] = out
     new = "".join(lines)
     new = new + NL + "from mcp" + U + "authscan.transportprobe import altprobe, t" + U + "findings" + NL
-    open(P, "w").write(new)
     M = d + "/monolith.py"
     ms = open(M).read()
     for q in (chr(34), chr(39)):
@@ -136,5 +135,4 @@ def patch():
         if old in ms:
             ms = ms.replace(old, q + "2026.11.16.1" + q)
             break
-    open(M, "w").write(ms)
     print("stamp bumped to 2026.11.16.1")
