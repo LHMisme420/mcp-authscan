@@ -110,6 +110,7 @@ Ships probe set `2026.11.16.1`, which no earlier release carried. Its recorded c
 
 ### Probe set stamps
 
+- 2026.11.19.1: **fixes a false clean.** token-cors [4] and password-grant [6] now send the operator's client when MCPAUTHSCAN_CLIENT_ID is set, and the registered client only when it is not; the report records which (`client_registration[].credential_grant_client_source`). password-grant grades PASS only on `unsupported_grant_type`; any other 4xx error is NOT_OBSERVED. From a18ad02 (stamp 2026.11.11.1) through 2026.11.16.1 the freshly registered client was sent instead, and a server issuing client_credentials and password-grant tokens to its own client, with credentialed CORS on the token endpoint, graded VERDICT PASS with zero findings. Reports from those probe sets that show token-cors NOT_OBSERVED or password-grant PASS with `Error: invalid_request` (or any error other than unsupported_grant_type) did not evaluate those properties. tests/test_credential_grant_client.py.
 - 2026.11.10.2: preflight now records serverInfo.name, serverInfo.version and the negotiated protocolVersion from the unauthenticated initialize it already performs. NOT_OBSERVED when the response carries no result. No new request, no new host contacted.
 
 - 2026.11.10.1: recorded a probe set change that landed between 2026-11-07 and 2026-11-10 without a stamp bump; every component recomputed from the tree at the time of recording, fingerprint e2c0850f. No PASS or FAIL verdict changed, and no past report is regraded.

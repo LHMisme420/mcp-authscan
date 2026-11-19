@@ -32,9 +32,10 @@ PROBE_SET_RELEASES = {
     "2026.11.10.1": ["1.1.21", "1.1.23", "1.1.24"],
     "2026.11.11.1": ["1.1.22"],
     # 1.1.25 on PyPI (yanked) carries this stamp over probe code that matches
-    # no commit; 1.1.26 is the first release whose 2026.11.16.1 probes are the
-    # committed ones. See CHANGELOG.md [1.1.25] and [1.1.26].
-    "2026.11.16.1": ["1.1.25", "1.1.26"],
+    # no commit. No release ships the committed 2026.11.16.1 probes. See
+    # CHANGELOG.md [1.1.25].
+    "2026.11.16.1": ["1.1.25"],
+    "2026.11.19.1": ["1.1.26"],
 }
 
 

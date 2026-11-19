@@ -739,6 +739,10 @@ def _token_cors_acquired(token_endpoint, metadata, client, registration_note):
         return result("EXCLUDED", "Acquired-token mode (--acquire-token)",
                       limitation="No authorization endpoint", prerequisite_met=False)
     client = client or _env_client()
+    if client is not None and not client.redirect_uri:
+        return result("EXCLUDED", "Acquired-token mode (--acquire-token), client %s (%s)" % (client.client_id, client.source),
+                      limitation="The operator's client has no redirect URI (MCPAUTHSCAN_REDIRECT_URI not set)",
+                      prerequisite_met=False)
     if client is None:
         return result("EXCLUDED", registration_note or "Acquired-token mode (--acquire-token)",
                       limitation=("No client to obtain a token (registration supplied none and "
@@ -1123,9 +1127,17 @@ def probe_password_grant(token_endpoint, metadata=None, client=None, registratio
         status = "NOT_OBSERVED"
         severity = None
         detail_override = "No accepted client credential (%s), so the grant type was never evaluated" % error
-    elif 400 <= http_status < 500 and error and error != "invalid_grant":
+    elif 400 <= http_status < 500 and error == "unsupported_grant_type":
+        # RFC 6749 5.2: the one error that says the grant type itself is refused.
         status = "PASS"
         severity = None
+    elif 400 <= http_status < 500 and error and error != "invalid_grant":
+        # Before probe set 2026.11.19.1 any other 4xx error graded PASS, so a server answering
+        # invalid_request to a client it does not know passed without the grant being evaluated.
+        status = "NOT_OBSERVED"
+        severity = None
+        detail_override = ("Error %s does not say the password grant is refused (only unsupported_grant_type does), "
+                           "so the grant type was never evaluated" % error)
     else:
         return record(
             probe_id=6,
@@ -1493,6 +1505,16 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
     registered, registration = _register_client(metadata, tried)
     client = registered if registered is not None and registered.usable else None
     registration_note = None if client else "Dynamic client registration unavailable: " + registration
+    # Client for the credential-grant probes, token-cors [4] and password-grant [6]: the operator's
+    # client from the environment when one is supplied, else the registered client. A client this
+    # run registered a moment ago has been granted nothing, so a refusal it receives says nothing
+    # about what the server issues to its real clients. From a18ad02 to probe set 2026.11.19.1 the
+    # registered client won, and a server issuing client_credentials and password-grant tokens to
+    # its own client graded PASS with zero findings.
+    env_id, env_secret, env_redirect = _client_creds()
+    grant_client = (_Client(env_id, env_redirect, "environment (MCPAUTHSCAN_CLIENT_ID)", secret=env_secret)
+                    if env_id else client)
+    grant_note = None if grant_client else registration_note
 
     TOKEN_REVOCATION.clear()
     TOKEN_REVOCATION.update(unconfirmed=None, not_revoked=[], revocation=None, client_id=None)
@@ -1503,10 +1525,11 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         records.append(rb)
     rs = probe_resource_authorization_servers(resource_metadata, mcp_url); records.append(rs) if rs else None
     records.append(probe_token_cache_control(metadata.get("token_endpoint")))
-    records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=client,
-                                    registration_note=registration_note))
+    records.append(probe_token_cors(metadata.get("token_endpoint"), metadata=metadata, client=grant_client,
+                                    registration_note=grant_note))
     records.append(probe_jwks_keys(metadata.get("jwks_uri")))
-    records.append(probe_password_grant(metadata.get("token_endpoint"), metadata=metadata, client=client, registration_note=registration_note))
+    records.append(probe_password_grant(metadata.get("token_endpoint"), metadata=metadata, client=grant_client,
+                                        registration_note=grant_note))
     records.append(probe_pkce_s256(metadata, client=client, registration_note=registration_note))
     records.append(probe_redirect_uri_exact(metadata, client=client, registration_note=registration_note))
     records.append(probe_client_auth(metadata.get("token_endpoint")))
@@ -1546,6 +1569,7 @@ def run_oauth_assessment(oauth_server_url, resource_metadata, mcp_url, allowed_h
         "registration": registration,
         "client_source": source,
         "client_id": client_id,
+        "credential_grant_client_source": grant_client.source if grant_client is not None else "none",
         "redirect_uri": redirect_uri,
         "client_removal": removal,
         "client_deleted": deleted,

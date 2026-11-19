@@ -268,6 +268,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "f78e90498bc7536900b8836512fa800cf50036f3a2ea2a3ab5c3b25170cb1675"
       }
+    },
+    "2026.11.19.1": {
+      "changed": "2026-11-19, token-cors and password-grant use the operator's client when MCPAUTHSCAN_CLIENT_ID is set; password-grant PASS only on unsupported_grant_type",
+      "fingerprint": "4a87870dffc72e7fec91b119f82e927f31ff695195acb7db4c0d215042fb89ba",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "b74b66964b800da2099ca036c16c9e8cd1a954f6b100796ac2c4b2a00e5f4252",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "2f17ec9a99224ae86215ddef26e874677494ecc83f27a2b850b758bc5cac6560"
+      }
     }
   },
   "withdrawn": {
