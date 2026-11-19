@@ -12,6 +12,9 @@ wheel ships it. Entries through 1.1.24 were read from the published wheels
 on PyPI (sha256-checked against PyPI's digests) on 2026-11-19, not from the
 CHANGELOG. The stamp history is not monotonic: 1.1.22 shipped 2026.11.11.1
 and 1.1.23 went back to 2026.11.10.1, so a stamp can name several releases.
+A stamp names code only when the wheel was built from a commit: the yanked
+1.1.25 wheel carries 2026.11.16.1 over uncommitted probe code, so a report
+stamped 2026.11.16.1 from 1.1.25 is not reproducible from any commit.
 Releases before 1.1.1 carry no stamp. Each new release adds its own entry
 (tests/test_releases.py fails if the running stamp/version pair is absent).
 """
@@ -28,7 +31,10 @@ PROBE_SET_RELEASES = {
     "2026.11.02.4": ["1.1.20"],
     "2026.11.10.1": ["1.1.21", "1.1.23", "1.1.24"],
     "2026.11.11.1": ["1.1.22"],
-    "2026.11.16.1": ["1.1.25"],
+    # 1.1.25 on PyPI (yanked) carries this stamp over probe code that matches
+    # no commit; 1.1.26 is the first release whose 2026.11.16.1 probes are the
+    # committed ones. See CHANGELOG.md [1.1.25] and [1.1.26].
+    "2026.11.16.1": ["1.1.25", "1.1.26"],
 }
 
 
