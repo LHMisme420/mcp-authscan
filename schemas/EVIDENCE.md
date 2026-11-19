@@ -71,13 +71,20 @@ The empty anonymous state has STATE ID `f91b3009b031cd660ff79f978b7b6c5ac0b85530
 
 `report_hash` is SHA-256 over the **graded content only**: target, status, counts, coverage and findings. Its job is reproducibility. Anyone holding the report can recompute it from the graded fields with no other data and no key. If STATE IDs were hashed, that check would depend on evidence files the verifier may not have. It would also change `report_hash` whenever the surface changed, even when the grading didn't.
 
-The signature's job is authenticity. It covers the canonical JSON of `{"evidence": <binding>, "report": <canonical graded report>}`. So:
+The signature's job is authenticity. The bytes it covers are chosen by the report's top-level **`sig_version`**, which is outside `report_hash`. A verifier reads it; it never infers the form from which fields happen to be present:
 
-- **editing** a bound STATE ID breaks the signature, while `report_hash` still matches;
-- **removing** the `evidence` field breaks the signature, while `report_hash` still matches;
-- **adding** an `evidence` field to a report signed without one breaks the signature.
+| `sig_version` | Signed bytes | `evidence` |
+|---|---|---|
+| absent (every report signed before `sig_version` existed) or `1` | canonical graded report: exactly the `report_hash` preimage | MUST be absent |
+| `2` | canonical JSON of `{"sig_version": 2, "evidence": <binding>, "report": <canonical graded report>}` | MUST be present |
 
-A report with no `evidence` field is signed over exactly the `report_hash` preimage, as before evidence existed, so older signed reports still verify. `verify_upload` returns the signed bytes as `canonical_bytes`, and the site's TypeScript verifier checks the signature over those bytes without needing to know about evidence.
+Any other value, or a mismatch between `sig_version` and `evidence`, means authenticity can't be verified. The site then reports `UNREADABLE` while integrity stays `INTACT`. The scanner always writes `sig_version` when it signs: `2` when evidence is bound, `1` otherwise. So:
+
+- **editing** a bound STATE ID breaks the signature (`SIGNATURE INVALID`), while `report_hash` still matches;
+- **removing** `evidence` or `sig_version` from a form-2 report, or downgrading it to `1`, makes authenticity unverifiable, while `report_hash` still matches;
+- **adding** `evidence` to a form-1 report is refused: form 1 doesn't cover it, so unsigned evidence can never ride on a valid signature.
+
+Old reports without `sig_version` keep verifying unchanged. `verify_upload` returns the bytes of the declared form as `canonical_bytes` (or `null`), and the site's TypeScript `verifyAuthenticity` checks the signature over them unmodified. `tests/test_evidence_signing.py` runs that exact path on a real signed report that carries evidence.
 
 ## 4. Known limits
 

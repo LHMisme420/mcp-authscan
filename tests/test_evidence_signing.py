@@ -49,7 +49,10 @@ def signed_scan(tmp_path_factory):
 
 
 def _signature_valid(report, public):
-    content = rv.signed_content(report, report["findings"])
+    try:
+        content = rv.signed_content(report, report["findings"])
+    except ValueError:
+        return False        # the declared form cannot be reconstructed: unverifiable
     try:
         public.verify(base64.urlsafe_b64decode(report["signature"]["value"] + "=="), content)
         return True
@@ -59,6 +62,7 @@ def _signature_valid(report, public):
 
 def test_signed_report_binds_state_id(signed_scan):
     report, public = signed_scan
+    assert report["sig_version"] == 2
     [entry] = report["evidence"]["states"]
     assert entry["access_class"] == "anonymous" and len(entry["state_id"]) == 64
     assert _signature_valid(report, public)
@@ -87,6 +91,52 @@ def test_removing_state_id_leaves_report_hash_unchanged_and_breaks_signature(sig
     assert not _signature_valid(stripped, public)
 
 
+def _graded():
+    return {"schema_version": 3, "hash_scheme": "verdict-v3", "target": "https://x.example/mcp",
+            "status": "completed", "total_checks": 1, "findings_count": 0, "probe_set_version": "t",
+            "coverage": 1.0, "severity_counts": rv.severity_counts([])}
+
+
+EV = {"scheme": "evidence-binding-v1", "states": [{"access_class": "anonymous", "state_id": "a" * 64}]}
+
+
+def test_old_reports_without_sig_version_are_form_1():
+    payload = _graded()
+    assert "sig_version" not in payload
+    assert rv.signed_content(payload, []) == rv.compute(payload, [], include_bytes=True)[2]
+    assert rv.signed_content(dict(payload, sig_version=1), []) == rv.signed_content(payload, [])
+
+
+def test_form_2_bytes_carry_sig_version():
+    content = rv.signed_content(dict(_graded(), sig_version=2, evidence=EV), [])
+    assert json.loads(content) == {"sig_version": 2, "evidence": EV, "report": rv.canonical_report(_graded(), [])}
+
+
+@pytest.mark.parametrize("extra, match", [
+    ({"evidence": EV}, "sig_version: 1 does not cover"),                 # evidence with no declared form
+    ({"sig_version": 1, "evidence": EV}, "sig_version: 1 does not cover"),
+    ({"sig_version": 2}, "requires an evidence field"),
+    ({"sig_version": 3, "evidence": EV}, "unknown value"),
+    ({"sig_version": "2", "evidence": EV}, "unknown value"),
+    ({"sig_version": True, "evidence": EV}, "unknown value"),
+])
+def test_form_is_declared_not_inferred(extra, match):
+    with pytest.raises(ValueError, match=match):
+        rv.signed_content(dict(_graded(), **extra), [])
+
+
+def test_downgrading_sig_version_breaks_signature_not_hash(signed_scan):
+    report, public = signed_scan
+    for change in ({"sig_version": 1}, {"sig_version": None}):
+        tampered = copy.deepcopy(report)
+        if change["sig_version"] is None:
+            del tampered["sig_version"]
+        else:
+            tampered.update(change)
+        assert not _signature_valid(tampered, public)
+        assert rv.compute(tampered, tampered["findings"])[0] == report["report_hash"]
+
+
 def test_report_without_evidence_signs_the_hash_preimage_unchanged():
     payload = {"schema_version": 3, "hash_scheme": "verdict-v3", "target": "https://x.example/mcp",
                "status": "completed", "total_checks": 1, "findings_count": 0, "probe_set_version": "t",
@@ -108,3 +158,55 @@ def test_malformed_binding_is_refused(evidence):
                "coverage": 1.0, "severity_counts": rv.severity_counts([]), "evidence": evidence}
     with pytest.raises(ValueError, match="evidence"):
         rv.signed_content(payload, [])
+
+
+# ---- the site verifier on a report that carries evidence ----------------------
+
+SITE_VERIFY_JS = ("import fs from 'node:fs';"
+                  "import {verifyAuthenticity} from './server/reportAuthenticity.ts';"
+                  "const v=JSON.parse(fs.readFileSync(0,'utf8'));"
+                  # Same as server/reportVerification.ts: null bytes when verify_upload could not build them.
+                  "const bytes=typeof v.bytes==='string'?Buffer.from(v.bytes,'base64'):null;"
+                  "console.log(JSON.stringify(verifyAuthenticity(true,v.signature,bytes,[v.key])));")
+
+
+def _site_verdict(report, public):
+    """verify_upload -> the site's TypeScript verifyAuthenticity, as server/reportVerification.ts wires them."""
+    checked = subprocess.run([sys.executable, "-m", "mcp_authscan.verify_upload"], input=json.dumps(report),
+                             capture_output=True, text=True, timeout=15, cwd=ROOT)
+    assert checked.returncode == 0, checked.stderr
+    result = json.loads(checked.stdout)
+    raw = public.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    proc = subprocess.run(
+        ["node", "--import", "tsx", "--input-type=module", "-e", SITE_VERIFY_JS],
+        input=json.dumps({"signature": report["signature"], "bytes": result["canonical_bytes"],
+                          "key": {"alg": "ed25519", "key_id": report["key_id"],
+                                  "public_key": base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")}}),
+        capture_output=True, text=True, timeout=15, cwd=ROOT)
+    assert proc.returncode == 0, proc.stderr
+    return result["verdict"], json.loads(proc.stdout)["verdict"]
+
+
+def test_site_verifier_signed_by_on_evidence_report(signed_scan):
+    report, public = signed_scan
+    assert report["sig_version"] == 2 and report["evidence"]["states"]
+    assert _site_verdict(report, public) == ("INTACT", "SIGNED BY")
+
+
+def test_site_verifier_rejects_edited_state_id(signed_scan):
+    report, public = signed_scan
+    edited = copy.deepcopy(report)
+    sid = edited["evidence"]["states"][0]["state_id"]
+    edited["evidence"]["states"][0]["state_id"] = ("0" if sid[0] != "0" else "1") + sid[1:]
+    assert _site_verdict(edited, public) == ("INTACT", "SIGNATURE INVALID")
+
+
+@pytest.mark.parametrize("strip", ["evidence", "sig_version"])
+def test_site_verifier_refuses_stripped_form(signed_scan, strip):
+    report, public = signed_scan
+    stripped = copy.deepcopy(report)
+    del stripped[strip]
+    # report_hash still matches; the declared signed form can no longer be built, so the
+    # site reports authenticity as unverifiable rather than ever saying SIGNED BY.
+    integrity, authenticity = _site_verdict(stripped, public)
+    assert (integrity, authenticity) == ("INTACT", "UNREADABLE")

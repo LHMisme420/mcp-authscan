@@ -89,20 +89,42 @@ def evidence_binding(payload):
     return ev
 
 
-def signed_content(payload, findings):
-    """The exact bytes a report signature covers.
+SIG_VERSION_KEY = "sig_version"
+SIG_VERSION_GRADED = 1     # signed bytes: canonical graded report (the report_hash preimage)
+SIG_VERSION_EVIDENCE = 2   # signed bytes: canonical {"sig_version": 2, "evidence": ..., "report": ...}
+SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE)
 
-    No evidence binding: the canonical graded report bytes, identical to the
-    report_hash preimage (unchanged from before evidence existed).
-    With a binding: canonical JSON of {"evidence": binding, "report": canonical graded report}.
-    Removing, adding or editing the binding therefore breaks the signature,
-    while report_hash stays a function of graded content alone.
+
+def sig_version_for(payload):
+    """The sig_version a new signature over ``payload`` must declare."""
+    return SIG_VERSION_EVIDENCE if EVIDENCE_KEY in payload else SIG_VERSION_GRADED
+
+
+def signed_content(payload, findings):
+    """The exact bytes a report signature covers, chosen by the report's sig_version.
+
+    sig_version absent or 1: the canonical graded report bytes, identical to
+    the report_hash preimage. Every report signed before sig_version existed
+    is form 1. An evidence field is not allowed in form 1, because form 1
+    does not cover it.
+    sig_version 2: canonical JSON of {"sig_version": 2, "evidence": binding,
+    "report": canonical graded report}. The evidence binding is required.
+
+    The form is read from sig_version, never inferred from which fields are
+    present. Raises ValueError for an unknown sig_version or a mismatch.
     """
+    version = payload.get(SIG_VERSION_KEY, SIG_VERSION_GRADED)
+    if isinstance(version, bool) or version not in SIG_VERSIONS:
+        raise ValueError(f"sig_version: unknown value {version!r}")
     canonical = canonical_report(payload, findings)
     ev = evidence_binding(payload)
-    if ev is None:
+    if version == SIG_VERSION_GRADED:
+        if ev is not None:
+            raise ValueError("sig_version: 1 does not cover an evidence field; evidence requires sig_version 2")
         return serialize(canonical)
-    return serialize({EVIDENCE_KEY: ev, "report": canonical})
+    if ev is None:
+        raise ValueError("sig_version: 2 requires an evidence field")
+    return serialize({SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical})
 
 
 def verify(path):

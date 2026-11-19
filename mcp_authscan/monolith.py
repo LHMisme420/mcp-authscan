@@ -3199,8 +3199,11 @@ def main():
     observations = prepare_evidence(args, scan_mode, canonical_payload)
     if args.sign:
         from mcp_authscan.report_signing import sign_report
-        from mcp_authscan.report_verify import signed_content
+        from mcp_authscan.report_verify import SIG_VERSION_KEY, sig_version_for, signed_content
+        # Declare the signed form explicitly; a verifier reads it, it does not guess it.
+        canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
         if not sign_report(canonical_payload, signed_content(canonical_payload, F), key=args.signing_key):
+            canonical_payload.pop(SIG_VERSION_KEY, None)
             print("[!] --sign: signing failed. No report written.", file=sys.stderr)
             sys.exit(4)
     # Evidence files are written before the report, so a report never names a

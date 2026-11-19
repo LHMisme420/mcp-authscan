@@ -1,8 +1,8 @@
 """Offline, stdin-only adapter around the CLI's canonical report hash."""
+import base64
 import json
 import re
 import sys
-import base64
 
 from .report_verify import HASH_SCHEME, SCHEMA_VERSION, compute, signed_content
 
@@ -13,11 +13,12 @@ def verify_text(text):
     signature_present = None
     signature = None
     canonical_bytes = None
+    sig_version = None
 
     def result(verdict, reason):
         return dict(verdict=verdict, reason=reason, algorithm=algorithm,
                     probe_set_version=probe_set, signature_present=signature_present,
-                    signature=signature, canonical_bytes=canonical_bytes)
+                    signature=signature, canonical_bytes=canonical_bytes, sig_version=sig_version)
 
     def unique_object(pairs):
         value = {}
@@ -35,6 +36,7 @@ def verify_text(text):
             return result("UNREADABLE", "The report must be a JSON object.")
         signature_present = "signature" in payload
         signature = payload.get("signature")
+        sig_version = payload.get("sig_version", 1)
         scheme = payload.get("hash_scheme")
         algorithm = "SHA-256 / " + scheme if isinstance(scheme, str) else None
         probe_set = payload.get("probe_set_version")
@@ -51,9 +53,9 @@ def verify_text(text):
         actual, _ = compute(payload, findings)
         # Use the CLI's serializer/projection, not a second implementation in JS.
         # This internal transport is never returned to the browser or persisted.
-        # canonical_bytes are the bytes the signature covers: the graded report,
-        # plus the evidence binding when one is present (report_verify.signed_content).
-        # A malformed binding leaves integrity verdicts intact but authenticity unverifiable.
+        # canonical_bytes are the bytes the signature covers, in the form the
+        # report's sig_version declares (report_verify.signed_content). An unknown
+        # or inconsistent sig_version leaves integrity intact but authenticity unverifiable.
         try:
             canonical_bytes = base64.b64encode(signed_content(payload, findings)).decode("ascii")
         except ValueError:
