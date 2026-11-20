@@ -172,14 +172,38 @@ def evidence_binding(payload):
     return ev
 
 
+PROVENANCE_KEY = "provenance"
+PROVENANCE_KEYS = ("tool_version", "tool_manifest")
+
+
+def provenance_binding(payload):
+    """Validated provenance binding, or None when the report carries none.
+
+    tool_version names the package that produced the report. tool_manifest is the
+    sha256 over that package's own source bytes. Both sit outside report_hash,
+    which covers graded content only, and inside the signature.
+    """
+    if PROVENANCE_KEY not in payload:
+        return None
+    prov = payload[PROVENANCE_KEY]
+    if (not isinstance(prov, dict) or sorted(prov) != sorted(PROVENANCE_KEYS)
+            or not all(isinstance(prov[k], str) and prov[k] for k in PROVENANCE_KEYS)
+            or not _hex64(prov["tool_manifest"])):
+        raise ValueError("provenance must be tool_version and tool_manifest, manifest 64 lowercase hex")
+    return prov
+
+
 SIG_VERSION_KEY = "sig_version"
 SIG_VERSION_GRADED = 1     # signed bytes: canonical graded report (the report_hash preimage)
 SIG_VERSION_EVIDENCE = 2   # signed bytes: canonical {"sig_version": 2, "evidence": ..., "report": ...}
-SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE)
+SIG_VERSION_PROVENANCE = 3
+SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE, SIG_VERSION_PROVENANCE)
 
 
 def sig_version_for(payload):
     """The sig_version a new signature over ``payload`` must declare."""
+    if PROVENANCE_KEY in payload:
+        return SIG_VERSION_PROVENANCE
     return SIG_VERSION_EVIDENCE if EVIDENCE_KEY in payload else SIG_VERSION_GRADED
 
 
@@ -206,8 +230,15 @@ def signed_content(payload, findings):
             raise ValueError("sig_version: 1 does not cover an evidence field; evidence requires sig_version 2")
         return serialize(canonical)
     if ev is None:
-        raise ValueError("sig_version: 2 requires an evidence field")
-    return serialize({SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical})
+        raise ValueError("sig_version: %d requires an evidence field" % version)
+    if version == SIG_VERSION_EVIDENCE:
+        if PROVENANCE_KEY in payload:
+            raise ValueError("sig_version: 2 does not cover a provenance field")
+        return serialize({SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical})
+    prov = provenance_binding(payload)
+    if prov is None:
+        raise ValueError("sig_version: 3 requires a provenance field")
+    return serialize({SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical, "probes": payload.get("probes") or [], PROVENANCE_KEY: prov})
 
 
 def verify(path):
@@ -247,6 +278,10 @@ def authenticity(payload, keys):
     sig = payload.get("signature")
     if sig is None:
         return "UNSIGNED"
+    ver = payload.get(SIG_VERSION_KEY, SIG_VERSION_GRADED)
+    if isinstance(ver, bool) or ver not in SIG_VERSIONS:
+        # A version this verifier does not know is unsupported, never forged.
+        return "UNSUPPORTED FORM (sig_version %r)" % (ver,)
     if keys is None:
         return "SIGNATURE NOT CHECKED (pass --keys KEYS.json)"
     if not isinstance(sig, dict) or sorted(sig) != ["alg", "key_id", "value"] or sig.get("alg") != "ed25519":
@@ -309,7 +344,7 @@ def main(argv=None):
         except (OSError, ValueError) as e:
             status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
         print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}")
-        ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY"))
+        ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY", "UNSUPPORTED FORM"))
     return 0 if ok else 1
 
 
@@ -317,15 +352,36 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
-_orig_signed = signed_content
+
+def build_provenance():
+    """Provenance block for a report produced by this installation."""
+    import hashlib
+    import importlib.metadata
+    import pathlib as pl
+    try:
+        version = importlib.metadata.version("mcp-authscan")
+    except importlib.metadata.PackageNotFoundError:
+        version = "unknown"
+    root = pl.Path(file).resolve().parent
+    d = hashlib.sha256()
+    for p in sorted(root.rglob("*.py")):
+        d.update(p.relative_to(root).as_posix().encode("utf-8"))
+        d.update(b"::")
+        d.update(p.read_bytes())
+        d.update(b"::")
+    return {"tool_version": version, "tool_manifest": d.hexdigest()}
 
 
-def signed_content(payload, findings):
-	v = payload.get(SIG_VERSION_KEY, SIG_VERSION_GRADED)
-	if v != 3:
-		return _orig_signed(payload, findings)
-	canonical = canonical_report(payload, findings)
-	ev = evidence_binding(payload)
-	if ev is None:
-		raise ValueError('sig_version 3 requires an evidence field')
-	return serialize({SIG_VERSION_KEY: 3, EVIDENCE_KEY: ev, 'report': canonical, 'probes': payload.get('probes') or []})
+def build_provenance():
+    """Provenance block for a report produced by this installation."""
+    import hashlib
+    import importlib.metadata
+    dist = importlib.metadata.distribution("mcp-authscan")
+    d = hashlib.sha256()
+    for f in sorted(dist.files or [], key=str):
+        if str(f).endswith(".py"):
+            d.update(str(f).encode("utf-8"))
+            d.update(b"::")
+            d.update(dist.locate_file(f).read_bytes())
+            d.update(b"::")
+    return {"tool_version": dist.version, "tool_manifest": d.hexdigest()}
