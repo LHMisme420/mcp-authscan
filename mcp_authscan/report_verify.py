@@ -357,25 +357,6 @@ def build_provenance():
     """Provenance block for a report produced by this installation."""
     import hashlib
     import importlib.metadata
-    import pathlib as pl
-    try:
-        version = importlib.metadata.version("mcp-authscan")
-    except importlib.metadata.PackageNotFoundError:
-        version = "unknown"
-    root = pl.Path(file).resolve().parent
-    d = hashlib.sha256()
-    for p in sorted(root.rglob("*.py")):
-        d.update(p.relative_to(root).as_posix().encode("utf-8"))
-        d.update(b"::")
-        d.update(p.read_bytes())
-        d.update(b"::")
-    return {"tool_version": version, "tool_manifest": d.hexdigest()}
-
-
-def build_provenance():
-    """Provenance block for a report produced by this installation."""
-    import hashlib
-    import importlib.metadata
     dist = importlib.metadata.distribution("mcp-authscan")
     d = hashlib.sha256()
     for f in sorted(dist.files or [], key=str):
@@ -384,4 +365,4 @@ def build_provenance():
             d.update(b"::")
             d.update(dist.locate_file(f).read_bytes())
             d.update(b"::")
-    return {"tool_version": dist.version, "tool_manifest": d.hexdigest()}
+    return {"tool_version": __import__('mcp_authscan').__version__, "tool_manifest": d.hexdigest()}

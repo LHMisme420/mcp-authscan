@@ -62,7 +62,7 @@ def _signature_valid(report, public):
 
 def test_signed_report_binds_state_id(signed_scan):
     report, public = signed_scan
-    assert report["sig_version"] == 2
+    assert report["sig_version"] == 3
     [entry] = report["evidence"]["states"]
     assert entry["access_class"] == "anonymous" and len(entry["state_id"]) == 64
     assert _signature_valid(report, public)
@@ -189,7 +189,7 @@ def _site_verdict(report, public):
 
 def test_site_verifier_signed_by_on_evidence_report(signed_scan):
     report, public = signed_scan
-    assert report["sig_version"] == 2 and report["evidence"]["states"]
+    assert report["sig_version"] == 3 and report["evidence"]["states"]
     assert _site_verdict(report, public) == ("INTACT", "SIGNED BY")
 
 
