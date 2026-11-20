@@ -8,7 +8,7 @@ def evaluate(report_path, policy_path, keys_path):
 	policy = json.load(open(policy_path))
 	report = json.load(open(report_path))
 	keys = json.load(open(keys_path)) if isinstance(keys_path, str) else keys_path
-	trusted = {k.get('key-id') for k in policy.get('trusted-signers', [])}
+	trusted = {k if isinstance(k, str) else k.get('key-id') for k in policy.get('trusted-signers', [])}
 	a = authenticity(report, keys)
 	if not a.startswith('SIGNED BY '):
 		return {'verdict': 'REJECT', 'check': ('SIGNATURE-INVALID' if 'INVALID' in a else 'UNTRUSTED-SIGNER'), 'detail': a}
@@ -30,3 +30,6 @@ def evaluate(report_path, policy_path, keys_path):
 
 
 if len(sys.argv) > 3: print(json.dumps(evaluate(sys.argv[1], sys.argv[2], sys.argv[3])))
+
+from importlib.resources import files as pkgfiles
+if len(sys.argv) == 2: print(json.dumps(evaluate(sys.argv[1], str(pkgfiles('mcp_authscan') / 'policy-default.json'), str(pkgfiles('mcp_authscan') / 'keys-default.json'))))
