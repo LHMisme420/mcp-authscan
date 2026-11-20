@@ -315,3 +315,17 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+_orig_signed = signed_content
+
+
+def signed_content(payload, findings):
+	v = payload.get(SIG_VERSION_KEY, SIG_VERSION_GRADED)
+	if v != 3:
+		return _orig_signed(payload, findings)
+	canonical = canonical_report(payload, findings)
+	ev = evidence_binding(payload)
+	if ev is None:
+		raise ValueError('sig_version 3 requires an evidence field')
+	return serialize({SIG_VERSION_KEY: 3, EVIDENCE_KEY: ev, 'report': canonical, 'probes': payload.get('probes') or []})
