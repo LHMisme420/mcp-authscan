@@ -17,7 +17,7 @@ def serve():
         method=req.get("method")
         params=req.get("params") or {}
         if method=="initialize":
-            out({"jsonrpc":"2.0","id":mid,"result":{"protocolVersion":params.get("protocolVersion") or "2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mcp-authscan-verify","version":"0.1.3"}}})
+            out({"jsonrpc":"2.0","id":mid,"result":{"protocolVersion":params.get("protocolVersion") or "2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mcp-authscan-verify","version":"0.1.4"}}})
         elif method=="tools/list":
             out({"jsonrpc":"2.0","id":mid,"result":{"tools":[TOOL]}})
         elif method=="tools/call":
@@ -31,6 +31,7 @@ def serve():
                 verdict,detail=verify(path)
                 payload=json.load(open(path,encoding="utf-8"))
                 keys=json.load(open(args["keys"],encoding="utf-8")) if args.get("keys") else None
+                if isinstance(keys,dict) and isinstance(keys.get("keys"),list): keys=keys.get("keys")
                 text="VERDICT "+verdict+"\nDETAIL "+str(detail)+"\nSIGNATURE "+authenticity(payload,keys)
             except Exception as error:
                 text="ERROR "+str(error)
