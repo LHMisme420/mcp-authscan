@@ -116,7 +116,7 @@ def test_form_2_bytes_carry_sig_version():
     ({"evidence": EV}, "sig_version: 1 does not cover"),                 # evidence with no declared form
     ({"sig_version": 1, "evidence": EV}, "sig_version: 1 does not cover"),
     ({"sig_version": 2}, "requires an evidence field"),
-    ({"sig_version": 3, "evidence": EV}, "unknown value"),
+    ({"sig_version": 4, "evidence": EV}, "unknown value"),
     ({"sig_version": "2", "evidence": EV}, "unknown value"),
     ({"sig_version": True, "evidence": EV}, "unknown value"),
 ])
