@@ -34,7 +34,7 @@ def evaluate(report_path, policy_path, keys_path):
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(total)}
 
 
-if len(sys.argv) > 3: print(json.dumps(evaluate(sys.argv[1], sys.argv[2], sys.argv[3])))
+if len(sys.argv) > 3: e = evaluate(sys.argv[1], sys.argv[2], sys.argv[3]); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
 
 from importlib.resources import files as pkgfiles
-if len(sys.argv) == 2: print(json.dumps(evaluate(sys.argv[1], str(pkgfiles('mcp_authscan') / 'policy-default.json'), str(pkgfiles('mcp_authscan') / 'keys-default.json'))))
+if len(sys.argv) == 2: f = pkgfiles('mcp_authscan'); e = evaluate(sys.argv[1], str(f / 'policy-default.json'), str(f / 'keys-default.json')); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
