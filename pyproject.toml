@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.29"  # single source of truth
+version = "1.1.30"  # single source of truth
 description = """MCP AuthScan
 Security scanner for MCP server deployments you are authorised to test. Python 3.11+.
 
@@ -32,6 +32,7 @@ dependencies = [
     "idna>=3.20,<4",
     "pillow>=13.0.0,<14",
     "reportlab>=5.1.0,<6",
+    "cryptography>=50.0.2,<51",
 ]
 keywords = ["mcp", "model-context-protocol", "security", "scanner",
             "authentication", "authorization", "appsec", "devsecops", "sarif"]
