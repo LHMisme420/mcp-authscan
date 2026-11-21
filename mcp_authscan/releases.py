@@ -90,7 +90,7 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
-MANIFEST_HASHES = {"1.1.33": "ebac90351076777601472634807a3751c9a0c9a4d888e344ed94ba08899f5c18"}
+MANIFEST_HASHES = {"1.1.33": "ebac90351076777601472634807a3751c9a0c9a4d888e344ed94ba08899f5c18", "1.1.34": "2728cc99fbf3b118b5e759dfcb99129c90a5468433137ccd50551963e4a4cba1"}
 
 
 def manifest_for(version):
