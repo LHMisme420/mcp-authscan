@@ -10,6 +10,9 @@ import { createHash } from 'node:crypto';
 
 const root = process.cwd();
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// scripts/build-web.mjs pre-renders the public homepage into #root (since 0fc9f92), so the
+// built page is the app root carrying the landing shell, not an empty <div id="root"></div>.
+const ROOT_SHELL = /<div id="root">[\s\S]*?class="app-shell public-site landing"/;
 async function freePort() {
   const socket = net.createServer();
   await new Promise<void>(resolve => socket.listen(0, '127.0.0.1', resolve));
@@ -115,16 +118,20 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
   async function warming(run: Awaited<ReturnType<typeof launch>>) {
     for (let i = 0; i < 120; i++) {
       assert.equal(run.child.exitCode, null, run.output());
+      // Only a failed request is retried. Assertions stay outside the try so a wrong
+      // page or health state fails here with its own message instead of being
+      // swallowed into the 12-second "did not become live" timeout.
+      let response: Response | undefined;
       try {
-        const response = await fetch(`http://127.0.0.1:${run.port}/`, { signal: AbortSignal.timeout(500) });
-        if (response.status === 200) {
-          assert.match(await response.text(), /<div id="root"><\/div>/);
-          const health = await fetch(`http://127.0.0.1:${run.port}/health`);
-          assert.equal(health.status, 503);
-          assert.equal((await health.json()).dependencies.scanner, 'unavailable');
-          return;
-        }
+        response = await fetch(`http://127.0.0.1:${run.port}/`, { signal: AbortSignal.timeout(500) });
       } catch {}
+      if (response?.status === 200) {
+        assert.match(await response.text(), ROOT_SHELL);
+        const health = await fetch(`http://127.0.0.1:${run.port}/health`);
+        assert.equal(health.status, 503);
+        assert.equal((await health.json()).dependencies.scanner, 'unavailable');
+        return;
+      }
       await delay(100);
     }
     assert.fail(`Frontend did not become live while waiting for the writer:\n${run.output()}`);
@@ -578,7 +585,7 @@ with sqlite3.connect(sys.argv[1]) as c:
       });
       const rootResponse = await fetch(`http://127.0.0.1:${run.port}/`);
       assert.equal(rootResponse.status, 200);
-      assert.match(await rootResponse.text(), /<div id="root"><\/div>/);
+      assert.match(await rootResponse.text(), ROOT_SHELL);
       const scanner = await fetch(`http://127.0.0.1:${run.scannerPort}/health`);
       assert.equal(scanner.status, 200);
       assert.equal((await scanner.json()).status, 'ok');
