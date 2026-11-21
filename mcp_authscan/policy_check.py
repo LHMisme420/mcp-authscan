@@ -20,6 +20,9 @@ def evaluate(report_path, policy_path, keys_path):
         return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE', 'detail': str(result)}
     need = set(policy.get('required-probes', [])) - set(str(q.get('name')) for q in report.get('probes', []))
     if need: return {'verdict': 'REJECT', 'check': 'PROBES-MISSING', 'detail': ', '.join(sorted(need))}
+    names = [str(q.get("name")) for q in report.get("probes", [])]
+    dupes = sorted({n for n in names if names.count(n) != 1})
+    if dupes: return {"verdict": "REJECT", "check": "PROBES-DUPLICATED", "detail": ", ".join(dupes)}
     for p in report.get('probes', []):
         if p.get('status') == 'FAIL':
             return {'verdict': 'REJECT', 'check': 'PROPERTY-FAILED', 'detail': str(p.get('name')) + ' ' + str(p.get('status'))}
@@ -32,6 +35,9 @@ def evaluate(report_path, policy_path, keys_path):
     ok = {"PASS"}
     missed = [n for n in req if st.get(n) not in ok]
     passed = len(req) - len(missed)
+    want = policy.get("min-sig-version")
+    d = int(want) - int(report.get("sig_version", 1)) if want else 0
+    if d == max(0, d) and d != 0: return {"verdict": "CONDITIONAL", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
     if req and not missed:
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
