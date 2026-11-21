@@ -136,6 +136,46 @@ test('built npm start uses isolated PostgreSQL and private Flask with safe failu
     }
     assert.fail(`Frontend did not become live while waiting for the writer:\n${run.output()}`);
   }
+  // Terminate only this isolated fixture's writer-lock session, never a live DB.
+  // pg_terminate_backend(pid) returns when the signal is sent; the session's advisory
+  // lock is released only when the backend exits. The timeout form (PostgreSQL 14+)
+  // waits for the exit, so a lock taken right after this cannot race the old session.
+  async function terminateWriterSession(namespace: string) {
+    const ended = await admin!.query(
+      'SELECT pg_terminate_backend(pid, 5000) AS ended FROM pg_stat_activity WHERE application_name=$1',
+      [`vata-findings:${namespace}`],
+    );
+    assert.equal(ended.rowCount, 1);
+    assert.equal(ended.rows[0].ended, true, 'writer session did not exit within 5 s');
+  }
+  // "Another writer wins the race": queue a blocking lock request BEFORE ending the
+  // writer session. PostgreSQL grants a released advisory lock to a waiter at once, so the
+  // app's recovery (pg_try_advisory_lock after its 1 s monitor probe) can never take it
+  // first. A pg_try_advisory_lock issued after the termination raced that recovery and
+  // lost intermittently in CI.
+  const contenders = new Set<pg.Client>();
+  async function takeWriterLockFromSession(namespace: string) {
+    const contender = new pg.Client({ connectionString: `postgresql://fixture_owner@127.0.0.1:${pgPort}/postgres` });
+    await contender.connect();
+    contenders.add(contender);
+    const pid = (await contender.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const granted = contender.query("SELECT pg_advisory_lock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+    for (let i = 0; ; i++) {
+      const waiting = await admin!.query(
+        "SELECT count(*) FROM pg_locks WHERE pid=$1 AND locktype='advisory' AND NOT granted", [pid]);
+      if (waiting.rows[0].count === '1') break;
+      if (i >= 250) assert.fail('contending lock request was never queued behind the writer session');
+      await delay(20);
+    }
+    await terminateWriterSession(namespace);
+    await granted;
+    return contender;
+  }
+  async function releaseWriterLock(contender: pg.Client | undefined, namespace: string) {
+    if (!contender || !contenders.delete(contender)) return;
+    try { await contender.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]); }
+    finally { await contender.end(); }
+  }
   async function blockedApis(run: Awaited<ReturnType<typeof launch>>) {
     for (const [method, endpoint] of [
       ['GET', '/api/findings'], ['GET', '/api/reports/pdf'],
@@ -353,6 +393,7 @@ with sqlite3.connect(app.DB_FILE) as c:
     const namespace = 'fixture-existing';
     const old = await launch({ ...fresh(namespace), DB_FILE: path.join(temp, 'handoff-old.sqlite') });
     let replacement: Awaited<ReturnType<typeof launch>> | undefined;
+    let contender: pg.Client | undefined;
     try {
       await healthy(old);
       const file = path.join(temp, 'handoff-new.sqlite');
@@ -385,16 +426,8 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
       assert.deepEqual(JSON.parse(preserved), [[['synthetic-owner']], [['Synthetic existing finding']]]);
       assert.equal((await fetch(`http://127.0.0.1:${replacement.port}/api/findings`)).status, 401);
 
-      // Terminate only this isolated fixture's lock session, never a live DB.
-      const ended = await admin!.query(
-        'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
-        [`vata-findings:${namespace}`],
-      );
-      assert.equal(ended.rowCount, 1);
       // Another writer wins the race: recovery must wait, never steal its lock.
-      const lock = await admin!.query(
-        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1,0)) AS acquired", [namespace]);
-      assert.equal(lock.rows[0].acquired, true);
+      contender = await takeWriterLockFromSession(namespace);
       for (let i = 0; i < 30 && !replacement.output().includes('"reason":"writer_lock_lost"'); i++) await delay(50);
       const unavailable = await fetch(`http://127.0.0.1:${replacement.port}/health`);
       assert.equal(unavailable.status, 503);
@@ -406,7 +439,7 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
       assert.match(replacement.output(), /"reason":"writer_lock_lost"/);
       assert.equal(replacement.output().match(/"event":"findings_storage_ready"/g)?.length, 1);
       assert.doesNotMatch(replacement.output(), /LOCAL-ONLY|"event":"findings_storage_recovered"/);
-      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+      await releaseWriterLock(contender, namespace);
       await healthy(replacement);
       assert.match(replacement.output(), /"event":"findings_writer_recovering"/);
       assert.match(replacement.output(), /"event":"findings_storage_recovered"/);
@@ -414,6 +447,7 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
       assert.equal((await fetch(`http://127.0.0.1:${replacement.port}/api/findings`)).status, 401);
       assert.equal(tool('python3', ['-c', 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT COUNT(*) FROM findings").fetchone()[0])', file]).trim(), '1');
     } finally {
+      await releaseWriterLock(contender, namespace);
       await cleanup(old.child);
       if (replacement) await cleanup(replacement.child);
     }
@@ -423,20 +457,17 @@ print(json.dumps([c.execute("SELECT owner_user_id FROM organizations").fetchall(
     const namespace = 'fixture-existing';
     const file = path.join(temp, 'recovery-divergent.sqlite');
     const run = await launch({ ...fresh(namespace), DB_FILE: file });
+    let contender: pg.Client | undefined;
     try {
       await healthy(run);
       const before = await admin!.query(
         'SELECT sha256 FROM public.vata_findings_backups WHERE namespace=$1 ORDER BY generation DESC LIMIT 1', [namespace]);
-      await admin!.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
-        [`vata-findings:${namespace}`]);
-      const lock = await admin!.query(
-        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1,0)) AS acquired", [namespace]);
-      assert.equal(lock.rows[0].acquired, true);
+      contender = await takeWriterLockFromSession(namespace);
       tool('python3', ['-c', `import sqlite3,sys
 with sqlite3.connect(sys.argv[1]) as c:
  c.execute("INSERT INTO findings(description) VALUES('synthetic-unacknowledged-local-write')")
 `, file]);
-      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+      await releaseWriterLock(contender, namespace);
       for (let i = 0; i < 100 && !run.output().includes('"event":"findings_writer_recovery_failed"'); i++) await delay(100);
       assert.match(run.output(), /"event":"findings_writer_recovery_failed"/);
       assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
@@ -446,20 +477,20 @@ with sqlite3.connect(sys.argv[1]) as c:
         'SELECT sha256 FROM public.vata_findings_backups WHERE namespace=$1 ORDER BY generation DESC LIMIT 1', [namespace]);
       assert.equal(after.rows[0].sha256, before.rows[0].sha256);
       assert.equal(tool('python3', ['-c', 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT COUNT(*) FROM findings WHERE description=?",("synthetic-unacknowledged-local-write",)).fetchone()[0])', file]).trim(), '1');
-    } finally { await cleanup(run.child); }
+    } finally {
+      await releaseWriterLock(contender, namespace);
+      await cleanup(run.child);
+    }
   });
 
   await t.test('recovery contention times out without stealing the writer lock', async () => {
     const namespace = 'fixture-existing';
     const run = await launch({ ...fresh(namespace), DB_FILE: path.join(temp, 'recovery-timeout.sqlite'),
       VATA_FINDINGS_LOCK_TIMEOUT_MS: '1000', VATA_FINDINGS_LOCK_RETRY_MS: '100' });
+    let contender: pg.Client | undefined;
     try {
       await healthy(run);
-      await admin!.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1',
-        [`vata-findings:${namespace}`]);
-      const lock = await admin!.query(
-        "SELECT pg_try_advisory_lock(hashtextextended('vata-findings:' || $1,0)) AS acquired", [namespace]);
-      assert.equal(lock.rows[0].acquired, true);
+      contender = await takeWriterLockFromSession(namespace);
       for (let i = 0; i < 70 && !run.output().includes('"event":"findings_writer_recovery_failed"'); i++) await delay(100);
       assert.match(run.output(), /"event":"findings_writer_recovery_failed"/);
       await blockedApis(run);
@@ -467,7 +498,7 @@ with sqlite3.connect(sys.argv[1]) as c:
       assert.doesNotMatch(run.output(), /"event":"findings_storage_recovered"/);
     } finally {
       await cleanup(run.child);
-      await admin!.query("SELECT pg_advisory_unlock(hashtextextended('vata-findings:' || $1,0))", [namespace]);
+      await releaseWriterLock(contender, namespace);
     }
   });
 
