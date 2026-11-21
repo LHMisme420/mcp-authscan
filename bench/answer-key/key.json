@@ -1,6 +1,37 @@
 [
-  {"fixture": "open_noauth", "port": 8931, "expect_verdict": "MEDIUM", "expect_findings": 1, "expect_exit": 0},
-  {"fixture": "closed_401", "port": 8932, "expect_verdict": "INCONCLUSIVE", "expect_findings": 0, "expect_exit": 5},
-  {"fixture": "closed_oauth", "port": 8933, "expect_verdict": "PASS", "expect_findings": 0, "expect_exit": 5},
-  {"fixture": "html_page", "port": 8934, "expect_verdict": "INCONCLUSIVE", "expect_findings": 0, "expect_exit": 5}
+  {
+    "fixture": "open_noauth",
+    "port": 8931,
+    "expect_verdict": "HIGH",
+    "expect_findings": 2,
+    "expect_exit": 1
+  },
+  {
+    "fixture": "closed_401",
+    "port": 8932,
+    "expect_verdict": "PASS",
+    "expect_findings": 0,
+    "expect_exit": 5
+  },
+  {
+    "fixture": "closed_oauth",
+    "port": 8933,
+    "expect_verdict": "PASS",
+    "expect_findings": 0,
+    "expect_exit": 5
+  },
+  {
+    "fixture": "html_page",
+    "port": 8934,
+    "expect_verdict": "INCONCLUSIVE",
+    "expect_findings": 0,
+    "expect_exit": 5
+  },
+  {
+    "port": 9427,
+    "fixture": "open_with_discovery",
+    "expect_verdict": "HIGH",
+    "expect_findings": 1,
+    "expect_exit": 5
+  }
 ]
