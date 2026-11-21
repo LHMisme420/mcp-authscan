@@ -10,7 +10,7 @@ from mcp_authscan.oauth_probes_v2 import (
     _egress_guard,
 )
 
-TOOLS_DIGEST = {}
+TOOLS_DIGEST: dict = {}
 
 
 def _capture_tools_digest(endpoint, token, extra_headers=None, allow_private=None, allowed_hosts=None):

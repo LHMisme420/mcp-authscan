@@ -89,24 +89,23 @@ jobs:
       - uses: actions/setup-python@v7 # v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ./mcp_authscan "coverage[toml]" hypothesis wheel
-      - name: Run scanner unit tests with coverage
-        # Scoped to the self-contained scanner suites (the web-app/billing tests
-        # need flask, which is not declared in requirements — tracked separately).
-        run: >-
-          coverage run -m unittest -v
-          tests.test_cors_policy
-          tests.test_fixture_detections
-          tests.test_cli_enterprise
-          tests.test_cli_packaging
-          tests.test_stdio_rce_research
-          tests.test_exit_codes
-          tests.test_exit_code_fixtures
-          tests.test_oauth_token_verdicts
-          tests.test_properties
-          tests.test_probe_accounting
-      - name: Enforce coverage threshold
-        run: coverage report --fail-under=55
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20.20.0" # Same Node as the web job; the site-verifier tests run tsx.
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked Node dependencies (tsx for the site-verifier tests)
+        run: npm ci
+      # requirements-dev.txt carries pytest, setuptools (test_cli_packaging builds the
+      # wheel/sdist), coverage, hypothesis and wheel; the previous hand-written list
+      # omitted pytest and setuptools, so those suites failed at import.
+      - run: pip install -r requirements-dev.txt -e ./mcp_authscan
+      - name: Run the full scanner test suite with coverage
+        # pytest, not unittest: tests/conftest.py and per-module autouse fixtures
+        # (egress scope, DNS stubs) only apply under pytest.
+        run: coverage run -m pytest -q
+      - name: Enforce coverage threshold (.coveragerc fail_under)
+        run: coverage report
   compliance-report-tests:
     runs-on: ubuntu-latest
     steps:

@@ -3,4 +3,5 @@ source = mcp_authscan
 branch = true
 
 [report]
-fail_under = 23
+# Full pytest suite measured 50.93% on 2026-11-21 (ci.yml unit-tests). Raise as coverage grows.
+fail_under = 50
