@@ -126,6 +126,10 @@ REDIRECT_CANDIDATES = (
 # POST with no authorization code. When True it obtains a real access token through one
 # authorization-code request with PKCE S256 and takes its verdict from the token response.
 ACQUIRE_TOKEN = False
+# --allow-private; monolith.main() sets this from the CLI. Default False, the same as
+# monolith.ALLOW_PRIVATE_TARGETS. Without a module-level value, a probe called before
+# main() raised NameError, which the probes' broad except recorded as NOT_OBSERVED.
+ALLOW_PRIVATE_TARGETS = False
 # Seconds this run spent waiting on stdin at the attended --acquire-token step; monolith.main()
 # subtracts it from the reported Elapsed Time, which describes the scan, not the operator.
 ATTENDED_WAIT_SECONDS = 0.0
