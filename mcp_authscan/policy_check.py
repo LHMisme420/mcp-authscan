@@ -18,7 +18,6 @@ def evaluate(report_path, policy_path, keys_path):
     result, digest = verify(report_path)
     if result != 'MATCH':
         return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE', 'detail': str(result)}
-    accept = set(policy.get('acceptable-verdicts', [])) & {'PASS'}
     need = set(policy.get('required-probes', [])) - set(str(q.get('name')) for q in report.get('probes', []))
     if need: return {'verdict': 'REJECT', 'check': 'PROBES-MISSING', 'detail': ', '.join(sorted(need))}
     for p in report.get('probes', []):
@@ -30,7 +29,7 @@ def evaluate(report_path, policy_path, keys_path):
             return {'verdict': 'REJECT', 'check': 'FINDING-PRESENT', 'detail': bad}
     req = [str(r) for r in policy.get('required-probes', [])]
     st = {str(q.get('name')): str(q.get('status')) for q in report.get('probes', [])}
-    ok = set(policy.get('acceptable-verdicts', [])) | {'PASS'}
+    ok = {"PASS"}
     missed = [n for n in req if st.get(n) not in ok]
     passed = len(req) - len(missed)
     if req and not missed:
@@ -38,7 +37,7 @@ def evaluate(report_path, policy_path, keys_path):
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
 
 
-if __name__ == "main" and len(sys.argv) > 3: e = evaluate(sys.argv[1], sys.argv[2], sys.argv[3]); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
+if __name__ == "__main__" and len(sys.argv) > 3: e = evaluate(sys.argv[1], sys.argv[2], sys.argv[3]); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
 
 from importlib.resources import files as pkgfiles
-if __name__ == "main" and len(sys.argv) == 2: f = pkgfiles('mcp_authscan'); e = evaluate(sys.argv[1], str(f / 'policy-default.json'), str(f / 'keys-default.json')); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
+if __name__ == "__main__" and len(sys.argv) == 2: f = pkgfiles('mcp_authscan'); e = evaluate(sys.argv[1], str(f / 'policy-default.json'), str(f / 'keys-default.json')); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)

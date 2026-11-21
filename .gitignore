@@ -126,3 +126,4 @@ tests/scope*
 
 # security-state-v1 / observation-v1 default output
 mcp-authscan-evidence/
+mcp-authscan/
