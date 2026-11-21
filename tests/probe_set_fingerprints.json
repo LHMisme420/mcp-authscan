@@ -298,6 +298,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "17f76d39d22aad0cc148547185807532906c9c00ff99d413a7782c1b4be2c380"
       }
+    },
+    "2026.11.21.1": {
+      "changed": "2026-11-21, oauth_probes_v2.ALLOW_PRIVATE_TARGETS has a module-level default (False); a probe called before monolith.main() no longer raises NameError recorded as NOT_OBSERVED",
+      "fingerprint": "eccf0a625f22ec806cbcc3d51a85856adf229a2ff43479ab47fc7c4555d6fbf7",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "12557e906cc0ddbb46b5315edfada57e37633ace95f0dbc44fc50b45704877c1",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "d0dae03d3d0b99c2fa6c2d977d2c62558d35960287312dc7e405ed31dbb1bf0c"
+      }
     }
   },
   "withdrawn": {

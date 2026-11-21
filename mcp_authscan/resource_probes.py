@@ -12,7 +12,7 @@ RESOURCE_PROBE_SET_VERSION = "2026.10.28"
 from mcp_authscan.http_headers import Headers
 
 
-def _egress_guard_fetch(target_url: str, payload: dict, headers: dict = None, timeout: int = 5) -> Tuple[int, dict, bytes]:
+def _egress_guard_fetch(target_url: str, payload: dict, headers: dict | None = None, timeout: int = 5) -> Tuple[int, dict, bytes]:
     """
     Shared fetcher with egress guard.
     Returns (status_code, headers_dict, raw_body_bytes).

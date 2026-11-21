@@ -46,9 +46,6 @@ MAX_BODY_BYTES = 8 * 1024 * 1024
 MAX_REDIRECTS = 5
 _REDIRECT_CODES = (301, 302, 303, 307, 308)
 
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
 
 def _check_hop(url, allow_private=None, allowed_hosts=None):
     from urllib.parse import urlparse
@@ -129,6 +126,10 @@ REDIRECT_CANDIDATES = (
 # POST with no authorization code. When True it obtains a real access token through one
 # authorization-code request with PKCE S256 and takes its verdict from the token response.
 ACQUIRE_TOKEN = False
+# --allow-private; monolith.main() sets this from the CLI. Default False, the same as
+# monolith.ALLOW_PRIVATE_TARGETS. Without a module-level value, a probe called before
+# main() raised NameError, which the probes' broad except recorded as NOT_OBSERVED.
+ALLOW_PRIVATE_TARGETS = False
 # Seconds this run spent waiting on stdin at the attended --acquire-token step; monolith.main()
 # subtracts it from the reported Elapsed Time, which describes the scan, not the operator.
 ATTENDED_WAIT_SECONDS = 0.0
@@ -144,10 +145,10 @@ NO_CODE_LIMITATION = "Pasted address carries no authorization code"
 # One entry per run_oauth_assessment: where probes 7 and 8 got their client, the redirect used,
 # and what client removal and token revocation returned. Holds no secret. scan_live_server clears
 # it per scan.
-CLIENT_REPORTS = []
+CLIENT_REPORTS = []  # type: list[dict]
 # What happened to the tokens token-cors [4] obtained in the current assessment (--acquire-token):
 # unconfirmed is None when no token was obtained. Token types and results only, never a token.
-TOKEN_REVOCATION = {}
+TOKEN_REVOCATION = {}  # type: dict
 
 
 class _Client:
@@ -1807,44 +1808,6 @@ def probe_token_audience(mcp_url, metadata=None, client=None):
                   endpoint=mcp_url)
 
 
-
-
-def probe_resource_authorization_servers(resource_metadata, mcp_url):
-    """Advertised authorization servers must be absolute HTTPS issuers."""
-    if not resource_metadata:
-        return record(
-            probe_id=12,
-            name="resource-authservers",
-            status="EXCLUDED",
-            probe_class="authserver",
-            limitation="No resource metadata"
-        )
-    servers = resource_metadata.get("authorization_servers")
-    body = json.dumps({"authorization_servers": servers}).encode("utf-8")
-    if not isinstance(servers, list) or not servers:
-        return record(
-            probe_id=12,
-            name="resource-authservers",
-            status="FAIL",
-            http_status=200,
-            body=body,
-            severity="MEDIUM",
-            probe_class="authserver",
-            detail="resource metadata names no authorization_servers",
-            endpoint=mcp_url
-        )
-    bad = [s for s in servers if not (isinstance(s, str) and s.startswith("https://"))]
-    return record(
-        probe_id=12,
-        name="resource-authservers",
-        status="FAIL" if bad else "PASS",
-        http_status=200,
-        body=body,
-        severity="HIGH" if bad else None,
-        probe_class="authserver",
-        detail="authorization_servers=%s%s" % (", ".join(servers), "" if not bad else " non-https: " + ", ".join(bad)),
-        endpoint=mcp_url
-    )
 
 
 def probe_resource_authorization_servers(resource_metadata, mcp_url):
