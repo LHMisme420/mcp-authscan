@@ -2750,7 +2750,8 @@ def main():
                 if oauth_records:
                     pass  # Continue - OAuth records exist
                 else:
-                    # No OAuth either - fail
+                    # No OAuth either - not an MCP target.
+                    print("[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.",file=sys.stderr)
                     sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)
