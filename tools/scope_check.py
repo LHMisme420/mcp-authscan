@@ -173,29 +173,101 @@ def obtain_token(
     return record
 
 
+REDACTED = "<redacted>"
+# Token-response fields that are credentials. A fixture value stays visible; a JWT
+# access_token stays visible so its scope claim can be shown as proof.
+_TOKEN_FIELDS = ("access_token", "refresh_token")
+_SENSITIVE_RESPONSE_HEADERS = ("set-cookie", "authorization", "proxy-authorization")
+
+
+def _display_token(value: Any, field: str = "access_token") -> Any:
+    """A token as it may be printed: fixture values and (access) JWTs kept, others shortened."""
+    if not isinstance(value, str):
+        return value
+    if value.startswith("fixture-") or value == "opaque-unscoped-token":
+        return value
+    if field == "access_token" and value.startswith("eyJ"):
+        return value
+    return value[:8] + "…" + REDACTED
+
+
 def redact_exchange_for_display(record: dict[str, Any]) -> dict[str, Any]:
-    """Copy of the exchange safe to print with sensitive fields always redacted."""
-    out = json.loads(json.dumps(record))
-    body = out.get("request", {}).get("body")
-    if isinstance(body, dict) and "client_secret" in body:
-        body["client_secret"] = "<redacted>"
-    token = out.get("access_token")
-    resp = out.get("response") or {}
-    bj = resp.get("body_json") if isinstance(resp, dict) else None
-    if isinstance(bj, dict) and isinstance(bj.get("access_token"), str):
-        raw = bj["access_token"]
-        # Fixture tokens stay visible; anything else is shortened.
-        if not (
-            raw.startswith("fixture-")
-            or raw.startswith("eyJ")  # JWT shown truncated below
-            or raw in ("opaque-unscoped-token",)
-        ):
-            bj["access_token"] = raw[:8] + "…<redacted>"
-        elif raw.startswith("eyJ") and len(raw) > 40:
-            bj["access_token"] = raw  # fixture JWTs are short/local; keep for proof
-    if isinstance(token, str) and token.startswith("eyJ") is False:
-        if not token.startswith("fixture-") and token != "opaque-unscoped-token":
-            out["access_token"] = token[:8] + "…<redacted>"
+    """Exchange record safe to print or serialize.
+
+    Built field by field from an allowlist rather than copied and patched, so the
+    client secret is never carried into the output: request.body.client_secret is
+    always the constant "<redacted>". Token values are shortened by _display_token
+    wherever they appear (access_token, response.body_json, response.body_text),
+    a client secret echoed back by the server is removed from the response, and
+    cookie/authorization response headers are redacted. Idempotent.
+    """
+    if not isinstance(record, dict):
+        return {}
+    req = record.get("request") if isinstance(record.get("request"), dict) else {}
+    req_body = req.get("body") if isinstance(req.get("body"), dict) else {}
+    req_headers = req.get("headers") if isinstance(req.get("headers"), dict) else {}
+    out: dict[str, Any] = {
+        "request": {
+            "method": req.get("method"),
+            "url": req.get("url"),
+            "headers": {k: req_headers[k] for k in ("Content-Type", "Accept") if k in req_headers},
+            "body": {
+                "grant_type": req_body.get("grant_type"),
+                "client_id": req_body.get("client_id"),
+                "client_secret": REDACTED,
+                "scope": req_body.get("scope"),
+            },
+        },
+        "response": None,
+        "access_token": _display_token(record.get("access_token")),
+        "error": record.get("error"),
+    }
+
+    # Raw values to scrub from free text: the secret this run sent (if the server
+    # echoes it) and every token value, each mapped to its display form.
+    scrub: dict[str, str] = {}
+    sent = req_body.get("client_secret")
+    if isinstance(sent, str) and sent and sent != REDACTED:
+        scrub[sent] = REDACTED
+
+    resp = record.get("response")
+    if isinstance(resp, dict):
+        body_json = resp.get("body_json")
+        shown_json = None
+        if isinstance(body_json, dict):
+            shown_json = dict(body_json)
+            for field in _TOKEN_FIELDS:
+                raw = body_json.get(field)
+                if isinstance(raw, str) and raw:
+                    shown = _display_token(raw, field)
+                    shown_json[field] = shown
+                    if shown != raw:
+                        scrub[raw] = shown
+        raw_access = record.get("access_token")
+        if isinstance(raw_access, str) and raw_access and out["access_token"] != raw_access:
+            scrub[raw_access] = out["access_token"]
+
+        def scrubbed(text: str) -> str:
+            # Longest first so a value that contains another is replaced whole.
+            for raw in sorted(scrub, key=len, reverse=True):
+                text = text.replace(raw, scrub[raw])
+            return text
+
+        body_text = resp.get("body_text")
+        if isinstance(body_text, str):
+            body_text = scrubbed(body_text)
+        if isinstance(shown_json, dict):
+            for key, val in list(shown_json.items()):
+                if isinstance(val, str):
+                    shown_json[key] = scrubbed(val)
+        headers = resp.get("headers") if isinstance(resp.get("headers"), dict) else {}
+        out["response"] = {
+            "status": resp.get("status"),
+            "headers": {k: (REDACTED if str(k).lower() in _SENSITIVE_RESPONSE_HEADERS else v)
+                        for k, v in headers.items()},
+            "body_text": body_text,
+            "body_json": shown_json if isinstance(body_json, dict) else body_json,
+        }
     return out
 
 

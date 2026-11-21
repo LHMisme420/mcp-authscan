@@ -105,7 +105,8 @@ if __name__ == "__main__":
 
         print(f"\nProbe 4 (token-cors):")
         print(f"  Status: {probe_4.status}")
-        print(f"  Detail: {probe_4.detail}")
+        # probe_4.detail is not printed: it carries the token endpoint's verbatim
+        # error text. The ACAO proof this test checks is in the evidence below.
         print(f"  Evidence: {getattr(probe_4, 'evidence', 'N/A')}")
 
         # ASSERTION: Probe 4 should FAIL when ACAO: * is present
