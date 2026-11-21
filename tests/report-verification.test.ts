@@ -5,7 +5,10 @@ import express from 'express';
 import { reportVerificationRoutes } from '../server/reportVerification';
 import { reportPublicKeys, verifyAuthenticity, type PublishedKey } from '../server/reportAuthenticity';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { build } from 'esbuild';
 
 // RFC 8032 test 1: public key and signature only. No private key is used.
 const vectorKey: PublishedKey = {
@@ -181,4 +184,28 @@ test('demonstrated reconstruction divergence names its component without accusin
     'DIVERGENCE');
   assert.equal(verifyAuthenticity(true, vectorSignature, Buffer.alloc(0), [vectorKey], 'report').verdict,
     'SIGNED BY', 'A valid signature remains independent of the claimed hash');
+});
+
+test('production registry is embedded in the server and works without any runtime registry file', async () => {
+  const temporary = mkdtempSync(join(tmpdir(), 'embedded-public-registry-'));
+  try {
+    const outfile = join(temporary, 'registry.mjs');
+    await build({
+      entryPoints: ['server/reportAuthenticity.ts'], bundle: true,
+      platform: 'node', format: 'esm', outfile,
+    });
+    const keys = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e',
+      'const m = await import("./registry.mjs"); console.log(JSON.stringify(await m.publishedKeys()));'],
+    { cwd: temporary, env: { ...process.env, NODE_ENV: 'production' }, encoding: 'utf8' }));
+    assert.deepEqual(keys, JSON.parse(readFileSync('client/public/keys.json', 'utf8')).keys);
+    const owner = keys.find((key: PublishedKey) =>
+      key.key_id === '9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d');
+    assert.ok(owner, 'The owner-approved public key must ship in the build');
+    assert.equal(owner.alg, 'ed25519');
+    assert.equal(owner.public_key, 'pN7dkDEfe08lCTp2JZDXXyIZeyRQg6aOGF81acN_xw8');
+    assert.equal(createHash('sha256').update(Buffer.from(owner.public_key, 'base64url')).digest('hex'),
+      owner.key_id);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 });

@@ -41,3 +41,14 @@ rejects legitimate versioned reports.
 probe logic unchanged. Check an actual owner-specified published report as well
 as synthetic signatures; never infer covered fields from a prose summary when
 the current reference and artifact establish a more complete envelope.
+
+Do not treat a verifier test with a substituted registry as release acceptance.
+Use the actual running application's registry and repeat both public-key GET
+and report-verification POST on the live domain after publishing.
+
+**Why:** An isolated handler test succeeded with production keys while the
+workspace registry was empty. Publishing then removed the public identity,
+so valid reports became UNKNOWN KEY despite correct signed bytes.
+
+**How to apply:** Report local and live results separately; an empty or absent
+registry is a release blocker, not a test-fixture detail.

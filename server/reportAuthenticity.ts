@@ -1,7 +1,6 @@
 import { createPublicKey, verify } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import type { Request, Response } from 'express';
+import registry from '../client/public/keys.json';
 
 export type PublishedKey = { key_id: string; alg: 'ed25519'; public_key: string };
 export type Authenticity = {
@@ -19,8 +18,9 @@ function decode(value: unknown, size: number) {
 }
 
 export async function publishedKeys(): Promise<PublishedKey[]> {
-  const root = process.env.NODE_ENV === 'production' ? 'build/client' : 'client/public';
-  const document = JSON.parse(await readFile(path.resolve(root, 'keys.json'), 'utf8'));
+  // esbuild embeds this public registry in the server artifact. Do not depend
+  // on the process CWD or a separately deployed runtime file.
+  const document: { keys: unknown } = registry;
   if (!Array.isArray(document.keys)) throw new Error('Invalid public key configuration');
   const ids = new Set<string>();
   for (const entry of document.keys) {
@@ -31,7 +31,7 @@ export async function publishedKeys(): Promise<PublishedKey[]> {
     }
     ids.add(entry.key_id);
   }
-  return document.keys;
+  return document.keys as PublishedKey[];
 }
 
 export async function reportPublicKeys(_req: Request, res: Response) {
