@@ -88,3 +88,10 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+MANIFEST_HASHES = {"1.1.33": "ebac90351076777601472634807a3751c9a0c9a4d888e344ed94ba08899f5c18"}
+
+
+def manifest_for(version):
+    return MANIFEST_HASHES.get(str(version))
