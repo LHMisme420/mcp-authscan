@@ -569,6 +569,25 @@ def tool_call_line(rec):
         rec.get("reason"), rec.get("version"))
 
 
+# Every value discovery/preflight writes to discovery_info["status"]. A successful
+# RFC 9728/8414 discovery carries no status key (None).
+DISCOVERY_STATUSES = ("ZERO_AUTH_DETECTED", "PREFLIGHT_FAILED", "MCP_VERIFIED", "DISCOVERY_INCOMPLETE")
+
+
+def discovery_status_of(discovery_info):
+    """The discovery status as one of DISCOVERY_STATUSES, else None.
+
+    Only a constant from DISCOVERY_STATUSES is returned, never a value read
+    from discovery_info, so nothing the remote server sent reaches the report
+    through this field.
+    """
+    status = (discovery_info or {}).get("status")
+    for known in DISCOVERY_STATUSES:
+        if status == known:
+            return known
+    return None
+
+
 def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
@@ -670,22 +689,22 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
 
                 with open_without_redirects(req, timeout=5) as resp:
                     resource_data = json.loads(resp.read().decode())
-                    auth_servers = resource_data.get("authorization_servers", [])
-                    print(f"[*] Found {len(auth_servers)} OAuth server(s)", file=sys.stderr)
+                    as_urls = resource_data.get("authorization_servers", [])
+                    print(f"[*] Found {len(as_urls)} OAuth server(s)", file=sys.stderr)
 
-                    if not auth_servers:
+                    if not as_urls:
                         return None, None
 
                     # Step 4: Fetch OAuth server metadata (RFC 8414)
                     all_endpoints = {}
-                    for oauth_server in auth_servers:
-                        oauth_parsed = urlparse(oauth_server)
-                        if oauth_parsed.hostname:
-                            discovered_hosts.add(oauth_parsed.hostname)
+                    for as_url in as_urls:
+                        as_parsed = urlparse(as_url)
+                        if as_parsed.hostname:
+                            discovered_hosts.add(as_parsed.hostname)
 
                         try:
-                            oauth_metadata_url = oauth_server.rstrip("/") + "/.well-known/oauth-authorization-server"
-                            assert_url_is_fetchable(oauth_server, allow_private=ALLOW_PRIVATE_TARGETS)
+                            oauth_metadata_url = as_url.rstrip("/") + "/.well-known/oauth-authorization-server"
+                            assert_url_is_fetchable(as_url, allow_private=ALLOW_PRIVATE_TARGETS)
                             req = Request(oauth_metadata_url)
                             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
@@ -703,14 +722,14 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                                 }
                                 endpoints_found = {k: v for k, v in endpoints_found.items() if v}
                                 all_endpoints.update(endpoints_found)
-                                print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server}", file=sys.stderr)
+                                print(f"[+] Discovered {len(endpoints_found)} endpoints on {as_url}", file=sys.stderr)
 
                         except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError):
                             # RFC 8414 metadata failed: retry the same authorization
                             # server host with OpenID Connect discovery.
                             try:
-                                oidc_metadata_url = oauth_server.rstrip("/") + "/.well-known/openid-configuration"
-                                assert_url_is_fetchable(oauth_server, allow_private=ALLOW_PRIVATE_TARGETS)
+                                oidc_metadata_url = as_url.rstrip("/") + "/.well-known/openid-configuration"
+                                assert_url_is_fetchable(as_url, allow_private=ALLOW_PRIVATE_TARGETS)
                                 req = Request(oidc_metadata_url)
                                 req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
@@ -723,7 +742,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                                     }
                                     endpoints_found = {k: v for k, v in endpoints_found.items() if v}
                                     all_endpoints.update(endpoints_found)
-                                    print(f"[+] Discovered {len(endpoints_found)} endpoints on {oauth_server} via openid-configuration", file=sys.stderr)
+                                    print(f"[+] Discovered {len(endpoints_found)} endpoints on {as_url} via openid-configuration", file=sys.stderr)
 
                             except (HTTPError, URLError, socket.timeout, json.JSONDecodeError, ValueError, AttributeError):
                                 continue
@@ -732,7 +751,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                         discovery_info = {
                             "method": "RFC 9728 → RFC 8414",
                             "resource_metadata": resource_url,
-                            "auth_servers": auth_servers,
+                            "auth_servers": as_urls,
                             "discovered_hosts": list(discovered_hosts),
                             "endpoints": all_endpoints
                         }
@@ -3078,7 +3097,7 @@ def main():
         "probes": probes,
         "target": args.target,
         "scan_mode": scan_mode,
-        "discovery_status": (discovery_info or {}).get("status"),
+        "discovery_status": discovery_status_of(discovery_info),
         "probe_set_version": PROBE_SET_VERSION,
         "severity_calibration_version": (
             SEVERITY_CALIBRATION_VERSION
