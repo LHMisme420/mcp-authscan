@@ -40,6 +40,7 @@ export async function sourceSnapshot(root) {
     'app.py', 'requirements-runtime.txt', '.replitignore',
     'mcp_authscan/report_verify.py', 'mcp_authscan/scan_report.py',
     'mcp_authscan/verify_upload.py',
+    'mcp_authscan/report_evidence_validation.py',
     'mcp_authscan/findings_schema.py', 'mcp_authscan/monolith.py',
     'mcp_authscan/scanner.py', 'mcp_authscan/repository_scan.py',
     'scripts/deployment-build.sh', 'scripts/deployment-web.mjs',

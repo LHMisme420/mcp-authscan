@@ -64,7 +64,7 @@ export function reportVerificationRoutes() {
           // Neither answer is derived from the other. Signature verification can
           // succeed even when the stored report_hash is absent or altered.
           const keys = value.signature_present ? await publishedKeys() : [];
-          authenticity = verifyAuthenticity(value.signature_present, value.signature, bytes, keys);
+          authenticity = verifyAuthenticity(value.signature_present, value.signature, bytes, keys, value.divergence);
         } catch {
           authenticity = { verdict: 'UNREADABLE', reason: 'Public verification keys are unavailable.', key_id: null };
         }
