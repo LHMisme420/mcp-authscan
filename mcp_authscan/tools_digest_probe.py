@@ -86,6 +86,7 @@ def report_payload(target, token=None, allow_private=None, allowed_hosts=None):
         "endpoint": target,
         "digest": captured.get("digest"),
         "tool_count": captured.get("tool_count"),
+        "unauthenticated_session": not token,
         "session_established": True,
         "protocol_version": session.get("protocol_version"),
         "server_name": session.get("server_name"),

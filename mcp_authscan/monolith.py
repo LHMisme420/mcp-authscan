@@ -3208,6 +3208,34 @@ def main():
     canonical_payload["schema_version"] = 3
     canonical_payload["status"] = "completed" if not halted else "incomplete"
     canonical_payload["total_checks"] = counts["in_scope"]
+    from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
+    tools_digest=None
+    try:
+        tools_digest=tools_digest_report(args.target,token=os.environ.get('MCPAUTHSCAN_TOKEN') or None,allowed_hosts=sorted(ALLOWED_HOSTS))
+    except EgressRefusalError as e:
+        print('[!] %s' % e,file=sys.stderr)
+        tools_digest={'captured':False,'endpoint':args.target,'reason':'egress refused at capture'}
+    if tools_digest.get('unauthenticated_session') and _tc_out != 'REFUSED' and not any(f.get('rule')=='ZERO-AUTH' for f in F):
+        tools_seen=tools_digest.get('tool_count') or 0
+        F.append({
+            'rule':'ZERO-AUTH',
+            'severity':'HIGH' if tools_seen else 'MEDIUM',
+            'severity_basis':_tc_basis,
+            'title':'Unauthenticated MCP endpoint',
+            'evidence':'initialize and tools/list accepted with no credential presented',
+            'confidence':'HIGH',
+            'file':args.target,
+            'line':0,
+            'ref':'ZERO-AUTH',
+            'is_live_finding':True,
+            'request_method':'POST',
+            'request_body':'',
+            'response_status':200,
+            'response_body':'',
+            'response_preview':'session established with no credential',
+            'interpretation':_tc_interp,
+            'remediation':'Implement authentication and authorization controls for all MCP endpoints.',
+        })
     canonical_payload["findings_count"] = len(F)
     # Explicit adapters preserve the CLI's original title/detail fields outside
     # the shared hash. The covered description is the stable finding description.
@@ -3247,12 +3275,7 @@ def main():
     prepare_ledger_rows(args, ledgers, canonical_payload)
     # Added after hashing: server-issued client ids differ on every run (PROBE_CONTRACT.md).
     canonical_payload["client_registration"] = [dict(e) for e in oauth_probes_v2.CLIENT_REPORTS]
-    from mcp_authscan.tools_digest_probe import report_payload as tools_digest_report
-    try:
-        canonical_payload["tools_digest"] = tools_digest_report(args.target, token=os.environ.get("MCPAUTHSCAN_TOKEN") or None, allowed_hosts=sorted(ALLOWED_HOSTS))
-    except EgressRefusalError as e:
-        print("[!] %s" % e, file=sys.stderr)
-        canonical_payload["tools_digest"] = {"captured": False, "endpoint": args.target, "reason": "egress refused at capture"}
+    canonical_payload["tools_digest"] = tools_digest
     if tool_call_probe is not None and getattr(args, "probe_tools", False):
         # Added after hashing, like tools_digest; present only with --probe-tools.
         canonical_payload["tool_call_probe"] = tool_call_probe
