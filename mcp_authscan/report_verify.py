@@ -193,6 +193,20 @@ def provenance_binding(payload):
     return prov
 
 
+def pin_status(payload):
+    """Locally computed, never signed: does this manifest match a pinned release?"""
+    prov = provenance_binding(payload)
+    if not prov:
+        return "NO PROVENANCE"
+    from mcp_authscan.releases import MANIFEST_HASHES
+    pin = MANIFEST_HASHES.get(prov["tool_version"])
+    if not pin:
+        return "VERSION NOT PINNED"
+    if pin == prov["tool_manifest"]:
+        return "MANIFEST MATCHES PIN"
+    return "MANIFEST NOT PINNED"
+
+
 SIG_VERSION_KEY = "sig_version"
 SIG_VERSION_GRADED = 1     # signed bytes: canonical graded report (the report_hash preimage)
 SIG_VERSION_EVIDENCE = 2   # signed bytes: canonical {"sig_version": 2, "evidence": ..., "report": ...}
@@ -340,10 +354,14 @@ def main(argv=None):
         try:
             status, detail = verify(path)
             with open(path, encoding="utf-8") as fh:
-                auth = authenticity(json.load(fh), keys)
+                doc = json.load(fh)
+            auth = authenticity(doc, keys)
+            pin = pin_status(doc)
         except (OSError, ValueError) as e:
-            status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
+            status, detail, auth = "NOT_REPRODUCIBLE"
+            pin = "-", f"{type(e).__name__}: {e}", "-"
         print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}")
+        print(f"provenance  {pin}  {path}")
         ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY", "UNSUPPORTED FORM"))
     return 0 if ok else 1
 
