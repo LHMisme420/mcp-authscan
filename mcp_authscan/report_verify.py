@@ -357,10 +357,15 @@ def main(argv=None):
                 doc = json.load(fh)
             auth = authenticity(doc, keys)
             pin = pin_status(doc)
+            # report_hash (HASHED_KEYS) never covers probe statuses; only a checked
+            # sig_version 3 signature does. Say so on every line.
+            probes = ("signed" if doc.get(SIG_VERSION_KEY) == SIG_VERSION_PROVENANCE and auth.startswith("SIGNED BY ")
+                      else "NOT VERIFIED (outside report_hash; needs sig_version 3 checked with --keys)")
         except (OSError, ValueError) as e:
             status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
             pin = "-"
-        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]")
+            probes = "-"
+        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]  [probes: {probes}]")
         ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY", "UNSUPPORTED FORM"))
     return 0 if ok else 1
 
