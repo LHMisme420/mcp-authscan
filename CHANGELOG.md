@@ -10,6 +10,19 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.37] - 2026-11-22
+
+**Wheel sha256: `c1dac26363727ed0fea5068c5ab9aaab7701124bf5e70a07ede4b6f0236a9244`** (`mcp_authscan-1.1.37-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `7f01baf` with `SOURCE_DATE_EPOCH=1795338905`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+
+### Fixed
+- 1.1.36 shipped without its entry in `mcp_authscan/releases.py`, so `python -m mcp_authscan.releases` reported the installed version as not matching probe set `2026.11.21.1`. The table now lists 1.1.35, 1.1.36 and 1.1.37. Informational only: the gate, the verifier and the scanner were not affected.
+- `mcp_authscan/pyproject.toml` still said `1.1.35` in 1.1.36 while the package said 1.1.36, so a wheel built from it carried the wrong version. It is bumped with the root `pyproject.toml` again; `docs/RELEASING.md` names both files (a correction made on 2026-11-22 had wrongly removed the inner one).
+- Manifest pins for 1.1.35 (`a17048a221cebd7601f1713a1bc32728495b534eba851a1487ecef5efffc726f`) and 1.1.36 (`522f31b61ab06f6e7af482bb83c53014db021573f8d04baa7d5c562712eafd0e`), computed with `build_provenance()` from the published wheels. The same method reproduces the existing 1.1.34 pin.
+- README states the current source version.
+
+### Process
+- `docs/RELEASING.md`: run the full suite on the release commit and do not tag unless it exits 0. 1.1.36 was tagged after a build and a guard check but without the suite, which is how the version-parity failures above shipped.
+
 ## [1.1.36] - 2026-11-22
 
 **Wheel sha256: `c3d08c1d77b11d5e2955817dd15f666dc73a2e0a06e4d3247c469b4268eb9739`** (`mcp_authscan-1.1.36-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `b4cc856` with `SOURCE_DATE_EPOCH=1795338189`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
