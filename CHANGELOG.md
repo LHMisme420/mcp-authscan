@@ -10,6 +10,18 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.39] - 2026-11-22
+
+**Wheel sha256: `ecbf55d5fe94064eaf3980483f8508c8b815ab560af0b5422119405e72833307`** (`mcp_authscan-1.1.39-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `def16f9` with `SOURCE_DATE_EPOCH=1795353158`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+
+### Added
+- **`require-manifest-pin`** policy key, `true` in the default policy. A report whose signed provenance does not match a pinned release manifest is `REJECT MANIFEST-PIN`, with the pin status and `tool_version` as the reason. Provenance is inside the `sig_version` 3 and 4 signatures, so the pin status cannot be edited unnoticed.
+- A release cannot carry its own pin (pins are added after each release), so a report from the gate's own, not-yet-pinned version is compared with the gate's installed source (`build_provenance()`): a match is `MANIFEST MATCHES INSTALLED`, a mismatch is `REJECT MANIFEST-PIN: MANIFEST NOT INSTALLED`, and an install the gate cannot read fails closed.
+
+### Compatibility
+- Under the default policy, a report must come from a pinned release (1.1.33 to 1.1.38 are pinned) or from the gate's own installed version. Reports below `sig_version` 3 carry no provenance and were already rejected by `min-sig-version: 3`.
+- A gate run from a source checkout without an installed distribution cannot read its own manifest, so it rejects same-version reports.
+
 ## [1.1.38] - 2026-11-22
 
 **Wheel sha256: `31f13824bc3c5f9b8cf60791ddafaf9555b53ba5d3462d67f910d7c652be28a1`** (`mcp_authscan-1.1.38-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `59167e7` with `SOURCE_DATE_EPOCH=1795350712`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
