@@ -42,12 +42,20 @@ class TestMcpPreflight:
             assert result.status == "PASS"
             assert result.http_status == 401
 
-    def test_401_without_www_authenticate_returns_fail(self):
-        """401 without WWW-Authenticate header is vulnerability, return FAIL."""
+    def test_401_without_www_authenticate_returns_not_observed(self):
+        """401 without any challenge header: not a Bearer MCP endpoint, NOT_OBSERVED."""
         with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
             mock_fetch.return_value = (401, {}, b"Unauthorized")
             result = probe_mcp_preflight("http://example.com")
-            assert result.status == "FAIL"
+            assert result.status == "NOT_OBSERVED"
+
+    def test_401_non_bearer_scheme_returns_not_observed(self):
+        """401 with a non-Bearer scheme does not demonstrate an MCP OAuth endpoint."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (401, {"WWW-Authenticate": "Basic realm=\"x\""}, b"")
+            result = probe_mcp_preflight("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+            assert "Basic" in result.detail
 
     def test_200_non_json_returns_not_observed(self):
         """200 but body is not JSON-RPC, return NOT_OBSERVED."""
@@ -218,8 +226,8 @@ class TestAuthChallenge:
             result = probe_auth_challenge("http://example.com")
             assert result.status == "NOT_OBSERVED"
 
-    def test_401_with_www_authenticate_returns_pass(self):
-        """401 with WWW-Authenticate header is correct behavior, return PASS."""
+    def test_401_bearer_returns_pass(self):
+        """A Bearer challenge demonstrates protection (metadata not required): PASS."""
         with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
             mock_fetch.return_value = (
                 401,
@@ -230,12 +238,20 @@ class TestAuthChallenge:
             assert result.status == "PASS"
             assert "WWW-Authenticate" in result.headers_observed
 
-    def test_401_without_www_authenticate_returns_fail(self):
-        """401 without WWW-Authenticate header is vulnerability, return FAIL."""
+    def test_401_basic_scheme_returns_not_observed(self):
+        """Non-Bearer scheme is never protected; the seen scheme is named in the reason."""
+        with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
+            mock_fetch.return_value = (401, {"WWW-Authenticate": "Basic realm=\"x\""}, b"")
+            result = probe_auth_challenge("http://example.com")
+            assert result.status == "NOT_OBSERVED"
+            assert "Basic" in result.detail
+
+    def test_401_without_www_authenticate_returns_not_observed(self):
+        """401 without any challenge header is not demonstrated: NOT_OBSERVED."""
         with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
             mock_fetch.return_value = (401, {}, b"Unauthorized")
             result = probe_auth_challenge("http://example.com")
-            assert result.status == "FAIL"
+            assert result.status == "NOT_OBSERVED"
             assert "absent" in result.headers_observed.get("WWW-Authenticate", "").lower()
 
     def test_non_401_returns_not_observed(self):

@@ -843,9 +843,16 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                         print(f"[+] MCP server verified (HTTP {resp.status} with JSON-RPC error)", file=sys.stderr)
         except HTTPError as e:
             if e.code == 401:
-                # OAuth challenge - this is MCP
-                mcp_verified = True
-                print(f"[+] MCP server verified (HTTP 401 with OAuth)", file=sys.stderr)
+                # A 401 is a live MCP OAuth endpoint only when it carries a Bearer
+                # challenge. Any other scheme, or no WWW-Authenticate header, is not
+                # demonstrated as MCP (not observed: mcp_verified stays False).
+                _wa = (e.headers.get("WWW-Authenticate", "") if e.headers else "") or ""
+                _scheme = _wa.split()[0].rstrip(",") if _wa.split() else ""
+                if _scheme.lower() == "bearer":
+                    mcp_verified = True
+                    print(f"[+] MCP server verified (HTTP 401 Bearer challenge)", file=sys.stderr)
+                else:
+                    print(f"[!] 401 without a Bearer challenge (scheme: {_scheme or 'absent'}); not confirmed as MCP", file=sys.stderr)
             elif e.code in [400, 406]:
                 # Server returned error but in JSON format - still MCP (405 does not verify)
                 body = e.fp.read(65536).decode(errors='ignore') if e.fp else ""

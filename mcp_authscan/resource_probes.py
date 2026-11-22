@@ -62,30 +62,30 @@ def probe_mcp_preflight(target_url: str) -> ProbeRecord:
                 endpoint=target_url
             )
 
-        # 401/403: check for authentication challenge
+        # 401/403: a live, protected MCP endpoint only when the challenge is Bearer.
+        # Any other scheme, or no WWW-Authenticate header, is not demonstrated.
         if status_code in [401, 403]:
             www_auth = headers.get("WWW-Authenticate", "")
-            if not www_auth:
+            scheme = www_auth.split()[0].rstrip(",") if www_auth.split() else ""
+            if scheme.lower() == "bearer":
                 return ProbeRecord(
                     probe_id="mcp-preflight",
                     name="mcp-preflight",
-                    status="FAIL",
+                    status="PASS",
                     http_status=status_code,
-                    headers_observed={"WWW-Authenticate": "absent"},
+                    headers_observed={"WWW-Authenticate": www_auth[:100]},
                     body_sha256=body_hash,
-                    detail=f"{status_code} enforced but WWW-Authenticate header absent",
-                    severity="MEDIUM",
+                    detail="MCP endpoint protected (Bearer challenge present)",
                     endpoint=target_url
                 )
-            # Has WWW-Authenticate: PASS
             return ProbeRecord(
                 probe_id="mcp-preflight",
                 name="mcp-preflight",
-                status="PASS",
+                status="NOT_OBSERVED",
                 http_status=status_code,
-                headers_observed={"WWW-Authenticate": www_auth[:100]},
+                headers_observed={"WWW-Authenticate": www_auth[:100] if www_auth else "absent"},
                 body_sha256=body_hash,
-                detail="MCP endpoint protected (WWW-Authenticate present)",
+                detail=f"{status_code} without a Bearer challenge (WWW-Authenticate scheme: {scheme or 'absent'}); cannot confirm MCP OAuth endpoint",
                 endpoint=target_url
             )
 
@@ -485,47 +485,34 @@ def probe_auth_challenge(target_url: str) -> ProbeRecord:
                 endpoint=target_url
             )
 
-        # 401: check for WWW-Authenticate
+        # 401: protected on a Bearer challenge alone. A Bearer challenge demonstrates
+        # the server requires an OAuth bearer credential; whether it also advertises
+        # resource metadata is a separate property, not a protection failure. Any
+        # non-Bearer scheme, or no header, is not demonstrated: NOT_OBSERVED, with the
+        # scheme seen named in the reason.
         if status_code == 401:
             www_auth = headers.get("WWW-Authenticate", "")
-            if not www_auth:
+            scheme = www_auth.split()[0].rstrip(",") if www_auth.split() else ""
+            seen = scheme if scheme else "absent"
+            if scheme.lower() == "bearer":
                 return ProbeRecord(
                     probe_id="auth-challenge",
                     name="auth-challenge",
-                    status="FAIL",
-                    http_status=status_code,
-                    headers_observed={"WWW-Authenticate": "absent"},
-                    body_sha256=body_hash,
-                    detail="401 enforced but WWW-Authenticate header absent",
-                    severity="MEDIUM",
-                    endpoint=target_url
-                )
-            # Parse and validate scheme
-            auth_scheme = www_auth.split()[0].rstrip(',') if www_auth.split() else ""
-            valid_schemes = {"basic", "bearer", "digest", "ntlm", "negotiate", "aws4-hmac-sha256"}
-            
-            if auth_scheme.lower() not in valid_schemes:
-                return ProbeRecord(
-                    probe_id="auth-challenge",
-                    name="auth-challenge",
-                    status="FAIL",
+                    status="PASS",
                     http_status=status_code,
                     headers_observed={"WWW-Authenticate": www_auth[:100]},
                     body_sha256=body_hash,
-                    detail=f"Invalid WWW-Authenticate scheme '{auth_scheme}': not a recognized auth method",
-                    severity="MEDIUM",
+                    detail="Correctly challenges with Bearer authentication",
                     endpoint=target_url
                 )
-            
-            # Valid scheme: PASS
             return ProbeRecord(
                 probe_id="auth-challenge",
                 name="auth-challenge",
-                status="PASS",
+                status="NOT_OBSERVED",
                 http_status=status_code,
-                headers_observed={"WWW-Authenticate": www_auth[:100]},
+                headers_observed={"WWW-Authenticate": www_auth[:100] if www_auth else "absent"},
                 body_sha256=body_hash,
-                detail=f"Correctly challenges with {auth_scheme} authentication",
+                detail=f"401 challenge scheme '{seen}' is not Bearer; cannot confirm MCP OAuth protection",
                 endpoint=target_url
             )
 

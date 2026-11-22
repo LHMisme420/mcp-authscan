@@ -1,4 +1,4 @@
-"""Fixture: probe_auth_challenge must return FAIL/MEDIUM on invalid scheme."""
+"""Fixture: probe_auth_challenge must return NOT_OBSERVED on a non-Bearer scheme."""
 import json
 import http.server
 import socketserver
@@ -49,4 +49,4 @@ result = probe_auth_challenge(f"http://127.0.0.1:{port}/mcp")
 print("Status: %s" % result.status)
 print("Severity: %s" % result.severity)
 print("Detail: %s" % result.detail)
-print("Expected: status=FAIL, severity=MEDIUM (invalid WWW-Authenticate scheme)")
+print("Expected: status=NOT_OBSERVED (non-Bearer scheme, not an MCP OAuth challenge)")
