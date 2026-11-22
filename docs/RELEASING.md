@@ -7,7 +7,7 @@ creates a GitHub release with the artifacts.
 ## One-time setup
 
 1. **Confirm the name is available.** Check https://pypi.org/project/mcp-authscan/.
-   If it's taken, pick another distribution name in `mcp_authscan/pyproject.toml` (`name =`)
+   If it's taken, pick another distribution name in `pyproject.toml` (repository root) (`name =`)
    — the import package `mcp_authscan` can stay the same.
 2. **Create a PyPI account** at https://pypi.org and verify your email.
 3. **Create an API token:** PyPI → Account settings → API tokens → *Add API
@@ -28,10 +28,15 @@ make older local database commits safe to publish. The branch guard does not
 check release tags; do not tag private local history.
 
 1. Bump the version in **both** places (they must match):
-   - `mcp_authscan/pyproject.toml` → `version = "X.Y.Z"`
+   - `pyproject.toml` (repository root) → `version = "X.Y.Z"`
    - `mcp_authscan/__init__.py` → `__version__ = "X.Y.Z"`
 2. Update `CHANGELOG.md` (move items from *Unreleased* into the new version).
 3. Commit via a PR and merge to `main`.
+   Then anchor the wheel: at that commit, build with
+   `SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)` and `python -m build --no-isolation --wheel`
+   using build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. Build twice and confirm both hashes
+   match. Add `X.Y.Z<TAB>sha256<TAB>epoch` to `release/anchors.tsv` and put the hash at the top of
+   the CHANGELOG entry. `release.yml` refuses any tag without an anchor. Never upload a wheel by hand.
 4. Tag and push:
    ```bash
    git checkout main && git pull

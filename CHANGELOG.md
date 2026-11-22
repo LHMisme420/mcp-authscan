@@ -10,6 +10,28 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.35] - 2026-11-22
+
+**Wheel sha256: `649441628d9b5c2a7541278b1d1524294183de00a9ee55f84050f83510f38e6d`** (`mcp_authscan-1.1.35-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `cfa6645` with `SOURCE_DATE_EPOCH=1795332969`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.35 && sha256sum mcp_authscan-1.1.35-py3-none-any.whl`.
+
+### Security
+- **Key-free verdict forgery in the policy gate ([GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q)), affecting 1.1.28 to 1.1.34.** Probe statuses in reports below `sig_version` 3 are covered by neither `report_hash` nor the signature, and the gate accepted any `sig_version`. Editing one probe status in a genuine signed report turned `REJECT` into `ACCEPT` (1.1.28 to 1.1.30) or `CLEAN` (1.1.32 to 1.1.34) while integrity still read `MATCH`. The default policy now sets `min-sig-version: 3`, and a report below it is `REJECT`.
+- `report_verify` labels every line `[probes: signed]` only for a `sig_version` 3 report whose signature was checked with `--keys`, and `[probes: NOT VERIFIED ...]` otherwise. `report_hash` itself is unchanged; covering probes in the hash requires a new hash scheme.
+
+### Breaking
+- Genuine `sig_version` 1 and 2 reports are now rejected by the default policy. Rescan with 1.1.33 or later.
+
+### Fixed
+- Policy `fail-on` (default `high`): findings at or above it, or with an unknown severity, are `REJECT`. Previously severity was never graded.
+- `forbidden-findings` matches exact rule IDs or separator-delimited families; `CORS-1` no longer matches `CORS-10`.
+- `acceptable-verdicts` in the default policy is `["PASS"]`, matching what the gate enforces (the gate does not read this key).
+- `report_verify` no longer crashes on a missing or corrupt report; it prints `NOT REPRODUCIBLE`. Output is one line per report again.
+- `pytest.ini` no longer replaces pytest's default `norecursedirs`; a plain `pytest` collects and runs the full suite (758 passed, 3 skipped at `cfa6645`).
+- Tests for modules archived in `e1755f1` are disabled with a reason, not deleted.
+
+### Release integrity
+- 1.1.27 to 1.1.34 were published to PyPI without an entry in `release/anchors.tsv`. The `release` workflow refused those tags and the wheels were uploaded outside it, so their hashes are not anchored. 1.1.35 is published through the anchored workflow. For 1.1.34, the published `policy_check.py`, `policy-default.json` and `report_verify.py` were confirmed byte-identical to tag `v1.1.34`.
+
 ## [1.1.26] - 2026-11-19
 
 **Wheel sha256: `f1ea12271e270125564ba1825587da444f893898e0ac0b8cd3c358e6d9667037`** (`mcp_authscan-1.1.26-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `b1dccef` with `SOURCE_DATE_EPOCH=1795093151`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.26 && sha256sum mcp_authscan-1.1.26-py3-none-any.whl`. No sdist is published for this release: the sdist is not byte-reproducible, so it cannot be an anchor.
