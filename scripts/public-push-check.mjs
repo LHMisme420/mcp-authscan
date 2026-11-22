@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 // Read Git objects only: never read working-tree files, credentials, or secret values.
 import { spawnSync } from 'node:child_process';
 
@@ -59,12 +60,30 @@ const DUMMY_VALUES = new Set([
   'not-a-real-secret-for-tests',
   'dummy-secret-for-testing-only',
 ]);
+// Exact-value allowlist for reviewed test fixtures: sha256 hashes only, read from
+// the commit being pushed. Never consulted for provider-shaped tokens.
+const LIST_CANDIDATES = process.env.PUBLIC_PUSH_LIST_CANDIDATES === '1';
+const ALLOWLIST_PATH = 'scripts/public-push-allowlist.txt';
+let ALLOWED_VALUE_HASHES = new Set();
+function valueHash(value) {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+function loadAllowlist(commit) {
+  let text;
+  try {
+    text = git(['show', `${commit}:${ALLOWLIST_PATH}`]).toString('utf8');
+  } catch {
+    return new Set();
+  }
+  return new Set(text.split('\n').map(line => line.replace(/#.*/, '').trim())
+    .filter(line => /^[0-9a-f]{64}$/.test(line)));
+}
 function dummy(value) {
   return DUMMY_VALUES.has(value)
     || /^(?:x{8,}|0{8,}|a{8,}|\*{8,}|<[^<>\r\n]+>)$/i.test(value);
 }
 
-function contentCategories(blob) {
+function contentCategories(blob, candidates = null) {
   const categories = [];
   if (blob.subarray(0, 16).equals(Buffer.from('SQLite format 3\0'))) categories.push('sqlite-content');
   const text = blob.toString('utf8');
@@ -82,8 +101,10 @@ function contentCategories(blob) {
     if (!dummy(value) && !/\s|\$\{|process\.env|os\.environ|https?:\/\//.test(value)
         && /^[A-Za-z0-9_+/=.!@#$%^&*-]+$/.test(value)
         && new Set(value).size >= 12) {
+      if (ALLOWED_VALUE_HASHES.has(valueHash(value))) continue;
       categories.push('literal-credential');
-      break;
+      if (candidates) candidates.push(value);
+      else break;
     }
   }
   return [...new Set(categories)];
@@ -104,6 +125,7 @@ function main() {
   // Validate the named remote without reading its URL or contacting it.
   if (!git(['remote']).toString().trim().split('\n').includes(remote)) throw new Error('unknown-remote');
   const head = git(['rev-parse', '--verify', `refs/heads/${branch}^{commit}`]).toString().trim();
+  ALLOWED_VALUE_HASHES = loadAllowlist(head);
   const trackingRef = `refs/remotes/${remote}/${target}`;
   let base;
   try {
@@ -145,7 +167,13 @@ function main() {
       continue;
     }
     const blob = git(['cat-file', 'blob', oid]);
-    const categories = contentCategories(blob);
+    const candidates = LIST_CANDIDATES ? [] : null;
+    const categories = contentCategories(blob, candidates);
+    if (candidates) {
+      for (const path of paths) for (const value of candidates) {
+        console.error(`CANDIDATE\t${JSON.stringify(path)}\t${valueHash(value)}\tlen=${value.length}\tstarts=${JSON.stringify(value.slice(0, 6))}`);
+      }
+    }
     if (blob.subarray(0, 100).toString().startsWith('version https://git-lfs.github.com/spec/v1')) {
       categories.push('unverified-lfs-content');
     }
