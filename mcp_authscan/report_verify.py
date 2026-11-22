@@ -358,10 +358,9 @@ def main(argv=None):
             auth = authenticity(doc, keys)
             pin = pin_status(doc)
         except (OSError, ValueError) as e:
-            status, detail, auth = "NOT_REPRODUCIBLE"
-            pin = "-", f"{type(e).__name__}: {e}", "-"
-        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}")
-        print(f"provenance  {pin}  {path}")
+            status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
+            pin = "-"
+        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]")
         ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY", "UNSUPPORTED FORM"))
     return 0 if ok else 1
 
