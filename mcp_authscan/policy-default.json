@@ -14,9 +14,7 @@
     ]
   },
   "acceptable-verdicts": [
-    "PASS",
-    "NOT_OBSERVED",
-    "EXCLUDED"
+    "PASS"
   ],
   "required-probes": [
     "issuer-identity",
@@ -38,5 +36,7 @@
     "ZERO-AUTH",
     "CORS-1",
     "MCPC-1"
-  ]
+  ],
+  "min-sig-version": 3,
+  "fail-on": "high"
 }

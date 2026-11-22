@@ -4,6 +4,17 @@ import sys
 from mcp_authscan.report_verify import verify, authenticity
 
 
+SEVERITY_ORDER = ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
+_RULE_SEPARATORS = '-_:./'
+
+
+def _rule_matches(rule, bad):
+    """Exact rule ID, or the ID followed by a separator (family member).
+    CORS-1 matches CORS-1 and CORS-1-x, never CORS-10."""
+    r, b = str(rule).strip().upper(), str(bad).strip().upper()
+    return r == b or (r.startswith(b) and r[len(b)] in _RULE_SEPARATORS)
+
+
 def evaluate(report_path, policy_path, keys_path):
     policy = json.load(open(policy_path))
     report = json.load(open(report_path))
@@ -28,16 +39,25 @@ def evaluate(report_path, policy_path, keys_path):
             return {'verdict': 'REJECT', 'check': 'PROPERTY-FAILED', 'detail': str(p.get('name')) + ' ' + str(p.get('status'))}
     rules = [str(f.get('rule')) for f in report.get('findings', [])]
     for bad in policy.get('forbidden-findings', []):
-        if any(r.upper().startswith(bad.upper()) for r in rules):
+        if any(_rule_matches(r, bad) for r in rules):
             return {'verdict': 'REJECT', 'check': 'FINDING-PRESENT', 'detail': bad}
+    floor = policy.get('fail-on')
+    if floor is not None:
+        if str(floor).upper() not in SEVERITY_ORDER:
+            return {'verdict': 'REJECT', 'check': 'POLICY-INVALID', 'detail': 'fail-on ' + str(floor)}
+        lim = SEVERITY_ORDER.index(str(floor).upper())
+        for f in report.get('findings', []):
+            sev = str(f.get('severity')).upper()
+            if sev not in SEVERITY_ORDER or SEVERITY_ORDER.index(sev) >= lim:
+                return {'verdict': 'REJECT', 'check': 'FINDING-SEVERITY', 'detail': str(f.get('rule')) + ' ' + sev}
     req = [str(r) for r in policy.get('required-probes', [])]
     st = {str(q.get('name')): str(q.get('status')) for q in report.get('probes', [])}
-    ok = {"PASS"}
+    ok = {"PASS"}  # required probes must PASS (654e85b); acceptable-verdicts is not read
     missed = [n for n in req if st.get(n) not in ok]
     passed = len(req) - len(missed)
     want = policy.get("min-sig-version")
     d = int(want) - int(report.get("sig_version", 1)) if want else 0
-    if d == max(0, d) and d != 0: return {"verdict": "CONDITIONAL", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
+    if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
     if req and not missed:
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}

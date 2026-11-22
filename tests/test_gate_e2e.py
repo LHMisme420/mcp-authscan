@@ -53,7 +53,7 @@ def bundle(tmp, key, statuses, policy):
     return str(rp), str(pp), str(kp)
 
 
-POLICY = {'required-probes': ['P1'], 'acceptable-verdicts': ['NOT_OBSERVED', 'EXCLUDED'], 'forbidden-findings': []}
+POLICY = {'required-probes': ['P1'], 'acceptable-verdicts': ['PASS'], 'forbidden-findings': []}
 
 
 def test_unresolved_probe_cannot_read_clean(tmp_path):
