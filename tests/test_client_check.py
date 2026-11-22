@@ -96,3 +96,18 @@ def test_redact_scheme_only():
     # A value with no scheme is fully redacted.
     assert client_check.redact("short") == "[redacted]"
     assert client_check.redact(None) is None
+
+
+STRANDS = os.environ.get(
+    "CLIENT_CHECK_STRANDS", os.path.expanduser("~/venv-strands/bin/python")
+)
+
+
+@pytest.mark.skipif(not os.path.exists(STRANDS), reason="no strands venv on this machine")
+def test_strands_driver_uses_strands_wrapper(capsys, monkeypatch):
+    """CLIENT_CHECK_PROVIDER=strands drives Strands' own wrapper, not mcp's provider."""
+    monkeypatch.setenv("CLIENT_CHECK_PROVIDER", "strands")
+    code, report, raw = _run(capsys, STRANDS, "strands", "https://expected.invalid")
+    assert "driver: using strands.tools.mcp._compat.client_credentials_auth" in report["stderr"]
+    assert code in (0, 1, 2, 3)
+    assert _no_raw_secret(raw)

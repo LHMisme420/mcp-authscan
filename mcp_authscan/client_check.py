@@ -78,7 +78,33 @@ _IMPORT_PATHS = (
 )
 
 
+def _strands_provider():
+    # Strands' own client_credentials wrapper, exactly as MCPClient builds it.
+    # The shim exposes the wrapper's real signature to _build, so issuer= is
+    # forwarded only if the wrapper itself accepts it.
+    import inspect as _inspect
+    from strands.tools.mcp._compat import client_credentials_auth as wrapper
+    sig = _inspect.signature(wrapper)
+
+    class StrandsClientCredentials:
+        def __new__(cls, *args, **kwargs):
+            if "scope" in sig.parameters:
+                kwargs.setdefault("scope", None)
+            return wrapper(*args, **kwargs)
+
+    def __init__(self, *args, **kwargs):
+        pass
+    __init__.__signature__ = sig.replace(parameters=[
+        _inspect.Parameter("self", _inspect.Parameter.POSITIONAL_OR_KEYWORD)] + list(sig.parameters.values()))
+    StrandsClientCredentials.__init__ = __init__
+    StrandsClientCredentials.__name__ = "strands.client_credentials_auth"
+    return StrandsClientCredentials
+
+
 def _load_provider():
+    import os as _os
+    if _os.environ.get("CLIENT_CHECK_PROVIDER") == "strands":
+        return _strands_provider(), "strands.tools.mcp._compat.client_credentials_auth"
     last = None
     for path in _IMPORT_PATHS:
         try:
