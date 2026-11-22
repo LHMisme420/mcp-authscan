@@ -28,12 +28,27 @@ Preserve uploaded JSON text rather than parsing and reserializing it in JavaScri
 **How to apply:** Keep the raw-text upload path. For independence tests, replace only the intended field in the original JSON text; do not change canonicalization to accommodate JavaScript numeric normalization.
 
 CLI signing key IDs are the full lowercase SHA-256 hex digest of the raw
-Ed25519 public key, not a shortened or prefixed ID. Hashing and signing must
-consume the same serialized schema-3 canonical bytes.
+Ed25519 public key, not a shortened or prefixed ID. Do not assume the
+schema version identifies the signed envelope: follow the report's explicit
+signature version and the current reference implementation.
 
-**Why:** The owner explicitly specified this signing contract after rejecting
-signing a separate reconstruction or a format not shared with the verifier.
+**Why:** The owner required reference-CLI parity. The reference subsequently
+added evidence and provenance to signed envelopes without changing the
+graded-content hash. Reusing the hash preimage for every signature falsely
+rejects legitimate versioned reports.
 
 **How to apply:** Keep signatures outside the covered projection and leave
-probe logic unchanged. Test timestamp independence and signed/unsigned hash
-equality with disposable keys, without publishing a test identity.
+probe logic unchanged. Check an actual owner-specified published report as well
+as synthetic signatures; never infer covered fields from a prose summary when
+the current reference and artifact establish a more complete envelope.
+
+Do not treat a verifier test with a substituted registry as release acceptance.
+Use the actual running application's registry and repeat both public-key GET
+and report-verification POST on the live domain after publishing.
+
+**Why:** An isolated handler test succeeded with production keys while the
+workspace registry was empty. Publishing then removed the public identity,
+so valid reports became UNKNOWN KEY despite correct signed bytes.
+
+**How to apply:** Report local and live results separately; an empty or absent
+registry is a release blocker, not a test-fixture detail.

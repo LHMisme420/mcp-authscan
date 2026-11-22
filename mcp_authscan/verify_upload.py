@@ -45,11 +45,13 @@ def verify_text(text):
     signature = None
     canonical_bytes = None
     sig_version = None
+    divergence = None
 
     def result(verdict, reason):
         return dict(verdict=verdict, reason=reason, algorithm=algorithm,
                     probe_set_version=probe_set, signature_present=signature_present,
-                    signature=signature, canonical_bytes=canonical_bytes, sig_version=sig_version)
+                    signature=signature, canonical_bytes=canonical_bytes,
+                    sig_version=sig_version, divergence=divergence)
 
     def unique_object(pairs):
         value = {}
@@ -86,17 +88,20 @@ def verify_text(text):
         actual, _ = compute(payload, findings)
         # Use the CLI's serializer/projection, not a second implementation in JS.
         # This internal transport is never returned to the browser or persisted.
-        # canonical_bytes are the bytes the signature covers, in the form the
-        # report's sig_version declares (report_verify.signed_content). An unknown
-        # or inconsistent sig_version leaves integrity intact but authenticity unverifiable.
         try:
             canonical_bytes = base64.b64encode(signed_content(payload, findings)).decode("ascii")
-        except ValueError:
-            canonical_bytes = None
+        except (ValueError, TypeError, KeyError) as error:
+            # Name only a component demonstrated by structural validation.
+            message = str(error)
+            component = ("sig_version" if message.startswith("sig_version") else
+                          "evidence" if message.startswith("evidence") else
+                          "content_observed" if message.startswith("content_observed") else "provenance")
+            divergence = component
         if not isinstance(claimed, str) or not re.fullmatch(r"[0-9a-f]{64}", claimed):
             return result("UNREADABLE", "A complete lowercase SHA-256 report_hash is required.")
         if actual == claimed:
             return result("INTACT", "Graded content matches the stored hash; this does not authenticate the report's author. Probe statuses and content_observed are outside this hash; only a verified signature covers them.")
+        divergence = divergence or "report"
         return result("ALTERED", "Graded content does not match the stored hash; a hash cannot identify which field changed.")
     except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
         # Do not echo user-controlled report content, including parsing errors.

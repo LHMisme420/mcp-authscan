@@ -1,11 +1,10 @@
 import { createPublicKey, verify } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import type { Request, Response } from 'express';
+import registry from '../client/public/keys.json';
 
 export type PublishedKey = { key_id: string; alg: 'ed25519'; public_key: string };
 export type Authenticity = {
-  verdict: 'SIGNED BY' | 'NOT SIGNED' | 'SIGNATURE INVALID' | 'UNKNOWN KEY' | 'UNREADABLE';
+  verdict: 'SIGNED BY' | 'NOT SIGNED' | 'SIGNATURE INVALID' | 'DIVERGENCE' | 'UNKNOWN KEY' | 'UNREADABLE';
   key_id: string | null;
   reason: string;
 };
@@ -19,8 +18,9 @@ function decode(value: unknown, size: number) {
 }
 
 export async function publishedKeys(): Promise<PublishedKey[]> {
-  const root = process.env.NODE_ENV === 'production' ? 'build/client' : 'client/public';
-  const document = JSON.parse(await readFile(path.resolve(root, 'keys.json'), 'utf8'));
+  // esbuild embeds this public registry in the server artifact. Do not depend
+  // on the process CWD or a separately deployed runtime file.
+  const document: { keys: unknown } = registry;
   if (!Array.isArray(document.keys)) throw new Error('Invalid public key configuration');
   const ids = new Set<string>();
   for (const entry of document.keys) {
@@ -31,7 +31,7 @@ export async function publishedKeys(): Promise<PublishedKey[]> {
     }
     ids.add(entry.key_id);
   }
-  return document.keys;
+  return document.keys as PublishedKey[];
 }
 
 export async function reportPublicKeys(_req: Request, res: Response) {
@@ -45,6 +45,7 @@ export async function reportPublicKeys(_req: Request, res: Response) {
 
 export function verifyAuthenticity(
   signaturePresent: boolean | null, signature: unknown, bytes: Buffer | null, keys: PublishedKey[],
+  divergence: string | null = null,
 ): Authenticity {
   const result = (verdict: Authenticity['verdict'], reason: string, key_id: string | null = null) =>
     ({ verdict, reason, key_id });
@@ -60,6 +61,7 @@ export function verifyAuthenticity(
   if (!detached) return result('UNREADABLE', 'Signature value must encode exactly 64 bytes as unpadded base64url.', id);
   const key = keys.find(entry => entry.key_id === id);
   if (!key) return result('UNKNOWN KEY', 'This key_id is not published in /keys.json.', id);
+  if (divergence && !bytes) return result('DIVERGENCE', `Signed-content component differs or cannot be reconstructed: ${divergence}.`, id);
   if (!bytes) return result('UNREADABLE', 'Canonical graded content could not be recomputed.', id);
   try {
     const raw = decode(key.public_key, 32);
@@ -68,9 +70,10 @@ export function verifyAuthenticity(
       key: Buffer.concat([spkiPrefix, raw]), format: 'der', type: 'spki',
     });
     const valid = verify(null, bytes, publicKey, detached);
+    if (!valid && divergence) return result('DIVERGENCE', `Signed-content component differs or cannot be reconstructed: ${divergence}.`, id);
     return valid
-      ? result('SIGNED BY', 'Ed25519 signature verifies over the canonical graded content.', id)
-      : result('SIGNATURE INVALID', 'Ed25519 signature does not verify over the canonical graded content.', id);
+      ? result('SIGNED BY', 'Ed25519 signature verifies over the reference canonical signed content.', id)
+      : result('SIGNATURE INVALID', 'Ed25519 verification failed over reference-reconstructed bytes. A signature alone cannot distinguish altered evidence/provenance from an invalid signature.', id);
   } catch {
     return result('UNREADABLE', 'Ed25519 verification is unavailable or the published key is invalid.', id);
   }

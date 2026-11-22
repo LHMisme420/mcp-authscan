@@ -15,7 +15,7 @@ type IntegrityResult = {
 type VerifyResult = {
   integrity: IntegrityResult;
   authenticity: {
-    verdict: 'SIGNED BY' | 'NOT SIGNED' | 'SIGNATURE INVALID' | 'UNKNOWN KEY' | 'UNREADABLE';
+    verdict: 'SIGNED BY' | 'NOT SIGNED' | 'SIGNATURE INVALID' | 'DIVERGENCE' | 'UNKNOWN KEY' | 'UNREADABLE';
     key_id: string | null;
     reason: string;
   };
@@ -32,7 +32,7 @@ function isVerifyResult(value: unknown): value is VerifyResult {
     typeof result.reason === 'string' &&
     (typeof result.algorithm === 'string' || result.algorithm === null) &&
     (typeof result.probe_set_version === 'string' || result.probe_set_version === null) &&
-    ['SIGNED BY', 'NOT SIGNED', 'SIGNATURE INVALID', 'UNKNOWN KEY', 'UNREADABLE'].includes(authenticity.verdict) &&
+    ['SIGNED BY', 'NOT SIGNED', 'SIGNATURE INVALID', 'DIVERGENCE', 'UNKNOWN KEY', 'UNREADABLE'].includes(authenticity.verdict) &&
     typeof authenticity.reason === 'string' &&
     (typeof authenticity.key_id === 'string' || authenticity.key_id === null)
   );
