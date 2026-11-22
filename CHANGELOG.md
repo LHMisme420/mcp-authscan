@@ -10,6 +10,21 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.36] - 2026-11-22
+
+**Wheel sha256: `c3d08c1d77b11d5e2955817dd15f666dc73a2e0a06e4d3247c469b4268eb9739`** (`mcp_authscan-1.1.36-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `b4cc856` with `SOURCE_DATE_EPOCH=1795338189`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+
+### Breaking
+- A policy that declares `scope.operations` now grants at most `CONDITIONAL SCOPE`. `CLEAN` requires the declared scope to be proven by signed report content, and no signed field records the observed operations yet: `content_observed` is outside `report_hash` and the signature, so an edit to it still verifies. The default policy declares a scope, so `CLEAN` is not reachable under it. Signing the observed operations is planned.
+
+### Changed
+- Before 1.1.36, a report whose required probes all read `PASS` was `CLEAN` whether or not the declared scope was ever observed. This is a hardening of what `CLEAN` claims, not a fix for a forgery: the earlier gate never read the scope at all.
+- README documents the policy gate, its verdicts, the `sig_version` 3 requirement and the scope rule.
+- The public-push guard accepts reviewed test-fixture values by exact sha256 (`scripts/public-push-allowlist.txt`); provider-shaped tokens are never exempt. A stray `keycloak` gitlink was removed.
+
+### Yanked
+- 1.1.27 to 1.1.34 are yanked on PyPI: 1.1.28 onward are affected by GHSA-jvh3-qvpr-qm8q, and none of 1.1.27 to 1.1.34 was published through the anchored workflow. Exact-version installs still work.
+
 ## [1.1.35] - 2026-11-22
 
 **Wheel sha256: `649441628d9b5c2a7541278b1d1524294183de00a9ee55f84050f83510f38e6d`** (`mcp_authscan-1.1.35-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `cfa6645` with `SOURCE_DATE_EPOCH=1795332969`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.35 && sha256sum mcp_authscan-1.1.35-py3-none-any.whl`.
