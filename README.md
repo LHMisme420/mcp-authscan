@@ -150,3 +150,25 @@ A finding's grade describes what the response demonstrated, not what the absence
 Every fixture in bench/answer-key has a known correct grade. Run
 python3 bench/answer-key/run_key.py and it prints hit or miss per fixture.
 See [bench/answer-key](bench/answer-key/README.md).
+
+## Policy gate
+
+`mcp_authscan.policy_check` decides whether a signed report is trustworthy enough to act on.
+
+```bash
+python -m mcp_authscan.policy_check REPORT.json                  # packaged default policy and keys
+python -m mcp_authscan.policy_check REPORT.json POLICY.json KEYS.json
+```
+
+It prints one JSON decision, `{"verdict", "check", "detail"}`, and exits **1 only on `REJECT`**. `CLEAN` and `CONDITIONAL` exit 0, so a CI step that must not accept partial coverage has to check the verdict, not just the exit code.
+
+| Verdict | Meaning |
+|---|---|
+| `REJECT` | untrusted or invalid signature, hash mismatch, a required probe missing, duplicated or `FAIL`, a forbidden finding, a finding at or above `fail-on`, or `sig_version` below `min-sig-version` |
+| `CONDITIONAL` | trustworthy, but not every required probe is `PASS` |
+| `CLEAN` | trustworthy, and every required probe is `PASS` |
+
+Policy keys the gate reads: `trusted-signers`, `required-probes`, `forbidden-findings`, `fail-on`, `min-sig-version`. The default policy sets `min-sig-version: 3` and `fail-on: high`. `acceptable-verdicts` and `scope` are descriptive and not enforced.
+
+**Why `sig_version` 3 is required.** `report_hash` does not cover individual probe statuses, and only a `sig_version` 3 signature does. Below version 3, a probe status can be edited without breaking the hash or the signature ([GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q), fixed in 1.1.35). `python -m mcp_authscan.report_verify` labels every line `[probes: signed]` only when a `sig_version` 3 signature was checked with `--keys`, and `[probes: NOT VERIFIED ...]` otherwise. A bare `MATCH` proves the graded fields, not the probes.
+
