@@ -2,6 +2,9 @@
 import sys
 sys.path.insert(0, '/home/claude/vata/mcp-authscan')
 
+import pytest
+pytest.skip("disabled: schedule_scans was moved to _archive/ in e1755f1; "
+            "re-enable if it is restored", allow_module_level=True)
 from schedule_scans import AutomatedScanner
 
 print("✅ AUTOMATED SCANNING SCHEDULER")

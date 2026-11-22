@@ -13,6 +13,9 @@ import sys
 
 import pytest
 
+import pytest
+pytest.skip("disabled: scanner_integration was moved to _archive/ in e1755f1; "
+            "re-enable if it is restored", allow_module_level=True)
 import scanner_integration
 
 
