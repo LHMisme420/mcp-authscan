@@ -15,6 +15,21 @@ def _rule_matches(rule, bad):
     return r == b or (r.startswith(b) and r[len(b)] in _RULE_SEPARATORS)
 
 
+def _self_manifest_status(report):
+    """A release cannot carry its own pin (pins ship one release later), so a report from
+    the gate's own, unpinned version is checked against the gate's installed source."""
+    import mcp_authscan
+    from mcp_authscan import report_verify
+    prov = report.get('provenance') if isinstance(report.get('provenance'), dict) else {}
+    if prov.get('tool_version') != getattr(mcp_authscan, '__version__', None):
+        return 'VERSION NOT PINNED'
+    try:
+        own = report_verify.build_provenance()
+    except (ImportError, OSError):
+        return 'VERSION NOT PINNED (installed manifest unavailable)'
+    return 'MANIFEST MATCHES INSTALLED' if own.get('tool_manifest') == prov.get('tool_manifest') else 'MANIFEST NOT INSTALLED'
+
+
 def evaluate(report_path, policy_path, keys_path):
     policy = json.load(open(policy_path))
     report = json.load(open(report_path))
@@ -65,7 +80,9 @@ def evaluate(report_path, policy_path, keys_path):
             pin = pin_status(report)
         except ValueError:
             pin = 'INVALID PROVENANCE'
-        if pin != 'MANIFEST MATCHES PIN':
+        if pin == 'VERSION NOT PINNED':
+            pin = _self_manifest_status(report)
+        if pin not in ('MANIFEST MATCHES PIN', 'MANIFEST MATCHES INSTALLED'):
             tv = (report.get('provenance') or {}).get('tool_version') if isinstance(report.get('provenance'), dict) else None
             return {'verdict': 'REJECT', 'check': 'MANIFEST-PIN', 'detail': pin + ' (tool_version ' + str(tv) + ')'}
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]

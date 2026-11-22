@@ -175,3 +175,34 @@ def test_pin_not_required_without_the_key(tmp_path):
     r = _report(ALL); r["provenance"] = dict(UNPINNED)
     out = _gate(tmp_path, _sign(r, key, 4), key)
     assert out["check"] != "MANIFEST-PIN", out
+
+
+SELF = {"tool_version": "0.0.0-self", "tool_manifest": "a" * 64}
+
+
+def _as_installed(monkeypatch):
+    import mcp_authscan
+    from mcp_authscan import report_verify
+    monkeypatch.setattr(mcp_authscan, "__version__", SELF["tool_version"])
+    monkeypatch.setattr(report_verify, "build_provenance", lambda: dict(SELF))
+
+
+def test_same_version_report_matching_installed_manifest_passes(tmp_path, monkeypatch):
+    _as_installed(monkeypatch)
+    key = Ed25519PrivateKey.generate()
+    r = _report(ALL); r["provenance"] = dict(SELF)
+    rp, pp, kp = _bundle(tmp_path, _sign(r, key, 4), key)
+    _require_pin(pp)
+    out = policy_check.evaluate(rp, pp, kp)
+    assert (out["verdict"], out["check"]) == ("CLEAN", "ALL"), out
+
+
+def test_same_version_report_with_another_manifest_is_rejected(tmp_path, monkeypatch):
+    _as_installed(monkeypatch)
+    key = Ed25519PrivateKey.generate()
+    r = _report(ALL); r["provenance"] = {"tool_version": SELF["tool_version"], "tool_manifest": "b" * 64}
+    rp, pp, kp = _bundle(tmp_path, _sign(r, key, 4), key)
+    _require_pin(pp)
+    out = policy_check.evaluate(rp, pp, kp)
+    assert (out["verdict"], out["check"]) == ("REJECT", "MANIFEST-PIN"), out
+    assert out["detail"].startswith("MANIFEST NOT INSTALLED"), out
