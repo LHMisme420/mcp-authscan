@@ -165,10 +165,10 @@ It prints one JSON decision, `{"verdict", "check", "detail"}`, and exits **1 onl
 | Verdict | Meaning |
 |---|---|
 | `REJECT` | untrusted or invalid signature, hash mismatch, a required probe missing, duplicated or `FAIL`, a forbidden finding, a finding at or above `fail-on`, or `sig_version` below `min-sig-version` |
-| `CONDITIONAL` | trustworthy, but not every required probe is `PASS` |
+| `CONDITIONAL` | trustworthy, but not every required probe is `PASS`, or the policy declares a `scope` the report does not prove in signed content |
 | `CLEAN` | trustworthy, and every required probe is `PASS` |
 
-Policy keys the gate reads: `trusted-signers`, `required-probes`, `forbidden-findings`, `fail-on`, `min-sig-version`. The default policy sets `min-sig-version: 3` and `fail-on: high`. `acceptable-verdicts` and `scope` are descriptive and not enforced.
+Policy keys the gate reads: `trusted-signers`, `required-probes`, `forbidden-findings`, `fail-on`, `min-sig-version`, `scope`. The default policy sets `min-sig-version: 3` and `fail-on: high`. `acceptable-verdicts` is descriptive and not enforced. If the policy sets `scope.operations`, `CLEAN` also requires the report to prove those operations in signed content. No signed field records them yet (`content_observed` is outside the hash and the signature), so such a policy grants at most `CONDITIONAL SCOPE`. Signing the observed operations is planned.
 
 **Why `sig_version` 3 is required.** `report_hash` does not cover individual probe statuses, and only a `sig_version` 3 signature does. Below version 3, a probe status can be edited without breaking the hash or the signature ([GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q), fixed in 1.1.35). `python -m mcp_authscan.report_verify` labels every line `[probes: signed]` only when a `sig_version` 3 signature was checked with `--keys`, and `[probes: NOT VERIFIED ...]` otherwise. A bare `MATCH` proves the graded fields, not the probes.
 

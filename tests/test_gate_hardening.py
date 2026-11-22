@@ -108,3 +108,25 @@ def test_fail_on_unknown_severity_rejects_or_cannot_be_hashed(tmp_path):
 def test_invalid_fail_on_value_rejects(tmp_path):
     out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")], with_policy(**{"fail-on": "severe"}))
     assert (out["verdict"], out["check"]) == ("REJECT", "POLICY-INVALID"), out
+
+
+# 5. scope: CLEAN needs the declared scope proven by signed content
+
+SCOPE = {"operations": ["initialize", "tools/list"]}
+
+
+def test_declared_scope_without_signed_proof_is_not_clean(tmp_path):
+    out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")], with_policy(scope=SCOPE))
+    assert (out["verdict"], out["check"]) == ("CONDITIONAL", "SCOPE"), out
+
+
+def test_claimed_content_observation_does_not_prove_scope(tmp_path):
+    def claim(payload):
+        payload["content_observed"] = {"version": "t", "inspected": {"tools": 3, "prompts": 1, "resources": 1}, "reasons": []}
+    out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")], with_policy(scope=SCOPE), mutate=claim)
+    assert out["verdict"] != "CLEAN", out
+
+
+def test_no_declared_scope_still_reaches_clean(tmp_path):
+    out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")])
+    assert out["verdict"] == "CLEAN", out

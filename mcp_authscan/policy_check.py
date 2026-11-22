@@ -58,6 +58,11 @@ def evaluate(report_path, policy_path, keys_path):
     want = policy.get("min-sig-version")
     d = int(want) - int(report.get("sig_version", 1)) if want else 0
     if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
+    scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
+    if req and not missed and scope_ops:
+        # No signed field records which operations ran (content_observed is outside the
+        # hash and the signature), so a declared scope the report cannot prove is never CLEAN.
+        return {'verdict': 'CONDITIONAL', 'check': 'SCOPE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; policy scope not proven by signed report content: ' + ', '.join(scope_ops)}
     if req and not missed:
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
