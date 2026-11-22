@@ -58,6 +58,16 @@ def evaluate(report_path, policy_path, keys_path):
     want = policy.get("min-sig-version")
     d = int(want) - int(report.get("sig_version", 1)) if want else 0
     if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
+    if policy.get('require-manifest-pin'):
+        # Provenance is inside the v3/v4 signature, so this pin status cannot be edited unnoticed.
+        from mcp_authscan.report_verify import pin_status
+        try:
+            pin = pin_status(report)
+        except ValueError:
+            pin = 'INVALID PROVENANCE'
+        if pin != 'MANIFEST MATCHES PIN':
+            tv = (report.get('provenance') or {}).get('tool_version') if isinstance(report.get('provenance'), dict) else None
+            return {'verdict': 'REJECT', 'check': 'MANIFEST-PIN', 'detail': pin + ' (tool_version ' + str(tv) + ')'}
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
     if req and not missed and scope_ops:
         # Only a sig_version 4 signature covers content_observed.operations (checked above by

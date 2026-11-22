@@ -136,3 +136,42 @@ def test_observe_without_a_session_records_no_operations(monkeypatch):
     monkeypatch.setattr(content_probe.mcp_session, "open_session", lambda *a, **k: {"established": False, "reason": "HTTP 401"})
     out = content_probe.observe("https://mcp.example.invalid/mcp")
     assert out["session_established"] is False and out["operations"] == [], out
+
+
+# manifest pin (require-manifest-pin)
+
+UNPINNED = {"tool_version": "0.0.0-unpinned", "tool_manifest": "0" * 64}
+
+
+def _require_pin(pp):
+    pol = json.loads(Path(pp).read_text())
+    pol["require-manifest-pin"] = True
+    Path(pp).write_text(json.dumps(pol))
+
+
+def test_unpinned_manifest_is_rejected_by_name(tmp_path):
+    key = Ed25519PrivateKey.generate()
+    r = _report(ALL); r["provenance"] = dict(UNPINNED)
+    rp, pp, kp = _bundle(tmp_path, _sign(r, key, 4), key)
+    _require_pin(pp)
+    out = policy_check.evaluate(rp, pp, kp)
+    assert (out["verdict"], out["check"]) == ("REJECT", "MANIFEST-PIN"), out
+    assert out["detail"].startswith("VERSION NOT PINNED"), out
+
+
+def test_pinned_manifest_passes(tmp_path, monkeypatch):
+    from mcp_authscan import releases
+    monkeypatch.setitem(releases.MANIFEST_HASHES, UNPINNED["tool_version"], UNPINNED["tool_manifest"])
+    key = Ed25519PrivateKey.generate()
+    r = _report(ALL); r["provenance"] = dict(UNPINNED)
+    rp, pp, kp = _bundle(tmp_path, _sign(r, key, 4), key)
+    _require_pin(pp)
+    out = policy_check.evaluate(rp, pp, kp)
+    assert (out["verdict"], out["check"]) == ("CLEAN", "ALL"), out
+
+
+def test_pin_not_required_without_the_key(tmp_path):
+    key = Ed25519PrivateKey.generate()
+    r = _report(ALL); r["provenance"] = dict(UNPINNED)
+    out = _gate(tmp_path, _sign(r, key, 4), key)
+    assert out["check"] != "MANIFEST-PIN", out
