@@ -28,7 +28,7 @@ make older local database commits safe to publish. The branch guard does not
 check release tags; do not tag private local history.
 
 1. Bump the version in **both** places (they must match):
-   - `pyproject.toml` (repository root) → `version = "X.Y.Z"`
+   - `pyproject.toml` (repository root) **and** `mcp_authscan/pyproject.toml` → `version = "X.Y.Z"`
    - `mcp_authscan/__init__.py` → `__version__ = "X.Y.Z"`
 2. Update `CHANGELOG.md` (move items from *Unreleased* into the new version).
 3. Commit via a PR and merge to `main`.
@@ -37,6 +37,8 @@ check release tags; do not tag private local history.
    using build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. Build twice and confirm both hashes
    match. Add `X.Y.Z<TAB>sha256<TAB>epoch` to `release/anchors.tsv` and put the hash at the top of
    the CHANGELOG entry. `release.yml` refuses any tag without an anchor. Never upload a wheel by hand.
+   Before tagging, run the full suite on the release commit (`python -m pytest -q`).
+   Do not tag unless it exits 0: 1.1.36 was tagged without this and shipped with version-parity failures.
 4. Tag and push:
    ```bash
    git checkout main && git pull
