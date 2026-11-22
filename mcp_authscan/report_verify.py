@@ -211,13 +211,39 @@ SIG_VERSION_KEY = "sig_version"
 SIG_VERSION_GRADED = 1     # signed bytes: canonical graded report (the report_hash preimage)
 SIG_VERSION_EVIDENCE = 2   # signed bytes: canonical {"sig_version": 2, "evidence": ..., "report": ...}
 SIG_VERSION_PROVENANCE = 3
-SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE, SIG_VERSION_PROVENANCE)
+SIG_VERSION_OPERATIONS = 4  # adds content_observed (with its operations list) to the form-3 bytes
+SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE, SIG_VERSION_PROVENANCE, SIG_VERSION_OPERATIONS)
+CONTENT_KEY = "content_observed"
+OPERATIONS = ("initialize", "tools/list", "prompts/list", "resources/list")
+
+
+def operations_binding(payload):
+    """content_observed when it declares operations, validated; None when it does not.
+
+    An operation is listed only if it succeeded: initialize when the MCP session was
+    established, each */list when its result list was parsed. Signed only at
+    sig_version 4; outside report_hash.
+    """
+    co = payload.get(CONTENT_KEY)
+    if not isinstance(co, dict) or "operations" not in co:
+        return None
+    ops, est = co["operations"], co.get("session_established")
+    if not isinstance(ops, list) or not all(isinstance(o, str) for o in ops) or len(set(ops)) != len(ops):
+        raise ValueError("content_observed.operations must be a list of distinct strings")
+    unknown = [o for o in ops if o not in OPERATIONS]
+    if unknown:
+        raise ValueError("content_observed.operations: unknown " + ", ".join(unknown))
+    if not isinstance(est, bool):
+        raise ValueError("content_observed.session_established must be true or false")
+    if ("initialize" in ops) != est:
+        raise ValueError("content_observed: initialize is listed exactly when session_established is true")
+    return co
 
 
 def sig_version_for(payload):
     """The sig_version a new signature over ``payload`` must declare."""
     if PROVENANCE_KEY in payload:
-        return SIG_VERSION_PROVENANCE
+        return SIG_VERSION_OPERATIONS if operations_binding(payload) is not None else SIG_VERSION_PROVENANCE
     return SIG_VERSION_EVIDENCE if EVIDENCE_KEY in payload else SIG_VERSION_GRADED
 
 
@@ -251,8 +277,17 @@ def signed_content(payload, findings):
         return serialize({SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical})
     prov = provenance_binding(payload)
     if prov is None:
-        raise ValueError("sig_version: 3 requires a provenance field")
-    return serialize({SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical, "probes": payload.get("probes") or [], PROVENANCE_KEY: prov})
+        raise ValueError("sig_version: %d requires a provenance field" % version)
+    ops = operations_binding(payload)
+    body = {SIG_VERSION_KEY: version, EVIDENCE_KEY: ev, "report": canonical, "probes": payload.get("probes") or [], PROVENANCE_KEY: prov}
+    if version == SIG_VERSION_PROVENANCE:
+        if ops is not None:
+            raise ValueError("sig_version: 3 does not cover content_observed.operations; operations require sig_version 4")
+        return serialize(body)
+    if ops is None:
+        raise ValueError("sig_version: 4 requires content_observed.operations")
+    body[CONTENT_KEY] = ops
+    return serialize(body)
 
 
 def verify(path):
@@ -359,13 +394,16 @@ def main(argv=None):
             pin = pin_status(doc)
             # report_hash (HASHED_KEYS) never covers probe statuses; only a checked
             # sig_version 3 signature does. Say so on every line.
-            probes = ("signed" if doc.get(SIG_VERSION_KEY) == SIG_VERSION_PROVENANCE and auth.startswith("SIGNED BY ")
+            probes = ("signed" if doc.get(SIG_VERSION_KEY) in (SIG_VERSION_PROVENANCE, SIG_VERSION_OPERATIONS) and auth.startswith("SIGNED BY ")
                       else "NOT VERIFIED (outside report_hash; needs sig_version 3 checked with --keys)")
+            operations = ("signed" if doc.get(SIG_VERSION_KEY) == SIG_VERSION_OPERATIONS and auth.startswith("SIGNED BY ")
+                          else "NOT VERIFIED (needs sig_version 4 checked with --keys)")
         except (OSError, ValueError) as e:
             status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
             pin = "-"
             probes = "-"
-        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]  [probes: {probes}]")
+            operations = "-"
+        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]  [probes: {probes}]  [operations: {operations}]")
         ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY", "UNSUPPORTED FORM"))
     return 0 if ok else 1
 

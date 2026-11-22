@@ -60,9 +60,13 @@ def evaluate(report_path, policy_path, keys_path):
     if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
     if req and not missed and scope_ops:
-        # No signed field records which operations ran (content_observed is outside the
-        # hash and the signature), so a declared scope the report cannot prove is never CLEAN.
-        return {'verdict': 'CONDITIONAL', 'check': 'SCOPE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; policy scope not proven by signed report content: ' + ', '.join(scope_ops)}
+        # Only a sig_version 4 signature covers content_observed.operations (checked above by
+        # authenticity()); no other report can prove which operations ran.
+        signed_ops = set((report.get('content_observed') or {}).get('operations') or []) if report.get('sig_version') == 4 else None
+        unproven = [o for o in scope_ops if signed_ops is None or o not in signed_ops]
+        if unproven:
+            why = 'operations not signed (sig_version 4 required): ' if signed_ops is None else 'scope operations not observed: '
+            return {'verdict': 'CONDITIONAL', 'check': 'SCOPE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; ' + why + ', '.join(unproven)}
     if req and not missed:
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}

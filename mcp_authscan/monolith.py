@@ -2732,7 +2732,7 @@ def main():
                 print("[!] %s" % e, file=sys.stderr)
                 sys.exit(6)
             F.extend(cobs.get("findings") or [])
-            args.content_observed = {k: cobs.get(k) for k in ("version", "inspected", "reasons")}
+            args.content_observed = {k: cobs[k] for k in ("version", "session_established", "operations", "inspected", "reasons") if k in cobs}
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":

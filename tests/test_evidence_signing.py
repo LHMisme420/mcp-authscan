@@ -62,7 +62,8 @@ def _signature_valid(report, public):
 
 def test_signed_report_binds_state_id(signed_scan):
     report, public = signed_scan
-    assert report["sig_version"] == 3
+    # The content probe records operations, so a signed scan is sig_version 4.
+    assert report["sig_version"] == 4 and isinstance(report["content_observed"]["operations"], list)
     [entry] = report["evidence"]["states"]
     assert entry["access_class"] == "anonymous" and len(entry["state_id"]) == 64
     assert _signature_valid(report, public)
@@ -116,7 +117,7 @@ def test_form_2_bytes_carry_sig_version():
     ({"evidence": EV}, "sig_version: 1 does not cover"),                 # evidence with no declared form
     ({"sig_version": 1, "evidence": EV}, "sig_version: 1 does not cover"),
     ({"sig_version": 2}, "requires an evidence field"),
-    ({"sig_version": 4, "evidence": EV}, "unknown value"),
+    ({"sig_version": 5, "evidence": EV}, "unknown value"),
     ({"sig_version": "2", "evidence": EV}, "unknown value"),
     ({"sig_version": True, "evidence": EV}, "unknown value"),
 ])
@@ -189,7 +190,7 @@ def _site_verdict(report, public):
 
 def test_site_verifier_signed_by_on_evidence_report(signed_scan):
     report, public = signed_scan
-    assert report["sig_version"] == 3 and report["evidence"]["states"]
+    assert report["sig_version"] == 4 and report["evidence"]["states"]
     assert _site_verdict(report, public) == ("INTACT", "SIGNED BY")
 
 

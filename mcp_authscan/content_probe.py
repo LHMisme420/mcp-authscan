@@ -91,12 +91,13 @@ def observe(endpoint, token=None, allow_private=None, allowed_hosts=None):
         allowed_hosts=allowed_hosts)
     out = {"version": CONTENT_PROBE_VERSION, "endpoint": endpoint,
            "session_established": bool(session.get("established")),
-           "inspected": {}, "reasons": [], "findings": []}
+           "inspected": {}, "operations": [], "reasons": [], "findings": []}
     if not out["session_established"]:
         out["reasons"].append(
             "session not established: %s" % session.get("reason"))
         return out
     sid = session.get("session_id")
+    out["operations"].append("initialize")
     for n, (method, key) in enumerate(LISTS, start=1):
         payload = {"jsonrpc": "2.0", "id": 200 + n, "method": method}
         try:
@@ -113,5 +114,6 @@ def observe(endpoint, token=None, allow_private=None, allowed_hosts=None):
             out["reasons"].append("%s: no result.%s" % (method, key))
             continue
         out["inspected"][key] = len(items)
+        out["operations"].append(method)
         out["findings"].extend(_scan(endpoint, key, items))
     return out
