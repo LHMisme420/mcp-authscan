@@ -10,6 +10,22 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.38] - 2026-11-22
+
+**Wheel sha256: `31f13824bc3c5f9b8cf60791ddafaf9555b53ba5d3462d67f910d7c652be28a1`** (`mcp_authscan-1.1.38-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `59167e7` with `SOURCE_DATE_EPOCH=1795350712`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+
+### Added
+- **`sig_version` 4** adds `content_observed` to the signed bytes, including a new `operations` list of the MCP operations that succeeded: `initialize` when the session was established, each `*/list` when its result list was parsed. Signed scans that observed content are now `sig_version` 4.
+- `report_verify` adds an `[operations: signed | NOT VERIFIED …]` label, and labels probes `signed` for `sig_version` 3 and 4 (previously 3 only).
+
+### Changed
+- With `scope.operations` declared in the policy, `CLEAN` requires a `sig_version` 4 report whose signed operations include every scope operation. Any other report gets at most `CONDITIONAL SCOPE`, and the detail names the missing operations or says `sig_version` 4 is required. `CLEAN` is reachable again under the default policy for scans that establish an MCP session.
+- A `sig_version` 3 signature cannot cover `operations`: operations added to a v3 report make its signature invalid.
+
+### Compatibility
+- **Gates and verifiers older than 1.1.38 cannot verify `sig_version` 4 reports.** They treat version 4 as unknown, so an older gate returns `REJECT SIGNATURE-INVALID` (fail-safe). Upgrade every verifier, including the server behind the site's report verification, before relying on reports signed by 1.1.38.
+- Reports with `sig_version` 1 to 3 verify exactly as before.
+
 ## [1.1.37] - 2026-11-22
 
 **Wheel sha256: `c1dac26363727ed0fea5068c5ab9aaab7701124bf5e70a07ede4b6f0236a9244`** (`mcp_authscan-1.1.37-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `7f01baf` with `SOURCE_DATE_EPOCH=1795338905`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
