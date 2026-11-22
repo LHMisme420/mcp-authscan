@@ -96,7 +96,7 @@ def verify_text(text):
         if not isinstance(claimed, str) or not re.fullmatch(r"[0-9a-f]{64}", claimed):
             return result("UNREADABLE", "A complete lowercase SHA-256 report_hash is required.")
         if actual == claimed:
-            return result("INTACT", "Graded content matches the stored hash; this does not authenticate the report's author.")
+            return result("INTACT", "Graded content matches the stored hash; this does not authenticate the report's author. Probe statuses and content_observed are outside this hash; only a verified signature covers them.")
         return result("ALTERED", "Graded content does not match the stored hash; a hash cannot identify which field changed.")
     except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
         # Do not echo user-controlled report content, including parsing errors.

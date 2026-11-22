@@ -88,6 +88,62 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ### Release integrity
 - 1.1.27 to 1.1.34 were published to PyPI without an entry in `release/anchors.tsv`. The `release` workflow refused those tags and the wheels were uploaded outside it, so their hashes are not anchored. 1.1.35 is published through the anchored workflow. For 1.1.34, the published `policy_check.py`, `policy-default.json` and `report_verify.py` were confirmed byte-identical to tag `v1.1.34`.
 
+## [1.1.34] - 2026-11-21 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later.
+
+- Policy gate: required probes must be `PASS`, sufficiency is checked per required probe by name, and the module CLI guard is fixed (`654e85b`, `42f9819`).
+- Manifest pin for 1.1.33, `ebac9035…` (`42f9819`).
+- Resolved CodeQL clear-text alerts #207, #209, #210, #211 and #169 (`f45cf3b`).
+- Dependencies: authlib `>=1.9.8,<2.0.0`, coverage 7.17.3, ruff 0.17.5 (`eb8cd25`, `6042907`, `9bf12ab`).
+
+## [1.1.33] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later.
+
+- **`sig_version` 3**: the signature covers the probes and a provenance block (`tool_version`, `tool_manifest`) in addition to the evidence binding and the graded report. Provenance names the package version, and reports with evidence sign this form (`6384de2`, `db16fbb`). This is the first release whose signatures cover probe statuses.
+- README, release table and the package `pyproject.toml` moved to 1.1.33 (`fc2b8b2`).
+- verify-mcp 0.1.4 unwraps a wrapped `keys.json` (`904442b`).
+
+## [1.1.32] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later.
+
+- The policy gate CLI exits non-zero on `REJECT` (`24188b8`).
+
+## [1.1.31] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later. 1.1.31 was also yanked earlier, separately.
+
+- Three-outcome policy gate (`REJECT`, `CONDITIONAL`, `CLEAN`), replacing `REJECT`/`ACCEPT`; version parity; full suite green (`d9f3cdc`).
+
+## [1.1.30] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later.
+
+- Commit `90329ec`, "signing required". The commit message does not say more; see the commit for what it changed.
+
+## [1.1.29] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later.
+
+- Commit `6220c71`, "defaults for one argument". The commit message does not say more; see the commit for what it changed.
+
+## [1.1.28] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Affected by [GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q); upgrade to 1.1.35 or later.
+
+- First release with the policy gate (`mcp_authscan.policy_check`) and a default policy (`c72e702`).
+
+## [1.1.27] - 2026-11-20 [YANKED]
+
+Yanked on 2026-11-22. Published to PyPI outside the anchored release workflow, so `release/anchors.tsv` has no entry and no reproducible wheel hash is recorded. Entries below are reconstructed from the commits between tags; commit hashes are given so each line can be checked. Not affected by GHSA-jvh3-qvpr-qm8q: it has no policy gate.
+
+- Source for the verify MCP server; the verify tool is confined to the evidence directory and checks the tool name; verify packaging, module name and guard (`b59b455`, `d224f6d`, `2403222`, `4bb24cc`, `cb2f0e6`, `7aeae05`/`1fb9422`/`e4f00c1`).
+- OAuth probes restored (`c592d52`).
+- Sample report updated to the 1.1.26 verified run (`ffb3b00`).
+- Commit `58a346f` is titled "sig_version 3: signature covers probes", but the tagged 1.1.27 code signs only `sig_version` 1 and 2. No release signed probes before 1.1.33.
+
 ## [1.1.26] - 2026-11-19
 
 **Wheel sha256: `f1ea12271e270125564ba1825587da444f893898e0ac0b8cd3c358e6d9667037`** (`mcp_authscan-1.1.26-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `b1dccef` with `SOURCE_DATE_EPOCH=1795093151`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0. To compare: `pip download --no-deps mcp-authscan==1.1.26 && sha256sum mcp_authscan-1.1.26-py3-none-any.whl`. No sdist is published for this release: the sdist is not byte-reproducible, so it cannot be an anchor.
