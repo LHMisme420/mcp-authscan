@@ -26,7 +26,8 @@ def example():
     return {
         "target": "https://mcp.example.invalid", "status": "completed",
         "total_checks": 4, "findings_count": 1,
-        "probe_set_version": "SYNTHETIC-fixture-1", "coverage": {
+        # The probe-set form app.py stamps on web reports (a web check engine source digest).
+        "probe_set_version": "web-source-sha256:" + "a" * 64, "coverage": {
             "PASS": 1, "FAIL": 1, "NOT_OBSERVED": 1, "EXCLUDED": 1,
         },
         "severity_counts": rv.severity_counts(findings), "findings": findings,

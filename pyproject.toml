@@ -70,4 +70,4 @@ package-dir = {mcp_authscan = "mcp_authscan"}
 files = ["mcp_authscan"]
 
 [tool.setuptools.package-data]
-mcp_authscan = ["policy-default.json", "keys-default.json", "probe_set_catalog.json"]
+mcp_authscan = ["policy-default.json", "keys-default.json", "probe_set_catalog.json", "key_history.json"]

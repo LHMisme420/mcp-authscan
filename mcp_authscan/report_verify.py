@@ -291,69 +291,63 @@ def signed_content(payload, findings):
 
 
 def verify(path):
-    with open(path, encoding="utf-8") as source:
-        payload = json.load(source)
-    if not payload.get("report_hash"):
-        return "NOT_REPRODUCIBLE", "no report_hash in file"
-    if is_legacy(payload):
-        # Same checks and verdict strings as the 1.1.24 verifier.
-        missing = [k for k in LEGACY_HASHED_KEYS if k not in payload]
-        if missing:
-            return "NOT_REPRODUCIBLE", "missing covered keys: " + ",".join(missing)
-        # A distinct verdict, never plain MATCH: a 1.1.24 report must not read like a
-        # schema-3 report, and nothing attests to it (the format was never signed).
-        got, covered = compute_legacy(payload, payload.get("findings") or [])
-        if got == payload["report_hash"]:
-            return LEGACY_MATCH, got
-        return LEGACY_MISMATCH, f"claimed {payload['report_hash']}, recomputed {got} over {len(covered)} covered fields"
-    if payload.get("hash_scheme") != HASH_SCHEME or payload.get("schema_version") != SCHEMA_VERSION:
-        return "NOT_REPRODUCIBLE", "requires verdict-v3 schema version 3; legacy hashes are not reinterpreted"
-    try:
-        got, covered = compute(payload, payload.get("findings") or [])
-    except (ValueError, TypeError) as error:
-        return "NOT_REPRODUCIBLE", str(error)
-    if got == payload["report_hash"]:
-        return "MATCH", got
-    return "MISMATCH", "claimed %s, recomputed %s over %d covered fields" % (
-        payload["report_hash"], got, len(covered),
-    )
+    """Integrity verdict for a report file, decided by mcp_authscan.verification.
+
+    Kept for its callers (policy gate, report_verify.main, verify-mcp). Returns
+    MATCH / MISMATCH (schema 3), LEGACY_MATCH / LEGACY_MISMATCH (1.1.21-1.1.24),
+    or NOT_REPRODUCIBLE when the catalog or format stage fails.
+    """
+    from mcp_authscan import verification
+    with open(path, "rb") as source:
+        result = verification.verify(source.read(), anchor=None)
+    stage = result["failed_stage"]
+    if stage in ("catalog", "format"):
+        return "NOT_REPRODUCIBLE", result[stage]["reason"]
+    integrity = result["integrity"]
+    legacy = result["format"]["verdict"] == "LEGACY"
+    if integrity["verdict"] == "INTACT":
+        return (LEGACY_MATCH if legacy else "MATCH"), integrity["recomputed"]
+    return (LEGACY_MISMATCH if legacy else "MISMATCH"), "claimed %s, recomputed %s over %d covered fields" % (
+        integrity["report_hash"], integrity["recomputed"], integrity["covered_fields"])
 
 
 def authenticity(payload, keys):
-    """One word for the signature column: SIGNED BY <key_id>, SIGNATURE INVALID, UNKNOWN KEY,
-    UNSIGNED, or SIGNATURE NOT CHECKED (no --keys given, or cryptography not installed)."""
-    if is_legacy(payload):
-        return "UNSIGNED (" + LEGACY_NOTE + ")"
-    sig = payload.get("signature")
-    if sig is None:
-        return "UNSIGNED"
-    ver = payload.get(SIG_VERSION_KEY, SIG_VERSION_GRADED)
-    if isinstance(ver, bool) or ver not in SIG_VERSIONS:
-        # A version this verifier does not know is unsupported, never forged.
-        return "UNSUPPORTED FORM (sig_version %r)" % (ver,)
-    if keys is None:
-        return "SIGNATURE NOT CHECKED (pass --keys KEYS.json)"
-    if not isinstance(sig, dict) or sorted(sig) != ["alg", "key_id", "value"] or sig.get("alg") != "ed25519":
-        return "SIGNATURE INVALID"
-    entry = next((k for k in keys if isinstance(k, dict) and k.get("key_id") == sig["key_id"]
-                  and k.get("alg") == "ed25519"), None)
-    if entry is None:
-        return "UNKNOWN KEY"
-    try:
-        import base64
+    """One word for the signature column, decided by mcp_authscan.verification.
 
-        from cryptography.exceptions import InvalidSignature
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-    except ImportError:
-        return "SIGNATURE NOT CHECKED (install mcp-authscan[signing])"
+    SIGNED BY <key_id>, SIGNATURE INVALID, UNKNOWN KEY, KEY NOT VALID, UNSIGNED,
+    UNSUPPORTED FORM, or SIGNATURE NOT CHECKED (no keys given, or cryptography not
+    installed). ``keys`` is the caller's key list (its trust decision); None skips
+    the signature check.
+    """
+    from mcp_authscan import verification
     try:
-        content = signed_content(payload, payload.get("findings") or [])
-        raw = base64.urlsafe_b64decode(entry["public_key"] + "=" * (-len(entry["public_key"]) % 4))
-        value = base64.urlsafe_b64decode(sig["value"] + "=" * (-len(sig["value"]) % 4))
-        Ed25519PublicKey.from_public_bytes(raw).verify(value, content)
-    except (InvalidSignature, ValueError, TypeError, KeyError):
+        text = json.dumps(payload, allow_nan=False)
+    except (TypeError, ValueError):
         return "SIGNATURE INVALID"
-    return "SIGNED BY " + sig["key_id"]
+    try:
+        anchor = None if keys is None else verification.anchor_from_keys(keys)
+    except verification.AnchorError:
+        return "SIGNATURE NOT CHECKED (keys are malformed)"
+    result = verification.verify(text, anchor=anchor)
+    auth = result["authenticity"]
+    verdict = auth["verdict"]
+    if result["failed_stage"] in ("catalog", "format"):
+        stage = result["failed_stage"]
+        return f"SIGNATURE NOT CHECKED (report {stage}: {result[stage]['reason']})"
+    if verdict == "NOT SIGNED":
+        return "UNSIGNED (" + LEGACY_NOTE + ")" if result["format"]["verdict"] == "LEGACY" else "UNSIGNED"
+    if verdict == "UNSUPPORTED FORM":
+        return f"UNSUPPORTED FORM (sig_version {auth['sig_version']!r})"
+    if verdict == verification.NOT_CHECKED:
+        return "SIGNATURE NOT CHECKED (pass --keys KEYS.json)"
+    if verdict == "UNAVAILABLE":
+        return "SIGNATURE NOT CHECKED (install mcp-authscan[signing])"
+    if verdict == "SIGNED BY":
+        return "SIGNED BY " + auth["key_id"]
+    if verdict in ("UNKNOWN KEY", "KEY NOT VALID"):
+        return verdict
+    # SIGNATURE INVALID, DIVERGENCE (signed content cannot be rebuilt), UNREADABLE (malformed signature).
+    return "SIGNATURE INVALID"
 
 
 def _load_keys(path):

@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_authscan import report_verify as rv
+from mcp_authscan import verification
 from mcp_authscan.verify_upload import verify_text
 from tests.evidence_fixtures import FixtureServer
 
@@ -163,29 +164,31 @@ def test_malformed_binding_is_refused(evidence):
 
 # ---- the site verifier on a report that carries evidence ----------------------
 
-SITE_VERIFY_JS = ("import fs from 'node:fs';"
-                  "import {verifyAuthenticity} from './server/reportAuthenticity.ts';"
-                  "const v=JSON.parse(fs.readFileSync(0,'utf8'));"
-                  # Same as server/reportVerification.ts: null bytes when verify_upload could not build them.
-                  "const bytes=typeof v.bytes==='string'?Buffer.from(v.bytes,'base64'):null;"
-                  "console.log(JSON.stringify(verifyAuthenticity(true,v.signature,bytes,[v.key])));")
-
-
 def _site_verdict(report, public):
-    """verify_upload -> the site's TypeScript verifyAuthenticity, as server/reportVerification.ts wires them."""
+    """The site's verdict for this report, as server/reportVerification.ts gets it.
+
+    The route runs mcp_authscan.verify_upload, which prints mcp_authscan.verification's
+    result with the packaged trust anchor; Node only reshapes it. This fixture's key is
+    not published, so the engine is asked here with that key as the trust anchor, and the
+    real adapter subprocess must agree on every stage except the anchor-dependent one.
+    """
+    raw = public.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    anchor = verification.anchor_from_keys([{"alg": "ed25519", "key_id": report["key_id"],
+                                             "public_key": base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")}])
+    result = verification.verify(json.dumps(report), anchor=anchor)
     checked = subprocess.run([sys.executable, "-m", "mcp_authscan.verify_upload"], input=json.dumps(report),
                              capture_output=True, text=True, timeout=15, cwd=ROOT)
     assert checked.returncode == 0, checked.stderr
-    result = json.loads(checked.stdout)
-    raw = public.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
-    proc = subprocess.run(
-        ["node", "--import", "tsx", "--input-type=module", "-e", SITE_VERIFY_JS],
-        input=json.dumps({"signature": report["signature"], "bytes": result["canonical_bytes"],
-                          "key": {"alg": "ed25519", "key_id": report["key_id"],
-                                  "public_key": base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")}}),
-        capture_output=True, text=True, timeout=15, cwd=ROOT)
-    assert proc.returncode == 0, proc.stderr
-    return result["verdict"], json.loads(proc.stdout)["verdict"]
+    route = json.loads(checked.stdout)
+    assert route["trust_anchor"]["source"] == "packaged"
+    for stage in ("catalog", "format", "integrity"):
+        assert route[stage] == result[stage]
+    # Verdicts reached after key lookup depend on the anchor; this fixture key is not published.
+    if result["authenticity"]["verdict"] in ("SIGNED BY", "SIGNATURE INVALID", "DIVERGENCE", "KEY NOT VALID"):
+        assert route["authenticity"]["verdict"] == "UNKNOWN KEY"
+    else:
+        assert route["authenticity"]["verdict"] == result["authenticity"]["verdict"]
+    return result["integrity"]["verdict"], result["authenticity"]["verdict"]
 
 
 def test_site_verifier_signed_by_on_evidence_report(signed_scan):
@@ -208,6 +211,6 @@ def test_site_verifier_refuses_stripped_form(signed_scan, strip):
     stripped = copy.deepcopy(report)
     del stripped[strip]
     # report_hash still matches; the declared signed form can no longer be built, so the
-    # site reports authenticity as unverifiable rather than ever saying SIGNED BY.
+    # engine reports DIVERGENCE (signed content cannot be rebuilt), never SIGNED BY.
     integrity, authenticity = _site_verdict(stripped, public)
-    assert (integrity, authenticity) == ("INTACT", "UNREADABLE")
+    assert (integrity, authenticity) == ("INTACT", "DIVERGENCE")

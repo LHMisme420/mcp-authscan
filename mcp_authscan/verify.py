@@ -1,42 +1,39 @@
-"""Reproduce a saved report by re-running the same probe set on the same target.
+"""Verify a saved report offline; optionally reproduce it live.
 
 Usage:
-    python3 -m mcp_authscan.verify path/to/report.json
-    python3 -m mcp_authscan.verify --allow-private path/to/report.json
-    python3 -m mcp_authscan.verify --authorized-by NAME --auth-basis BASIS \
-        --contact EMAIL path/to/report.json
+    python3 -m mcp_authscan.verify REPORT.json
+    python3 -m mcp_authscan.verify --json REPORT.json
+    python3 -m mcp_authscan.verify --keys KEYS.json REPORT.json
+    python3 -m mcp_authscan.verify --reproduce [--allow-private] REPORT.json
 
-This is not a scanner of its own. It reads target, probe_set_version and
-report_hash from the saved file, then calls mcp_authscan.monolith.main
-in-process (the function that builds the graded JSON payload). No new
-probes are added. The payload dict is taken from the JSON that main()
-writes to a private tempfile via --json -o; stdout is discarded. There
-is no separate builder that returns the dict, and this tool does not
-reimplement hashing or the HASHED_KEYS structure.
+Verification is decided by mcp_authscan.verification, the single verdict
+engine also used by the web route and the report_verify adapters. Stages run
+in a fixed order: catalog, format, integrity, authenticity. Signatures are
+checked against the packaged, SHA-256-pinned key history unless --keys names
+another trust anchor (a key-history-v1 file or a published keys.json); --keys
+also requires a signature, as before. --require-signature does that with the
+packaged anchor.
 
---allow-private is off by default and is forwarded only when passed
-here. The scanner also requires --authorized-by, --auth-basis and
---contact; supply them on this command, or they are taken from a
-report authorization object when present. --fail-on and --scope are
-taken from the report when present so those graded fields stay aligned
-with the original run. No other flags are invented or forwarded.
+Line 1 is MATCH or LEGACY_MATCH (exit 0), NOT_REPRODUCIBLE when the catalog or
+format stage fails (exit 2), INTEGRITY when the stored report_hash does not match
+(exit 1), or AUTHENTICITY when the signature is rejected or required but absent
+(exit 1). --json prints the engine's full result instead, with the same exit code.
 
-Prints MATCH, DIVERGENCE or NOT_REPRODUCIBLE on line 1. Divergence
-lists differing HASHED_KEYS names (and findings when compute() says
-they differ). Never prints payload values, tokens or credentials,
-except the recorded and local probe_set_version or hash_scheme in the
-two NOT_REPRODUCIBLE messages that name those versions.
+--reproduce is a separate, explicitly requested network operation: after offline
+verification passes, it reruns the same probe set in-process via
+mcp_authscan.monolith.main and compares report_hash (DIVERGENCE on drift).
+--allow-private is forwarded only when passed here; --authorized-by, --auth-basis
+and --contact come from this command or from the report's authorization object.
+Output never contains payload values, tokens or credentials.
 """
 import argparse
-import hashlib
 import json
 import os
 import sys
 import tempfile
 
 from mcp_authscan.monolith import PROBE_SET_VERSION, main as scan_main
-from mcp_authscan.report_verify import HASH_SCHEME, HASHED_KEYS, compute
-from mcp_authscan import report_verify
+from mcp_authscan.report_verify import HASHED_KEYS, compute
 
 
 def _rerun(target, extra_args):
@@ -124,36 +121,37 @@ def _refuse(reason):
 
 
 
-# Immutable expected digest. Never derive this value from the loaded catalog
-# at verification time.
-CATALOG_SHA256 = "f055f8b91ba8b7a5f46afee32a2769d0740bb153a85b5aacfbc38f3485f4bd92"
+from mcp_authscan import verification  # noqa: E402
+
+# Re-exported: the pin lives with the engine.
+CATALOG_SHA256 = verification.CATALOG_SHA256
 
 
 def _catalog_path():
-    from pathlib import Path
-    return Path(__file__).with_name("probe_set_catalog.json")
+    return verification.catalog_path()
 
 
-def _load_catalog():
-    raw = _catalog_path().read_bytes()
-    actual = hashlib.sha256(raw).hexdigest()
-    if actual != CATALOG_SHA256:
-        raise ValueError("catalog digest mismatch")
-    catalog = json.loads(raw)
-    if catalog.get("schema") != "probe-set-catalog-v1":
-        raise ValueError("unsupported catalog schema")
-    if not isinstance(catalog.get("stamps"), dict):
-        raise ValueError("catalog stamps missing")
-    return catalog, actual
+def _lines(result):
+    auth, probes = result["authenticity"], result["probe_statuses"]
+    key = " " + auth["key_id"] if auth.get("verdict") == "SIGNED BY" and auth.get("key_id") else ""
+    anchor = result["trust_anchor"]
+    return [
+        "CATALOG_SHA256=" + str(result["catalog"].get("sha256")),
+        "PROBE_SET_ATTESTATION=" + str(result["catalog"].get("attestation")),
+        "REPORT_HASH=" + str(result["integrity"].get("report_hash")),
+        "AUTHENTICITY=" + auth["verdict"] + key,
+        "PROBE_STATUSES=" + probes["verdict"] + ("" if probes["verdict"] == "VERIFIED" else " (" + probes["reason"] + ")"),
+        "TRUST_ANCHOR=" + "%s:%s" % (anchor.get("source"), anchor.get("sha256")),
+    ]
 
 
 def main(argv=None):
     """Offline verification by default; live reproduction requires --reproduce."""
-    from pathlib import Path
-
     parser = argparse.ArgumentParser(description="Verify a saved report offline")
     parser.add_argument("report")
-    parser.add_argument("--keys", help="Published trusted keys JSON")
+    parser.add_argument("--keys", help="Trust anchor: key-history-v1 file or published keys.json (requires a signature)")
+    parser.add_argument("--require-signature", action="store_true")
+    parser.add_argument("--json", action="store_true", help="Print the engine's full result as JSON")
     parser.add_argument("--reproduce", action="store_true")
     parser.add_argument("--allow-private", action="store_true")
     parser.add_argument("--authorized-by")
@@ -162,49 +160,42 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        with open(args.report, encoding="utf-8") as fh:
-            payload = json.load(fh)
-        if not isinstance(payload, dict):
-            return _refuse("report must be an object")
-
-        catalog, catalog_digest = _load_catalog()
-        stamp = payload.get("probe_set_version")
-
-        from mcp_authscan.releases import PROBE_SET_RELEASES
-        known = set(catalog["stamps"]) | set(PROBE_SET_RELEASES)
-        if stamp not in known:
-            return _refuse("unknown probe set: %s" % stamp)
-
-        status, detail = report_verify.verify(args.report)
-
-    except (OSError, ValueError, TypeError, KeyError) as exc:
+        with open(args.report, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
         return _refuse("%s: %s" % (type(exc).__name__, exc))
-
-    if status not in ("MATCH", "LEGACY_MATCH"):
-        if status in ("MISMATCH", "LEGACY_MISMATCH"):
-            print("INTEGRITY")
-            print("report_hash")
-            return 1
-        return _refuse(str(detail))
-
+    anchor = "packaged"
     if args.keys:
         try:
-            keys = report_verify._load_keys(args.keys)
-            authenticity = report_verify.authenticity(payload, keys)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
+            anchor = verification.external_anchor(args.keys)
+        except verification.AnchorError as exc:
             return _refuse("key verification failed: %s" % exc)
-        if not authenticity.startswith("SIGNED BY "):
-            print("SIGNATURE_INVALID")
-            print(authenticity)
-            return 1
+    result = verification.verify(raw, anchor=anchor, catalog_file=_catalog_path())
+    require = bool(args.keys or args.require_signature)
+    stage = result["failed_stage"]
+    if stage is None and require and result["authenticity"]["verdict"] != "SIGNED BY":
+        stage = "authenticity"
 
-    if not args.reproduce:
-        print(status)
-        print("CATALOG_SHA256=" + catalog_digest)
-        print("REPORT_HASH=" + str(payload["report_hash"]))
-        return 0
+    if stage in ("catalog", "format"):
+        code, head = 2, ["NOT_REPRODUCIBLE", result[stage]["reason"]]
+    elif stage == "integrity":
+        code, head = 1, ["INTEGRITY", "report_hash"]
+    elif stage == "authenticity":
+        code, head = 1, ["AUTHENTICITY", result["authenticity"]["verdict"] + ": " + result["authenticity"]["reason"]]
+    else:
+        code = 0
+        head = ["LEGACY_MATCH" if result["format"]["verdict"] == "LEGACY" else "MATCH"]
+
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return code
+    if code != 0 or not args.reproduce:
+        print("\n".join(head + ([] if stage in ("catalog", "format") else _lines(result))))
+        return code
 
     # Explicitly requested network operation, separate from verification.
+    payload = json.loads(raw)
+    stamp = payload.get("probe_set_version")
     if stamp != PROBE_SET_VERSION:
         return _refuse(
             "live reproduction requires execution logic for %s; "
