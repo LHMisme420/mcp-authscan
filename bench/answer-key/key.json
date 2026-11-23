@@ -37,21 +37,21 @@
   {
     "fixture": "challenge_basic",
     "port": 8941,
-    "expect_verdict": null,
+    "expect_verdict": "NOT_OBSERVED",
     "expect_findings": 0,
     "expect_exit": 4
   },
   {
     "fixture": "challenge_noheader",
     "port": 8942,
-    "expect_verdict": null,
+    "expect_verdict": "NOT_OBSERVED",
     "expect_findings": 0,
     "expect_exit": 4
   },
   {
     "fixture": "plaintext_200",
     "port": 8943,
-    "expect_verdict": null,
+    "expect_verdict": "NOT_OBSERVED",
     "expect_findings": 0,
     "expect_exit": 4
   }
