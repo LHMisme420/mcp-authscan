@@ -23,8 +23,9 @@ flags = {name: getattr(p, name, "<missing>") for name in
 body = json.dumps({"access_token": "synthetic-fixture-token"}).encode()
 with patch("mcp_authscan.monolith.ALLOWED_HOSTS", {"fixture.example.test"}), \
      patch("mcp_authscan.oauth_probes_v2.assert_url_is_fetchable", lambda *a, **k: None), \
+     patch("mcp_authscan.oauth_probes_v2._resolve_pinned", return_value="93.184.216.34"), \
      patch("mcp_authscan.oauth_probes_v2._open_no_redirect") as req:
-    resp = MagicMock(); resp.status = 200; resp.read.return_value = body
+    resp = MagicMock(); resp.status = 200; resp.read.side_effect = [body, b""]
     req.return_value.__enter__.return_value = resp
     rec = p.probe_password_grant("https://fixture.example.test/token")
 print(json.dumps({"flags": {k: repr(v) for k, v in flags.items()},

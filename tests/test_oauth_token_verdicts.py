@@ -18,7 +18,7 @@ class TokenVerdictTests(unittest.TestCase):
             else:
                 response = MagicMock()
                 response.status = status
-                response.read.return_value = body
+                response.read.side_effect = [body, b'']
                 request.return_value.__enter__.return_value = response
             return probe('https://fixture.example.test/token')
 
@@ -57,3 +57,4 @@ def _allow_test_host(monkeypatch):
     monkeypatch.setattr("mcp_authscan.monolith.ALLOWED_HOSTS", {"test.com"})
     monkeypatch.setattr("mcp_authscan.oauth_probes_v2.assert_url_is_fetchable", lambda *a, **k: None)
     monkeypatch.setattr("mcp_authscan.monolith.ALLOWED_HOSTS", {"fixture.example.test"})
+    monkeypatch.setattr("mcp_authscan.oauth_probes_v2._resolve_pinned", lambda *a, **k: "93.184.216.34")

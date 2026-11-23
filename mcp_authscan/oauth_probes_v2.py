@@ -47,59 +47,287 @@ MAX_REDIRECTS = 5
 _REDIRECT_CODES = (301, 302, 303, 307, 308)
 
 
-def _check_hop(url, allow_private=None, allowed_hosts=None):
-    from urllib.parse import urlparse
+
+import http.client
+import ssl
+import ipaddress
+from urllib.request import HTTPHandler, HTTPSHandler, ProxyHandler
+from urllib.error import HTTPError
+from contextvars import ContextVar
+
+_PIN = ContextVar("authscan_pinned_address", default=None)
+_DEADLINE = ContextVar("authscan_deadline", default=None)
+
+
+def _remaining():
+    deadline = _DEADLINE.get()
+    if deadline is None:
+        return 5.0
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise EgressRefusalError("total HTTP request deadline exceeded")
+    return remaining
+
+
+def _resolve_pinned(url, allow_private=None):
     from mcp_authscan import monolith
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise EgressRefusalError("refusing non-HTTP(S) or hostless URL")
+
+    if parsed.username is not None or parsed.password is not None:
+        raise EgressRefusalError("URL credentials are not permitted")
+
     try:
-        assert_url_is_fetchable(url, allow_private=allow_private)
-    except ValueError as e:
-        raise EgressRefusalError(str(e))
-    hostname = (urlparse(url).hostname or "").lower()
-    hosts = monolith.ALLOWED_HOSTS if allowed_hosts is None else set(allowed_hosts)
-    if not hostname:
-        raise EgressRefusalError("URL has no hostname")
-    if hostname not in hosts:
-        raise EgressRefusalError("host " + hostname + " not in authorized set: " + str(sorted(hosts)))
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as exc:
+        raise EgressRefusalError("invalid destination port") from exc
+
+    permitted = (
+        monolith.ALLOW_PRIVATE_TARGETS
+        if allow_private is None else allow_private
+    )
+
+    try:
+        records = socket.getaddrinfo(
+            parsed.hostname, port, type=socket.SOCK_STREAM
+        )
+    except socket.gaierror as exc:
+        raise EgressRefusalError(
+            f"cannot resolve {parsed.hostname}: {exc}"
+        ) from exc
+
+    if not records:
+        raise EgressRefusalError(
+            f"cannot resolve {parsed.hostname}: empty DNS response"
+        )
+
+    for record in records:
+        address = record[4][0]
+        if not permitted and not monolith.is_global_address(address):
+            raise EgressRefusalError(
+                f"refusing to fetch {url}: {parsed.hostname} "
+                f"resolves to non-public address {address}"
+            )
+
+    address = records[0][4][0]
+    ip = ipaddress.ip_address(address.split("%", 1)[0])
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+
+    return str(ip)
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    def connect(self):
+        pinned = _PIN.get()
+        if pinned is None:
+            raise EgressRefusalError("missing validated destination IP")
+        self.sock = socket.create_connection(
+            (pinned, self.port),
+            timeout=min(self.timeout, _remaining()),
+            source_address=self.source_address,
+        )
+        self.sock.settimeout(_remaining())
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):
+        pinned = _PIN.get()
+        if pinned is None:
+            raise EgressRefusalError("missing validated destination IP")
+        raw = socket.create_connection(
+            (pinned, self.port),
+            timeout=min(self.timeout, _remaining()),
+            source_address=self.source_address,
+        )
+        try:
+            raw.settimeout(_remaining())
+            self.sock = self._context.wrap_socket(
+                raw,
+                server_hostname=self.host,
+            )
+            self.sock.settimeout(_remaining())
+        except BaseException:
+            raw.close()
+            raise
+
+
+class _PinnedHTTPHandler(HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_PinnedHTTPConnection, req)
+
+
+class _PinnedHTTPSHandler(HTTPSHandler):
+    def __init__(self):
+        super().__init__(context=ssl.create_default_context())
+
+    def https_open(self, req):
+        context = self._context
+
+        class Connection(_PinnedHTTPSConnection):
+            def __init__(self, host, **kwargs):
+                kwargs["context"] = context
+                super().__init__(host, **kwargs)
+
+        return self.do_open(Connection, req)
+
+
+def _check_hop(url, allow_private=None, allowed_hosts=None):
+    from mcp_authscan import monolith
+
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    hosts = (
+        monolith.ALLOWED_HOSTS
+        if allowed_hosts is None else set(allowed_hosts)
+    )
+
+    if not hostname or hostname not in hosts:
+        raise EgressRefusalError(
+            "host " + hostname + " not in authorized set: " + str(sorted(hosts))
+        )
+
+    pinned = _resolve_pinned(url, allow_private)
+    _PIN.set(pinned)
     return hosts
 
+
 def _read_capped(resp, limit=MAX_BODY_BYTES):
-    data = resp.read(limit + 1)
-    if len(data) > limit:
-        raise EgressRefusalError("response body exceeded " + str(limit) + " bytes")
-    return data
+    chunks = []
+    total = 0
+
+    while True:
+        remaining = _remaining()
+        # urllib wraps the HTTPResponse; reach the live socket
+        fp = resp
+        sock = None
+        for _ in range(5):
+            if hasattr(fp, "raw") and hasattr(fp.raw, "_sock"):
+                sock = fp.raw._sock
+                break
+            fp = getattr(fp, "fp", None)
+            if fp is None:
+                break
+
+        if sock is not None:
+            sock.settimeout(remaining)
+
+        chunk_size = min(65536, limit + 1 - total)
+        import http.client
+        fp = getattr(resp, "fp", None)
+        if isinstance(resp, http.client.HTTPResponse):
+            data = resp.read1(chunk_size)
+        elif isinstance(fp, http.client.HTTPResponse):
+            data = fp.read1(chunk_size)
+        else:
+            data = resp.read(chunk_size)
+        if not data:
+            return b"".join(chunks)
+
+        chunks.append(data)
+        total += len(data)
+        if total > limit:
+            raise EgressRefusalError(
+                f"response body exceeded {limit} bytes"
+            )
+
 
 def _open_no_redirect(request_obj, timeout=5):
-    """Single seam for the actual send, so tests can patch one name."""
-    from urllib.request import build_opener
-    return build_opener(_NoRedirect()).open(request_obj, timeout=timeout)
+    opener = build_opener(
+        ProxyHandler({}),
+        _PinnedHTTPHandler(),
+        _PinnedHTTPSHandler(),
+        _NoRedirect(),
+    )
+    return opener.open(
+        request_obj,
+        timeout=min(timeout, _remaining()),
+    )
 
 
-def _egress_guard(request_obj, timeout=5, allow_private=None, allowed_hosts=None, follow_redirects=True):
-    """Egress guard: enforce scope on every hop. Bodies read with a hard cap."""
+def _egress_guard(request_obj, timeout=5, allow_private=None,
+                  allowed_hosts=None, follow_redirects=True):
     from urllib.parse import urljoin
-    from urllib.request import Request, build_opener
+    from urllib.request import Request
 
-    url = request_obj.full_url
-    method = request_obj.get_method()
-    body = request_obj.data
-    headers = dict(request_obj.headers)
+    deadline_token = _DEADLINE.set(time.monotonic() + timeout)
+    pin_token = None
 
-    for hop in range(MAX_REDIRECTS + 1):
-        hosts = _check_hop(url, allow_private=allow_private, allowed_hosts=allowed_hosts)
-        current = request_obj if hop == 0 else Request(url, data=body, headers=headers, method=method)
-        try:
-            with _open_no_redirect(current, timeout) as resp:
-                return (resp.status, Headers(resp.headers), _read_capped(resp))
-        except HTTPError as e:
-            location = e.headers.get("Location") if e.headers else None
-            if not (follow_redirects and e.code in _REDIRECT_CODES and location):
-                return (e.code, Headers(e.headers), _read_capped(e))
-            url = urljoin(url, location)
-            if e.code == 303 or (e.code in (301, 302) and method == "POST"):
-                method = "GET"
-                body = None
+    try:
+        url = request_obj.full_url
+        method = request_obj.get_method()
+        body = request_obj.data
+        headers = dict(request_obj.headers)
 
-    raise EgressRefusalError("redirect chain exceeded " + str(MAX_REDIRECTS) + " hops")
+        for hop in range(MAX_REDIRECTS + 1):
+            _check_hop(url, allow_private, allowed_hosts)
+            current = Request(
+                url, data=body, headers=headers, method=method
+            )
+
+            try:
+                with _open_no_redirect(
+                    current, _remaining()
+                ) as resp:
+                    return (
+                        resp.status,
+                        Headers(resp.headers),
+                        _read_capped(resp),
+                    )
+            except HTTPError as exc:
+                location = (
+                    exc.headers.get("Location")
+                    if exc.headers else None
+                )
+                if not (
+                    follow_redirects
+                    and exc.code in _REDIRECT_CODES
+                    and location
+                ):
+                    return (
+                        exc.code,
+                        Headers(exc.headers),
+                        _read_capped(exc),
+                    )
+
+                old_url = url
+                url = urljoin(url, location)
+
+                old_origin = urlparse(old_url)
+                new_origin = urlparse(url)
+                if (
+                    old_origin.scheme,
+                    old_origin.hostname,
+                    old_origin.port,
+                ) != (
+                    new_origin.scheme,
+                    new_origin.hostname,
+                    new_origin.port,
+                ):
+                    headers = {
+                        k: v for k, v in headers.items()
+                        if k.lower() not in (
+                            "authorization", "proxy-authorization",
+                            "cookie", "host"
+                        )
+                    }
+
+                if exc.code == 303 or (
+                    exc.code in (301, 302) and method == "POST"
+                ):
+                    method = "GET"
+                    body = None
+
+        raise EgressRefusalError(
+            f"redirect chain exceeded {MAX_REDIRECTS} hops"
+        )
+    finally:
+        _PIN.set(None)
+        _DEADLINE.reset(deadline_token)
+
 def _client_creds(client_id=None, client_secret=None, redirect_uri=None):
     """Resolve OAuth client credentials: explicit argument, else environment."""
     return (
