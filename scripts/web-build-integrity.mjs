@@ -40,6 +40,9 @@ export async function sourceSnapshot(root) {
     'app.py', 'requirements-runtime.txt', '.replitignore',
     'mcp_authscan/report_verify.py', 'mcp_authscan/scan_report.py',
     'mcp_authscan/verify_upload.py',
+    // The site's verdicts are decided by this engine and its pinned data files.
+    'mcp_authscan/verification.py', 'mcp_authscan/key_history.json',
+    'mcp_authscan/probe_set_catalog.json', 'mcp_authscan/releases.py',
     'mcp_authscan/report_evidence_validation.py',
     'mcp_authscan/findings_schema.py', 'mcp_authscan/monolith.py',
     'mcp_authscan/scanner.py', 'mcp_authscan/repository_scan.py',

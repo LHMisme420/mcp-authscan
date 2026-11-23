@@ -308,6 +308,16 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "d0dae03d3d0b99c2fa6c2d977d2c62558d35960287312dc7e405ed31dbb1bf0c"
       }
+    },
+    "2026.11.23.1": {
+      "changed": "Connection-layer IP pinning, DNS rebinding protection, TLS identity preservation and guarded transport deadline enforcement.",
+      "fingerprint": "0f057a68c415990a8cdf10b3d57102ef32310a7326c7a999ebed85bb88b4bd76",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "12557e906cc0ddbb46b5315edfada57e37633ace95f0dbc44fc50b45704877c1",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "44b33fde4741a1e5c32af84e9591ddb7bcf05c1c5b9783dff3cd3a85a0c89340"
+      }
     }
   },
   "withdrawn": {

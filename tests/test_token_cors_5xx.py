@@ -36,7 +36,7 @@ class TestTokenCors5xx(unittest.TestCase):
         """200 with wildcard ACAO should return FAIL."""
         mock_resp = MagicMock()
         mock_resp.headers = {"Access-Control-Allow-Origin": "*"}
-        mock_resp.read.return_value = b'{"access_token": "test"}'
+        mock_resp.read.side_effect = [b'{"access_token": "test"}', b""]
         mock_resp.status = 200
         mock_resp.__enter__ = lambda self: self
         mock_resp.__exit__ = lambda self, *args: None
@@ -52,7 +52,7 @@ class TestTokenCors5xx(unittest.TestCase):
         """200 with no ACAO should return NOT_OBSERVED (endpoint not configured for CORS)."""
         mock_resp = MagicMock()
         mock_resp.headers = {}  # No ACAO header
-        mock_resp.read.return_value = b'{"token_type": "Bearer"}'
+        mock_resp.read.side_effect = [b'{"token_type": "Bearer"}', b""]
         mock_resp.status = 200
         mock_resp.__enter__ = lambda self: self
         mock_resp.__exit__ = lambda self, *args: None
@@ -70,3 +70,4 @@ import pytest
 def _allow_test_host(monkeypatch):
     monkeypatch.setattr("mcp_authscan.monolith.ALLOWED_HOSTS", {"test.com"})
     monkeypatch.setattr("mcp_authscan.oauth_probes_v2.assert_url_is_fetchable", lambda *a, **k: None)
+    monkeypatch.setattr("mcp_authscan.oauth_probes_v2._resolve_pinned", lambda *a, **k: "93.184.216.34")

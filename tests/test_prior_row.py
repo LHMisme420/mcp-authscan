@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_authscan import report_verify as rv
+from mcp_authscan import verification
 from mcp_authscan.evidence.delta import delta_from_report
 from mcp_authscan.evidence.ledger import SIGNED, verify_row
 from mcp_authscan.evidence.state import normalize_target
@@ -142,19 +143,12 @@ def test_unknown_key_cannot_satisfy_delta_from_report(two_runs):
         delta_from_report(report_b, "anonymous", obs_b, keys)
 
 
-SITE_VERIFY_JS = ("import fs from 'node:fs';"
-                  "import {verifyAuthenticity} from './server/reportAuthenticity.ts';"
-                  "const v=JSON.parse(fs.readFileSync(0,'utf8'));"
-                  "const bytes=typeof v.bytes==='string'?Buffer.from(v.bytes,'base64'):null;"
-                  "console.log(JSON.stringify(verifyAuthenticity(true,v.signature,bytes,[v.key])));")
-
-
 def test_site_verifier_signed_by_on_report_with_prior_row(two_runs):
+    # The site's verdict comes from mcp_authscan.verification (verify_upload prints it);
+    # asked here with the run's own key as the trust anchor.
     _, report_b, _, keys, _ = two_runs
     assert _entry(report_b)["prior_row"] is not None
-    result = verify_text(json.dumps(report_b))
-    proc = subprocess.run(["node", "--import", "tsx", "--input-type=module", "-e", SITE_VERIFY_JS],
-                          input=json.dumps({"signature": report_b["signature"], "bytes": result["canonical_bytes"],
-                                            "key": keys[0]}), capture_output=True, text=True, timeout=15, cwd=ROOT)
-    assert proc.returncode == 0, proc.stderr
-    assert (result["verdict"], json.loads(proc.stdout)["verdict"]) == ("INTACT", "SIGNED BY")
+    result = verification.verify(json.dumps(report_b), anchor=verification.anchor_from_keys(keys))
+    assert (result["integrity"]["verdict"], result["authenticity"]["verdict"]) == ("INTACT", "SIGNED BY")
+    assert result["probe_statuses"]["verdict"] == ("VERIFIED" if report_b.get("sig_version") in (3, 4) else "NOT VERIFIED")
+    assert verify_text(json.dumps(report_b))["verdict"] == "INTACT"

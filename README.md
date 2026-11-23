@@ -12,7 +12,7 @@ mcp-authscan asks whether an MCP endpoint requires a credential at all, then gra
 
 Same local fixture, two tools, both scanners run against it. Cisco AI Defense mcp-scanner with its yara analyzer flagged read_file HIGH and greet SAFE. mcp-authscan flagged the same tool, plus a resource pointing at file:///etc/passwd and an endpoint accepting calls with no credential.
 
-Current report contract: verdict-v3 schema version 3, probe set 2026.11.21.1, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
+Current report contract: verdict-v3 schema version 3, probe set 2026.11.23.1, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
 
 Against the field: 16,072 registry endpoints walked, 57.1% of the 14,339 that speak MCP completed a handshake with no credential.
 
@@ -125,7 +125,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.39 and probe set 2026.11.21.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+Current source version 1.1.40 and probe set 2026.11.23.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
 
 ## Want your own MCP server reviewed?
 
@@ -170,5 +170,5 @@ It prints one JSON decision, `{"verdict", "check", "detail"}`, and exits **1 onl
 
 Policy keys the gate reads: `trusted-signers`, `required-probes`, `forbidden-findings`, `fail-on`, `min-sig-version`, `require-manifest-pin`, `scope`. The default policy sets `min-sig-version: 3`, `fail-on: high` and `require-manifest-pin: true`. Pins are added after each release (a release cannot contain its own manifest hash), so a report from the gate's own, not-yet-pinned version is checked against the gate's installed source instead (`MANIFEST MATCHES INSTALLED`). Any other mismatch is `REJECT MANIFEST-PIN`. `acceptable-verdicts` is descriptive and not enforced. If the policy sets `scope.operations`, `CLEAN` also requires every listed operation in `content_observed.operations` of a `sig_version` 4 report. Only `sig_version` 4 (scanner 1.1.38 and later, with `--sign`) signs that list; any other report gets at most `CONDITIONAL SCOPE`. An operation is listed only if it succeeded: `initialize` when the MCP session was established, each `*/list` when its result list was parsed.
 
-**Why `sig_version` 3 is required.** `report_hash` does not cover individual probe statuses, and only a `sig_version` 3 signature does. Below version 3, a probe status can be edited without breaking the hash or the signature ([GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q), fixed in 1.1.35). `python -m mcp_authscan.report_verify` labels every line `[probes: signed]` only when a `sig_version` 3 signature was checked with `--keys`, and `[probes: NOT VERIFIED ...]` otherwise. A bare `MATCH` proves the graded fields, not the probes. Lines for `sig_version` 4 reports also show `[operations: signed]` when checked with `--keys`.
+**Why `sig_version` 3 is required.** `report_hash` does not cover individual probe statuses, and only a `sig_version` 3 signature does. Below version 3, a probe status can be edited without breaking the hash or the signature ([GHSA-jvh3-qvpr-qm8q](https://github.com/LHMisme420/mcp-authscan/security/advisories/GHSA-jvh3-qvpr-qm8q), fixed in 1.1.35). `python -m mcp_authscan.report_verify` labels every line `[probes: signed]` only when a `sig_version` 3 signature was checked with `--keys`, and `[probes: NOT VERIFIED ...]` otherwise. A bare `MATCH` proves the graded fields, not the probes. `python -m mcp_authscan.verify REPORT.json` checks the signature against the pinned key history by default and prints `PROBE_STATUSES=VERIFIED` only for a verified `sig_version` 3 or 4 signature; `--json` prints the full verdict (catalog, format, integrity, authenticity), the same engine the site uses. Lines for `sig_version` 4 reports also show `[operations: signed]` when checked with `--keys`.
 

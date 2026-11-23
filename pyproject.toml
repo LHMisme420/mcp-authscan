@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.39"  # single source of truth
+version = "1.1.40"  # single source of truth
 description = """MCP AuthScan
 Security scanner for MCP server deployments you are authorised to test. Python 3.11+.
 
@@ -70,4 +70,4 @@ package-dir = {mcp_authscan = "mcp_authscan"}
 files = ["mcp_authscan"]
 
 [tool.setuptools.package-data]
-mcp_authscan = ["policy-default.json", "keys-default.json"]
+mcp_authscan = ["policy-default.json", "keys-default.json", "probe_set_catalog.json", "key_history.json"]

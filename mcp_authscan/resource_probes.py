@@ -13,21 +13,24 @@ from mcp_authscan.http_headers import Headers
 
 
 def _egress_guard_fetch(target_url: str, payload: dict, headers: dict | None = None, timeout: int = 5) -> Tuple[int, dict, bytes]:
-    """
-    Shared fetcher with egress guard.
-    Returns (status_code, headers_dict, raw_body_bytes).
-    Ensures all network calls use the same logic.
-    """
-    if headers is None:
-        headers = {}
+    """POST using the existing OAuth egress guard."""
+    from urllib.request import Request
+    from mcp_authscan import oauth_probes_v2 as oauth
 
-    try:
-        response = requests.post(target_url, json=payload, headers=headers, timeout=timeout, verify=True)
-        return (response.status_code, Headers(response.headers), response.content)
-    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-        raise e
-    except Exception as e:
-        raise e
+    request_headers = {"Content-Type": "application/json"}
+    request_headers.update(headers or {})
+
+    req = Request(
+        target_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=request_headers,
+        method="POST",
+    )
+    return oauth._egress_guard(
+        req,
+        timeout=timeout,
+        allow_private=oauth.ALLOW_PRIVATE_TARGETS,
+    )
 
 
 def run_resource_probes(target_url: str) -> List[ProbeRecord]:

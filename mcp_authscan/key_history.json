@@ -1,0 +1,23 @@
+{
+  "schema": "key-history-v1",
+  "anchor": "Each entry is anchored to the LHMisme420/mcp-authscan commit that published or withdrew it in client/public/keys.json. Commit dates are informational: reports carry no signed signing time, so the verifier never compares a date with report content.",
+  "rule": "Only keys with status active verify. A withdrawn or revoked key rejects every signature, because no signed time can show that a signature predates the withdrawal.",
+  "keys": [
+    {
+      "key_id": "ed25519-1ed8ee728c587846",
+      "alg": "ed25519",
+      "public_key": "z3yVNfsED7_ybdACxY3jFP-R9GAzpmFFLMfAZvAb58I",
+      "status": "withdrawn",
+      "published": {"commit": "553af4b519324eb473de1a85491121effffbd41b", "commit_date": "2026-11-17T23:14:11+00:00"},
+      "withdrawn": {"commit": "eef3a859f49afc08505fce9a9112a0eda85f6997", "commit_date": "2026-11-18T07:28:36+00:00", "reason": "not recorded"}
+    },
+    {
+      "key_id": "9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d",
+      "alg": "ed25519",
+      "public_key": "pN7dkDEfe08lCTp2JZDXXyIZeyRQg6aOGF81acN_xw8",
+      "status": "active",
+      "published": {"commit": "6c4698de8d9843faf69ad63e21f62071168576de", "commit_date": "2026-11-22T13:27:01+00:00"},
+      "withdrawn": null
+    }
+  ]
+}

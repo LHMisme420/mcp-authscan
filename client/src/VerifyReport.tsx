@@ -12,13 +12,20 @@ type IntegrityResult = {
   algorithm: string | null;
   probe_set_version: string | null;
 };
+const AUTHENTICITY_VERDICTS = [
+  'SIGNED BY', 'NOT SIGNED', 'SIGNATURE INVALID', 'UNKNOWN KEY', 'KEY NOT VALID', 'DIVERGENCE',
+  'UNSUPPORTED FORM', 'UNREADABLE', 'UNAVAILABLE',
+] as const;
 type VerifyResult = {
   integrity: IntegrityResult;
   authenticity: {
-    verdict: 'SIGNED BY' | 'NOT SIGNED' | 'SIGNATURE INVALID' | 'DIVERGENCE' | 'UNKNOWN KEY' | 'UNREADABLE';
+    verdict: typeof AUTHENTICITY_VERDICTS[number];
     key_id: string | null;
     reason: string;
   };
+  // Present on every engine verdict; absent only on transport errors (busy, too large, timeout).
+  probe_statuses?: { verdict: 'VERIFIED' | 'NOT VERIFIED'; reason: string };
+  catalog?: { sha256: string; attestation: string | null };
 };
 
 function isVerifyResult(value: unknown): value is VerifyResult {
@@ -32,9 +39,15 @@ function isVerifyResult(value: unknown): value is VerifyResult {
     typeof result.reason === 'string' &&
     (typeof result.algorithm === 'string' || result.algorithm === null) &&
     (typeof result.probe_set_version === 'string' || result.probe_set_version === null) &&
-    ['SIGNED BY', 'NOT SIGNED', 'SIGNATURE INVALID', 'DIVERGENCE', 'UNKNOWN KEY', 'UNREADABLE'].includes(authenticity.verdict) &&
+    (AUTHENTICITY_VERDICTS as readonly string[]).includes(authenticity.verdict) &&
     typeof authenticity.reason === 'string' &&
-    (typeof authenticity.key_id === 'string' || authenticity.key_id === null)
+    (typeof authenticity.key_id === 'string' || authenticity.key_id === null) &&
+    (response.probe_statuses === undefined ||
+      ((response.probe_statuses.verdict === 'VERIFIED' || response.probe_statuses.verdict === 'NOT VERIFIED') &&
+       typeof response.probe_statuses.reason === 'string')) &&
+    (response.catalog === undefined ||
+      (typeof response.catalog.sha256 === 'string' &&
+       (typeof response.catalog.attestation === 'string' || response.catalog.attestation === null)))
   );
 }
 
@@ -258,6 +271,12 @@ export default function VerifyReport() {
                 <dt>Declared probe set</dt>
                 <dd>{result.integrity.probe_set_version ?? 'Not declared'}</dd>
               </div>
+              {result.catalog && (
+                <div>
+                  <dt>Probe-set catalog</dt>
+                  <dd>{result.catalog.attestation ?? 'Not evaluated'} (catalog sha256 {result.catalog.sha256.slice(0, 12)}…)</dd>
+                </div>
+              )}
             </dl>
           </section>
         )}
@@ -274,6 +293,9 @@ export default function VerifyReport() {
             <p className="verify-result-reason">{result.authenticity.reason}</p>
             <dl className="verify-result-meta">
               <div><dt>Claimed key_id</dt><dd>{result.authenticity.key_id ?? 'Not declared'}</dd></div>
+              {result.probe_statuses && (
+                <div><dt>Probe statuses</dt><dd>{result.probe_statuses.verdict}: {result.probe_statuses.reason}</dd></div>
+              )}
               <div><dt>Published keys</dt><dd><a href="/keys.json">/keys.json</a></dd></div>
             </dl>
           </section>
@@ -288,6 +310,13 @@ export default function VerifyReport() {
             A valid signature means the canonical graded content was signed by whoever holds
             the private half of the published key. Both answers apply to graded content,
             not to excluded fields such as timestamps.
+          </p>
+          <p>
+            Probe statuses sit outside the hash. Only a verified sig_version 3 or 4 signature covers
+            them; for every other report, including one with a valid older signature, this page says
+            the probe statuses are NOT VERIFIED. Signatures are checked against a pinned key history:
+            a key withdrawn from publication rejects every signature, because a report carries no
+            signed signing time.
           </p>
           <p>
             Read the scope section of a report to see what was authorized and what was not tested.

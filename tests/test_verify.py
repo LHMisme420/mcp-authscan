@@ -84,7 +84,60 @@ def test_rerun_drift_diverges(tmp_path, monkeypatch, capsys):
         return drifted
 
     monkeypatch.setattr(verify, "_rerun", fake_rerun)
-    rc = verify.main([str(path)])
+    rc = verify.main(["--reproduce", str(path)])
     out = capsys.readouterr().out.splitlines()
     assert rc == 1
     assert out[0] == "DIVERGENCE"
+
+
+def test_historical_offline_verification_no_network(tmp_path, monkeypatch, capsys):
+    payload = _minimal_payload()
+    payload["probe_set_version"] = "2026.11.19.3"
+    payload["report_hash"] = compute(payload, [])[0]
+    path = _write(tmp_path, payload)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("offline verify must not execute network probes")
+
+    monkeypatch.setattr(verify, "_rerun", forbidden)
+
+    assert verify.main([str(path)]) == 0
+    assert capsys.readouterr().out.splitlines()[0] == "MATCH"
+
+    payload["total_checks"] = 123
+    path = _write(tmp_path, payload)
+    assert verify.main([str(path)]) == 1
+    assert capsys.readouterr().out.splitlines()[0] == "INTEGRITY"
+
+
+def test_tampered_catalog_fails_closed(tmp_path, monkeypatch, capsys):
+    from pathlib import Path
+    import json
+
+    payload = _minimal_payload()
+    path = _write(tmp_path, payload)
+
+    original = verify._catalog_path()
+    modified = json.loads(original.read_text())
+    row = modified["stamps"]["2026.11.19.3"]
+    old = row["components"]["probe_records"]
+    row["components"]["probe_records"] = (
+        ("0" if old[0] != "0" else "1") + old[1:]
+    )
+
+    altered = tmp_path / "probe_set_catalog.json"
+    altered.write_text(json.dumps(modified))
+    monkeypatch.setattr(verify, "_catalog_path", lambda: altered)
+
+    monkeypatch.setattr(
+        verify, "_rerun",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("verification must remain offline")
+        ),
+    )
+
+    assert verify.main([str(path)]) == 2
+    output = capsys.readouterr().out
+    assert output.startswith("NOT_REPRODUCIBLE")
+    assert "catalog digest mismatch" in output
+    assert "MATCH\\n" not in output

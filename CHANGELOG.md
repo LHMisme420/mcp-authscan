@@ -10,6 +10,16 @@ All notable changes to the `mcp-authscan` scanner are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 aims to follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **One verdict engine**: `mcp_authscan.verification` decides every report verdict, offline. The CLI (`python -m mcp_authscan.verify`), the web route (`verify_upload` behind `server/reportVerification.ts`), and the `report_verify.verify` / `report_verify.authenticity` adapters used by the policy gate, `report_verify.main` and verify-mcp all call it. The Node server no longer verifies signatures (`verifyAuthenticity` is removed); it validates the engine's JSON and reshapes it.
+- **Fixed stage order**: catalog → format → integrity → authenticity. A catalog or format failure stops evaluation; integrity and authenticity are both reported once the report is readable, and `failed_stage` names the first failure in that order.
+- **Catalog attested on every result**, including the site's: the packaged probe-set catalog must match its pinned SHA-256 (`f055f8b9…`), and each result says whether the declared probe set is IN CATALOG, RELEASES ONLY (named by `releases.py`, e.g. `1.1.0`), or a WEB SOURCE DIGEST (the web app's `web-source-sha256:` stamp, which the catalog does not describe). Any other probe set is UNKNOWN PROBE SET, a format failure.
+- **Pinned key history** (`mcp_authscan/key_history.json`, SHA-256 pinned in code): signatures are checked against it by default, on the CLI too. Each key is anchored to the commit that published or withdrew it. `ed25519-1ed8ee728c587846` (published 553af4b, withdrawn eef3a85, reason not recorded) is withdrawn; `9b79936f…` is active. A withdrawn key rejects every signature (`KEY NOT VALID`): reports carry no signed signing time, so no date in a report is used to select a key. `/keys.json` must equal the history's active keys (tested).
+- **Probe statuses**: every result states whether they are verified. Only a verified `sig_version` 3 or 4 signature covers them; a valid sig_version 1 or 2 signature now says probe statuses NOT VERIFIED instead of reading as authentic. A flipped probe status under a 3/4 signature is graded hash INTACT, authenticity SIGNATURE INVALID, with the reason naming the components outside report_hash.
+- `python -m mcp_authscan.verify`: `--json` prints the engine result; `--require-signature`; `--keys` accepts a key-history-v1 file or a published keys list (and still requires a signature). Authenticity failures print `AUTHENTICITY` (was `SIGNATURE_INVALID`).
+
 ## [1.1.39] - 2026-11-22
 
 **Wheel sha256: `ecbf55d5fe94064eaf3980483f8508c8b815ab560af0b5422119405e72833307`** (`mcp_authscan-1.1.39-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `def16f9` with `SOURCE_DATE_EPOCH=1795353158`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.

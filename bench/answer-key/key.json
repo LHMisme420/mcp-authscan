@@ -23,8 +23,8 @@
   {
     "fixture": "html_page",
     "port": 8934,
-    "expect_verdict": null,
-    "expect_findings": null,
+    "expect_verdict": "NOT_OBSERVED",
+    "expect_findings": 0,
     "expect_exit": 4
   },
   {

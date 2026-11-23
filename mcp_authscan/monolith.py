@@ -1074,7 +1074,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = "2026.11.21.1"  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = '2026.11.23.1'  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2759,6 +2759,8 @@ def main():
                 else:
                     # No OAuth either - not an MCP target.
                     print("[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.",file=sys.stderr)
+                    print("VERDICT NOT_OBSERVED | %s | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set %s" %
+                          (target_host, PROBE_SET_VERSION), file=verdict_out)
                     sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)

@@ -7,10 +7,10 @@ Ports are chosen dynamically so the tests do not collide with fixed-port suites.
 """
 import json
 import os
+import select
 import socket
 import subprocess
 import sys
-import time
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.request import urlopen
@@ -23,31 +23,29 @@ from mcp_authscan import oauth_probes_v2 as probes
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _free_port():
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
 @contextmanager
 def fixture(**env):
-    port = _free_port()
+    """Start fixture_oauth.py on a socket this process binds and listens on first.
+
+    The listening socket is inherited by the child (LISTEN_FD), so connections queue in its
+    backlog from before the child starts: no free-port race and no polling loop. The child's
+    configuration banner is its readiness event; the deadline only bounds a broken child.
+    """
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(64)
+    port = listener.getsockname()[1]
     proc = subprocess.Popen(
         [sys.executable, str(ROOT / "fixture_oauth.py")],
-        env={**os.environ, "PORT": str(port), **env},
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        env={**os.environ, "PORT": str(port), "LISTEN_FD": str(listener.fileno()), **env},
+        pass_fds=(listener.fileno(),), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
     )
+    listener.close()   # the child holds the inherited descriptor
     try:
-        for _ in range(100):
-            if proc.poll() is not None:
-                raise RuntimeError("fixture exited early")
-            try:
-                with socket.create_connection(("127.0.0.1", port), timeout=.1):
-                    break
-            except OSError:
-                time.sleep(.05)
-        else:
-            raise RuntimeError("fixture did not start")
+        ready, _, _ = select.select([proc.stdout], [], [], 60)
+        banner = proc.stdout.readline() if ready else ""
+        if not banner.startswith("issuer="):
+            raise RuntimeError(f"fixture did not start (exit {proc.poll()})")
         yield "http://127.0.0.1:%d" % port
     finally:
         proc.terminate()
@@ -56,6 +54,7 @@ def fixture(**env):
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+        proc.stdout.close()
 
 
 def _hits(base):

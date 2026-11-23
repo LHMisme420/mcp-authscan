@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_authscan import report_verify as rv
+from mcp_authscan import verification
 from mcp_authscan.report_signing import key_path, sign_report
 
 
@@ -146,33 +147,23 @@ def test_cli_sign_uses_hash_bytes_without_scanning_network(tmp_path, signing_key
     signing_key.public_key().verify(
         base64.urlsafe_b64decode(value["signature"]["value"] + "=="), content,
     )
-    # The site's existing verifier independently reconstructs the same bytes.
+    # The engine (the site's verifier via verify_upload) checks the same signed bytes.
+    public = signing_key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw,
+    )
+    anchor = verification.anchor_from_keys([{
+        "alg": "ed25519", "key_id": value["key_id"],
+        "public_key": base64.urlsafe_b64encode(public).rstrip(b"=").decode("ascii")}])
+    result = verification.verify(output.read_bytes(), anchor=anchor)
+    assert (result["integrity"]["verdict"], result["authenticity"]["verdict"]) == ("INTACT", "SIGNED BY")
     checked = subprocess.run(
         [sys.executable, "-m", "mcp_authscan.verify_upload"],
         input=output.read_text(), capture_output=True, text=True, timeout=15,
     )
     assert checked.returncode == 0, checked.stderr
-    result = json.loads(checked.stdout)
-    assert result["verdict"] == "INTACT"
-    assert base64.b64decode(result["canonical_bytes"]) == content
-    public = signing_key.public_key().public_bytes(
-        serialization.Encoding.Raw, serialization.PublicFormat.Raw,
-    )
-    authenticity = subprocess.run(
-        ["node", "--import", "tsx", "--input-type=module", "-e",
-         "import fs from 'node:fs';"
-         "import {verifyAuthenticity} from './server/reportAuthenticity.ts';"
-         "const v=JSON.parse(fs.readFileSync(0,'utf8'));"
-         "console.log(JSON.stringify(verifyAuthenticity(true,v.signature,"
-         "Buffer.from(v.bytes,'base64'),[v.key])));"],
-        input=json.dumps({
-            "signature": value["signature"], "bytes": result["canonical_bytes"],
-            "key": {"alg": "ed25519", "key_id": value["key_id"],
-                    "public_key": base64.urlsafe_b64encode(public).rstrip(b"=").decode("ascii")},
-        }), capture_output=True, text=True, timeout=15,
-    )
-    assert authenticity.returncode == 0, authenticity.stderr
-    assert json.loads(authenticity.stdout)["verdict"] == "SIGNED BY"
+    route = json.loads(checked.stdout)
+    assert route["integrity"] == result["integrity"]
+    assert route["authenticity"]["verdict"] == "UNKNOWN KEY"   # test key is not published
     # Signing must not alter the checksum or scanner's exit contract.
     unsigned = subprocess.run(
         [arg for arg in argv if arg != "--sign"],
