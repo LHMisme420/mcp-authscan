@@ -108,3 +108,36 @@ def test_historical_offline_verification_no_network(tmp_path, monkeypatch, capsy
     path = _write(tmp_path, payload)
     assert verify.main([str(path)]) == 1
     assert capsys.readouterr().out.splitlines()[0] == "INTEGRITY"
+
+
+def test_tampered_catalog_fails_closed(tmp_path, monkeypatch, capsys):
+    from pathlib import Path
+    import json
+
+    payload = _minimal_payload()
+    path = _write(tmp_path, payload)
+
+    original = verify._catalog_path()
+    modified = json.loads(original.read_text())
+    row = modified["stamps"]["2026.11.19.3"]
+    old = row["components"]["probe_records"]
+    row["components"]["probe_records"] = (
+        ("0" if old[0] != "0" else "1") + old[1:]
+    )
+
+    altered = tmp_path / "probe_set_catalog.json"
+    altered.write_text(json.dumps(modified))
+    monkeypatch.setattr(verify, "_catalog_path", lambda: altered)
+
+    monkeypatch.setattr(
+        verify, "_rerun",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("verification must remain offline")
+        ),
+    )
+
+    assert verify.main([str(path)]) == 2
+    output = capsys.readouterr().out
+    assert output.startswith("NOT_REPRODUCIBLE")
+    assert "catalog digest mismatch" in output
+    assert "MATCH\\n" not in output

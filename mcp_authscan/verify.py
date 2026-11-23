@@ -28,6 +28,7 @@ except the recorded and local probe_set_version or hash_scheme in the
 two NOT_REPRODUCIBLE messages that name those versions.
 """
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -122,6 +123,30 @@ def _refuse(reason):
 
 
 
+
+# Immutable expected digest. Never derive this value from the loaded catalog
+# at verification time.
+CATALOG_SHA256 = "f055f8b91ba8b7a5f46afee32a2769d0740bb153a85b5aacfbc38f3485f4bd92"
+
+
+def _catalog_path():
+    from pathlib import Path
+    return Path(__file__).with_name("probe_set_catalog.json")
+
+
+def _load_catalog():
+    raw = _catalog_path().read_bytes()
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != CATALOG_SHA256:
+        raise ValueError("catalog digest mismatch")
+    catalog = json.loads(raw)
+    if catalog.get("schema") != "probe-set-catalog-v1":
+        raise ValueError("unsupported catalog schema")
+    if not isinstance(catalog.get("stamps"), dict):
+        raise ValueError("catalog stamps missing")
+    return catalog, actual
+
+
 def main(argv=None):
     """Offline verification by default; live reproduction requires --reproduce."""
     from pathlib import Path
@@ -142,8 +167,7 @@ def main(argv=None):
         if not isinstance(payload, dict):
             return _refuse("report must be an object")
 
-        catalog_path = Path(__file__).with_name("probe_set_catalog.json")
-        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        catalog, catalog_digest = _load_catalog()
         stamp = payload.get("probe_set_version")
 
         from mcp_authscan.releases import PROBE_SET_RELEASES
@@ -176,6 +200,8 @@ def main(argv=None):
 
     if not args.reproduce:
         print(status)
+        print("CATALOG_SHA256=" + catalog_digest)
+        print("REPORT_HASH=" + str(payload["report_hash"]))
         return 0
 
     # Explicitly requested network operation, separate from verification.

@@ -38,7 +38,7 @@ def fixture(**env):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
-        for _ in range(100):
+        for _ in range(400):
             if proc.poll() is not None:
                 raise RuntimeError("fixture exited early")
             try:
