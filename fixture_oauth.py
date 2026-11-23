@@ -499,4 +499,15 @@ if __name__ == "__main__":
           + " client_delete=" + (CLIENT_DELETE or "not advertised")
           + " redirect_hosts=" + (",".join(REDIRECT_HOSTS) or "any")
           + " consent=" + (CONSENT or "auto") + " token_cors=" + TOKEN_CORS, flush=True)
-    HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    if os.environ.get("LISTEN_FD"):
+        # Serve on a socket the parent already bound and is listening on: connections queue in
+        # its backlog from before this process started, so a caller never polls for readiness
+        # and no other process can take the port in between.
+        import socket
+        server = HTTPServer(("127.0.0.1", PORT), H, bind_and_activate=False)
+        server.socket.close()
+        server.socket = socket.socket(fileno=int(os.environ["LISTEN_FD"]))
+        server.server_address = server.socket.getsockname()[:2]
+        server.serve_forever()
+    else:
+        HTTPServer(("127.0.0.1", PORT), H).serve_forever()
