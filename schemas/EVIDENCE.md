@@ -124,13 +124,13 @@ The signature's job is authenticity. The bytes it covers are chosen by the repor
 | absent (every report signed before `sig_version` existed) or `1` | canonical graded report: exactly the `report_hash` preimage | MUST be absent |
 | `2` | canonical JSON of `{"sig_version": 2, "evidence": <binding>, "report": <canonical graded report>}` | MUST be present |
 
-Any other value, or a mismatch between `sig_version` and `evidence`, means authenticity can't be verified. The site then reports `UNREADABLE` while integrity stays `INTACT`. The scanner always writes `sig_version` when it signs: `2` when evidence is bound, `1` otherwise. So:
+Any other value, or a mismatch between `sig_version` and `evidence`, means authenticity can't be verified: the verifier reports `DIVERGENCE` (the declared signed content cannot be rebuilt) or `UNSUPPORTED FORM` (an unknown `sig_version`) while integrity stays `INTACT`. The scanner always writes `sig_version` when it signs: `2` when evidence is bound, `1` otherwise. So:
 
 - **editing** a bound STATE ID breaks the signature (`SIGNATURE INVALID`), while `report_hash` still matches;
 - **removing** `evidence` or `sig_version` from a form-2 report, or downgrading it to `1`, makes authenticity unverifiable, while `report_hash` still matches;
 - **adding** `evidence` to a form-1 report is refused: form 1 doesn't cover it, so unsigned evidence can never ride on a valid signature.
 
-Old reports without `sig_version` keep verifying unchanged. `verify_upload` returns the bytes of the declared form as `canonical_bytes` (or `null`), and the site's TypeScript `verifyAuthenticity` checks the signature over them unmodified. `tests/test_evidence_signing.py` runs that exact path on a real signed report that carries evidence.
+Old reports without `sig_version` keep verifying unchanged. Every verifier (the CLI, the site through `verify_upload`, and the policy gate) gets its verdict from one engine, `mcp_authscan.verification`, which rebuilds the bytes of the declared form with `report_verify.signed_content` and checks the Ed25519 signature against the pinned key history (`mcp_authscan/key_history.json`). The Node server does not verify signatures. `tests/test_evidence_signing.py` runs the engine and the site adapter on a real signed report that carries evidence.
 
 ## 4. Known limits
 

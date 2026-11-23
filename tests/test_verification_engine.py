@@ -354,3 +354,48 @@ def test_cli_require_signature_rejects_unsigned(tmp_path, capsys):
     assert out[0] == "MATCH" and "AUTHENTICITY=NOT SIGNED" in out
     assert verify.main(["--require-signature", str(path)]) == 1
     assert capsys.readouterr().out.splitlines()[0] == "AUTHENTICITY"
+
+
+# ---- the published signature path: a real report signed by the published key ------------------
+
+PUBLISHED_REPORT = ROOT / "tests/fixtures/published/tollbooth-baseline.json"
+
+
+def test_published_report_verifies_against_the_packaged_key_history():
+    raw = PUBLISHED_REPORT.read_bytes()
+    assert raw == (ROOT / "client/public/tollbooth-authority-2026-11-21.json").read_bytes()
+    r = V.verify(raw)   # packaged anchor: no test key involved
+    assert r["failed_stage"] is None
+    assert r["catalog"]["attestation"] == "IN CATALOG"
+    assert r["integrity"]["verdict"] == "INTACT"
+    assert (r["authenticity"]["verdict"], r["authenticity"]["key_id"]) == ("SIGNED BY", PUBLISHED_KEY_ID)
+    assert r["authenticity"]["sig_version"] == 3 and r["probe_statuses"]["verdict"] == "VERIFIED"
+    assert r["trust_anchor"] == {"source": "packaged", "sha256": V.KEY_HISTORY_SHA256}
+
+
+def test_status_flip_on_the_published_report_is_rejected_everywhere(tmp_path, capsys):
+    report = json.loads(PUBLISHED_REPORT.read_text())
+    flipped = copy.deepcopy(report)
+    [probe] = [p for p in flipped["probes"] if p["name"] == "token-cors"]
+    assert probe["status"] == "NOT_OBSERVED"
+    probe["status"] = "PASS"
+    for field in ("report_hash", "findings", "signature", "key_id", "sig_version"):
+        assert flipped[field] == report[field]
+    path = tmp_path / "flipped.json"
+    path.write_text(json.dumps(flipped))
+
+    r = V.verify(path.read_bytes())
+    assert r["integrity"]["verdict"] == "INTACT"
+    assert r["authenticity"]["verdict"] == "SIGNATURE INVALID" and r["failed_stage"] == "authenticity"
+    assert "probes" in r["authenticity"]["reason"] and r["probe_statuses"]["verdict"] == "NOT VERIFIED"
+
+    assert verify.main([str(path)]) == 1
+    assert capsys.readouterr().out.splitlines()[0] == "AUTHENTICITY"
+    assert rv.verify(str(path))[0] == "MATCH"          # report_hash alone cannot see it
+
+    from importlib.resources import files
+    pkg = files("mcp_authscan")
+    original = policy_check.evaluate(str(PUBLISHED_REPORT), str(pkg / "policy-default.json"), str(pkg / "keys-default.json"))
+    assert original["verdict"] != "REJECT" or original["check"] != "SIGNATURE-INVALID"
+    gate = policy_check.evaluate(str(path), str(pkg / "policy-default.json"), str(pkg / "keys-default.json"))
+    assert (gate["verdict"], gate["check"]) == ("REJECT", "SIGNATURE-INVALID")

@@ -145,6 +145,30 @@ test('the route forwards the engine verdict unchanged for every verdict class', 
   });
 });
 
+test('the published report verifies through the route with the pinned key history; a status flip does not', async () => {
+  const text = readFileSync('tests/fixtures/published/tollbooth-baseline.json', 'utf8');
+  assert.equal(text, readFileSync('client/public/tollbooth-authority-2026-11-21.json', 'utf8'));
+  const published = JSON.parse(text);
+  const flipped = structuredClone(published);
+  const probe = flipped.probes.find((p: any) => p.name === 'token-cors');
+  assert.equal(probe.status, 'NOT_OBSERVED');
+  probe.status = 'PASS';
+  await withRoute(async post => {
+    const ok = (await post(text)).body;
+    assert.equal(ok.integrity.verdict, 'INTACT');
+    assert.equal(ok.authenticity.verdict, 'SIGNED BY');
+    assert.equal(ok.authenticity.key_id, '9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d');
+    assert.equal(ok.probe_statuses.verdict, 'VERIFIED');
+    assert.equal(ok.catalog.attestation, 'IN CATALOG');
+    const forged = (await post(JSON.stringify(flipped))).body;
+    assert.equal(forged.integrity.verdict, 'INTACT', 'report_hash does not cover probe statuses');
+    assert.equal(forged.authenticity.verdict, 'SIGNATURE INVALID');
+    assert.match(forged.authenticity.reason, /probes/);
+    assert.equal(forged.probe_statuses.verdict, 'NOT VERIFIED');
+    assert.equal(forged.failed_stage, 'authenticity');
+  });
+});
+
 test('the route makes no decision of its own', () => {
   const good = engine(report);
   assert.ok(shapeEngineResult(good));

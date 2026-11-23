@@ -386,11 +386,12 @@ def main(argv=None):
                 doc = json.load(fh)
             auth = authenticity(doc, keys)
             pin = pin_status(doc)
-            # report_hash (HASHED_KEYS) never covers probe statuses; only a checked
-            # sig_version 3 signature does. Say so on every line.
-            probes = ("signed" if doc.get(SIG_VERSION_KEY) in (SIG_VERSION_PROVENANCE, SIG_VERSION_OPERATIONS) and auth.startswith("SIGNED BY ")
+            # Probe and operation labels come from the engine's verdict, never from a second rule here.
+            from mcp_authscan import verification
+            engine = verification.verify(json.dumps(doc), anchor=None if keys is None else verification.anchor_from_keys(keys))
+            probes = ("signed" if engine["probe_statuses"]["verdict"] == "VERIFIED"
                       else "NOT VERIFIED (outside report_hash; needs sig_version 3 checked with --keys)")
-            operations = ("signed" if doc.get(SIG_VERSION_KEY) == SIG_VERSION_OPERATIONS and auth.startswith("SIGNED BY ")
+            operations = ("signed" if engine["operations"]["verdict"] == "VERIFIED"
                           else "NOT VERIFIED (needs sig_version 4 checked with --keys)")
         except (OSError, ValueError) as e:
             status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
