@@ -2759,6 +2759,8 @@ def main():
                 else:
                     # No OAuth either - not an MCP target.
                     print("[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.",file=sys.stderr)
+                    print("VERDICT NOT_OBSERVED | %s | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set %s" %
+                          (target_host, PROBE_SET_VERSION), file=verdict_out)
                     sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)
