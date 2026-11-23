@@ -12,6 +12,19 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.40] - 2026-11-23
+
+**Wheel sha256: `38c70351c4bd26a67c09c39469dac7e773d3cd85110c82e1015b8440c6a4a4fc`** (`mcp_authscan-1.1.40-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `2a73264` with `SOURCE_DATE_EPOCH=1795461035`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+
+### Fixed
+- **Exit code agrees with the report's findings.** `decide_exit` ran before the tools-digest step appended a ZERO-AUTH finding, so a server that advertised OAuth but accepted unauthenticated `initialize` and `tools/list` could report a HIGH finding while exiting 5 (`not_observed_present`) instead of 1, with that exit inside the hashed report. The exit is now decided after the last finding. Present in 1.1.39 and earlier.
+- **A halted scan never prints PASS.** When discovery stopped (`halted_discovery_incomplete`), one concluded probe was enough for `VERDICT PASS`; it is now `INCONCLUSIVE` unless a MEDIUM-or-higher finding grades it.
+- **Machine-readable stdout for non-MCP targets.** The not-an-MCP-target exit (4) printed a text `VERDICT NOT_OBSERVED` line on stdout under `--json`, `--html` and `--sarif`; it now goes to stderr there. `--brief` is unchanged.
+
+### Compatibility
+- CI gates may see exit 1 where 1.1.39 returned 5 for the same server: that server has a finding at or above `--fail-on`.
+
+
 ### Changed
 - **One verdict engine**: `mcp_authscan.verification` decides every report verdict, offline. The CLI (`python -m mcp_authscan.verify`), the web route (`verify_upload` behind `server/reportVerification.ts`), and the `report_verify.verify` / `report_verify.authenticity` adapters used by the policy gate, `report_verify.main` and verify-mcp all call it. The Node server no longer verifies signatures (`verifyAuthenticity` is removed); it validates the engine's JSON and reshapes it.
 - **Fixed stage order**: catalog → format → integrity → authenticity. A catalog or format failure stops evaluation; integrity and authenticity are both reported once the report is readable, and `failed_stage` names the first failure in that order.
