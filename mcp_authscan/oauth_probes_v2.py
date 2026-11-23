@@ -1681,9 +1681,13 @@ def _revoke_audience_token(token_endpoint, token, cid, csec, metadata):
     try:
         _apply_client_secret(req, form, cid, csec, metadata=metadata)
         req.data = urlencode(form).encode()
-        _pace(); _egress_guard(req, allow_private=ALLOW_PRIVATE_TARGETS)
-        with urlopen(req, timeout=10) as resp:
-            resp.read()
+        _pace(); status, _, _ = _egress_guard(
+            req, allow_private=ALLOW_PRIVATE_TARGETS,
+            follow_redirects=False,
+        )
+        if not 200 <= status < 300:
+            print("[!] token revocation refused: HTTP %d" % status, file=sys.stderr)
+            return
         print("[+] token-audience token revoked", file=sys.stderr)
     except HTTPError as exc:
         print("[!] token revocation refused: HTTP %d" % exc.code, file=sys.stderr)

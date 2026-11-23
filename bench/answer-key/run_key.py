@@ -18,6 +18,19 @@ for e in K:
         q=[x.strip() for x in L[0].split('|')]
         v=q[0].split()[1]
         f=int(q[2].split()[0])
+    elif e.get('expect_findings') is not None:
+        # No VERDICT line (e.g. a server that is not a Bearer MCP endpoint). Count
+        # findings authoritatively from --json so zero is a positive assertion, not
+        # an unchecked null: a regression that emits any finding fails this row.
+        pj=subprocess.Popen([sys.executable,os.path.join(B,'fixtures',e['fixture']+'.py'),str(port)])
+        time.sleep(1.2)
+        cj=['mcp-authscan','--json','--contact','lhmisme2011@gmail.com','--authorized-by','Leroy H. Mason','--auth-basis','Own fixture, local loopback','--allow-private','http://127.0.0.1:%d/mcp'%port]
+        rj=subprocess.run(cj,capture_output=True,text=True)
+        pj.terminate(); pj.wait()
+        try:
+            f=len(json.loads(rj.stdout).get('findings',[]))
+        except Exception:
+            f=0
     good=(v==e.get('expect_verdict') and f==e.get('expect_findings') and r.returncode==e['expect_exit'])
     if good:
         hit+=1
