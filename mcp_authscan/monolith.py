@@ -277,7 +277,7 @@ def _direct_rfc8414_discovery(base):
         oauth_metadata_url = base.rstrip("/") + "/.well-known/oauth-authorization-server"
         req = Request(oauth_metadata_url)
         req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-        with urlopen(req, timeout=5) as resp:
+        with open_without_redirects(req, timeout=5) as resp:
             oauth_data = json.loads(resp.read().decode())
             endpoints = {
                 "token": oauth_data.get("token_endpoint"),
@@ -629,7 +629,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
         req.data = json.dumps(init_payload).encode()
 
         try:
-            with urlopen(req, timeout=5) as resp:
+            with open_without_redirects(req, timeout=5) as resp:
                 if resp.status == 200:
                     _raw = resp.read(65536).decode("utf-8", "replace")
                     if "jsonrpc" not in _raw:
@@ -812,7 +812,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         req.data = json.dumps(init_payload).encode()
 
         try:
-            with urlopen(req, timeout=5) as resp:
+            with open_without_redirects(req, timeout=5) as resp:
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
                     body = resp.read(65536).decode(errors='ignore')
