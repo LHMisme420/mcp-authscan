@@ -35,6 +35,7 @@ import tempfile
 
 from mcp_authscan.monolith import PROBE_SET_VERSION, main as scan_main
 from mcp_authscan.report_verify import HASH_SCHEME, HASHED_KEYS, compute
+from mcp_authscan import report_verify
 
 
 def _rerun(target, extra_args):
@@ -120,61 +121,88 @@ def _refuse(reason):
     return 2
 
 
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
-    parser.add_argument("report", help="path to a saved JSON report")
-    parser.add_argument(
-        "--allow-private",
-        action="store_true",
-        help="forward --allow-private to the scanner (off by default)",
-    )
-    parser.add_argument("--authorized-by", help="forwarded to the scanner when given")
-    parser.add_argument("--auth-basis", help="forwarded to the scanner when given")
-    parser.add_argument("--contact", help="forwarded to the scanner when given")
+    """Offline verification by default; live reproduction requires --reproduce."""
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="Verify a saved report offline")
+    parser.add_argument("report")
+    parser.add_argument("--keys", help="Published trusted keys JSON")
+    parser.add_argument("--reproduce", action="store_true")
+    parser.add_argument("--allow-private", action="store_true")
+    parser.add_argument("--authorized-by")
+    parser.add_argument("--auth-basis")
+    parser.add_argument("--contact")
     args = parser.parse_args(argv)
+
     try:
-        payload = json.load(open(args.report, encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return _refuse("report file unreadable")
-    if not isinstance(payload, dict):
-        return _refuse("report file unreadable")
-    if not payload.get("report_hash"):
-        return _refuse("report_hash absent")
-    missing = [key for key in HASHED_KEYS if key not in payload]
-    if missing:
-        return _refuse("missing covered keys: " + ",".join(missing))
-    if payload.get("hash_scheme") != HASH_SCHEME:
+        with open(args.report, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        if not isinstance(payload, dict):
+            return _refuse("report must be an object")
+
+        catalog_path = Path(__file__).with_name("probe_set_catalog.json")
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        stamp = payload.get("probe_set_version")
+
+        from mcp_authscan.releases import PROBE_SET_RELEASES
+        known = set(catalog["stamps"]) | set(PROBE_SET_RELEASES)
+        if stamp not in known:
+            return _refuse("unknown probe set: %s" % stamp)
+
+        status, detail = report_verify.verify(args.report)
+
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        return _refuse("%s: %s" % (type(exc).__name__, exc))
+
+    if status not in ("MATCH", "LEGACY_MATCH"):
+        if status in ("MISMATCH", "LEGACY_MISMATCH"):
+            print("INTEGRITY")
+            print("report_hash")
+            return 1
+        return _refuse(str(detail))
+
+    if args.keys:
+        try:
+            keys = report_verify._load_keys(args.keys)
+            authenticity = report_verify.authenticity(payload, keys)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            return _refuse("key verification failed: %s" % exc)
+        if not authenticity.startswith("SIGNED BY "):
+            print("SIGNATURE_INVALID")
+            print(authenticity)
+            return 1
+
+    if not args.reproduce:
+        print(status)
+        return 0
+
+    # Explicitly requested network operation, separate from verification.
+    if stamp != PROBE_SET_VERSION:
         return _refuse(
-            "report was produced with hash scheme %s, this is %s, install the recorded version to reproduce it"
-            % (payload.get("hash_scheme"), HASH_SCHEME)
+            "live reproduction requires execution logic for %s; "
+            "installed runner is %s" % (stamp, PROBE_SET_VERSION)
         )
-    if payload.get("schema_version") != 3:
-        return _refuse("requires schema version 3; legacy verdict-v3 hashes are not reinterpreted")
-    if payload.get("probe_set_version") != PROBE_SET_VERSION:
-        return _refuse(
-            "report was produced with %s, this is %s, install the recorded version to reproduce it"
-            % (payload.get("probe_set_version"), PROBE_SET_VERSION)
-        )
+
     target = payload.get("target")
     if not isinstance(target, str) or not target:
         return _refuse("target absent")
-    try:
-        self_hash = compute(payload, payload.get("findings") or [])[0]
-    except (ValueError, TypeError):
-        return _refuse("invalid or incomplete schema-3 report")
-    if self_hash != payload["report_hash"]:
-        print("INTEGRITY")
-        print("report_hash")
-        return 1
+
     fresh = _rerun(target, _scan_flags(payload, args))
     if fresh is None:
         return _refuse("rerun produced no report")
-    recorded_hash = payload["report_hash"]
-    new_hash = compute(fresh, fresh.get("findings") or [])[0]
-    if recorded_hash != new_hash:
+
+    try:
+        new_hash = compute(fresh, fresh.get("findings") or [])[0]
+    except (ValueError, TypeError):
+        return _refuse("invalid rerun report")
+
+    if new_hash != payload["report_hash"]:
         print("DIVERGENCE")
         print(",".join(_differing_fields(payload, fresh)))
         return 1
+
     print("MATCH")
     return 0
 
