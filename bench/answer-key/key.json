@@ -9,7 +9,7 @@
   {
     "fixture": "closed_401",
     "port": 8932,
-    "expect_verdict": "PASS",
+    "expect_verdict": "INCONCLUSIVE",
     "expect_findings": 0,
     "expect_exit": 5
   },
@@ -32,7 +32,7 @@
     "fixture": "open_with_discovery",
     "expect_verdict": "HIGH",
     "expect_findings": 1,
-    "expect_exit": 5
+    "expect_exit": 1
   },
   {
     "fixture": "challenge_basic",

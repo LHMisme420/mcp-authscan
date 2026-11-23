@@ -2760,7 +2760,8 @@ def main():
                     # No OAuth either - not an MCP target.
                     print("[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.",file=sys.stderr)
                     print("VERDICT NOT_OBSERVED | %s | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set %s" %
-                          (target_host, PROBE_SET_VERSION), file=verdict_out)
+                          (target_host, PROBE_SET_VERSION),
+                          file=(sys.stderr if (args.json or args.html or args.sarif) else verdict_out))
                     sys.exit(4)
             else:
                 # Other error (e.g., connection timeout)
@@ -3207,12 +3208,9 @@ def main():
       if f.get("rule")=="ZERO-AUTH" and f.get("severity")=="MEDIUM":
        f["severity"]="HIGH"
        f["severity_basis"]="zero-auth; "+str(t)+" tool(s) listed with no auth, "+_tc_basis
-    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
     canonical_payload["exit_contract"] = EXIT_CONTRACT
     canonical_payload["hash_scheme"] = HASH_SCHEME
     canonical_payload["run_started_at"] = datetime.fromtimestamp(scan_start_time, timezone.utc).isoformat(timespec="seconds")
-    canonical_payload["exit_condition"] = exit_condition
-    canonical_payload["exit_code"] = exit_code
     canonical_payload["fail_on"] = args.fail_on
     from mcp_authscan.report_verify import compute, severity_counts
     canonical_payload["schema_version"] = 3
@@ -3246,6 +3244,10 @@ def main():
             'interpretation':_tc_interp,
             'remediation':'Implement authentication and authorization controls for all MCP endpoints.',
         })
+    # Exit is decided here, after the last change to F, so the report cannot disagree with its exit code.
+    exit_code, exit_condition = decide_exit(F, probe_status, scan_mode, args.fail_on, zero_testable, halted=halted)
+    canonical_payload["exit_condition"] = exit_condition
+    canonical_payload["exit_code"] = exit_code
     canonical_payload["findings_count"] = len(F)
     # Explicit adapters preserve the CLI's original title/detail fields outside
     # the shared hash. The covered description is the stable finding description.
@@ -3338,7 +3340,7 @@ def main():
                     if ev:
                         print("  EVIDENCE: %s" % ev)
                     print("")
-            print_verdict(F, counts, target_host, verdict_out if args.brief else None)
+            print_verdict(F, counts, target_host, verdict_out if args.brief else None, halted=locals().get("halted", False))
             sys.exit(exit_code)  # halted scan exits on its findings
 
         if tool_call_probe is not None:
@@ -3457,7 +3459,7 @@ def main():
                 print(f"Elapsed Time: {metadata.elapsed_seconds:.2f} seconds")
         else:
             print(f"{len(F)} finding(s).")
-        print_verdict(F, counts, target_host, verdict_out if args.brief else None)
+        print_verdict(F, counts, target_host, verdict_out if args.brief else None, halted=locals().get("halted", False))
 
     sys.exit(exit_code)
 
@@ -3607,7 +3609,7 @@ def commit_report_and_ledgers(args, report_json, ledgers, canonical_payload):
               file=sys.stderr)
 
 
-def verdict_grade(findings, counts):
+def verdict_grade(findings, counts, halted=False):
     """Printed grade only: reads the severities already on the findings, never re-grades."""
     severities = {f.get("severity") for f in findings}
     for sev in ("CRITICAL", "HIGH", "MEDIUM"):
@@ -3615,14 +3617,15 @@ def verdict_grade(findings, counts):
             return sev
     # Nothing at MEDIUM or above: PASS only if some probe reached a verdict (PASS or FAIL),
     # the same "conclusive" count counts.verdict_line uses; otherwise INCONCLUSIVE, never PASS.
-    if counts.get("PASS", 0) + counts.get("FAIL", 0) > 0:
+    # A halted scan (discovery incomplete) never earns PASS, however many probes concluded.
+    if not halted and counts.get("PASS", 0) + counts.get("FAIL", 0) > 0:
         return "PASS"
     return "INCONCLUSIVE"
 
 
-def print_verdict(findings, counts, host, brief_out=None):
+def print_verdict(findings, counts, host, brief_out=None, halted=False):
     line = "VERDICT %s | %s | %d findings | %d passed | %d not observed | %d excluded | probe set %s" % (
-        verdict_grade(findings, counts), host, len(findings), counts.get("PASS", 0),
+        verdict_grade(findings, counts, halted), host, len(findings), counts.get("PASS", 0),
         counts.get("NOT_OBSERVED", 0), counts.get("EXCLUDED", 0), PROBE_SET_VERSION)
     print(line)
     if brief_out is not None:
