@@ -193,6 +193,7 @@ def test_server_observed_sni_and_hostname_mismatch():
         port = srv.server_address[1]
         seen_sni = []
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(str(cert), str(key))
         context.set_servername_callback(
             lambda sock, name, ctx: seen_sni.append(name))
