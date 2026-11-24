@@ -1,0 +1,3 @@
+$ /home/lhmisme/v1135/bin/python -m mcp_authscan.policy_check /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v3-control/tampered.json /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v3-control/policy.json /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v3-control/keys.json
+{"verdict": "REJECT", "check": "SIGNATURE-INVALID", "detail": "SIGNATURE INVALID"}
+exit=1

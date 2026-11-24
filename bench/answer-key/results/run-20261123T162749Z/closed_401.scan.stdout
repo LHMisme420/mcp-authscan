@@ -1,0 +1,161 @@
+{
+  "surface_drift": null,
+  "probes": [
+    {
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "EXCLUDED",
+      "http_status": 401,
+      "headers_observed": {
+        "www-authenticate": "Bearer"
+      },
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "credential-free response needed; HTTP 401 requires one",
+      "probe_class": null,
+      "detail": null,
+      "severity": null,
+      "endpoint": "http://127.0.0.1:53497/mcp"
+    },
+    {
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "no authorised request budget supplied, so no request was sent",
+      "probe_class": null,
+      "detail": null,
+      "severity": null,
+      "endpoint": "http://127.0.0.1:53497/mcp"
+    },
+    {
+      "probe_id": 15,
+      "name": "alternate transport on the same host",
+      "status": "PASS",
+      "http_status": 401,
+      "headers_observed": {
+        "www-authenticate": "Bearer"
+      },
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": null,
+      "detail": "sibling transport answered 401 with authentication enforced",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:53497/mcp"
+    }
+  ],
+  "target": "http://127.0.0.1:53497/mcp",
+  "scan_mode": "LIVE_ENDPOINT_ASSESSMENT",
+  "discovery_status": "DISCOVERY_INCOMPLETE",
+  "probe_set_version": "2026.11.23.1",
+  "severity_calibration_version": null,
+  "owasp_mapping_version": "2026.11.02.1",
+  "findings_count": 0,
+  "findings": [],
+  "authorization": {
+    "authorized_by": "Leroy H. Mason",
+    "date": "2026-11-23",
+    "basis": "Own fixture, local loopback",
+    "contact": "lhmisme2011@gmail.com",
+    "assessed_by": "Leroy H. Mason"
+  },
+  "counts": {
+    "in_scope": 3,
+    "attempted": 1,
+    "PASS": 1,
+    "FAIL": 0,
+    "NOT_OBSERVED": 0,
+    "EXCLUDED": 2,
+    "NOT_IMPLEMENTED": 0
+  },
+  "coverage": null,
+  "coverage_withheld": "discovery did not complete",
+  "completed": false,
+  "not_implemented": [],
+  "excluded": [
+    {
+      "name": "cross-origin read on the MCP endpoint",
+      "reason": "credential-free response needed; HTTP 401 requires one"
+    },
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    }
+  ],
+  "scope": "OAuth authorization server configuration for http://127.0.0.1:53497/mcp",
+  "not_tested": [
+    "Source code review and design patterns",
+    "Dependency vulnerabilities (CVE check)",
+    "Secrets in repository history",
+    "Comments and documentation",
+    "Rate limiting (excluded): no authorised request budget supplied, so no request was sent"
+  ],
+  "content_observed": {
+    "version": "2026.11.03.1",
+    "session_established": false,
+    "operations": [],
+    "inspected": {},
+    "reasons": [
+      "session not established: initialize returned HTTP 401"
+    ]
+  },
+  "exit_contract": "2026.11.02.4",
+  "hash_scheme": "verdict-v3",
+  "run_started_at": "2026-11-23T16:27:51+00:00",
+  "exit_condition": "halted_discovery_incomplete",
+  "exit_code": 5,
+  "fail_on": "high",
+  "schema_version": 3,
+  "status": "incomplete",
+  "total_checks": 3,
+  "severity_counts": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 0
+  },
+  "report_hash": "ad341e8d77a55b455d27cab4a426843f91e66fdf04dde47fcf441df33bcf7442",
+  "hash_covers": [
+    "coverage",
+    "findings",
+    "findings_count",
+    "probe_set_version",
+    "severity_counts",
+    "status",
+    "target",
+    "total_checks"
+  ],
+  "client_registration": [],
+  "tools_digest": {
+    "captured": false,
+    "endpoint": "http://127.0.0.1:53497/mcp",
+    "phase": "initialize",
+    "reason": "initialize returned HTTP 401",
+    "http_status": 401
+  },
+  "tool_call_probe": {
+    "probe": "tool-call",
+    "version": "2026.11.12.1",
+    "endpoint": "http://127.0.0.1:53497/mcp",
+    "outcome": "NOT_ATTEMPTED",
+    "reason": "no --allow-host given, so no tool call was attempted",
+    "tool": null,
+    "http_status": null,
+    "error": null,
+    "content": null,
+    "tools_source": null,
+    "tools_seen": [],
+    "tools_skipped_deny": []
+  }
+}

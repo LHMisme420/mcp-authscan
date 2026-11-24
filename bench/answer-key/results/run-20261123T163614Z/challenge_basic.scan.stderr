@@ -1,0 +1,14 @@
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[!] 401 without a Bearer challenge (scheme: Basic); not confirmed as MCP
+[*] server_version {'status': 'NOT_OBSERVED'}
+[!] No MCP surface detected at http://127.0.0.1:54081/mcp
+[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+[+] OAuth detected (HTTP 401)
+[*] No pointer - trying derived RFC 9728
+Derived metadata failed for http://127.0.0.1:54081/.well-known/oauth-protected-resource/mcp: HTTP Error 401: Unauthorized
+Derived metadata failed for http://127.0.0.1:54081/.well-known/oauth-protected-resource: HTTP Error 401: Unauthorized
+[*] Trying direct RFC 8414 discovery on http://127.0.0.1:54081/mcp
+[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.

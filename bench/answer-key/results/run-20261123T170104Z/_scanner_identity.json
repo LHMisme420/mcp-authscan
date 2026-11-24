@@ -1,0 +1,55 @@
+{
+  "scanner_path": "/home/lhmisme/.local/bin/mcp-authscan",
+  "scanner_version_cli": {
+    "cmd": [
+      "/home/lhmisme/.local/bin/mcp-authscan",
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "mcp-authscan 1.1.40",
+    "stderr": ""
+  },
+  "scanner_version_pkg": {
+    "cmd": [
+      "/usr/bin/python3",
+      "-c",
+      "import importlib.metadata as m;print(m.version(\"mcp-authscan\"))"
+    ],
+    "exit": 0,
+    "stdout": "1.1.40",
+    "stderr": ""
+  },
+  "scanner_module_file": {
+    "cmd": [
+      "/usr/bin/python3",
+      "-c",
+      "import mcp_authscan;print(mcp_authscan.__file__)"
+    ],
+    "exit": 0,
+    "stdout": "/home/lhmisme/mcp-authscan/mcp_authscan/__init__.py",
+    "stderr": ""
+  },
+  "repo_commit": {
+    "cmd": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exit": 0,
+    "stdout": "d6d42ec52859c0a8c704ecf304d3e756a65ad5a5",
+    "stderr": ""
+  },
+  "repo_dirty_files": {
+    "cmd": [
+      "git",
+      "status",
+      "--porcelain"
+    ],
+    "exit": 0,
+    "stdout": "M mcp_authscan/monolith.py\n?? airtable-mcp-cli/\n?? bench/answer-key/results/\n?? hol-guard/\n?? mcp_authscan/revoked_keys.json\n?? mcp_authscan/trusted_keys.json\n?? tests/test_exit_after_final_findings.py",
+    "stderr": ""
+  },
+  "note": "repo_commit is the checkout; the installed build may differ. report commit_sha (if any) is per-fixture.",
+  "unsupported_options": [],
+  "help_exit": 0
+}

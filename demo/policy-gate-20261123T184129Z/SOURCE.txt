@@ -1,0 +1,2 @@
+source: 3def21a:tests/fixtures/published/tollbooth-baseline.json (sig_version 3)
+3def21a9676cf3e9071a9218800e489f62a215ee 2026-11-22 08:44:14 -0500 tests: adversarial gate harness in CI

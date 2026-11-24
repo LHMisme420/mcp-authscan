@@ -248,6 +248,104 @@ def _open_no_redirect(request_obj, timeout=5):
     )
 
 
+def _dial_pinned(port, timeout, source_address=None):
+    """Open a socket straight to the pinned IP -- exactly one resolution, no second lookup.
+
+    socket.create_connection() re-runs getaddrinfo on its host argument; connecting to
+    the already-checked numeric address directly closes that second-resolution window, so
+    a request connects only to the address _resolve_pinned checked. Used by the live-scan
+    transport (open_pinned); the probe transport keeps its own connect unchanged.
+    """
+    pinned = _PIN.get()
+    if pinned is None:
+        raise EgressRefusalError("missing validated destination IP")
+    family = socket.AF_INET6 if ":" in pinned else socket.AF_INET
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    try:
+        sock.settimeout(timeout)
+        if source_address:
+            sock.bind(source_address)
+        sock.connect((pinned, port))
+    except BaseException:
+        sock.close()
+        raise
+    return sock
+
+
+class _DirectPinnedHTTPConnection(_PinnedHTTPConnection):
+    def connect(self):
+        self.sock = _dial_pinned(
+            self.port, min(self.timeout, _remaining()), self.source_address
+        )
+        self.sock.settimeout(_remaining())
+
+
+class _DirectPinnedHTTPSConnection(_PinnedHTTPSConnection):
+    def connect(self):
+        raw = _dial_pinned(
+            self.port, min(self.timeout, _remaining()), self.source_address
+        )
+        try:
+            raw.settimeout(_remaining())
+            self.sock = self._context.wrap_socket(raw, server_hostname=self.host)
+            self.sock.settimeout(_remaining())
+        except BaseException:
+            raw.close()
+            raise
+
+
+class _DirectPinnedHTTPHandler(HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_DirectPinnedHTTPConnection, req)
+
+
+class _DirectPinnedHTTPSHandler(HTTPSHandler):
+    def __init__(self):
+        super().__init__(context=ssl.create_default_context())
+
+    def https_open(self, req):
+        context = self._context
+
+        class Connection(_DirectPinnedHTTPSConnection):
+            def __init__(self, host, **kwargs):
+                kwargs["context"] = context
+                super().__init__(host, **kwargs)
+
+        return self.do_open(Connection, req)
+
+
+def _open_no_redirect_direct(request_obj, timeout=5):
+    opener = build_opener(
+        ProxyHandler({}),
+        _DirectPinnedHTTPHandler(),
+        _DirectPinnedHTTPSHandler(),
+        _NoRedirect(),
+    )
+    return opener.open(
+        request_obj,
+        timeout=min(timeout, _remaining()),
+    )
+
+
+def open_pinned(request_obj, timeout=5, allow_private=None):
+    """Destination-validated, DNS-pinned, redirect-refusing open -- no scope gate.
+
+    This is the destination-safety half of _check_hop, split out: it resolves the
+    host once, refuses any non-global address (unless allow_private), pins the
+    connection to that resolved IP, and refuses redirects -- but it does NOT check
+    ALLOWED_HOSTS. The scope check stays in _check_hop/_egress_guard for the probe
+    path; the live-scan sites route here so they get rebinding safety without being
+    forced through the scan scope.
+    """
+    deadline_token = _DEADLINE.set(time.monotonic() + timeout)
+    pin_token = _PIN.set(_resolve_pinned(request_obj.full_url, allow_private))
+    try:
+        return _open_no_redirect_direct(request_obj, _remaining())
+    finally:
+        _PIN.reset(pin_token)
+        _DEADLINE.reset(deadline_token)
+
+
 def _egress_guard(request_obj, timeout=5, allow_private=None,
                   allowed_hosts=None, follow_redirects=True):
     from urllib.parse import urljoin

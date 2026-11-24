@@ -1,0 +1,8 @@
+{
+  "commit": "3def21a9676cf3e9071a9218800e489f62a215ee 2026-11-22 08:44:14 -0500 tests: adversarial gate harness in CI",
+  "report": "tests/fixtures/published/tollbooth-baseline.json",
+  "keys": "tests/fixtures/published/tollbooth-baseline.keys.json",
+  "sig_version": 3,
+  "key_id": "9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d",
+  "role": "control: sig_version 3 signature covers probes"
+}

@@ -1,0 +1,2 @@
+$ /home/lhmisme/v1135/bin/pip install -q mcp-authscan==1.1.35
+exit=0

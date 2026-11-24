@@ -1,0 +1,1 @@
+Relaxed demo policy: 1.1.35 packaged default, trusted-signers = report key, forbidden-findings = [], fail-on = critical. Relaxed only so the gate reaches its sig-version check on this genuine v1 report, whose own findings (HIGH) stop the default policy earlier. Same files for both gates.

@@ -1,0 +1,14 @@
+forged v1, relaxed policy:  1.1.34 -> CONDITIONAL COVERAGE exit 0 | 1.1.35 -> REJECT SIG-VERSION exit 1
+v3 control:                 1.1.34 -> REJECT SIGNATURE-INVALID exit 1 | 1.1.35 -> REJECT SIGNATURE-INVALID exit 1
+
+OK   gates are 1.1.34 and 1.1.35
+OK   v1 original genuinely signed
+OK   v3 original genuinely signed
+OK   1.1.34 does NOT reject forged v1
+OK   1.1.35 rejects forged v1 on SIG-VERSION
+OK   v3 control: both reject SIGNATURE-INVALID
+OK   no source changes (only the 3 pre-existing untracked entries)
+
+DEMO RESULT: SHOWS THE FIX - genuine signed v1 report with one forged probe passes 1.1.34 and is rejected by 1.1.35 on sig_version
+NOTE: in both versions the flipped v1 probe passes the signature check; 1.1.35 rejects by policy (min-sig-version 3), not by detecting the flip.
+NOTE: forged-v1 result uses a relaxed demo policy (forbidden-findings [], fail-on critical); with the default policy both reject earlier on FINDING-PRESENT ZERO-AUTH.

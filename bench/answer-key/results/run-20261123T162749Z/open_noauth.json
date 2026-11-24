@@ -1,0 +1,214 @@
+{
+  "fixture": "open_noauth",
+  "fixture_file": "bench/answer-key/fixtures/open_noauth.py",
+  "transport": "HTTP on 127.0.0.1, started as: python3 <fixture>.py <port> from repo root",
+  "scanner_version": "1.1.40",
+  "scanner_commit_repo": "d6d42ec52859c0a8c704ecf304d3e756a65ad5a5",
+  "unsupported_options": [],
+  "errors": [],
+  "port": 50041,
+  "target": "http://127.0.0.1:50041/mcp",
+  "ready": true,
+  "ready_after_s": 0.1,
+  "scan_cmd": [
+    "/home/lhmisme/.local/bin/mcp-authscan",
+    "--json",
+    "--contact",
+    "lhmisme2011@gmail.com",
+    "--authorized-by",
+    "Leroy H. Mason",
+    "--auth-basis",
+    "Own fixture, local loopback",
+    "--allow-private",
+    "--evidence-dir",
+    "/home/lhmisme/mcp-authscan/bench/answer-key/results/run-20261123T162749Z/open_noauth.evidence",
+    "--probe-tools",
+    "http://127.0.0.1:50041/mcp"
+  ],
+  "scan_exit_code": 1,
+  "scan_stderr": "[*] Tool-call probe SKIPPED: no --allow-host given, so no tool call was attempted\n[*] Detected live server URL\n[*] Preflight: Checking if target is an MCP server...\n[+] server fixture-open 1.0 2025-06-18\n[+] MCP server verified (HTTP 200)\n[*] server_version {'status': 'OBSERVED', 'name': 'fixture-open', 'version': '1.0', 'protocolVersion': '2025-06-18'}\n[*] Attempting OAuth discovery...\n[*] RFC 9728 \u2192 RFC 8414 discovery\nDerived metadata failed for http://127.0.0.1:50041/.well-known/oauth-protected-resource/mcp: HTTP Error 405: Method Not Allowed\nDerived metadata failed for http://127.0.0.1:50041/.well-known/oauth-protected-resource: HTTP Error 405: Method Not Allowed\n[!] ZERO-AUTH: Target responds to /initialize without authentication\n[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication\n[*] Evidence: anonymous: no state, capture incomplete (initialize HTTP 200): tools/list had no result.tools; prompts/list had no result.prompts; resources/list had no result.resources",
+  "evidence_files": [],
+  "overall_verdict": null,
+  "verdict_source": null,
+  "findings_count": 2,
+  "report_status": "completed",
+  "report_exit_condition": "finding_at_or_above_high",
+  "report_commit_sha": null,
+  "report_counts": {
+    "in_scope": 15,
+    "attempted": 2,
+    "PASS": 1,
+    "FAIL": 1,
+    "NOT_OBSERVED": 0,
+    "EXCLUDED": 13,
+    "NOT_IMPLEMENTED": 0
+  },
+  "report_excluded": [
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    },
+    {
+      "name": "issuer-identity",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "resource-binding",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "token-cache-control",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "token-cors",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "jwks-keys",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "password-grant",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "pkce-s256",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "redirect-uri-exact",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "client-auth",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "cross-tenant",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "token-audience",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "name": "resource-authservers",
+      "reason": "No authorization server was discovered, so this probe was never sent"
+    }
+  ],
+  "report_not_implemented": [],
+  "probes": [
+    {
+      "path": "$report.probes[0]",
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[1]",
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "limitation": "no authorised request budget supplied, so no request was sent"
+    },
+    {
+      "path": "$report.probes[2]",
+      "probe_id": 15,
+      "name": "alternate transport on the same host",
+      "status": "FAIL",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[3]",
+      "probe_id": 1,
+      "name": "issuer-identity",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[4]",
+      "probe_id": 2,
+      "name": "resource-binding",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[5]",
+      "probe_id": 3,
+      "name": "token-cache-control",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[6]",
+      "probe_id": 4,
+      "name": "token-cors",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[7]",
+      "probe_id": 5,
+      "name": "jwks-keys",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[8]",
+      "probe_id": 6,
+      "name": "password-grant",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[9]",
+      "probe_id": 7,
+      "name": "pkce-s256",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[10]",
+      "probe_id": 8,
+      "name": "redirect-uri-exact",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[11]",
+      "probe_id": 9,
+      "name": "client-auth",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[12]",
+      "probe_id": 10,
+      "name": "cross-tenant",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[13]",
+      "probe_id": 11,
+      "name": "token-audience",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    },
+    {
+      "path": "$report.probes[14]",
+      "probe_id": 12,
+      "name": "resource-authservers",
+      "status": "EXCLUDED",
+      "limitation": "No authorization server was discovered, so this probe was never sent"
+    }
+  ],
+  "execution_status": "SCANNED",
+  "stopped": {
+    "fixture_rc": -15,
+    "pgroup_gone": true,
+    "port_closed": true
+  }
+}

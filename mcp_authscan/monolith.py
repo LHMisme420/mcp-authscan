@@ -174,6 +174,22 @@ def open_without_redirects(req, timeout=5):
     return build_opener(_NoRedirect).open(req, timeout=timeout)
 
 
+def pinned_open(req, timeout=5, allow_private=None):
+    """Route a live-scan request through the shared DNS-pinned transport (no scope gate).
+
+    Destination safety only: resolve-once, refuse non-global (unless allow_private),
+    pin the socket, refuse redirects. ALLOWED_HOSTS is deliberately not checked here --
+    that gate is the probe path's _egress_guard. EgressRefusalError is surfaced as a
+    URLError so the existing per-site handlers treat a refused destination as a network
+    failure, not a crash.
+    """
+    from mcp_authscan.oauth_probes_v2 import open_pinned
+    try:
+        return open_pinned(req, timeout=timeout, allow_private=allow_private)
+    except EgressRefusalError as exc:
+        raise URLError(f"destination refused: {exc}") from exc
+
+
 MAX_RESPONSE_SIZE = 10_000_000
 
 
@@ -201,7 +217,7 @@ def validate_input_path(path_str):
     return path
 
 
-def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
+def _derived_resource_metadata(base, allow_private=None, allowed_hosts=None):
     """Fetch RFC 9728 metadata derived from the target, path form then host form."""
     parsed = urlparse(base)
     host = parsed.hostname
@@ -218,7 +234,7 @@ def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
             assert_url_is_fetchable(url, allow_private=allow_private)
             req = Request(url)
             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-            with open_without_redirects(req, timeout=5) as resp:
+            with pinned_open(req, timeout=5, allow_private=allow_private) as resp:
                 data = json.loads(resp.read().decode())
         except Exception as e:
             print(f"Derived metadata failed for {url}: {e}", file=sys.stderr)
@@ -237,7 +253,7 @@ def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
                 assert_url_is_fetchable(meta_url, allow_private=allow_private)
                 req2 = Request(meta_url)
                 req2.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-                with open_without_redirects(req2, timeout=5) as r2:
+                with pinned_open(req2, timeout=5, allow_private=allow_private) as r2:
                     md = json.loads(r2.read().decode())
             except Exception as e:
                 print(f"AS metadata failed for {meta_url}: {e}", file=sys.stderr)
@@ -248,7 +264,7 @@ def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
                     assert_url_is_fetchable(oidc_url, allow_private=allow_private)
                     req3 = Request(oidc_url)
                     req3.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-                    with open_without_redirects(req3, timeout=5) as r3:
+                    with pinned_open(req3, timeout=5, allow_private=allow_private) as r3:
                         md = json.loads(r3.read().decode())
                     if not isinstance(md, dict):
                         raise ValueError("openid-configuration is not a JSON object")
@@ -263,7 +279,7 @@ def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
             print("[+] OAuth discovery successful via derived RFC 9728", file=sys.stderr)
             return endpoints, {"method": "RFC 9728 derived", "endpoints": endpoints, "discovered_hosts": [host], "resource_metadata": url, "authorization_servers": servers}
     return None, None
-def _direct_rfc8414_discovery(base):
+def _direct_rfc8414_discovery(base, allow_private=None):
     """Try RFC 8414 discovery directly on the base URL.
 
     Reached two ways: as the fallback after an RFC 9728 lookup fails, and
@@ -277,7 +293,7 @@ def _direct_rfc8414_discovery(base):
         oauth_metadata_url = base.rstrip("/") + "/.well-known/oauth-authorization-server"
         req = Request(oauth_metadata_url)
         req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-        with open_without_redirects(req, timeout=5) as resp:
+        with pinned_open(req, timeout=5, allow_private=allow_private) as resp:
             oauth_data = json.loads(resp.read().decode())
             endpoints = {
                 "token": oauth_data.get("token_endpoint"),
@@ -588,7 +604,7 @@ def discovery_status_of(discovery_info):
     return None
 
 
-def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
+def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=None):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
 
@@ -629,7 +645,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
         req.data = json.dumps(init_payload).encode()
 
         try:
-            with open_without_redirects(req, timeout=5) as resp:
+            with pinned_open(req, timeout=5, allow_private=allow_private) as resp:
                 if resp.status == 200:
                     _raw = resp.read(65536).decode("utf-8", "replace")
                     if "jsonrpc" not in _raw:
@@ -658,7 +674,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
             if e.code != 401:
                 # Not an MCP server (404, 405, etc). Try direct RFC 8414 instead
                 print(f"[*] HTTP {e.code} - Not an MCP server, trying direct RFC 8414", file=sys.stderr)
-                return _direct_rfc8414_discovery(base)
+                return _direct_rfc8414_discovery(base, allow_private=allow_private)
 
             # Step 2: Parse 401 www-authenticate header (RFC 9728)
             www_auth = e.headers.get("www-authenticate", "")
@@ -673,7 +689,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                 derived_endpoints, derived_info = _derived_resource_metadata(base, allow_private=allow_private, allowed_hosts=allowed_hosts)
                 if derived_endpoints:
                     return derived_endpoints, derived_info
-                return _direct_rfc8414_discovery(base)
+                return _direct_rfc8414_discovery(base, allow_private=allow_private)
             resource_url = match.group(1)
             resource_parsed = urlparse(resource_url)
             if resource_parsed.hostname:
@@ -687,7 +703,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                 req = Request(resource_url)
                 req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
-                with open_without_redirects(req, timeout=5) as resp:
+                with pinned_open(req, timeout=5, allow_private=ALLOW_PRIVATE_TARGETS) as resp:
                     resource_data = json.loads(resp.read().decode())
                     as_urls = resource_data.get("authorization_servers", [])
                     print(f"[*] Found {len(as_urls)} OAuth server(s)", file=sys.stderr)
@@ -708,7 +724,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                             req = Request(oauth_metadata_url)
                             req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
-                            with open_without_redirects(req, timeout=5) as resp:
+                            with pinned_open(req, timeout=5, allow_private=ALLOW_PRIVATE_TARGETS) as resp:
                                 oauth_data = json.loads(resp.read().decode())
 
                                 # Extract OAuth endpoints
@@ -733,7 +749,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
                                 req = Request(oidc_metadata_url)
                                 req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
 
-                                with open_without_redirects(req, timeout=5) as resp:
+                                with pinned_open(req, timeout=5, allow_private=ALLOW_PRIVATE_TARGETS) as resp:
                                     oidc_data = json.loads(resp.read().decode())
 
                                     endpoints_found = {
@@ -766,9 +782,9 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
         pass
 
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
-    return _direct_rfc8414_discovery(base)
+    return _direct_rfc8414_discovery(base, allow_private=allow_private)
 
-def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_limit_count=None, rate_limit_window=None):
+def scan_live_server(target_url, allowed_hosts=None, allow_private=None, rate_limit_count=None, rate_limit_window=None):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
     Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
     
@@ -812,7 +828,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
         req.data = json.dumps(init_payload).encode()
 
         try:
-            with open_without_redirects(req, timeout=5) as resp:
+            with pinned_open(req, timeout=5, allow_private=allow_private) as resp:
                 if resp.status in [200, 201, 202]:
                     # Should be JSON-RPC response
                     body = resp.read(65536).decode(errors='ignore')
@@ -911,7 +927,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     assert_url_is_fetchable(resource_url)
                     req = Request(resource_url)
                     req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-                    with open_without_redirects(req, timeout=5) as resp:
+                    with pinned_open(req, timeout=5, allow_private=ALLOW_PRIVATE_TARGETS) as resp:
                         resource_metadata_doc = json.loads(resp.read().decode())
                 except Exception as e:
                     print(f"[!] Resource metadata not fetched: {e}", file=sys.stderr)

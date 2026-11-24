@@ -1,0 +1,9 @@
+[*] Tool-call probe SKIPPED: no --allow-host given, so no tool call was attempted
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[*] server_version {'status': 'NOT_OBSERVED'}
+[!] No MCP surface detected at http://127.0.0.1:57397/mcp
+[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.

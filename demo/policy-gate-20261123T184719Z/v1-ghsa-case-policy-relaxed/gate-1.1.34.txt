@@ -1,0 +1,3 @@
+$ /home/lhmisme/pv/bin/python -m mcp_authscan.policy_check /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v1-ghsa-case-policy-relaxed/tampered.json /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v1-ghsa-case-policy-relaxed/policy.json /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v1-ghsa-case-policy-relaxed/keys.json
+{"verdict": "CONDITIONAL", "check": "COVERAGE", "detail": "hash 41cfd9d7 passed 2 of 14; not passing: issuer-identity, resource-binding, resource-authservers, token-cache-control, token-cors, jwks-keys, password-grant, pkce-s256, redirect-uri-exact, client-auth, token-audience, alternate transport on the same host"}
+exit=0
