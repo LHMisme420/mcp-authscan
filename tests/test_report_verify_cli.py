@@ -39,3 +39,23 @@ def test_unsigned_probe_edit_is_labelled_not_verified(tmp_path, capsys):
     line = capsys.readouterr().out.splitlines()[0]
     assert line.startswith("MATCH "), line
     assert "[probes: NOT VERIFIED" in line, line
+
+
+def test_require_signature_always_unsigned_nonzero_signed_zero(tmp_path):
+    """D1: exit is the engine's verdict and a signature is required always. With --keys a
+    trusted signed report exits 0; an unsigned one exits nonzero; a signed report with no
+    --keys exits nonzero too (no hash-only fail-open door)."""
+    import json, sys as _sys
+    _sys.path.insert(0, "tests")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from test_gate_e2e import build, pub
+    key = Ed25519PrivateKey.generate()
+    signed = build(key, [("P1", "PASS")]); kid = signed["signature"]["key_id"]
+    rp = tmp_path / "signed.json"; rp.write_text(json.dumps(signed))
+    kp = tmp_path / "keys.json"
+    kp.write_text(json.dumps([{"key_id": kid, "alg": "ed25519", "public_key": pub(key)}]))
+    assert report_verify.main(["--keys", str(kp), str(rp)]) == 0
+    assert report_verify.main([str(rp)]) != 0
+    unsigned = dict(signed); unsigned.pop("signature", None); unsigned.pop("sig_version", None)
+    up = tmp_path / "unsigned.json"; up.write_text(json.dumps(unsigned))
+    assert report_verify.main(["--keys", str(kp), str(up)]) != 0

@@ -4,7 +4,7 @@ import json
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from mcp_authscan import policy_check, report_signing, report_verify
-from test_gate_e2e import POLICY, bundle
+from test_gate_e2e import POLICY, bundle, bundle_v3
 def gate(tmp, key, statuses, policy=None, mutate=None):
 	rp, pp, kp = bundle(tmp, key, statuses, POLICY if policy is None else policy)
 	payload = json.loads(open(rp).read())
@@ -15,9 +15,21 @@ def gate(tmp, key, statuses, policy=None, mutate=None):
 	payload["signature"] = report_signing.sign_statement(key, content)
 	open(rp, "w").write(json.dumps(payload))
 	return policy_check.evaluate(rp, pp, kp)
+def gate_v3(tmp, key, statuses, policy=None, mutate=None):
+	rp, pp, kp = bundle_v3(tmp, key, statuses, POLICY if policy is None else policy)
+	if mutate is not None:
+		payload = json.loads(open(rp).read())
+		mutate(payload)
+		payload["report_hash"] = report_verify.compute(payload, payload["findings"])[0]
+		payload["sig_version"] = 3
+		payload["signature"] = report_signing.sign_statement(key, report_verify.signed_content(payload, payload["findings"]))
+		open(rp, "w").write(json.dumps(payload))
+	return policy_check.evaluate(rp, pp, kp)
+
+
 def test_control_reads_clean(tmp_path):
 	key = Ed25519PrivateKey.generate()
-	out = gate(tmp_path, key, [("P1", "PASS"), ("P2", "PASS")])
+	out = gate_v3(tmp_path, key, [("P1", "PASS"), ("P2", "PASS")])
 	assert out["verdict"] == "CLEAN", out
 
 

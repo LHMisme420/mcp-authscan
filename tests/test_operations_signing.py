@@ -57,7 +57,8 @@ def _gate(tmp_path, r, key):
 def test_v4_with_every_scope_operation_is_clean(tmp_path):
     key = Ed25519PrivateKey.generate()
     out = _gate(tmp_path, _sign(_report(ALL), key, 4), key)
-    assert (out["verdict"], out["check"]) == ("CLEAN", "ALL"), out
+    assert (out["verdict"], out["check"]) == ("CONDITIONAL", "SEVERITY"), out  # incidental HIGH finding, no fail-on -> blocked from CLEAN
+    assert "HIGH" in out["detail"], out
 
 
 def test_v4_missing_operation_is_named(tmp_path):
@@ -167,7 +168,8 @@ def test_pinned_manifest_passes(tmp_path, monkeypatch):
     rp, pp, kp = _bundle(tmp_path, _sign(r, key, 4), key)
     _require_pin(pp)
     out = policy_check.evaluate(rp, pp, kp)
-    assert (out["verdict"], out["check"]) == ("CLEAN", "ALL"), out
+    assert (out["verdict"], out["check"]) == ("CONDITIONAL", "SEVERITY"), out  # incidental HIGH finding, no fail-on -> blocked from CLEAN
+    assert "HIGH" in out["detail"], out
 
 
 def test_pin_not_required_without_the_key(tmp_path):
@@ -194,7 +196,8 @@ def test_same_version_report_matching_installed_manifest_passes(tmp_path, monkey
     rp, pp, kp = _bundle(tmp_path, _sign(r, key, 4), key)
     _require_pin(pp)
     out = policy_check.evaluate(rp, pp, kp)
-    assert (out["verdict"], out["check"]) == ("CLEAN", "ALL"), out
+    assert (out["verdict"], out["check"]) == ("CONDITIONAL", "SEVERITY"), out  # incidental HIGH finding, no fail-on -> blocked from CLEAN
+    assert "HIGH" in out["detail"], out
 
 
 def test_same_version_report_with_another_manifest_is_rejected(tmp_path, monkeypatch):

@@ -1,10 +1,11 @@
 import json
 import sys
 
-from mcp_authscan.report_verify import verify, authenticity
+from mcp_authscan.report_verify import authenticity
 
 
 SEVERITY_ORDER = ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
+FAIL_ON_FLOOR = 'HIGH'  # code floor; a policy may tighten it, never loosen below this
 _RULE_SEPARATORS = '-_:./'
 
 
@@ -32,7 +33,9 @@ def _self_manifest_status(report):
 
 def evaluate(report_path, policy_path, keys_path):
     policy = json.load(open(policy_path))
-    report = json.load(open(report_path))
+    with open(report_path, 'rb') as _fh:
+        raw = _fh.read()                      # D3: read the report bytes once...
+    report = json.loads(raw)
     keys = json.load(open(keys_path)) if isinstance(keys_path, str) else keys_path
     trusted = {k if isinstance(k, str) else k.get('key-id') for k in policy.get('trusted-signers', [])}
     a = authenticity(report, keys)
@@ -41,9 +44,16 @@ def evaluate(report_path, policy_path, keys_path):
     kid = a.split(' ', 2)[2]
     if kid not in trusted:
         return {'verdict': 'REJECT', 'check': 'UNTRUSTED-SIGNER', 'detail': a}
-    result, digest = verify(report_path)
-    if result != 'MATCH':
-        return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE', 'detail': str(result)}
+    from mcp_authscan import verification
+    engine = verification.verify(raw, anchor=verification.anchor_from_keys(keys))  # D3: ...and feed those same bytes to every check
+    _stage = engine['failed_stage']
+    _legacy = engine['format']['verdict'] == 'LEGACY'
+    if _stage in ('catalog', 'format'):
+        return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE', 'detail': engine[_stage]['reason']}
+    if engine['integrity']['verdict'] != 'INTACT' or _legacy:
+        return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE',
+                'detail': ('LEGACY_' if _legacy else '') + ('MATCH' if engine['integrity']['verdict'] == 'INTACT' else 'MISMATCH')}
+    digest = engine['integrity']['recomputed']
     need = set(policy.get('required-probes', [])) - set(str(q.get('name')) for q in report.get('probes', []))
     if need: return {'verdict': 'REJECT', 'check': 'PROBES-MISSING', 'detail': ', '.join(sorted(need))}
     names = [str(q.get("name")) for q in report.get("probes", [])]
@@ -60,11 +70,18 @@ def evaluate(report_path, policy_path, keys_path):
     if floor is not None:
         if str(floor).upper() not in SEVERITY_ORDER:
             return {'verdict': 'REJECT', 'check': 'POLICY-INVALID', 'detail': 'fail-on ' + str(floor)}
-        lim = SEVERITY_ORDER.index(str(floor).upper())
+        lim = min(SEVERITY_ORDER.index(FAIL_ON_FLOOR), SEVERITY_ORDER.index(str(floor).upper()))  # a policy may tighten, never loosen below the floor
         for f in report.get('findings', []):
             sev = str(f.get('severity')).upper()
             if sev not in SEVERITY_ORDER or SEVERITY_ORDER.index(sev) >= lim:
                 return {'verdict': 'REJECT', 'check': 'FINDING-SEVERITY', 'detail': str(f.get('rule')) + ' ' + sev}
+    top = None
+    if floor is None:  # no explicit fail-on: a HIGH/CRITICAL finding blocks CLEAN but does not REJECT
+        hi = SEVERITY_ORDER.index(FAIL_ON_FLOOR)
+        present = [SEVERITY_ORDER.index(s) for f in report.get('findings', [])
+                   for s in (str(f.get('severity')).upper(),) if s in SEVERITY_ORDER and SEVERITY_ORDER.index(s) >= hi]
+        if present:
+            top = SEVERITY_ORDER[max(present)]
     req = [str(r) for r in policy.get('required-probes', [])]
     st = {str(q.get('name')): str(q.get('status')) for q in report.get('probes', [])}
     ok = {"PASS"}  # required probes must PASS (654e85b); acceptable-verdicts is not read
@@ -73,6 +90,8 @@ def evaluate(report_path, policy_path, keys_path):
     want = policy.get("min-sig-version")
     d = int(want) - int(report.get("sig_version", 1)) if want else 0
     if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
+    if engine['probe_statuses']['verdict'] != 'VERIFIED':
+        return {'verdict': 'REJECT', 'check': 'PROBE-STATUS-UNVERIFIED', 'detail': engine['probe_statuses']['reason']}
     if policy.get('require-manifest-pin'):
         # Provenance is inside the v3/v4 signature, so this pin status cannot be edited unnoticed.
         from mcp_authscan.report_verify import pin_status
@@ -95,6 +114,8 @@ def evaluate(report_path, policy_path, keys_path):
             why = 'operations not signed (sig_version 4 required): ' if signed_ops is None else 'scope operations not observed: '
             return {'verdict': 'CONDITIONAL', 'check': 'SCOPE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; ' + why + ', '.join(unproven)}
     if req and not missed:
+        if top is not None:
+            return {'verdict': 'CONDITIONAL', 'check': 'SEVERITY', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; ' + top + ' finding present and no fail-on set'}
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
 
