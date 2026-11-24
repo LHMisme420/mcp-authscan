@@ -48,7 +48,7 @@ mav = sum(1 for r in results if r["get"] in (405, 400, 406) and r["post_init"] =
 
 print(f"n={len(results)}")
 print("GET:", get_codes)
-print("POST initialize:", post_codes)
+print(f"POST initialize categories: {len(post_codes)}")
 print(f"GET method-refusal + POST 401: {mav}")
 
 # Optional: write full results
