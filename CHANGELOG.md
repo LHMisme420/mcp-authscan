@@ -14,7 +14,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [1.1.42] - 2026-11-24
 
-**Wheel sha256: `f2477745d7e66b5fa1a262b9dc64ba6078daee655bcdabb1dcae832b7ce0e115`** (`mcp_authscan-1.1.42-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `7353ba4` with `SOURCE_DATE_EPOCH=1795533480`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+Wheel sha256: f2477745d7e66b5fa1a262b9dc64ba6078daee655bcdabb1dcae832b7ce0e115, recorded in the anchors file at build time. 1.1.41 is already on PyPI, so this ships as 1.1.42
 
 ### Security
 - **The policy gate now requires the signature to actually cover probe statuses.** A policy that omitted `min-sig-version` let probe statuses be graded from a report whose signature does not cover them (a valid `sig_version` 1 or 2 signature). The gate now requires the verification engine's `probe_statuses` verdict to be VERIFIED, as a backstop after the existing `min-sig-version` check, so a policy can no longer waive it and an unsigned or lower-signature report can never reach a CLEAN verdict (GHSA-jvh3-qvpr-qm8q class).
