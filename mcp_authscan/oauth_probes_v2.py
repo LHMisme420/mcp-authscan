@@ -337,6 +337,12 @@ def open_pinned(request_obj, timeout=5, allow_private=None):
     path; the live-scan sites route here so they get rebinding safety without being
     forced through the scan scope.
     """
+    if allow_private is None:
+        # Read the module global at call time (not captured at import), so a caller
+        # that leaves it unset defers to the current policy -- and monkeypatching
+        # ALLOW_PRIVATE_TARGETS in tests takes effect. An explicit True/False from the
+        # caller is honoured as-is; the default (global False) keeps refusing non-public.
+        allow_private = ALLOW_PRIVATE_TARGETS
     deadline_token = _DEADLINE.set(time.monotonic() + timeout)
     pin_token = _PIN.set(_resolve_pinned(request_obj.full_url, allow_private))
     try:

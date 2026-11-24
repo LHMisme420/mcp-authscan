@@ -604,7 +604,7 @@ def discovery_status_of(discovery_info):
     return None
 
 
-def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
+def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=None):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
 
@@ -784,7 +784,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
     return _direct_rfc8414_discovery(base, allow_private=allow_private)
 
-def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_limit_count=None, rate_limit_window=None):
+def scan_live_server(target_url, allowed_hosts=None, allow_private=None, rate_limit_count=None, rate_limit_window=None):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
     Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
     

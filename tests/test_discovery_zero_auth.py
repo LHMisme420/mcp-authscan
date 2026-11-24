@@ -11,10 +11,12 @@ BODY = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"serverInfo": {"name": 
 
 def _fake_200(monkeypatch, payload=BODY):
     resp = SimpleNamespace(status=200, read=lambda n=-1: payload)
-    # discover now routes outbound through open_without_redirects (redirect refusal);
-    # patch both symbols so the fake 200 is used whichever transport the code calls.
+    # discover routes live requests through pinned_open (the wrapper that returns the
+    # pinned transport's context manager); patch every outbound symbol so the fake 200
+    # is used whichever transport the code calls.
     monkeypatch.setattr(m, "urlopen", lambda *a, **k: nullcontext(resp))
     monkeypatch.setattr(m, "open_without_redirects", lambda *a, **k: nullcontext(resp))
+    monkeypatch.setattr(m, "pinned_open", lambda *a, **k: nullcontext(resp))
 
 
 def test_metadata_on_200_is_not_zero_auth(monkeypatch):

@@ -80,12 +80,17 @@ def pointerless_401_server():
 
 
 @pytest.mark.parametrize("module", [monolith], ids=["monolith"])
-def test_pointerless_401_falls_back_to_direct_rfc8414(module, pointerless_401_server):
+def test_pointerless_401_falls_back_to_direct_rfc8414(module, pointerless_401_server, monkeypatch):
     """A 401 without a discovery pointer must reach direct RFC 8414 discovery.
 
     Before the fix this raises UnboundLocalError on monolith and returns
-    (None, None) 
+    (None, None)
     """
+    # The fixture is served on loopback, so authorize private targets for this test
+    # alone. Production mirrors both copies of the flag from --allow-private, so set
+    # both here rather than depend on which copy the fallback path happens to consult.
+    monkeypatch.setattr(monolith, "ALLOW_PRIVATE_TARGETS", True)
+    monkeypatch.setattr("mcp_authscan.oauth_probes_v2.ALLOW_PRIVATE_TARGETS", True)
     endpoints, discovery_info = module.discover_oauth_endpoints(pointerless_401_server)
 
     assert endpoints is not None, (
