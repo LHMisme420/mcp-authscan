@@ -108,9 +108,17 @@ def test_omitted_min_sig_version_still_rejects_v1_report(tmp_path):
     assert out["verdict"] == "REJECT" and out["check"] == "PROBE-STATUS-UNVERIFIED", out
 
 
-def test_omitted_min_sig_version_still_rejects_v1_report(tmp_path):
+def test_keys_file_shape_is_read_and_drives_verification_without_a_mock(tmp_path):
+    """End-to-end, no stub: the gate reads the keys file (key_id/alg/public_key) and verifies
+    the signature against the public_key found there. A report signed by the trusted key reads
+    CLEAN; replacing that entry's public_key with a different valid key makes the same report
+    REJECT, proving the file's key material is actually used and not bypassed."""
     key = Ed25519PrivateKey.generate()
-    assert "min-sig-version" not in POLICY
-    rp, pp, kp = bundle(tmp_path, key, [("P1", "PASS")], POLICY)
+    rp, pp, kp = bundle_v3(tmp_path, key, [("P1", "PASS")], POLICY)
+    assert policy_check.evaluate(rp, pp, kp)["verdict"] == "CLEAN"
+    keys = json.loads(open(kp).read())
+    assert {"alg", "key_id", "public_key"} <= set(keys[0])          # documented keys-file fields present
+    keys[0]["public_key"] = pub(Ed25519PrivateKey.generate())        # same key_id, wrong public key
+    open(kp, "w").write(json.dumps(keys))
     out = policy_check.evaluate(rp, pp, kp)
-    assert out["verdict"] == "REJECT" and out["check"] == "PROBE-STATUS-UNVERIFIED", out
+    assert out["verdict"] == "REJECT", out

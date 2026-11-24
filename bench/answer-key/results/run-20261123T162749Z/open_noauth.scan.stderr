@@ -1,0 +1,13 @@
+[*] Tool-call probe SKIPPED: no --allow-host given, so no tool call was attempted
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[+] server fixture-open 1.0 2025-06-18
+[+] MCP server verified (HTTP 200)
+[*] server_version {'status': 'OBSERVED', 'name': 'fixture-open', 'version': '1.0', 'protocolVersion': '2025-06-18'}
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+Derived metadata failed for http://127.0.0.1:50041/.well-known/oauth-protected-resource/mcp: HTTP Error 405: Method Not Allowed
+Derived metadata failed for http://127.0.0.1:50041/.well-known/oauth-protected-resource: HTTP Error 405: Method Not Allowed
+[!] ZERO-AUTH: Target responds to /initialize without authentication
+[!] ZERO-AUTH VULNERABILITY: MCP server is accessible without authentication
+[*] Evidence: anonymous: no state, capture incomplete (initialize HTTP 200): tools/list had no result.tools; prompts/list had no result.prompts; resources/list had no result.resources

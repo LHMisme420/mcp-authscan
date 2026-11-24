@@ -1,0 +1,73 @@
+{
+  "capture": {
+    "reasons": [
+      "initialize returned status 401",
+      "tools/list returned status 401",
+      "prompts/list returned status 401",
+      "resources/list returned status 401"
+    ],
+    "status": "refused"
+  },
+  "coverage": {
+    "excluded": 6,
+    "fail": 0,
+    "in_scope": 8,
+    "not_observed": 1,
+    "pass": 7
+  },
+  "excluded": [
+    {
+      "missing_prerequisite": "No client credential supplied",
+      "probe_id": "11:token-audience"
+    },
+    {
+      "missing_prerequisite": "credential-free response needed; HTTP 401 requires one",
+      "probe_id": "13:cross-origin read on the MCP endpoint"
+    },
+    {
+      "missing_prerequisite": "no authorised request budget supplied, so no request was sent",
+      "probe_id": "14:rate limiting on the endpoint"
+    },
+    {
+      "missing_prerequisite": "No client credential, so no credentialed request was sent",
+      "probe_id": "4:token-cors"
+    },
+    {
+      "missing_prerequisite": "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)",
+      "probe_id": "7:pkce-s256"
+    },
+    {
+      "missing_prerequisite": "No registered redirect_uri to compare against",
+      "probe_id": "8:redirect-uri-exact"
+    }
+  ],
+  "not_observed": [
+    {
+      "probe_id": "6:password-grant",
+      "reason": "No accepted client credential (invalid_client), so the grant type was never evaluated"
+    }
+  ],
+  "observed_at": {
+    "end": "2026-11-23T16:38:00Z",
+    "start": "2026-11-23T16:38:00Z"
+  },
+  "report_hash": "0dd3f3a54c6ef735ea213e02517d9a3b3ad004f18081f508285bd95a5d1d3b69",
+  "scanner": {
+    "name": "mcp-authscan",
+    "probe_set_version": "2026.11.23.1",
+    "version": "1.1.40"
+  },
+  "schema": "observation-v1",
+  "state": {
+    "access_class": "anonymous",
+    "instructions_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "prompts": [],
+    "resources": [],
+    "state_id": "f91b3009b031cd660ff79f978b7b6c5ac0b85530ff93e55b2c173f9cdd743f52",
+    "state_version": "1",
+    "surface_digest": "e498b97c37656b596d8b93bc1fb01bfa568ae69f61435908d643dc6cb386a256",
+    "tools": []
+  },
+  "state_id": "f91b3009b031cd660ff79f978b7b6c5ac0b85530ff93e55b2c173f9cdd743f52",
+  "target": "http://127.0.0.1:54981/mcp"
+}

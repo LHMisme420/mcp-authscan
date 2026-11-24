@@ -1,0 +1,416 @@
+{
+  "surface_drift": null,
+  "probes": [
+    {
+      "probe_id": 1,
+      "name": "issuer-identity",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"issuer\": \"http://127.0.0.1:38413\"}",
+      "body_sha256": "c67cb42a897dbf6f860cbd4f6072369712b6703d520a207258acf26656e71526",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "issuer=http://127.0.0.1:38413 base_url=http://127.0.0.1:38413",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/.well-known/oauth-authorization-server"
+    },
+    {
+      "probe_id": 2,
+      "name": "resource-binding",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"resource\": \"http://127.0.0.1:38413/mcp\"}",
+      "body_sha256": "f247a3ddf6e6138823a0fdcec028e2db3c0afe64a61e17b603380363d62ff182",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "resource=http://127.0.0.1:38413/mcp mcp_url=http://127.0.0.1:38413/mcp",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/mcp"
+    },
+    {
+      "probe_id": 12,
+      "name": "resource-authservers",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"authorization_servers\": [\"http://127.0.0.1:38413\"]}",
+      "body_sha256": "d994bcc52536201d1616ba85f544ece65f9646ccc1f140c2d3f8721e75bfa798",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "authorization_servers=http://127.0.0.1:38413",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/mcp"
+    },
+    {
+      "probe_id": 3,
+      "name": "token-cache-control",
+      "status": "PASS",
+      "http_status": 401,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_client\"}",
+      "body_sha256": "191dab53c2894facc4ac5e74269abd5b889f3487c3f211f2af9203cd032dcc35",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Cache-Control: no-store",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/token"
+    },
+    {
+      "probe_id": 4,
+      "name": "token-cors",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "a client credential, registered or MCPAUTHSCAN_CLIENT_ID"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No client credential, so no credentialed request was sent",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 5,
+      "name": "jwks-keys",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {},
+      "body_excerpt": "{\"keys\": [{\"kty\": \"RSA\", \"kid\": \"fixture1\", \"use\": \"sig\", \"alg\": \"RS256\", \"n\": \"04Slw4qK11ui2XCD3foQ8Pl8xrCv8aIJ5Cp6fnpmu3uFLPf7nIB62otK3i6RdgBQaX_kA6r6XKOpGeRkqmo7PWMLAF_zeQvVdSfzjGsq504o8skwU8Y99szvq1cu4oUI8ZO7aO_oJuq50KsCHp1FxbDc1n0vJC_OLPc9MlJq3cTkniOg_gP7TDYV32Ip9QzWJT7bNk2eFS-4Gz8BvQExU9PsXwVNoVe-gL_Cx2sb8zh8nPPL9xM-S0sAVA9G0FHvR49NN5SJklSJzCXVN5DA0IbNFXXDcNE3jpQQ0A8vUZOzjKNL91BbSPnkMN-uJNAQ0fzZcP6fjnQgP1bnAjjuTw\", \"e\": \"AQAB\"}]}",
+      "body_sha256": "bef0ca06845593d0ddfbfcf378ec9575d15c32667917d09985665483b3d4c7d3",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Keys: 1 asymmetric",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/jwks"
+    },
+    {
+      "probe_id": 6,
+      "name": "password-grant",
+      "status": "NOT_OBSERVED",
+      "http_status": 401,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_client\"}",
+      "body_sha256": "191dab53c2894facc4ac5e74269abd5b889f3487c3f211f2af9203cd032dcc35",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "No accepted client credential (invalid_client), so the grant type was never evaluated",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/token"
+    },
+    {
+      "probe_id": 7,
+      "name": "pkce-s256",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "client_id"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)",
+      "probe_class": "authserver",
+      "detail": "Dynamic client registration unavailable: no registration_endpoint advertised",
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 8,
+      "name": "redirect-uri-exact",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "client_id",
+        "redirect_uri"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No registered redirect_uri to compare against",
+      "probe_class": "authserver",
+      "detail": "Dynamic client registration unavailable: no registration_endpoint advertised",
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 9,
+      "name": "client-auth",
+      "status": "PASS",
+      "http_status": 401,
+      "headers_observed": {},
+      "body_excerpt": "{\"error\": \"invalid_client\"}",
+      "body_sha256": "191dab53c2894facc4ac5e74269abd5b889f3487c3f211f2af9203cd032dcc35",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": "authserver",
+      "detail": "Error: invalid_client",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/token"
+    },
+    {
+      "probe_id": 11,
+      "name": "token-audience",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [
+        "an accepted client credential"
+      ],
+      "prerequisite_met": false,
+      "limitation": "No client credential supplied",
+      "probe_class": "authserver",
+      "detail": null,
+      "severity": null,
+      "endpoint": null
+    },
+    {
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "PASS",
+      "http_status": 200,
+      "headers_observed": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      },
+      "body_excerpt": "{\"jsonrpc\": \"2.0\", \"result\": {\"protocolVersion\": \"2025-06-18\", \"serverInfo\": {\"name\": \"discovery-open\", \"version\": \"1\"}, \"capabilities\": {\"tools\": {}}}, \"id\": 1}",
+      "body_sha256": "30e26449cb18ff5e5bfd15ac475d975fe2dd0c5f575f5b10ba25909f5f7bf321",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": null,
+      "detail": "no Access-Control-Allow-Origin on HTTP 200",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/mcp"
+    },
+    {
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "http_status": null,
+      "headers_observed": {},
+      "body_excerpt": "",
+      "body_sha256": null,
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": "no authorised request budget supplied, so no request was sent",
+      "probe_class": null,
+      "detail": null,
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/mcp"
+    },
+    {
+      "probe_id": 15,
+      "name": "alternate transport on the same host",
+      "status": "PASS",
+      "http_status": 401,
+      "headers_observed": {
+        "content-type": "application/json",
+        "cache-control": "no-store"
+      },
+      "body_excerpt": "{\"error\": \"invalid_client\"}",
+      "body_sha256": "191dab53c2894facc4ac5e74269abd5b889f3487c3f211f2af9203cd032dcc35",
+      "prerequisites": [],
+      "prerequisite_met": true,
+      "limitation": null,
+      "probe_class": null,
+      "detail": "sibling transport answered 401 with authentication enforced",
+      "severity": null,
+      "endpoint": "http://127.0.0.1:38413/mcp"
+    }
+  ],
+  "target": "http://127.0.0.1:38413/mcp",
+  "scan_mode": "LIVE_ENDPOINT_ASSESSMENT",
+  "discovery_status": null,
+  "probe_set_version": "2026.11.23.1",
+  "severity_calibration_version": null,
+  "owasp_mapping_version": "2026.11.02.1",
+  "findings_count": 1,
+  "findings": [
+    {
+      "rule": "ZERO-AUTH",
+      "severity": "HIGH",
+      "severity_basis": "tool-call probe not run",
+      "title": "Unauthenticated MCP endpoint",
+      "evidence": "initialize and tools/list accepted with no credential presented",
+      "confidence": "HIGH",
+      "file": "http://127.0.0.1:38413/mcp",
+      "line": 0,
+      "ref": "ZERO-AUTH",
+      "is_live_finding": true,
+      "request_method": "POST",
+      "request_body": "",
+      "response_status": 200,
+      "response_body": "",
+      "response_preview": "session established with no credential",
+      "interpretation": "MCP server completed the handshake with no authentication and listed 1 tool(s). Tool invocation was not tested (tool-call probe not run).",
+      "remediation": "Implement authentication and authorization controls for all MCP endpoints.",
+      "server_name": "http://127.0.0.1:38413/mcp",
+      "vector_type": "ZERO-AUTH",
+      "description": "Unauthenticated MCP endpoint",
+      "endpoint": null
+    }
+  ],
+  "authorization": {
+    "authorized_by": "Leroy H. Mason",
+    "date": "2026-11-23",
+    "basis": "Own fixture, local loopback",
+    "contact": "lhmisme2011@gmail.com",
+    "assessed_by": "Leroy H. Mason"
+  },
+  "counts": {
+    "in_scope": 14,
+    "attempted": 9,
+    "PASS": 8,
+    "FAIL": 0,
+    "NOT_OBSERVED": 1,
+    "EXCLUDED": 5,
+    "NOT_IMPLEMENTED": 0
+  },
+  "coverage": 0.8889,
+  "completed": true,
+  "not_implemented": [],
+  "excluded": [
+    {
+      "name": "token-cors",
+      "reason": "No client credential, so no credentialed request was sent"
+    },
+    {
+      "name": "pkce-s256",
+      "reason": "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)"
+    },
+    {
+      "name": "redirect-uri-exact",
+      "reason": "No registered redirect_uri to compare against"
+    },
+    {
+      "name": "token-audience",
+      "reason": "No client credential supplied"
+    },
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    }
+  ],
+  "scope": "OAuth authorization server configuration for http://127.0.0.1:38413/mcp",
+  "not_tested": [
+    "Authorization servers named in the resource metadata (http://127.0.0.1:38413) were contacted only where the written authorization covered that host; any server named there and not assessed carries no verdict, and the servers actually assessed are listed under client registration",
+    "MCP resource endpoint behavior (only OAuth server configuration assessed via RFC 9728 \u2192 RFC 8414 discovery)",
+    "Source code review and design patterns",
+    "Dependency vulnerabilities (CVE check)",
+    "Secrets in repository history",
+    "Comments and documentation",
+    "Rate limiting (excluded): no authorised request budget supplied, so no request was sent"
+  ],
+  "content_observed": {
+    "version": "2026.11.03.1",
+    "session_established": true,
+    "operations": [
+      "initialize",
+      "tools/list"
+    ],
+    "inspected": {
+      "tools": 1
+    },
+    "reasons": [
+      "prompts/list: no result.prompts",
+      "resources/list: no result.resources"
+    ]
+  },
+  "exit_contract": "2026.11.02.4",
+  "hash_scheme": "verdict-v3",
+  "run_started_at": "2026-11-23T16:36:17+00:00",
+  "exit_condition": "not_observed_present",
+  "exit_code": 5,
+  "fail_on": "high",
+  "schema_version": 3,
+  "status": "completed",
+  "total_checks": 14,
+  "severity_counts": {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 0
+  },
+  "report_hash": "19a6e5264febd5e64c0c24d385ffb25e3bd21a0be51a0a84e29a9c203a3fadbb",
+  "hash_covers": [
+    "coverage",
+    "findings",
+    "findings_count",
+    "probe_set_version",
+    "severity_counts",
+    "status",
+    "target",
+    "total_checks"
+  ],
+  "evidence": {
+    "scheme": "evidence-binding-v3",
+    "states": []
+  },
+  "client_registration": [
+    {
+      "authorization_server": "http://127.0.0.1:38413",
+      "client_registered": false,
+      "registration": "no registration_endpoint advertised",
+      "client_source": "none",
+      "client_id": null,
+      "credential_grant_client_source": "none",
+      "redirect_uri": "(none)",
+      "client_removal": "no client was registered by this run",
+      "client_deleted": null,
+      "registered_client_id": null,
+      "redirect_candidates_tried": [],
+      "token_revocation": null,
+      "token_revocation_unconfirmed": null,
+      "token_types_unconfirmed": []
+    }
+  ],
+  "tools_digest": {
+    "captured": true,
+    "endpoint": "http://127.0.0.1:38413/mcp",
+    "digest": "7aa669a4bf41d84105c65e82ce903ae1e9417f4442c8e528e0571d41e052e3f8",
+    "tool_count": 1,
+    "unauthenticated_session": true,
+    "session_established": true,
+    "protocol_version": "2025-06-18",
+    "server_name": "discovery-open",
+    "server_version": "1"
+  },
+  "tool_call_probe": {
+    "probe": "tool-call",
+    "version": "2026.11.12.1",
+    "endpoint": "http://127.0.0.1:38413/mcp",
+    "outcome": "NOT_ATTEMPTED",
+    "reason": "zero-auth handshake not observed",
+    "tool": null,
+    "http_status": null,
+    "error": null,
+    "content": null,
+    "tools_source": null,
+    "tools_seen": [],
+    "tools_skipped_deny": []
+  }
+}

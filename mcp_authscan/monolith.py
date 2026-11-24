@@ -175,7 +175,14 @@ def open_without_redirects(req, timeout=5):
 
 
 def pinned_open(req, timeout=5, allow_private=None):
-    """Route a live-scan request through the shared DNS-pinned transport (no scope gate)."""
+    """Route a live-scan request through the shared DNS-pinned transport (no scope gate).
+
+    Destination safety only: resolve-once, refuse non-global (unless allow_private),
+    pin the socket, refuse redirects. ALLOWED_HOSTS is deliberately not checked here --
+    that gate is the probe path's _egress_guard. EgressRefusalError is surfaced as a
+    URLError so the existing per-site handlers treat a refused destination as a network
+    failure, not a crash.
+    """
     from mcp_authscan.oauth_probes_v2 import open_pinned
     try:
         return open_pinned(req, timeout=timeout, allow_private=allow_private)
@@ -210,7 +217,7 @@ def validate_input_path(path_str):
     return path
 
 
-def _derived_resource_metadata(base, allow_private=False, allowed_hosts=None):
+def _derived_resource_metadata(base, allow_private=None, allowed_hosts=None):
     """Fetch RFC 9728 metadata derived from the target, path form then host form."""
     parsed = urlparse(base)
     host = parsed.hostname
@@ -597,7 +604,7 @@ def discovery_status_of(discovery_info):
     return None
 
 
-def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
+def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=None):
     """
     RFC 9728 (MCP) → RFC 8414 (OAuth) discovery chain.
 
@@ -777,7 +784,7 @@ def discover_oauth_endpoints(base_url, allowed_hosts=None, allow_private=False):
     # Fallback: try direct RFC 8414 discovery on base_url (for standalone OAuth servers)
     return _direct_rfc8414_discovery(base, allow_private=allow_private)
 
-def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_limit_count=None, rate_limit_window=None):
+def scan_live_server(target_url, allowed_hosts=None, allow_private=None, rate_limit_count=None, rate_limit_window=None):
     """Scan a running MCP server for zero-auth, CORS, token validation issues.
     Returns (findings, reachable, probe_status, discovery_info, (oauth_records, probe_results)) tuple.
     
@@ -920,7 +927,7 @@ def scan_live_server(target_url, allowed_hosts=None, allow_private=False, rate_l
                     assert_url_is_fetchable(resource_url)
                     req = Request(resource_url)
                     req.add_header("User-Agent", f"mcp-authscan/{VERSION}")
-                    with pinned_open(req, timeout=5) as resp:
+                    with pinned_open(req, timeout=5, allow_private=ALLOW_PRIVATE_TARGETS) as resp:
                         resource_metadata_doc = json.loads(resp.read().decode())
                 except Exception as e:
                     print(f"[!] Resource metadata not fetched: {e}", file=sys.stderr)

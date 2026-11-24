@@ -1,0 +1,1 @@
+policy.json = mcp-authscan 1.1.35's packaged policy-default.json with trusted-signers set to this report's signing key 4f7a2702896adb0b39c8e3b096f6af8bff22851a3da3b84dd6ae51af36691301, so a signer-trust reject cannot mask the gate behaviour. Both gates get the identical policy.json, keys.json and tampered.json.

@@ -1,0 +1,68 @@
+{
+  "fixture": "plaintext_200",
+  "fixture_file": "bench/answer-key/fixtures/plaintext_200.py",
+  "transport": "HTTP on 127.0.0.1, started as: python3 <fixture>.py <port> from repo root",
+  "scanner_version": "1.1.40",
+  "scanner_commit_repo": "d6d42ec52859c0a8c704ecf304d3e756a65ad5a5",
+  "unsupported_options": [],
+  "errors": [
+    "stdout is not JSON: JSONDecodeError('Expecting value: line 1 column 1 (char 0)')",
+    "no probe records with a status found in report or evidence"
+  ],
+  "port": 46911,
+  "target": "http://127.0.0.1:46911/mcp",
+  "ready": true,
+  "ready_after_s": 0.1,
+  "scan_cmd": [
+    "/home/lhmisme/.local/bin/mcp-authscan",
+    "--json",
+    "--contact",
+    "lhmisme2011@gmail.com",
+    "--authorized-by",
+    "Leroy H. Mason",
+    "--auth-basis",
+    "Own fixture, local loopback",
+    "--allow-private",
+    "--evidence-dir",
+    "/home/lhmisme/mcp-authscan/bench/answer-key/results/run-20261123T170104Z/plaintext_200.evidence",
+    "--probe-tools",
+    "--allow-host",
+    "127.0.0.1",
+    "http://127.0.0.1:46911/mcp"
+  ],
+  "scan_exit_code": 4,
+  "scan_stderr": "[*] Detected live server URL\n[*] Preflight: Checking if target is an MCP server...\n[*] server_version {'status': 'NOT_OBSERVED'}\n[!] No MCP surface detected at http://127.0.0.1:46911/mcp\n[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)\n[*] Attempting OAuth discovery...\n[*] RFC 9728 \u2192 RFC 8414 discovery\n[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.\nVERDICT NOT_OBSERVED | 127.0.0.1 | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set 2026.11.23.1",
+  "evidence_files": [],
+  "tool_call_probe_skipped": false,
+  "stdout_verdict_line": null,
+  "overall_verdict": "NOT_OBSERVED",
+  "verdict_source": "separate --brief scan",
+  "findings_count": null,
+  "probes": [],
+  "brief_scan": {
+    "cmd": [
+      "/home/lhmisme/.local/bin/mcp-authscan",
+      "--brief",
+      "--contact",
+      "lhmisme2011@gmail.com",
+      "--authorized-by",
+      "Leroy H. Mason",
+      "--auth-basis",
+      "Own fixture, local loopback",
+      "--allow-private",
+      "--probe-tools",
+      "--allow-host",
+      "127.0.0.1",
+      "http://127.0.0.1:46911/mcp"
+    ],
+    "exit": 4,
+    "verdict_line": "VERDICT NOT_OBSERVED | 127.0.0.1 | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set 2026.11.23.1",
+    "verdict": "NOT_OBSERVED"
+  },
+  "execution_status": "SCAN_NO_JSON",
+  "stopped": {
+    "fixture_rc": -15,
+    "pgroup_gone": true,
+    "port_closed": true
+  }
+}

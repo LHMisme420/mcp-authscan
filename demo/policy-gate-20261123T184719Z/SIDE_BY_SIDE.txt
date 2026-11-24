@@ -1,0 +1,8 @@
+=== v1-ghsa-case (sig_version 1)  flip: probes[1] id=14 name=rate limiting on the endpoint: EXCLUDED -> PASS
+    gate         verdict    check                exit  detail
+    pv 1.1.34    REJECT     FINDING-PRESENT      1     ZERO-AUTH
+    1.1.35       REJECT     FINDING-PRESENT      1     ZERO-AUTH
+=== v3-control (sig_version 3)  flip: probes[4] id=4 name=token-cors: NOT_OBSERVED -> PASS
+    gate         verdict    check                exit  detail
+    pv 1.1.34    REJECT     SIGNATURE-INVALID    1     SIGNATURE INVALID
+    1.1.35       REJECT     SIGNATURE-INVALID    1     SIGNATURE INVALID

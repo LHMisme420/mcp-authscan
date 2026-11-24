@@ -1,0 +1,29 @@
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[+] server discovery-open 1 2025-06-18
+[+] MCP server verified (HTTP 200)
+[*] server_version {'status': 'OBSERVED', 'name': 'discovery-open', 'version': '1', 'protocolVersion': '2025-06-18'}
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+[+] OAuth discovery successful via derived RFC 9728
+[*] metadata names an authorization server, assessing OAuth not zero-auth
+[+] Using 2 discovered OAuth endpoints
+[*] Added discovered host to allowed scope: 127.0.0.1
+[*] Assessing OAuth server: http://127.0.0.1:60575
+[1] issuer-identity      PASS
+[2] resource-binding     PASS
+[3] token-cache-control  PASS
+[4] token-cors           EXCLUDED
+[5] jwks-keys            PASS
+[6] password-grant       NOT_OBSERVED
+[7] pkce-s256            EXCLUDED
+[8] redirect-uri-exact   EXCLUDED
+[9] client-auth          PASS
+[11] token-audience       EXCLUDED
+[12] resource-authservers PASS
+[+] OAuth discovery successful
+    Method: RFC 9728 derived
+    Endpoints: 2 discovered
+    Hosts: 127.0.0.1
+[!] Incomplete assessment: 1 probe(s) tried and could not observe their property (NOT_OBSERVED): password-grant
+[*] Evidence: anonymous: no state, capture incomplete (initialize HTTP 200): prompts/list returned a JSON-RPC error; resources/list returned a JSON-RPC error

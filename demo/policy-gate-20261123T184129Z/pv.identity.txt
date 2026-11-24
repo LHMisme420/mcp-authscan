@@ -1,0 +1,1 @@
+pv mcp_authscan 1.1.34 /home/lhmisme/pv/lib/python3.13/site-packages/mcp_authscan/__init__.py

@@ -1,0 +1,110 @@
+{
+  "fixture": "closed_401",
+  "fixture_file": "bench/answer-key/fixtures/closed_401.py",
+  "transport": "HTTP on 127.0.0.1, started as: python3 <fixture>.py <port> from repo root",
+  "scanner_version": "1.1.40",
+  "scanner_commit_repo": "d6d42ec52859c0a8c704ecf304d3e756a65ad5a5",
+  "unsupported_options": [],
+  "errors": [],
+  "port": 42963,
+  "target": "http://127.0.0.1:42963/mcp",
+  "ready": true,
+  "ready_after_s": 0.1,
+  "scan_cmd": [
+    "/home/lhmisme/.local/bin/mcp-authscan",
+    "--json",
+    "--contact",
+    "lhmisme2011@gmail.com",
+    "--authorized-by",
+    "Leroy H. Mason",
+    "--auth-basis",
+    "Own fixture, local loopback",
+    "--allow-private",
+    "--evidence-dir",
+    "/home/lhmisme/mcp-authscan/bench/answer-key/results/run-20261123T170104Z/closed_401.evidence",
+    "--probe-tools",
+    "--allow-host",
+    "127.0.0.1",
+    "http://127.0.0.1:42963/mcp"
+  ],
+  "scan_exit_code": 5,
+  "scan_stderr": "[*] Detected live server URL\n[*] Preflight: Checking if target is an MCP server...\n[+] MCP server verified (HTTP 401 Bearer challenge)\n[*] server_version {'status': 'NOT_OBSERVED'}\n[*] Attempting OAuth discovery...\n[*] RFC 9728 \u2192 RFC 8414 discovery\n[+] OAuth detected (HTTP 401)\n[*] No pointer - trying derived RFC 9728\nDerived metadata failed for http://127.0.0.1:42963/.well-known/oauth-protected-resource/mcp: HTTP Error 401: Unauthorized\nDerived metadata failed for http://127.0.0.1:42963/.well-known/oauth-protected-resource: HTTP Error 401: Unauthorized\n[*] Trying direct RFC 8414 discovery on http://127.0.0.1:42963/mcp\n[!] DISCOVERY_INCOMPLETE: OAuth endpoint discovery failed\nRFC 9728 to RFC 8414 discovery incomplete; no MCP surface established\n[!] Cannot test OAuth endpoints without discovery. Halting.\n[!] Discovery chain failed; no OAuth endpoints discovered. Cannot complete scan.",
+  "evidence_files": [],
+  "tool_call_probe_skipped": false,
+  "stdout_verdict_line": null,
+  "overall_verdict": "INCONCLUSIVE",
+  "verdict_source": "separate --brief scan",
+  "findings_count": 0,
+  "report_status": "incomplete",
+  "report_exit_condition": "halted_discovery_incomplete",
+  "report_commit_sha": null,
+  "report_counts": {
+    "in_scope": 3,
+    "attempted": 1,
+    "PASS": 1,
+    "FAIL": 0,
+    "NOT_OBSERVED": 0,
+    "EXCLUDED": 2,
+    "NOT_IMPLEMENTED": 0
+  },
+  "report_excluded": [
+    {
+      "name": "cross-origin read on the MCP endpoint",
+      "reason": "credential-free response needed; HTTP 401 requires one"
+    },
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    }
+  ],
+  "report_not_implemented": [],
+  "probes": [
+    {
+      "path": "$report.probes[0]",
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "EXCLUDED",
+      "limitation": "credential-free response needed; HTTP 401 requires one"
+    },
+    {
+      "path": "$report.probes[1]",
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "limitation": "no authorised request budget supplied, so no request was sent"
+    },
+    {
+      "path": "$report.probes[2]",
+      "probe_id": 15,
+      "name": "alternate transport on the same host",
+      "status": "PASS",
+      "limitation": null
+    }
+  ],
+  "brief_scan": {
+    "cmd": [
+      "/home/lhmisme/.local/bin/mcp-authscan",
+      "--brief",
+      "--contact",
+      "lhmisme2011@gmail.com",
+      "--authorized-by",
+      "Leroy H. Mason",
+      "--auth-basis",
+      "Own fixture, local loopback",
+      "--allow-private",
+      "--probe-tools",
+      "--allow-host",
+      "127.0.0.1",
+      "http://127.0.0.1:42963/mcp"
+    ],
+    "exit": 5,
+    "verdict_line": "VERDICT INCONCLUSIVE | 127.0.0.1 | 0 findings | 1 passed | 0 not observed | 2 excluded | probe set 2026.11.23.1",
+    "verdict": "INCONCLUSIVE"
+  },
+  "execution_status": "SCANNED",
+  "stopped": {
+    "fixture_rc": -15,
+    "pgroup_gone": true,
+    "port_closed": true
+  }
+}

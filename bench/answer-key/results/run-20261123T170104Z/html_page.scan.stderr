@@ -1,0 +1,9 @@
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[*] server_version {'status': 'NOT_OBSERVED'}
+[!] No MCP surface detected at http://127.0.0.1:55261/mcp
+[!] POST /initialize did not respond as MCP server (expected 401 with WWW-Authenticate, 200-202 with JSON-RPC, or 400 with JSON-RPC error)
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+[!] No MCP surface and no OAuth endpoints discovered. Not an MCP target.
+VERDICT NOT_OBSERVED | 127.0.0.1 | 0 findings | 0 passed | 0 not observed | 0 excluded | probe set 2026.11.23.1

@@ -1,0 +1,11 @@
+{
+  "schema": "trusted-key-registry-v1",
+  "version": 1,
+  "keys": [
+    {
+      "key_id": "9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d",
+      "alg": "ed25519",
+      "public_key": "pN7dkDEfe08lCTp2JZDXXyIZeyRQg6aOGF81acN_xw8"
+    }
+  ]
+}

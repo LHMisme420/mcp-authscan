@@ -1,0 +1,9 @@
+$ /usr/bin/python3 -m mcp_authscan.verify --require-signature --keys /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v3-control/keys.json /home/lhmisme/mcp-authscan/demo/policy-gate-20261123T184719Z/v3-control/original.json
+MATCH
+CATALOG_SHA256=f055f8b91ba8b7a5f46afee32a2769d0740bb153a85b5aacfbc38f3485f4bd92
+PROBE_SET_ATTESTATION=IN CATALOG
+REPORT_HASH=80e4cd495e464126a534004eb53cbb064764107bce8c7e47311ac5e2e8f92233
+AUTHENTICITY=SIGNED BY 9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d
+PROBE_STATUSES=VERIFIED
+TRUST_ANCHOR=external:61a900c77afab7f4dfb898eaea8635876ebef33128cb3515fe48695d62d2181c
+exit=0

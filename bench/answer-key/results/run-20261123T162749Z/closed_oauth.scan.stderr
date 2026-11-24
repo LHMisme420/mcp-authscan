@@ -1,0 +1,34 @@
+[*] Tool-call probe SKIPPED: no --allow-host given, so no tool call was attempted
+[*] Detected live server URL
+[*] Preflight: Checking if target is an MCP server...
+[+] MCP server verified (HTTP 401 Bearer challenge)
+[*] server_version {'status': 'NOT_OBSERVED'}
+[*] Attempting OAuth discovery...
+[*] RFC 9728 → RFC 8414 discovery
+[+] OAuth detected (HTTP 401)
+[*] Resource metadata: http://127.0.0.1:54571/.well-known/oauth-protected-resource/mcp
+[*] Found 1 OAuth server(s)
+[+] Discovered 3 endpoints on http://127.0.0.1:54571
+[+] Discovery complete - 3 endpoints found
+[+] Using 3 discovered OAuth endpoints
+[*] Added discovered host to allowed scope: 127.0.0.1
+[*] Assessing OAuth server: http://127.0.0.1:54571
+[1] issuer-identity      PASS
+[2] resource-binding     PASS
+[3] token-cache-control  PASS
+[4] token-cors           EXCLUDED
+[5] jwks-keys            PASS
+[6] password-grant       NOT_OBSERVED
+[7] pkce-s256            EXCLUDED
+[8] redirect-uri-exact   EXCLUDED
+[9] client-auth          PASS
+[11] token-audience       EXCLUDED
+[12] resource-authservers PASS
+[+] OAuth discovery successful
+    Method: RFC 9728 → RFC 8414
+    Endpoints: 3 discovered
+    Hosts: 127.0.0.1
+[!] Incomplete assessment: 1 probe(s) tried and could not observe their property (NOT_OBSERVED): password-grant
+[+] STATE ID (anonymous): f91b3009b031cd660ff79f978b7b6c5ac0b85530ff93e55b2c173f9cdd743f52
+[+] Evidence: /home/lhmisme/mcp-authscan/bench/answer-key/results/run-20261123T162749Z/closed_oauth.evidence/f91b3009b031cd660ff79f978b7b6c5ac0b85530ff93e55b2c173f9cdd743f52.state.json
+[+] Evidence: /home/lhmisme/mcp-authscan/bench/answer-key/results/run-20261123T162749Z/closed_oauth.evidence/observation-20261123T162752Z-anonymous-f91b3009b031.json

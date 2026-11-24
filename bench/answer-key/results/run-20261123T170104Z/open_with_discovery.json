@@ -1,0 +1,199 @@
+{
+  "fixture": "open_with_discovery",
+  "fixture_file": "bench/answer-key/fixtures/open_with_discovery.py",
+  "transport": "HTTP on 127.0.0.1, started as: python3 <fixture>.py <port> from repo root",
+  "scanner_version": "1.1.40",
+  "scanner_commit_repo": "d6d42ec52859c0a8c704ecf304d3e756a65ad5a5",
+  "unsupported_options": [],
+  "errors": [],
+  "port": 57573,
+  "target": "http://127.0.0.1:57573/mcp",
+  "ready": true,
+  "ready_after_s": 0.1,
+  "scan_cmd": [
+    "/home/lhmisme/.local/bin/mcp-authscan",
+    "--json",
+    "--contact",
+    "lhmisme2011@gmail.com",
+    "--authorized-by",
+    "Leroy H. Mason",
+    "--auth-basis",
+    "Own fixture, local loopback",
+    "--allow-private",
+    "--evidence-dir",
+    "/home/lhmisme/mcp-authscan/bench/answer-key/results/run-20261123T170104Z/open_with_discovery.evidence",
+    "--probe-tools",
+    "--allow-host",
+    "127.0.0.1",
+    "http://127.0.0.1:57573/mcp"
+  ],
+  "scan_exit_code": 1,
+  "scan_stderr": "[*] Detected live server URL\n[*] Preflight: Checking if target is an MCP server...\n[+] server discovery-open 1 2025-06-18\n[+] MCP server verified (HTTP 200)\n[*] server_version {'status': 'OBSERVED', 'name': 'discovery-open', 'version': '1', 'protocolVersion': '2025-06-18'}\n[*] Attempting OAuth discovery...\n[*] RFC 9728 \u2192 RFC 8414 discovery\n[+] OAuth discovery successful via derived RFC 9728\n[*] metadata names an authorization server, assessing OAuth not zero-auth\n[+] Using 2 discovered OAuth endpoints\n[*] Added discovered host to allowed scope: 127.0.0.1\n[*] Assessing OAuth server: http://127.0.0.1:57573\n[1] issuer-identity      PASS\n[2] resource-binding     PASS\n[3] token-cache-control  PASS\n[4] token-cors           EXCLUDED\n[5] jwks-keys            PASS\n[6] password-grant       NOT_OBSERVED\n[7] pkce-s256            EXCLUDED\n[8] redirect-uri-exact   EXCLUDED\n[9] client-auth          PASS\n[11] token-audience       EXCLUDED\n[12] resource-authservers PASS\n[+] OAuth discovery successful\n    Method: RFC 9728 derived\n    Endpoints: 2 discovered\n    Hosts: 127.0.0.1\n[!] Incomplete assessment: 1 probe(s) tried and could not observe their property (NOT_OBSERVED): password-grant\n[*] Evidence: anonymous: no state, capture incomplete (initialize HTTP 200): prompts/list returned a JSON-RPC error; resources/list returned a JSON-RPC error",
+  "evidence_files": [],
+  "tool_call_probe_skipped": false,
+  "stdout_verdict_line": null,
+  "overall_verdict": "HIGH",
+  "verdict_source": "separate --brief scan",
+  "findings_count": 1,
+  "report_status": "completed",
+  "report_exit_condition": "finding_at_or_above_high",
+  "report_commit_sha": null,
+  "report_counts": {
+    "in_scope": 14,
+    "attempted": 9,
+    "PASS": 8,
+    "FAIL": 0,
+    "NOT_OBSERVED": 1,
+    "EXCLUDED": 5,
+    "NOT_IMPLEMENTED": 0
+  },
+  "report_excluded": [
+    {
+      "name": "token-cors",
+      "reason": "No client credential, so no credentialed request was sent"
+    },
+    {
+      "name": "pkce-s256",
+      "reason": "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)"
+    },
+    {
+      "name": "redirect-uri-exact",
+      "reason": "No registered redirect_uri to compare against"
+    },
+    {
+      "name": "token-audience",
+      "reason": "No client credential supplied"
+    },
+    {
+      "name": "rate limiting on the endpoint",
+      "reason": "no authorised request budget supplied, so no request was sent"
+    }
+  ],
+  "report_not_implemented": [],
+  "probes": [
+    {
+      "path": "$report.probes[0]",
+      "probe_id": 1,
+      "name": "issuer-identity",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[1]",
+      "probe_id": 2,
+      "name": "resource-binding",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[2]",
+      "probe_id": 12,
+      "name": "resource-authservers",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[3]",
+      "probe_id": 3,
+      "name": "token-cache-control",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[4]",
+      "probe_id": 4,
+      "name": "token-cors",
+      "status": "EXCLUDED",
+      "limitation": "No client credential, so no credentialed request was sent"
+    },
+    {
+      "path": "$report.probes[5]",
+      "probe_id": 5,
+      "name": "jwks-keys",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[6]",
+      "probe_id": 6,
+      "name": "password-grant",
+      "status": "NOT_OBSERVED",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[7]",
+      "probe_id": 7,
+      "name": "pkce-s256",
+      "status": "EXCLUDED",
+      "limitation": "No client_id to build an authorization request (MCPAUTHSCAN_CLIENT_ID not set)"
+    },
+    {
+      "path": "$report.probes[8]",
+      "probe_id": 8,
+      "name": "redirect-uri-exact",
+      "status": "EXCLUDED",
+      "limitation": "No registered redirect_uri to compare against"
+    },
+    {
+      "path": "$report.probes[9]",
+      "probe_id": 9,
+      "name": "client-auth",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[10]",
+      "probe_id": 11,
+      "name": "token-audience",
+      "status": "EXCLUDED",
+      "limitation": "No client credential supplied"
+    },
+    {
+      "path": "$report.probes[11]",
+      "probe_id": 13,
+      "name": "cross-origin read on the MCP endpoint",
+      "status": "PASS",
+      "limitation": null
+    },
+    {
+      "path": "$report.probes[12]",
+      "probe_id": 14,
+      "name": "rate limiting on the endpoint",
+      "status": "EXCLUDED",
+      "limitation": "no authorised request budget supplied, so no request was sent"
+    },
+    {
+      "path": "$report.probes[13]",
+      "probe_id": 15,
+      "name": "alternate transport on the same host",
+      "status": "PASS",
+      "limitation": null
+    }
+  ],
+  "brief_scan": {
+    "cmd": [
+      "/home/lhmisme/.local/bin/mcp-authscan",
+      "--brief",
+      "--contact",
+      "lhmisme2011@gmail.com",
+      "--authorized-by",
+      "Leroy H. Mason",
+      "--auth-basis",
+      "Own fixture, local loopback",
+      "--allow-private",
+      "--probe-tools",
+      "--allow-host",
+      "127.0.0.1",
+      "http://127.0.0.1:57573/mcp"
+    ],
+    "exit": 1,
+    "verdict_line": "VERDICT HIGH | 127.0.0.1 | 1 findings | 8 passed | 1 not observed | 5 excluded | probe set 2026.11.23.1",
+    "verdict": "HIGH"
+  },
+  "execution_status": "SCANNED",
+  "stopped": {
+    "fixture_rc": -15,
+    "pgroup_gone": true,
+    "port_closed": true
+  }
+}

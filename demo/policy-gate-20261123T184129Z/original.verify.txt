@@ -1,0 +1,5 @@
+usage: verify.py [-h] [--allow-private] [--authorized-by AUTHORIZED_BY]
+                 [--auth-basis AUTH_BASIS] [--contact CONTACT]
+                 report
+verify.py: error: unrecognized arguments: --require-signature
+verify_exit=2
