@@ -12,6 +12,13 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.43] - 2026-11-24
+
+**Wheel sha256: `b6a98d4afe9c04a4c00aeabf6d7e4e4237652a5f8964dcf2d4b2e5a0639a79f0`** (`mcp_authscan-1.1.43-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `2862302` with `SOURCE_DATE_EPOCH=1795550673`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
+
+### Changed
+- **Live-scan fetches are routed through the DNS-pinned transport.** The preflight, the RFC 8414 discovery fallback, the discovery init POST and the remaining live-scan requests now resolve once, check every resolved record, and connect only to the address that was checked, closing the resolve-then-reconnect rebind window; destination safety is split from the ALLOWED_HOSTS scope check. The probe set and grading are unchanged (`PROBE_SET_VERSION` 2026.11.23.1).
+
 ## [1.1.42] - 2026-11-24
 
 **Wheel sha256: `f2477745d7e66b5fa1a262b9dc64ba6078daee655bcdabb1dcae832b7ce0e115`** (`mcp_authscan-1.1.42-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `7353ba4` with `SOURCE_DATE_EPOCH=1795533480`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
