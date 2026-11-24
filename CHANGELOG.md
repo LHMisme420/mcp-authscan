@@ -12,6 +12,25 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.42] - 2026-11-24
+
+**Wheel sha256: _(recorded in `release/anchors.tsv` at build time)_.** 1.1.41 is already on PyPI, so this ships as 1.1.42.
+
+### Security
+- **The policy gate now requires the signature to actually cover probe statuses.** A policy that omitted `min-sig-version` let probe statuses be graded from a report whose signature does not cover them (a valid `sig_version` 1 or 2 signature). The gate now requires the verification engine's `probe_statuses` verdict to be VERIFIED, as a backstop after the existing `min-sig-version` check, so a policy can no longer waive it and an unsigned or lower-signature report can never reach a CLEAN verdict (GHSA-jvh3-qvpr-qm8q class).
+
+### Fixed
+- **`python -m mcp_authscan.report_verify` no longer reports PASS on an unsigned report.** Its exit came from a local failure-word list that had drifted from the engine's authoritative set, so UNSIGNED, KEY NOT VALID and SIGNATURE NOT CHECKED all returned exit 0. The exit is now taken from the engine's verdict (`verification.passed`) and requires a verified signature; hash-only reproduction remains available via `python -m mcp_authscan.verify`.
+- **The policy gate could hash different bytes than the signature covered.** `evaluate` parsed the report from its path and then re-opened the same path to hash it, a time-of-check/time-of-use gap. The report is now read once and the same bytes feed both the signature and the hash checks.
+- **Nested package version metadata was out of sync.** `tests/test_cli_packaging` builds the wheel from `mcp_authscan/pyproject.toml`, which lagged behind `__version__` and the root `pyproject.toml`; a wheel built that way shipped mismatched version metadata. All four version sites are now synced.
+
+### Changed
+- **`fail-on` has a built-in `HIGH` floor.** A policy may tighten it (reject at a lower severity) but can no longer loosen it above HIGH: a policy that set `fail-on: critical` to tolerate HIGH findings will now reject them.
+- **No `fail-on` declared plus a HIGH or CRITICAL finding now reads CONDITIONAL**, naming the top severity, instead of CLEAN. The CLI exit code is unchanged (0).
+
+### Compatibility
+- A policy relying on `fail-on: critical` to pass HIGH findings will now reject them. A report with a HIGH or CRITICAL finding and no `fail-on` now yields CONDITIONAL, not CLEAN. `python -m mcp_authscan.report_verify` exits non-zero on unsigned or legacy reports where it previously exited 0.
+
 ## [1.1.40] - 2026-11-23
 
 **Wheel sha256: `38c70351c4bd26a67c09c39469dac7e773d3cd85110c82e1015b8440c6a4a4fc`** (`mcp_authscan-1.1.40-py3-none-any.whl`). This is the release's anchor, recorded in `release/anchors.tsv`. The wheel is byte-reproducible from commit `2a73264` with `SOURCE_DATE_EPOCH=1795461035`, `python -m build --no-isolation --wheel`, build 1.6.1, setuptools 84.2.1 and wheel 0.48.0.
