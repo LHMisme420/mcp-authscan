@@ -14,7 +14,12 @@ def build(tmp, probes, required):
 
 def stub(monkeypatch):
     monkeypatch.setattr(pc, 'authenticity', lambda report, keys: 'SIGNED BY k')
-    monkeypatch.setattr(pc, 'verify', lambda path: ('MATCH', 'deadbeefcafe'))
+    from mcp_authscan import verification
+    monkeypatch.setattr(verification, 'anchor_from_keys', lambda keys: None)
+    monkeypatch.setattr(verification, 'verify', lambda raw, anchor=None: {
+        'failed_stage': None, 'format': {'verdict': 'SCHEMA 3'},
+        'integrity': {'verdict': 'INTACT', 'recomputed': 'deadbeefcafe'},
+        'probe_statuses': {'verdict': 'VERIFIED', 'reason': ''}})
 
 
 def test_required_miss_with_extra_passes_is_conditional(tmp_path, monkeypatch):

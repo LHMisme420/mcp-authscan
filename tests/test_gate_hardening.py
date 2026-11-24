@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_authscan import report_verify
 from test_gate_e2e import POLICY
-from test_gate_mutations import gate
+from test_gate_mutations import gate, gate_v3
 
 DEFAULT_POLICY = Path(__file__).resolve().parents[1] / "mcp_authscan" / "policy-default.json"
 
@@ -55,7 +55,7 @@ def test_sig_version_below_floor_rejects(tmp_path):
 
 
 def test_no_floor_leaves_clean_report_clean(tmp_path):
-    out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")])
+    out = gate_v3(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")])
     assert out["verdict"] == "CLEAN", out
 
 
@@ -116,7 +116,7 @@ SCOPE = {"operations": ["initialize", "tools/list"]}
 
 
 def test_declared_scope_without_signed_proof_is_not_clean(tmp_path):
-    out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")], with_policy(scope=SCOPE))
+    out = gate_v3(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")], with_policy(scope=SCOPE))
     assert (out["verdict"], out["check"]) == ("CONDITIONAL", "SCOPE"), out
 
 
@@ -128,5 +128,13 @@ def test_claimed_content_observation_does_not_prove_scope(tmp_path):
 
 
 def test_no_declared_scope_still_reaches_clean(tmp_path):
-    out = gate(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")])
+    out = gate_v3(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")])
     assert out["verdict"] == "CLEAN", out
+
+
+def test_high_finding_without_fail_on_is_conditional(tmp_path):
+    """Addition: no fail-on declared + a HIGH finding -> CONDITIONAL naming the top
+    severity, never CLEAN (and the CLI exit stays 0 since the verdict is not REJECT)."""
+    out = gate_v3(tmp_path, Ed25519PrivateKey.generate(), [("P1", "PASS")], mutate=add_finding("X-1", "HIGH"))
+    assert (out["verdict"], out["check"]) == ("CONDITIONAL", "SEVERITY"), out
+    assert "HIGH" in out["detail"], out
