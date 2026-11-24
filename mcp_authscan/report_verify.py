@@ -393,13 +393,15 @@ def main(argv=None):
                       else "NOT VERIFIED (outside report_hash; needs sig_version 3 checked with --keys)")
             operations = ("signed" if engine["operations"]["verdict"] == "VERIFIED"
                           else "NOT VERIFIED (needs sig_version 4 checked with --keys)")
+            report_ok = verification.passed(engine, require_signature=True)
         except (OSError, ValueError) as e:
             status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
             pin = "-"
             probes = "-"
             operations = "-"
+            report_ok = False
         print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]  [probes: {probes}]  [operations: {operations}]")
-        ok = ok and status in ("MATCH", LEGACY_MATCH) and not auth.startswith(("SIGNATURE INVALID", "UNKNOWN KEY", "UNSUPPORTED FORM"))
+        ok = ok and report_ok
     return 0 if ok else 1
 
 

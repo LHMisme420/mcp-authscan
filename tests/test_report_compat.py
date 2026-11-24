@@ -98,7 +98,7 @@ def _lines(capsys):
 
 
 def test_cli_legacy_and_signed_never_print_the_same_words(tmp_path, capsys):
-    assert rv.main(["--keys", _keys(tmp_path)] + [str(FIX / n) for n in LEGACY + [SIGNED]]) == 0
+    assert rv.main(["--keys", _keys(tmp_path)] + [str(FIX / n) for n in LEGACY + [SIGNED]]) != 0  # D1: legacy reports are unsigned -> nonzero
     lines = _lines(capsys)
     for name in LEGACY:
         assert lines[name].startswith("LEGACY MATCH ")
@@ -108,7 +108,7 @@ def test_cli_legacy_and_signed_never_print_the_same_words(tmp_path, capsys):
 
 
 def test_cli_without_keys_does_not_claim_signed(capsys):
-    assert rv.main([str(FIX / SIGNED)]) == 0
+    assert rv.main([str(FIX / SIGNED)]) != 0          # D1: no --keys -> signature unverified -> nonzero
     line = capsys.readouterr().out
     assert "SIGNATURE NOT CHECKED" in line and "SIGNED BY" not in line
 
