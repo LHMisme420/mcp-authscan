@@ -248,6 +248,17 @@ def _open_no_redirect(request_obj, timeout=5):
     )
 
 
+def open_pinned(request_obj, timeout=5, allow_private=None):
+    """Destination-validated, DNS-pinned, redirect-refusing open -- no scope gate."""
+    deadline_token = _DEADLINE.set(time.monotonic() + timeout)
+    pin_token = _PIN.set(_resolve_pinned(request_obj.full_url, allow_private))
+    try:
+        return _open_no_redirect(request_obj, _remaining())
+    finally:
+        _PIN.reset(pin_token)
+        _DEADLINE.reset(deadline_token)
+
+
 def _egress_guard(request_obj, timeout=5, allow_private=None,
                   allowed_hosts=None, follow_redirects=True):
     from urllib.parse import urljoin

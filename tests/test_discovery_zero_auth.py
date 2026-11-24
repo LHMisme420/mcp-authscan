@@ -13,7 +13,7 @@ def _fake_200(monkeypatch, payload=BODY):
     resp = SimpleNamespace(status=200, read=lambda n=-1: payload)
     # discover now routes outbound through open_without_redirects (redirect refusal);
     # patch both symbols so the fake 200 is used whichever transport the code calls.
-    monkeypatch.setattr(m, "urlopen", lambda *a, **k: nullcontext(resp))
+    monkeypatch.setattr(m, "pinned_open", lambda *a, **k: nullcontext(resp))
     monkeypatch.setattr(m, "open_without_redirects", lambda *a, **k: nullcontext(resp))
 
 

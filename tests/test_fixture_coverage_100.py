@@ -142,7 +142,7 @@ def test_coverage_is_over_the_declared_probe_set(monkeypatch):
     server = HTTPServer(("127.0.0.1", 9000), CompleteHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        _, _, probe_status, _, (records, _) = monolith.scan_live_server("http://127.0.0.1:9000/mcp")
+        _, _, probe_status, _, (records, _) = monolith.scan_live_server("http://127.0.0.1:9000/mcp", allow_private=True)
     finally:
         server.shutdown()
         server.server_close()
