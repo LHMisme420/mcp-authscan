@@ -23,7 +23,7 @@ from pathlib import Path
 
 # ---- Live MCP Server Scanning ----
 import socket
-from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlparse
 from mcp_authscan.cors import probe_cors_urllib
