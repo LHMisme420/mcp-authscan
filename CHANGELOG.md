@@ -1,12 +1,12 @@
 # Changelog
 
-## Unreleased
+## [1.1.45] - 2026-11-25
 
 - **Report hash `verdict-v4`: the graded hash now commits to every probe row.** `report_hash` covers the verdict-v3 totals and findings plus, per probe, `probe_id`, `name`, `status`, `http_status`, `prerequisite_met`, `limitation` and `severity`, sorted, duplicates kept. The scheme name is inside the preimage, so relabeling a v4 report as v3 reads ALTERED. Observed headers, body excerpts, detail, endpoint, timestamps and request ids stay outside it. The CLI scanner writes verdict-v4; the web exporter still writes verdict-v3.
 - **Separate evidence hash `probe-evidence-v1`.** `evidence_hash` covers `probe_id`, `name` and `body_sha256` per probe row, kept out of the graded hash because response bodies can carry server-varying bytes. Required with verdict-v4; integrity reads ALTERED if either hash differs, and the result names which (`graded_verdict`, `evidence_verdict`).
 - **Verifier output names both hashes and both schemes**: `report_verify` lines end `[scheme: verdict-v4=<hash> evidence probe-evidence-v1=<hash>]`; `verify` prints `HASH_SCHEME`, `EVIDENCE_HASH` and `EVIDENCE_HASH_SCHEME`.
 - **Gate: `min-graded-scheme`** policy key, like `min-sig-version`. Unset by default. `REJECT GRADED-SCHEME` below the floor, `POLICY-INVALID` for an unknown scheme.
-- verdict-v3 and the 1.1.21-1.1.24 legacy format verify exactly as before.
+- **Current CLI contract: verdict-v4, schema version 3.** Reports written under earlier schemes, including verdict-v3 and the 1.1.21-1.1.24 legacy format, still verify under their original algorithm and print the scheme that judged them; they are never reinterpreted as verdict-v4.
 
 ## Severity calibration
 
