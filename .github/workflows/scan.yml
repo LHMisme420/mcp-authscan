@@ -19,6 +19,13 @@ jobs:
         run: pip install mcp-authscan
       - name: Scan
         run: mcp-authscan "$TARGET" --sarif --output scan.sarif --contact "$CONTACT" --fail-on high --scope "live endpoint auth posture"
+      - name: Report
+        run: mcp-authscan "$TARGET" --json --output scan.json --contact "$CONTACT" --scope "live endpoint auth posture"
+      - name: Save report
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-report
+          path: scan.json
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
