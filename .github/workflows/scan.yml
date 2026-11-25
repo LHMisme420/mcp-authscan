@@ -1,0 +1,25 @@
+name: MCP auth scan
+on:
+  push:
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      TARGET: "tollbooth-authority.fastmcp.app/mcp"
+      CONTACT: "lhmisme2011@gmail.com"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install mcp-authscan
+      - name: Scan
+        run: mcp-authscan "$TARGET" --sarif --output scan.sarif --contact "$CONTACT" --fail-on high --scope "live endpoint auth posture"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: scan.sarif
