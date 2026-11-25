@@ -23,6 +23,7 @@ def _files(tmp_path, observation):
         report['content_observed'] = {'version': 'test', 'session_established': True,
                                       'operations': ['initialize'], 'inspected': {}, 'reasons': []}
         report['sig_version'] = 4
+        report['content_observed']['credential_context'] = 'anonymous'
     elif observation in ('discovery', 'other-endpoint', 'metadata', 'no-observation', 'resource-probe'):
         report['probes'].append({
             'name': 'resource-authservers' if observation == 'metadata' else

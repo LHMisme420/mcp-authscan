@@ -91,6 +91,7 @@ def observe(endpoint, token=None, allow_private=None, allowed_hosts=None):
         allowed_hosts=allowed_hosts)
     out = {"version": CONTENT_PROBE_VERSION, "endpoint": endpoint,
            "session_established": bool(session.get("established")),
+           "credential_context": "credentialed" if token else "unknown",
            "inspected": {}, "operations": [], "reasons": [], "findings": []}
     if not out["session_established"]:
         out["reasons"].append(

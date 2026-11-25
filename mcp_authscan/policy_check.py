@@ -25,6 +25,7 @@ def _authentication_contradiction(report):
     content = report.get('content_observed')
     # Existing form-4 signatures bind content_observed; older forms do not.
     if (report.get('sig_version') == 4 and isinstance(content, dict)
+            and content.get('credential_context') == 'anonymous'
             and content.get('session_established') is True):
         return 'declared authentication required; content_observed.session_established is true'
     target = report.get('target')
@@ -101,6 +102,14 @@ def evaluate(report_path, policy_path, keys_path):
     for bad in policy.get('forbidden-findings', []):
         if any(_rule_matches(r, bad) for r in rules):
             return {'verdict': 'REJECT', 'check': 'FINDING-PRESENT', 'detail': bad}
+    for finding in report.get('findings', []):
+        severity = str(finding.get('severity')).upper()
+        if severity not in SEVERITY_ORDER:
+            return {
+                'verdict': 'REJECT',
+                'check': 'FINDING-SEVERITY-INVALID',
+                'detail': str(finding.get('rule')) + ' ' + severity
+            }
     floor = policy.get('fail-on')
     if floor is not None:
         if str(floor).upper() not in SEVERITY_ORDER:

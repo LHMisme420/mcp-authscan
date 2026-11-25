@@ -148,7 +148,7 @@ class TestAnonToolsList:
             result = probe_anon_tools_list("http://example.com")
             assert result.status == "NOT_OBSERVED"
 
-    def test_200_with_error_response_returns_pass(self):
+    def test_200_with_error_response_returns_not_observed(self):
         """200 with error response is correct behavior, return PASS."""
         with patch("mcp_authscan.resource_probes._egress_guard_fetch") as mock_fetch:
             mock_fetch.return_value = (
@@ -157,7 +157,7 @@ class TestAnonToolsList:
                 b'{"jsonrpc":"2.0","error":{"code":-32600,"message":"Unauthorized"}}'
             )
             result = probe_anon_tools_list("http://example.com")
-            assert result.status == "PASS"
+            assert result.status == "NOT_OBSERVED"
 
 
 class TestEndpointCors:
