@@ -2549,6 +2549,11 @@ def main():
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
+    ap.add_argument(
+        "--authentication-assurance",
+        action="store_true",
+        help="run an explicitly authorized initialization authentication contrast"
+    )
     ap.add_argument("--probe-tools", action=argparse.BooleanOptionalAction, default=False,
                     help="after a zero-auth handshake, send one unauthenticated tools/call (arguments {}) "
                          "to the first tool whose name is a read-only word (list, get, read, status, "
@@ -2757,6 +2762,23 @@ def main():
                 sys.exit(6)
             F.extend(cobs.get("findings") or [])
             args.content_observed = {k: cobs[k] for k in ("version", "credential_context", "session_established", "operations", "inspected", "reasons") if k in cobs}
+
+            if getattr(args, "authentication_assurance", False):
+                from mcp_authscan import authentication_assurance
+
+                try:
+                    args.content_observed["authentication_assurance"] = (
+                        authentication_assurance.observe(
+                            args.target,
+                            token=os.environ.get("MCPAUTHSCAN_TOKEN") or None,
+                            allow_private=args.allow_private,
+                        )
+                    )
+                except EgressRefusalError:
+                    print("[!] Authentication assurance egress refused",
+                          file=sys.stderr)
+                    sys.exit(6)
+
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":

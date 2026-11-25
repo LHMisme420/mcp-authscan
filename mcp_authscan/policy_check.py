@@ -156,6 +156,56 @@ def evaluate(report_path, policy_path, keys_path):
         if pin not in ('MANIFEST MATCHES PIN', 'MANIFEST MATCHES INSTALLED'):
             tv = (report.get('provenance') or {}).get('tool_version') if isinstance(report.get('provenance'), dict) else None
             return {'verdict': 'REJECT', 'check': 'MANIFEST-PIN', 'detail': pin + ' (tool_version ' + str(tv) + ')'}
+    # Positive authentication assurance is opt-in.
+    positive_auth = policy.get(
+        'verified-authentication-required', False
+    )
+
+    if type(positive_auth) is not bool:
+        return {
+            'verdict': 'REJECT',
+            'check': 'AUTHENTICATION-POLICY-INVALID',
+            'detail': 'verified-authentication-required must be true or false',
+        }
+
+    if positive_auth:
+        from mcp_authscan.authentication_assurance import derive_verdict
+
+        content = report.get('content_observed')
+        assurance = (
+            content.get('authentication_assurance')
+            if isinstance(content, dict) else None
+        )
+
+        if (
+            report.get('sig_version') != 4
+            or not isinstance(assurance, dict)
+            or not isinstance(report.get('target'), str)
+            or not report['target']
+            or assurance.get('endpoint') != report['target']
+        ):
+            return {
+                'verdict': 'CONDITIONAL',
+                'check': 'AUTHENTICATION-ASSURANCE-MISSING',
+                'detail': 'Signed authentication assurance for the assessed target is required',
+            }
+
+        auth_verdict = derive_verdict(assurance)
+
+        if auth_verdict == 'CONTRADICTED':
+            return {
+                'verdict': 'REJECT',
+                'check': 'AUTHENTICATION-ASSURANCE-CONTRADICTED',
+                'detail': 'Unauthorized initialization acceptance observed',
+            }
+
+        if auth_verdict != 'VERIFIED':
+            return {
+                'verdict': 'CONDITIONAL',
+                'check': 'AUTHENTICATION-ASSURANCE-INCONCLUSIVE',
+                'detail': 'Authentication enforcement was not demonstrated',
+            }
+
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
     if req and not missed and scope_ops:
         # Only a sig_version 4 signature covers content_observed.operations (checked above by

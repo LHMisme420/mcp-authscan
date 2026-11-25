@@ -1,0 +1,45 @@
+{
+  "schema": "mcp-policy-v1",
+  "trusted-signers": [
+    {
+      "key-id": "9b79936f975f9770b3840dbd45f93d2bb23d1bd2cc3d7d81d092e5cd41926e9d"
+    }
+  ],
+  "scope": {
+    "operations": [
+      "initialize",
+      "tools/list",
+      "resources/list",
+      "prompts/list"
+    ]
+  },
+  "acceptable-verdicts": [
+    "PASS"
+  ],
+  "required-probes": [
+    "issuer-identity",
+    "resource-binding",
+    "resource-authservers",
+    "token-cache-control",
+    "token-cors",
+    "jwks-keys",
+    "password-grant",
+    "pkce-s256",
+    "redirect-uri-exact",
+    "client-auth",
+    "token-audience",
+    "cross-origin read on the MCP endpoint",
+    "rate limiting on the endpoint",
+    "alternate transport on the same host"
+  ],
+  "forbidden-findings": [
+    "ZERO-AUTH",
+    "CORS-1",
+    "MCPC-1"
+  ],
+  "min-sig-version": 4,
+  "fail-on": "high",
+  "require-manifest-pin": true,
+  "declared-authentication-required": true,
+  "verified-authentication-required": true
+}
