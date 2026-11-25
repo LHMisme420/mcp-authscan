@@ -46,7 +46,13 @@ def _scan(fixture, *extra, tmp_path):
             pytest.fail("fixture %s did not start" % fixture)
         cmd = [SCANNER, *extra, *AUTH, "--evidence-dir", str(tmp_path / "ev"),
                "http://127.0.0.1:%d/mcp" % port]
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=180, cwd=ROOT)
+        # Anonymous fixtures must not inherit operator credentials.
+        env = os.environ.copy()
+        env.pop("MCPAUTHSCAN_TOKEN", None)
+        return subprocess.run(
+            cmd, capture_output=True, text=True,
+            timeout=180, cwd=ROOT, env=env
+        )
     finally:
         os.killpg(proc.pid, 15)
         proc.wait(timeout=5)

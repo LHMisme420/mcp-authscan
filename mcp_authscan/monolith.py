@@ -3332,9 +3332,34 @@ def main():
         from mcp_authscan.report_signing import sign_report
         from mcp_authscan.report_verify import EVIDENCE_KEY, PROVENANCE_KEY, SIG_VERSION_KEY, build_provenance, sig_version_for, signed_content
         # Declare the signed form explicitly; a verifier reads it, it does not guess it.
-        if EVIDENCE_KEY in canonical_payload:
-            canonical_payload[PROVENANCE_KEY] = build_provenance()
-        canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
+        # Authentication assurance must be signed independently of
+        # whether access-class ledger observations were available.
+        assurance_requested = getattr(args, "authentication_assurance", False)
+        if assurance_requested:
+            from mcp_authscan import evidence_emit
+            content = canonical_payload.get("content_observed")
+            if not isinstance(content, dict) or not isinstance(
+                content.get("authentication_assurance"), dict
+            ):
+                print("[!] --sign: authentication assurance missing. No report written.", file=sys.stderr)
+                sys.exit(4)
+            if EVIDENCE_KEY not in canonical_payload:
+                canonical_payload[EVIDENCE_KEY] = evidence_emit.evidence_binding([])
+
+        try:
+            if EVIDENCE_KEY in canonical_payload:
+                canonical_payload[PROVENANCE_KEY] = build_provenance()
+            canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
+            if assurance_requested and canonical_payload[SIG_VERSION_KEY] != 4:
+                raise ValueError("authentication assurance requires signature version 4")
+            signed_content(canonical_payload, F)
+        except Exception as exc:
+            print(
+                "[!] --sign: evidence binding failed: "
+                + type(exc).__name__ + ". No report written.",
+                file=sys.stderr,
+            )
+            sys.exit(4)
         if not sign_report(canonical_payload, signed_content(canonical_payload, F), key=args.signing_key):
             canonical_payload.pop(SIG_VERSION_KEY, None)
             canonical_payload.pop(PROVENANCE_KEY, None)
