@@ -60,6 +60,12 @@ def _self_manifest_status(report):
 
 def evaluate(report_path, policy_path, keys_path):
     policy = json.load(open(policy_path))
+    from mcp_authscan import assurance_freshness
+
+    invalid_freshness = assurance_freshness.validate_policy(policy)
+
+    if invalid_freshness:
+        return invalid_freshness
     with open(report_path, 'rb') as _fh:
         raw = _fh.read()                      # D3: read the report bytes once...
     report = json.loads(raw)
@@ -205,6 +211,13 @@ def evaluate(report_path, policy_path, keys_path):
                 'check': 'AUTHENTICATION-ASSURANCE-INCONCLUSIVE',
                 'detail': 'Authentication enforcement was not demonstrated',
             }
+
+        freshness = assurance_freshness.evaluate(
+            assurance, policy
+        )
+
+        if freshness:
+            return freshness
 
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
     if req and not missed and scope_ops:

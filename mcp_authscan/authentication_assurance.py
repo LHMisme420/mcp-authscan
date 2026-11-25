@@ -3,6 +3,8 @@
 import json
 import hashlib
 import secrets
+import time
+from mcp_authscan.assurance_freshness import valid_challenge
 from urllib.request import Request
 
 from mcp_authscan import mcp_session
@@ -184,10 +186,15 @@ def derive_verdict(evidence):
 
 
 def observe(endpoint, token=None, allow_private=None,
-            allowed_hosts=None):
+            allowed_hosts=None, deployment_challenge=None):
     """Run only against an explicitly authorized assessment target."""
 
+    if deployment_challenge is not None:
+        if not valid_challenge(deployment_challenge):
+            raise ValueError("Invalid deployment challenge")
+
     evidence = {
+        "assessment_started_at": int(time.time()),
         "version": ASSURANCE_VERSION,
         "endpoint": endpoint,
         "operation": "initialize",
@@ -195,7 +202,11 @@ def observe(endpoint, token=None, allow_private=None,
         "observations": [],
     }
 
+    if deployment_challenge is not None:
+        evidence["deployment_challenge"] = deployment_challenge
+
     if not token:
+        evidence["assessment_completed_at"] = int(time.time())
         return evidence
 
     invalid = "authscan-invalid-" + secrets.token_urlsafe(32)
@@ -216,4 +227,5 @@ def observe(endpoint, token=None, allow_private=None,
             )
         )
 
+    evidence["assessment_completed_at"] = int(time.time())
     return evidence

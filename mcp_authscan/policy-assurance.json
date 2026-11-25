@@ -41,5 +41,8 @@
   "fail-on": "high",
   "require-manifest-pin": true,
   "declared-authentication-required": true,
-  "verified-authentication-required": true
+  "verified-authentication-required": true,
+  "max-assurance-age-seconds": 900,
+  "max-clock-skew-seconds": 60,
+  "max-assessment-duration-seconds": 120
 }

@@ -2550,6 +2550,21 @@ def main():
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
     ap.add_argument(
+        "--deployment-challenge",
+        type=lambda value: (
+            value if __import__(
+                "mcp_authscan.assurance_freshness",
+                fromlist=["valid_challenge"]
+            ).valid_challenge(value)
+            else ap.error(
+                "deployment challenge must be 64 lowercase hex characters"
+            )
+        ),
+        metavar="HEX",
+        help="bind authentication assurance to a deployment challenge",
+    )
+
+    ap.add_argument(
         "--authentication-assurance",
         action="store_true",
         help="run an explicitly authorized initialization authentication contrast"
@@ -2772,6 +2787,9 @@ def main():
                             args.target,
                             token=os.environ.get("MCPAUTHSCAN_TOKEN") or None,
                             allow_private=args.allow_private,
+                            deployment_challenge=getattr(
+                                args, "deployment_challenge", None
+                            ),
                         )
                     )
                 except EgressRefusalError:
