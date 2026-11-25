@@ -11,10 +11,25 @@ def main(argv=None):
     parser.add_argument("report")
     parser.add_argument("policy")
     parser.add_argument("keys")
+    parser.add_argument("--challenge-db")
+    parser.add_argument("--deployment-id")
     args = parser.parse_args(argv)
 
     try:
-        result = evaluate(args.report, args.policy, args.keys)
+        registry_options = {}
+
+        if args.challenge_db is not None:
+            registry_options["challenge_db"] = args.challenge_db
+
+        if args.deployment_id is not None:
+            registry_options["deployment_id"] = args.deployment_id
+
+        result = evaluate(
+            args.report,
+            args.policy,
+            args.keys,
+            **registry_options,
+        )
         code = {"CLEAN": 0, "CONDITIONAL": 2}.get(
             result.get("verdict"), 1
         )

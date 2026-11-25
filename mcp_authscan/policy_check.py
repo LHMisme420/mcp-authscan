@@ -58,9 +58,50 @@ def _self_manifest_status(report):
     return 'MANIFEST MATCHES INSTALLED' if own.get('tool_manifest') == prov.get('tool_manifest') else 'MANIFEST NOT INSTALLED'
 
 
-def evaluate(report_path, policy_path, keys_path):
+def evaluate(
+    report_path, policy_path, keys_path, *,
+    challenge_db=None, deployment_id=None,
+):
     policy = json.load(open(policy_path))
     from mcp_authscan import assurance_freshness
+
+    single_use = policy.get(
+        "single-use-authorization-required", False
+    )
+
+    if type(single_use) is not bool:
+        return {
+            "verdict": "REJECT",
+            "check": "SINGLE-USE-POLICY-INVALID",
+            "detail": "Single-use requirement must be boolean",
+        }
+
+    registry_requested = (
+        challenge_db is not None or deployment_id is not None
+    )
+
+    if single_use or registry_requested:
+        if not (
+            single_use
+            and isinstance(challenge_db, str)
+            and challenge_db.strip()
+            and isinstance(deployment_id, str)
+            and deployment_id.strip()
+            and policy.get("verified-authentication-required") is True
+            and assurance_freshness.valid_challenge(
+                policy.get("expected-deployment-challenge")
+            )
+            and isinstance(
+                policy.get("expected-assurance-target"), str
+            )
+            and policy.get("expected-assurance-target").strip()
+            and "max-assurance-age-seconds" in policy
+        ):
+            return {
+                "verdict": "REJECT",
+                "check": "SINGLE-USE-CONFIGURATION",
+                "detail": "Trusted registry, deployment and challenge policy required",
+            }
 
     invalid_freshness = assurance_freshness.validate_policy(policy)
 
@@ -231,6 +272,44 @@ def evaluate(report_path, policy_path, keys_path):
     if req and not missed:
         if top is not None:
             return {'verdict': 'CONDITIONAL', 'check': 'SEVERITY', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; ' + top + ' finding present and no fail-on set'}
+        if single_use:
+            import hashlib
+            from mcp_authscan import challenge_registry
+
+            try:
+                accepted = challenge_registry.consume(
+                    challenge_db,
+                    challenge=assurance["deployment_challenge"],
+                    target=assurance["endpoint"],
+                    deployment_id=deployment_id,
+                    report_digest=hashlib.sha256(raw).hexdigest(),
+                    assessment_started_at=assurance["assessment_started_at"],
+                    assessment_completed_at=assurance["assessment_completed_at"],
+                    max_age=policy["max-assurance-age-seconds"],
+                    max_skew=policy.get("max-clock-skew-seconds", 0),
+                )
+            except Exception as exc:
+                return {
+                    "verdict": "REJECT",
+                    "check": "CHALLENGE-REGISTRY-ERROR",
+                    "detail": type(exc).__name__,
+                }
+
+            if not accepted:
+                return {
+                    "verdict": "REJECT",
+                    "check": "CHALLENGE-NOT-AUTHORIZED",
+                    "detail": "Unknown, expired, consumed or mismatched challenge",
+                }
+
+            return {
+                "verdict": "CLEAN",
+                "check": "SINGLE-USE-AUTHORIZED",
+                "detail": "Verified challenge atomically consumed",
+                "deployment_id": deployment_id,
+                "report_sha256": hashlib.sha256(raw).hexdigest(),
+            }
+
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
 
