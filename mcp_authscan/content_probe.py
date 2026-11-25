@@ -10,7 +10,7 @@ import re
 from mcp_authscan import mcp_session
 from mcp_authscan.owasp_mapping import tag
 
-CONTENT_PROBE_VERSION = "2026.11.03.1"
+CONTENT_PROBE_VERSION = "2026.11.25.1"
 
 DIRECTIVE = re.compile(
     r"(?i)\b(ignore (all )?(previous|prior|above)|do not (tell|mention|reveal)"
@@ -108,10 +108,16 @@ def observe(endpoint, token=None, allow_private=None, allowed_hosts=None):
         except Exception as exc:
             out["reasons"].append("%s: %s" % (method, exc))
             continue
+        if not (200 <= int(status) < 300):
+            out["reasons"].append(
+                "%s: HTTP %s" % (method, status))
+            continue
         msg = _parse(status, hdrs, raw)
-        res = msg.get("result") if isinstance(msg, dict) else None
+        res = mcp_session._rpc_result(msg, payload["id"])
         items = res.get(key) if isinstance(res, dict) else None
-        if not isinstance(items, list):
+        if not isinstance(items, list) or any(
+            not isinstance(item, dict) for item in items
+        ):
             out["reasons"].append("%s: no result.%s" % (method, key))
             continue
         out["inspected"][key] = len(items)

@@ -3,14 +3,11 @@ import json
 from mcp_authscan import mcp_session as m
 from mcp_authscan.oauth_probes_v2 import EgressRefusalError
 
-INIT_RESULT = {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "protocolVersion": "2025-06-18",
-        "serverInfo": {"name": "stub", "version": "9.9.9"},
-    },
-}
+INIT_RESULT = {'id': 1,
+ 'jsonrpc': '2.0',
+ 'result': {'capabilities': {},
+            'protocolVersion': '2025-06-18',
+            'serverInfo': {'name': 'stub', 'version': '9.9.9'}}}
 
 
 def _fake(init_headers=None, init_status=200, init_body=None, ctype="application/json", calls=None):

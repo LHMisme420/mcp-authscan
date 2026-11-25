@@ -127,7 +127,15 @@ def test_observe_records_successful_operations(monkeypatch):
                  "resources/list": {"result": {"resources": []}}}
     monkeypatch.setattr(content_probe.mcp_session, "open_session", lambda *a, **k: {"established": True, "session_id": "s"})
     monkeypatch.setattr(content_probe.mcp_session, "_post_jsonrpc", lambda endpoint, payload, *a, **k: (200, {}, payload["method"]))
-    monkeypatch.setattr(content_probe, "_parse", lambda status, hdrs, raw: responses[raw])
+    monkeypatch.setattr(content_probe, "_parse", lambda status, hdrs, raw: {
+        "jsonrpc": "2.0",
+        "id": {
+            "tools/list": 201,
+            "prompts/list": 202,
+            "resources/list": 203,
+        }[raw],
+        **responses[raw],
+    })
     out = content_probe.observe("https://mcp.example.invalid/mcp")
     assert out["session_established"] is True
     assert out["operations"] == ["initialize", "tools/list", "resources/list"], out
