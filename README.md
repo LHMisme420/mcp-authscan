@@ -160,13 +160,16 @@ python -m mcp_authscan.policy_check REPORT.json                  # packaged defa
 python -m mcp_authscan.policy_check REPORT.json POLICY.json KEYS.json
 ```
 
-It prints one JSON decision, `{"verdict", "check", "detail"}`, and exits **1 only on `REJECT`**. `CLEAN` and `CONDITIONAL` exit 0, so a CI step that must not accept partial coverage has to check the verdict, not just the exit code.
+It prints one JSON decision, `{"verdict", "check", "detail"}`, and exits **1 on `REJECT` or `CONTRADICTED`**. `CLEAN` and `CONDITIONAL` exit 0, so a CI step that must not accept partial coverage has to check the verdict, not just the exit code.
 
 | Verdict | Meaning |
 |---|---|
 | `REJECT` | untrusted or invalid signature, hash mismatch, a required probe missing, duplicated or `FAIL`, a forbidden finding, a finding at or above `fail-on`, `sig_version` below `min-sig-version`, `hash_scheme` below `min-graded-scheme`, or (with `require-manifest-pin`) a tool manifest not pinned for its version |
 | `CONDITIONAL` | trustworthy, but not every required probe is `PASS`, or the policy declares a `scope` the report does not prove in signed content |
 | `CLEAN` | trustworthy, and every required probe is `PASS` |
+| `CONTRADICTED` | policy declares authentication required, but the report demonstrates unauthenticated resource access |
+
+Optional policy key `declared-authentication-required` accepts `true` or `false` and is absent by default. Absent or `false` preserves existing decisions and exits. When `true`, a trusted, intact report with verified probe statuses returns `CONTRADICTED AUTHENTICATION-REQUIRED` (exit 1) for a `ZERO-AUTH` finding, a form-4-signed `content_observed.session_established: true`, or successful anonymous resource discovery at the exact target endpoint. Discovery means `unauthenticated-discovery` with `PASS` and HTTP 200; existing resource probes `mcp-preflight`, `anon-initialize` and `anon-tools-list` instead record observed anonymous access as `FAIL` with HTTP 200. Public OAuth metadata, another endpoint, and excluded or unobserved probes are not such evidence. This declaration lives only in the policy file; reports, hashes and signatures are unchanged.
 
 Policy keys the gate reads: `trusted-signers`, `required-probes`, `forbidden-findings`, `fail-on`, `min-sig-version`, `min-graded-scheme`, `require-manifest-pin`, `scope`. `min-graded-scheme` (`verdict-v3` or `verdict-v4`, unset by default) refuses a report whose graded hash does not cover probe rows; the 1.1.21-1.1.24 legacy format ranks below `verdict-v3`. The default policy sets `min-sig-version: 3`, `fail-on: high` and `require-manifest-pin: true`. Pins are added after each release (a release cannot contain its own manifest hash), so a report from the gate's own, not-yet-pinned version is checked against the gate's installed source instead (`MANIFEST MATCHES INSTALLED`). Any other mismatch is `REJECT MANIFEST-PIN`. `acceptable-verdicts` is descriptive and not enforced. If the policy sets `scope.operations`, `CLEAN` also requires every listed operation in `content_observed.operations` of a `sig_version` 4 report. Only `sig_version` 4 (scanner 1.1.38 and later, with `--sign`) signs that list; any other report gets at most `CONDITIONAL SCOPE`. An operation is listed only if it succeeded: `initialize` when the MCP session was established, each `*/list` when its result list was parsed.
 

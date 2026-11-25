@@ -28,3 +28,4 @@
 - [Commercial assessment positioning](commercial-assessment-scope.md) — independent assessments are distinct from free scanning; preserve functionality and use authentic or explicitly synthetic evidence.
 - [Release source identity](release-source-identity.md) — publish approval is bound to staged content, not a Git label; refresh the pinned fingerprint after intentional source edits.
 - [Uploaded report verification](uploaded-report-verification.md) — use the actual CLI hash function offline; digest consistency is not provenance or proof of authorization.
+- [Authentication policy declarations](authentication-policy-declarations.md) — keep caller requirements outside signed reports; absent or disabled declarations preserve gate behavior.

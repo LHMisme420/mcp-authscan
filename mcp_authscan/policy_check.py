@@ -16,6 +16,32 @@ def _rule_matches(rule, bad):
     return r == b or (r.startswith(b) and r[len(b)] in _RULE_SEPARATORS)
 
 
+def _authentication_contradiction(report):
+    """Positive observations only: neither a public OAuth document nor missing
+    coverage proves that the resource accepted an unauthenticated client."""
+    for finding in report.get('findings', []):
+        if _rule_matches(finding.get('rule', ''), 'ZERO-AUTH'):
+            return 'declared authentication required; zero-auth finding ' + str(finding['rule'])
+    content = report.get('content_observed')
+    # Existing form-4 signatures bind content_observed; older forms do not.
+    if (report.get('sig_version') == 4 and isinstance(content, dict)
+            and content.get('session_established') is True):
+        return 'declared authentication required; content_observed.session_established is true'
+    target = report.get('target')
+    for probe in report.get('probes', []):
+        if not target or probe.get('endpoint') != target or probe.get('http_status') != 200:
+            continue
+        name, status = probe.get('name'), probe.get('status')
+        # Anonymous discovery success is not the PASS of issuer/metadata checks.
+        # The existing resource probes instead mark successful anonymous access FAIL.
+        if ((name == 'unauthenticated-discovery' and status == 'PASS')
+                or (name in ('mcp-preflight', 'anon-initialize', 'anon-tools-list')
+                    and status == 'FAIL')):
+            return ('declared authentication required; ' + str(name) + ' ' + str(status)
+                    + ' observed unauthenticated HTTP 200 at resource endpoint ' + str(target))
+    return None
+
+
 def _self_manifest_status(report):
     """A release cannot carry its own pin (pins ship one release later), so a report from
     the gate's own, unpinned version is checked against the gate's installed source."""
@@ -54,6 +80,15 @@ def evaluate(report_path, policy_path, keys_path):
         return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE',
                 'detail': ('LEGACY_' if _legacy else '') + ('MATCH' if engine['integrity']['verdict'] == 'INTACT' else 'MISMATCH')}
     digest = engine['integrity']['recomputed']
+    declared = policy.get('declared-authentication-required', False)
+    if not isinstance(declared, bool):
+        return {'verdict': 'REJECT', 'check': 'POLICY-INVALID',
+                'detail': 'declared-authentication-required must be true or false'}
+    if declared and engine['probe_statuses']['verdict'] == 'VERIFIED':
+        contradiction = _authentication_contradiction(report)
+        if contradiction:
+            return {'verdict': 'CONTRADICTED', 'check': 'AUTHENTICATION-REQUIRED',
+                    'detail': contradiction}
     need = set(policy.get('required-probes', [])) - set(str(q.get('name')) for q in report.get('probes', []))
     if need: return {'verdict': 'REJECT', 'check': 'PROBES-MISSING', 'detail': ', '.join(sorted(need))}
     names = [str(q.get("name")) for q in report.get("probes", [])]
@@ -128,7 +163,7 @@ def evaluate(report_path, policy_path, keys_path):
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
 
 
-if __name__ == "__main__" and len(sys.argv) > 3: e = evaluate(sys.argv[1], sys.argv[2], sys.argv[3]); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
+if __name__ == "__main__" and len(sys.argv) > 3: e = evaluate(sys.argv[1], sys.argv[2], sys.argv[3]); print(json.dumps(e)); sys.exit(1 if e['verdict'] in ('REJECT', 'CONTRADICTED') else 0)
 
 from importlib.resources import files as pkgfiles
-if __name__ == "__main__" and len(sys.argv) == 2: f = pkgfiles('mcp_authscan'); e = evaluate(sys.argv[1], str(f / 'policy-default.json'), str(f / 'keys-default.json')); print(json.dumps(e)); sys.exit(0 if e['verdict'] != 'REJECT' else 1)
+if __name__ == "__main__" and len(sys.argv) == 2: f = pkgfiles('mcp_authscan'); e = evaluate(sys.argv[1], str(f / 'policy-default.json'), str(f / 'keys-default.json')); print(json.dumps(e)); sys.exit(1 if e['verdict'] in ('REJECT', 'CONTRADICTED') else 0)
