@@ -29,6 +29,18 @@ test('verified build records real source, both module graphs, and every emitted 
   assert(release.artifacts['build/server/index.js']);
 });
 
+test('a stale copied signed report cannot pass release verification', async t => {
+  const { dir, release } = await fixture(t);
+  await writeFile(path.join(dir, 'build/client/tollbooth-2026-11-25.json'), '{"stale":true}');
+  await assert.rejects(assertArtifacts(dir, release.graphs), /Copied public asset differs from source/);
+});
+
+test('a missing copied signed report cannot fall through to the SPA', async t => {
+  const { dir, release } = await fixture(t);
+  await rm(path.join(dir, 'build/client/tollbooth-2026-11-25.json'));
+  await assert.rejects(assertArtifacts(dir, release.graphs), /Missing copied public asset/);
+});
+
 test('old or modified staged input fails the independent publish fingerprint before building', async t => {
   const { dir, release } = await fixture(t);
   await writeFile(path.join(dir, 'client/src/Assessments.tsx'), 'export default function OldSite() { return null; }');

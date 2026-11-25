@@ -83,6 +83,20 @@ export async function artifactSnapshot(root) {
 }
 
 export async function assertArtifacts(root, graphs) {
+  // Public downloads, especially signed reports, must ship byte-for-byte.
+  for (const name of await filesIn(root, 'client/public')) {
+    const output = `build/client/${name.slice('client/public/'.length)}`;
+    let copied;
+    try {
+      copied = await readFile(path.join(root, output));
+    } catch (error) {
+      if (error.code === 'ENOENT') fail(`Missing copied public asset: ${output}`);
+      throw error;
+    }
+    if (!copied.equals(await readFile(path.join(root, name)))) {
+      fail(`Copied public asset differs from source: ${output}`);
+    }
+  }
   for (const [modules, actual] of [[frontendModules, graphs.frontend], [serverModules, graphs.server]]) {
     for (const name of modules) if (!actual?.includes(name)) fail(`Required module was not compiled: ${name}`);
   }
