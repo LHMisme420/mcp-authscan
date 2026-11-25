@@ -17,7 +17,7 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
                 <>
                 <section aria-labelledby="home-sample-report-title" style={{ overflowWrap: 'anywhere' }}>
                   <h2 id="home-sample-report-title">Sample report</h2>
-                  <p>two runs against one endpoint scanned under its operator's written authorization, both on tool 1.1.44 and probe set 2026.11.23.1, identical graded content and the same report hash, 7f1859cc, signed by key 9b79936f. Download the report and recompute it at /verify, where the same file returns MATCH, SIGNED BY 9b79936f and MANIFEST MATCHES PIN. Nothing in that check depends on trusting whoever issued it.</p>
+                  <p>Two runs against one endpoint scanned under its operator's written authorization, both on tool 1.1.44 and probe set 2026.11.23.1, identical graded content and the same report hash, 7f1859cc, signed by key 9b79936f. Download the report and recompute it at <a href="/verify">/verify</a>, where the same file returns MATCH, SIGNED BY 9b79936f and MANIFEST MATCHES PIN. Nothing in that check depends on trusting whoever issued it.</p>
                   <a href="/tollbooth-2026-11-25.json" download className="button secondary">Download the report</a>
                 </section>
                 <div className="scope-closing-block">
