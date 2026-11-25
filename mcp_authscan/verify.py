@@ -108,6 +108,9 @@ def _differing_fields(original, fresh):
     swapped = compute(original, fresh.get("findings") or [])[0]
     if original_hash != swapped:
         names.append("findings")
+    if original.get("hash_scheme") == "verdict-v4" and "probes" in fresh:
+        if compute({**original, "probes": fresh["probes"]}, original.get("findings") or [])[0] != original_hash:
+            names.append("probes")
     if original.get("report_hash") != original_hash:
         names.append("report_hash")
     return names
@@ -139,6 +142,9 @@ def _lines(result):
         "CATALOG_SHA256=" + str(result["catalog"].get("sha256")),
         "PROBE_SET_ATTESTATION=" + str(result["catalog"].get("attestation")),
         "REPORT_HASH=" + str(result["integrity"].get("report_hash")),
+        "HASH_SCHEME=" + str(result["integrity"].get("hash_scheme")),
+        "EVIDENCE_HASH=" + str(result["integrity"].get("evidence_hash")),
+        "EVIDENCE_HASH_SCHEME=" + str(result["integrity"].get("evidence_hash_scheme")),
         "AUTHENTICITY=" + auth["verdict"] + key,
         "PROBE_STATUSES=" + probes["verdict"] + ("" if probes["verdict"] == "VERIFIED" else " (" + probes["reason"] + ")"),
         "TRUST_ANCHOR=" + "%s:%s" % (anchor.get("source"), anchor.get("sha256")),

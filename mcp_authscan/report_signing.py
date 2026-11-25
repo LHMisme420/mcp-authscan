@@ -65,8 +65,8 @@ def sign_report(report, content, key=None):
     True on success. On failure prints one line naming only the error type and
     returns False, leaving ``report`` unchanged.
     """
-    if report.get("schema_version") != 3 or report.get("hash_scheme") != "verdict-v3":
-        raise ValueError("Signing requires verdict-v3 schema version 3")
+    if report.get("schema_version") != 3 or report.get("hash_scheme") not in ("verdict-v3", "verdict-v4"):
+        raise ValueError("Signing requires verdict-v3 or verdict-v4 schema version 3")
     try:
         key = key or load_signing_key()
         signature = sign_statement(key, content)

@@ -65,11 +65,75 @@ def compute_legacy(payload, findings):
     return hashlib.sha256(json.dumps(hashed, sort_keys=True).encode()).hexdigest(), sorted(hashed)
 
 
+# verdict-v4: verdict-v3 plus one row per probe. Same schema_version 3 report
+# shape; only the hash preimage differs. The scheme name is inside the preimage
+# so a v3 and a v4 hash can never be taken over the same bytes. Volatile probe
+# fields (body_sha256, headers_observed, body_excerpt, detail, endpoint, timings,
+# request ids) stay out: only the graded meaning of each row is committed to.
+# body_sha256 is committed to separately, by evidence_hash below.
+HASH_SCHEME_V4 = "verdict-v4"
+HASH_SCHEMES = (HASH_SCHEME, HASH_SCHEME_V4)
+PROBE_ROW_KEYS = (
+    "probe_id", "name", "status", "http_status",
+    "prerequisite_met", "limitation", "severity",
+)
+# Graded scheme order for the gate's min-graded-scheme. The 1.1.21-1.1.24 legacy
+# format also says verdict-v3 but ranks below it (see graded_scheme_rank).
+GRADED_SCHEME_RANK = {"verdict-v3": 3, "verdict-v4": 4}
+
+# probe-evidence-v1: a second hash, separate from report_hash, over one body
+# digest per probe row. Response bodies can carry server-varying bytes, so this
+# value is not expected to repeat across scans; the graded hash is.
+EVIDENCE_HASH_SCHEME = "probe-evidence-v1"
+EVIDENCE_ROW_KEYS = ("probe_id", "name", "body_sha256")
+
+
+def graded_scheme_rank(payload):
+    if is_legacy(payload):
+        return 2
+    return GRADED_SCHEME_RANK.get(payload.get("hash_scheme"), 0)
+
+
+def evidence_hash(probes):
+    """(hex, preimage keys) for probe-evidence-v1 over the probes array."""
+    if not isinstance(probes, list) or any(not isinstance(p, dict) for p in probes):
+        raise ValueError("probe-evidence-v1 requires a probes array of objects")
+    rows = []
+    for probe in probes:
+        missing = [k for k in EVIDENCE_ROW_KEYS if k not in probe]
+        if missing:
+            raise ValueError("probe-evidence-v1 row missing: " + ",".join(missing))
+        rows.append({k: probe[k] for k in EVIDENCE_ROW_KEYS})
+    content = serialize({"scheme": EVIDENCE_HASH_SCHEME, "rows": sorted(rows, key=serialize)})
+    return hashlib.sha256(content).hexdigest()
+
+
+def probe_rows(probes):
+    """The verdict-v4 projection of the probes array, order-independent, duplicates kept."""
+    if not isinstance(probes, list) or any(not isinstance(p, dict) for p in probes):
+        raise ValueError("verdict-v4 requires a probes array of objects")
+    rows = []
+    for probe in probes:
+        missing = [k for k in PROBE_ROW_KEYS if k not in probe]
+        if missing:
+            raise ValueError("verdict-v4 probe row missing: " + ",".join(missing))
+        rows.append({k: probe[k] for k in PROBE_ROW_KEYS})
+    return sorted(rows, key=serialize)
+
+
 def canonical_report(payload, findings):
+    scheme = payload.get("hash_scheme", HASH_SCHEME)
+    if scheme not in HASH_SCHEMES:
+        raise ValueError("Unknown hash_scheme: %r" % (scheme,))
     missing = [key for key in HASHED_KEYS if key not in payload]
+    if scheme == HASH_SCHEME_V4 and "probes" not in payload:
+        missing.append("probes")
     if missing:
         raise ValueError("Missing schema-3 fields: " + ",".join(missing))
     result = {key: payload[key] for key in HASHED_KEYS}
+    if scheme == HASH_SCHEME_V4:
+        result["hash_scheme"] = scheme
+        result["probes"] = probe_rows(payload["probes"])
     # Sorting by covered content makes timestamps and database insertion order
     # irrelevant. Preserve duplicates: two identical findings still count twice.
     result["findings"] = sorted(
@@ -393,14 +457,20 @@ def main(argv=None):
                       else "NOT VERIFIED (outside report_hash; needs sig_version 3 checked with --keys)")
             operations = ("signed" if engine["operations"]["verdict"] == "VERIFIED"
                           else "NOT VERIFIED (needs sig_version 4 checked with --keys)")
+            if engine["format"].get("hash_scheme") == HASH_SCHEME_V4 and engine["probe_statuses"]["verdict"] != "VERIFIED":
+                probes = "in report_hash (verdict-v4); signature NOT VERIFIED"
             report_ok = verification.passed(engine, require_signature=True)
+            integ = engine["integrity"]
+            scheme = "%s=%s evidence %s=%s" % (integ.get("hash_scheme") or "-", integ.get("report_hash") or "-",
+                                               integ.get("evidence_hash_scheme") or "-", integ.get("evidence_hash") or "-")
         except (OSError, ValueError) as e:
+            scheme = "-"
             status, detail, auth = "NOT_REPRODUCIBLE", f"{type(e).__name__}: {e}", "-"
             pin = "-"
             probes = "-"
             operations = "-"
             report_ok = False
-        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]  [probes: {probes}]  [operations: {operations}]")
+        print(f"{status.replace('_', ' '):<16}  {auth:<40}  {path}  {detail}  [provenance: {pin}]  [probes: {probes}]  [operations: {operations}]  [scheme: {scheme}]")
         ok = ok and report_ok
     return 0 if ok else 1
 
