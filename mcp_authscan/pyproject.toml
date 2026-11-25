@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mcp-authscan"
 version = "1.1.46"  # keep in sync with mcp_authscan.__version__
-description = "Security scanner for MCP server deployments"
+description = "MCP security assessment and deployment authorization with cryptographically signed evidence, authentication assurance, freshness enforcement, replay resistance, reproducible reports, and CI/CD policy gates."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Leroy H. Mason", email = "lhmisme2011@gmail.com"}]
