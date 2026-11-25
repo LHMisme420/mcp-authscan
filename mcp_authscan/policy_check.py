@@ -90,6 +90,14 @@ def evaluate(report_path, policy_path, keys_path):
     want = policy.get("min-sig-version")
     d = int(want) - int(report.get("sig_version", 1)) if want else 0
     if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
+    floor_scheme = policy.get("min-graded-scheme")
+    if floor_scheme is not None:
+        from mcp_authscan.report_verify import GRADED_SCHEME_RANK, graded_scheme_rank
+        if floor_scheme not in GRADED_SCHEME_RANK:
+            return {"verdict": "REJECT", "check": "POLICY-INVALID", "detail": "min-graded-scheme " + str(floor_scheme)}
+        if graded_scheme_rank(report) < GRADED_SCHEME_RANK[floor_scheme]:
+            return {"verdict": "REJECT", "check": "GRADED-SCHEME",
+                    "detail": "hash_scheme " + str(report.get("hash_scheme")) + " below " + floor_scheme}
     if engine['probe_statuses']['verdict'] != 'VERIFIED':
         return {'verdict': 'REJECT', 'check': 'PROBE-STATUS-UNVERIFIED', 'detail': engine['probe_statuses']['reason']}
     if policy.get('require-manifest-pin'):

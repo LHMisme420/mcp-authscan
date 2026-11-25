@@ -2477,7 +2477,8 @@ def generate_html_report(findings, target, output_file, payload=None):
         '<h2>Findings</h2>', body,
         "<p>%s</p>" % escape(footer_line(payload)),
         '<hr><footer><p><strong>Report hash (SHA256):</strong><br><code>%s</code></p>' % escape(str(payload['report_hash'])),
-        '<p>Schema version 3 (verdict-v3). Hash covers: %s.</p>'
+        '<p><strong>Evidence hash (%s):</strong><br><code>%s</code></p>' % (escape(str(payload.get('evidence_hash_scheme'))), escape(str(payload.get('evidence_hash')))),
+        '<p>Schema version 3 (' + escape(str(payload.get('hash_scheme'))) + '). Hash covers: %s.</p>'
         '<p>Finding descriptions and remediation are covered; raw response evidence, '
         'timestamps, session IDs and server-varying headers are excluded.</p></footer>' % escape(', '.join(payload.get('hash_covers') or ['not recorded'])),
         '</div></body></html>',
@@ -3277,6 +3278,9 @@ def main():
     payload_hash, covered = compute(canonical_payload, F)
     canonical_payload["report_hash"] = payload_hash
     canonical_payload["hash_covers"] = covered
+    from mcp_authscan.report_verify import EVIDENCE_HASH_SCHEME, evidence_hash
+    canonical_payload["evidence_hash_scheme"] = EVIDENCE_HASH_SCHEME
+    canonical_payload["evidence_hash"] = evidence_hash(canonical_payload["probes"])
     # Evidence: capture the surface per access class and bind the STATE IDs into
     # the report. "evidence" is outside report_hash (graded content only) and
     # inside the signature (report_verify.signed_content).
@@ -3650,7 +3654,7 @@ def print_verdict(findings, counts, host, brief_out=None, halted=False):
 
 
 EXIT_CONTRACT = "2026.11.02.4"
-HASH_SCHEME = "verdict-v3"  # Which keys report_hash is taken over
+HASH_SCHEME = "verdict-v4"  # Which keys report_hash is taken over
 
 
 def decide_exit(findings, probe_status, scan_mode, fail_on, zero_testable, halted=False):

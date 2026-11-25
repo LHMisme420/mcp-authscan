@@ -355,10 +355,11 @@ def verify(text, *, anchor="packaged", catalog_file=None, key_history_file=None)
         return bad("The report must be a JSON object.")
     scheme = payload.get("hash_scheme")
     legacy = rv.is_legacy(payload)
-    if not legacy and (scheme != rv.HASH_SCHEME or payload.get("schema_version") != rv.SCHEMA_VERSION):
-        return bad("Only verdict-v3 schema version 3 and the pre-schema-3 format of releases 1.1.21-1.1.24 "
-                   "are supported; other hashes are not reinterpreted.")
-    fmt["algorithm"] = "SHA-256 / " + rv.HASH_SCHEME + (" (" + rv.LEGACY_NOTE + ")" if legacy else "")
+    if not legacy and (scheme not in rv.HASH_SCHEMES or payload.get("schema_version") != rv.SCHEMA_VERSION):
+        return bad("Only verdict-v3 or verdict-v4 schema version 3 and the pre-schema-3 format of releases "
+                   "1.1.21-1.1.24 are supported; other hashes are not reinterpreted.")
+    fmt["hash_scheme"] = scheme
+    fmt["algorithm"] = "SHA-256 / " + scheme + (" (" + rv.LEGACY_NOTE + ")" if legacy else "")
     fmt["form"] = "legacy-1.1.21-1.1.24" if legacy else "schema-3"
     stamp = payload.get("probe_set_version")
     if not isinstance(stamp, str) or not stamp:
@@ -391,18 +392,38 @@ def verify(text, *, anchor="packaged", catalog_file=None, key_history_file=None)
     fmt.update(verdict="LEGACY" if legacy else "SCHEMA 3", reason=f"Readable {fmt['form']} report.")
     out["format"] = fmt
 
+    # 2b. probe-evidence-v1, required with verdict-v4 and absent before it
+    ev_scheme = ev_claimed = ev_actual = None
+    if scheme == rv.HASH_SCHEME_V4 and not legacy:
+        ev_scheme, ev_claimed = payload.get("evidence_hash_scheme"), payload.get("evidence_hash")
+        if ev_scheme != rv.EVIDENCE_HASH_SCHEME or not isinstance(ev_claimed, str) or not _HEX64.fullmatch(ev_claimed):
+            return bad("A verdict-v4 report requires evidence_hash_scheme " + rv.EVIDENCE_HASH_SCHEME
+                       + " and a complete lowercase SHA-256 evidence_hash.")
+        try:
+            ev_actual = rv.evidence_hash(payload["probes"])
+        except (ValueError, TypeError, KeyError):
+            return bad("Incomplete probe rows for probe-evidence-v1.")
+    out["format"] = fmt
+
     # 3. integrity
-    intact = actual == claimed
+    ev_intact = ev_actual == ev_claimed
+    intact = actual == claimed and ev_intact
     out["integrity"] = {
         "verdict": "INTACT" if intact else "ALTERED",
         "reason": ("Graded content matches the stored hash; this does not authenticate the report's author."
                    if intact else
                    "Graded content does not match the stored hash; a hash cannot identify which field changed.")
-        + (" Probe statuses and content_observed are outside this hash; only a verified signature covers them."
+        + (" Probe rows (id, name, status, http status, body digest, prerequisite met, limitation, severity) are "
+           "inside this verdict-v4 hash; observed headers, excerpts and content_observed are outside it."
+           if scheme == rv.HASH_SCHEME_V4 else
+           " Probe statuses and content_observed are outside this hash; only a verified signature covers them."
            if not legacy else
            " LEGACY: pre-schema-3 report (releases " + ", ".join(rv.LEGACY_RELEASES) + "), checked with that"
            " format's own pre-1.1.25 algorithm; unsigned, nothing attests to it."),
         "report_hash": claimed, "recomputed": actual, "covered_fields": len(covered),
+        "hash_scheme": scheme, "graded_verdict": "INTACT" if actual == claimed else "ALTERED",
+        "evidence_hash_scheme": ev_scheme, "evidence_hash": ev_claimed, "evidence_recomputed": ev_actual,
+        "evidence_verdict": None if ev_scheme is None else ("INTACT" if ev_intact else "ALTERED"),
     }
 
     # 4. authenticity

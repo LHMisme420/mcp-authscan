@@ -175,7 +175,8 @@ class HashSchemeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, 'Expected findings exit 1, got %d' % result.returncode)
             text = result.stdout
             payload = json.loads(text[text.find('{'):])
-            self.assertEqual(payload['hash_scheme'], 'verdict-v3')
+            self.assertEqual(payload['hash_scheme'], 'verdict-v4')
             self.assertEqual(payload['schema_version'], 3)
-            self.assertNotIn('hash_scheme', payload['hash_covers'])
+            self.assertIn('hash_scheme', payload['hash_covers'])  # v4: scheme is in the preimage (domain separation)
+            self.assertIn('probes', payload['hash_covers'])
             self.assertNotIn('scope', payload['hash_covers'])
