@@ -7,6 +7,8 @@ Treat a release's actual staged source fingerprint and verified artifact content
 as its source identity, rather than relying on its recorded Git revision alone.
 Refresh the saved next-publish fingerprint after approved source changes; do not
 remove the check just to let a mismatched snapshot publish.
+This includes copy-only edits: refresh the pin in the same work unit rather
+than leaving a known-stale publishing configuration for the next attempt.
 
 **Why:** A successful deployment freshly compiled the older commercial website
 while naming a Git commit that locally contained the newer assessment pages.
