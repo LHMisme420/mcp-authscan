@@ -61,11 +61,16 @@ test('the real form verifies each public file separately and explains their sche
   const second = readFileSync('client/public/tollbooth-authority-2026-11-21.json', 'utf8');
   const globals = {
     window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true,
+    location: dom.window.location, history: dom.window.history,
+    addEventListener: dom.window.addEventListener.bind(dom.window),
+    removeEventListener: dom.window.removeEventListener.bind(dom.window),
     fetch: async (url: string, init?: RequestInit) => {
       assert.equal(url, '/api/verify');
+      const request = { url, body: init?.body, status: 0 };
+      requests.push(request);
       const response = rejectSecond && init?.body === second ? new Response('{}', { status: 429 })
         : await nativeFetch(`http://127.0.0.1:${port}${url}`, init);
-      requests.push({ url, body: init?.body, status: response.status });
+      request.status = response.status;
       return response;
     },
   };
