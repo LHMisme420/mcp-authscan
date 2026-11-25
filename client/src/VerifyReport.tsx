@@ -1,55 +1,11 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import PublicSiteLayout from './PublicSiteLayout';
+import VerifyResultPanels from './VerifyResultPanels';
+import ReportGradeComparison from './ReportGradeComparison';
+import { compareReportGrades, type GradeComparison } from './compareReportGrades';
+import { MAX_REPORT_BYTES, REQUEST_TIMEOUT_MS, verifyReportRequest, type VerifyResult } from './verifyReportRequest';
 import './commercial.css';
 import './VerifyReport.css';
-
-const MAX_REPORT_BYTES = 1024 * 1024;
-const REQUEST_TIMEOUT_MS = 15_000;
-
-type IntegrityResult = {
-  verdict: 'INTACT' | 'ALTERED' | 'UNREADABLE';
-  reason: string;
-  algorithm: string | null;
-  probe_set_version: string | null;
-};
-const AUTHENTICITY_VERDICTS = [
-  'SIGNED BY', 'NOT SIGNED', 'SIGNATURE INVALID', 'UNKNOWN KEY', 'KEY NOT VALID', 'DIVERGENCE',
-  'UNSUPPORTED FORM', 'UNREADABLE', 'UNAVAILABLE',
-] as const;
-type VerifyResult = {
-  integrity: IntegrityResult;
-  authenticity: {
-    verdict: typeof AUTHENTICITY_VERDICTS[number];
-    key_id: string | null;
-    reason: string;
-  };
-  // Present on every engine verdict; absent only on transport errors (busy, too large, timeout).
-  probe_statuses?: { verdict: 'VERIFIED' | 'NOT VERIFIED'; reason: string };
-  catalog?: { sha256: string; attestation: string | null };
-};
-
-function isVerifyResult(value: unknown): value is VerifyResult {
-  if (!value || typeof value !== 'object') return false;
-  const response = value as VerifyResult;
-  const result = response.integrity;
-  const authenticity = response.authenticity;
-  return (
-    !!result && !!authenticity &&
-    (result.verdict === 'INTACT' || result.verdict === 'ALTERED' || result.verdict === 'UNREADABLE') &&
-    typeof result.reason === 'string' &&
-    (typeof result.algorithm === 'string' || result.algorithm === null) &&
-    (typeof result.probe_set_version === 'string' || result.probe_set_version === null) &&
-    (AUTHENTICITY_VERDICTS as readonly string[]).includes(authenticity.verdict) &&
-    typeof authenticity.reason === 'string' &&
-    (typeof authenticity.key_id === 'string' || authenticity.key_id === null) &&
-    (response.probe_statuses === undefined ||
-      ((response.probe_statuses.verdict === 'VERIFIED' || response.probe_statuses.verdict === 'NOT VERIFIED') &&
-       typeof response.probe_statuses.reason === 'string')) &&
-    (response.catalog === undefined ||
-      (typeof response.catalog.sha256 === 'string' &&
-       (typeof response.catalog.attestation === 'string' || response.catalog.attestation === null)))
-  );
-}
 
 function byteLength(value: string) {
   return new TextEncoder().encode(value).byteLength;
@@ -61,7 +17,16 @@ export default function VerifyReport() {
   const [inputError, setInputError] = useState('');
   const [requestError, setRequestError] = useState('');
   const [result, setResult] = useState<VerifyResult | null>(null);
+  const [secondText, setSecondText] = useState('');
+  const [secondName, setSecondName] = useState('');
+  const [secondInputError, setSecondInputError] = useState('');
+  const [secondRequestError, setSecondRequestError] = useState('');
+  const [secondResult, setSecondResult] = useState<VerifyResult | null>(null);
+  const [comparison, setComparison] = useState<GradeComparison | null>(null);
   const [pending, setPending] = useState(false);
+  const [readingFiles, setReadingFiles] = useState(0);
+  const firstReadId = useRef(0);
+  const secondReadId = useRef(0);
   const requestIdRef = useRef(0);
   const activeRequestRef = useRef<AbortController | null>(null);
 
@@ -71,6 +36,9 @@ export default function VerifyReport() {
     activeRequestRef.current = null;
     setPending(false);
     setResult(null);
+    setSecondResult(null);
+    setComparison(null);
+    setSecondRequestError('');
     setRequestError('');
     setInputError('');
   }
@@ -78,6 +46,7 @@ export default function VerifyReport() {
   function handleTextChange(event: ChangeEvent<HTMLTextAreaElement>) {
     const nextText = event.currentTarget.value;
     clearPreviousCheck();
+    firstReadId.current += 1;
     setReportText(nextText);
     setFileName('');
     if (byteLength(nextText) > MAX_REPORT_BYTES) {
@@ -85,30 +54,39 @@ export default function VerifyReport() {
     }
   }
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>, second = false) {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
     clearPreviousCheck();
-    const readId = requestIdRef.current;
-    setFileName(file.name);
+    const readRef = second ? secondReadId : firstReadId;
+    const readId = ++readRef.current;
+    const setText = second ? setSecondText : setReportText;
+    const setName = second ? setSecondName : setFileName;
+    const setError = second ? setSecondInputError : setInputError;
+    setError('');
+    setText('');
+    setName(file.name);
     if (file.size > MAX_REPORT_BYTES) {
-      setReportText('');
-      setInputError('That file is larger than the 1 MiB limit. Choose a smaller JSON file.');
+      setError('That file is larger than the 1 MiB limit. Choose a smaller JSON file.');
       event.currentTarget.value = '';
       return;
     }
+    setReadingFiles(count => count + 1);
     try {
       const contents = await file.text();
-      if (readId !== requestIdRef.current) return;
-      setReportText(contents);
+      if (readId !== readRef.current) return;
+      clearPreviousCheck();
+      setText(contents);
       if (byteLength(contents) > MAX_REPORT_BYTES) {
-        setInputError('This JSON is larger than the 1 MiB limit. Choose a smaller file.');
+        setError('This JSON is larger than the 1 MiB limit. Choose a smaller file.');
       }
     } catch {
-      if (readId !== requestIdRef.current) return;
-      setReportText('');
-      setFileName('');
-      setInputError('The selected file could not be read. Choose another JSON file.');
+      if (readId !== readRef.current) return;
+      setText('');
+      setName('');
+      setError('The selected file could not be read. Choose another JSON file.');
+    } finally {
+      setReadingFiles(count => count - 1);
     }
   }
 
@@ -116,12 +94,17 @@ export default function VerifyReport() {
     event.preventDefault();
     clearPreviousCheck();
 
+    if (readingFiles || secondInputError || (secondName && !secondText.trim())) return;
     if (!reportText.trim()) {
       setInputError('Paste a JSON report or choose a JSON file to continue.');
       return;
     }
     if (byteLength(reportText) > MAX_REPORT_BYTES) {
       setInputError('This JSON is larger than the 1 MiB limit. Shorten it before checking.');
+      return;
+    }
+    if (byteLength(secondText) > MAX_REPORT_BYTES) {
+      setSecondInputError('This JSON is larger than the 1 MiB limit. Choose a smaller file.');
       return;
     }
 
@@ -136,27 +119,24 @@ export default function VerifyReport() {
     }, REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch('/api/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: reportText,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`The verifier returned HTTP ${response.status}. Please try again.`);
+      const checks = await Promise.allSettled([
+        verifyReportRequest(reportText, controller.signal),
+        ...(secondText ? [verifyReportRequest(secondText, controller.signal)] : []),
+      ]);
+      if (requestId !== requestIdRef.current) return;
+      const errorMessage = (error: unknown) => timedOut ? 'The check timed out after 15 seconds. Please try again.'
+        : error instanceof Error && error.name === 'AbortError' ? 'The check was interrupted. Please try again.'
+          : error instanceof Error ? error.message : 'The report could not be checked. Please try again.';
+      if (checks[0].status === 'fulfilled') setResult(checks[0].value);
+      else setRequestError(errorMessage(checks[0].reason));
+      if (checks[1]?.status === 'fulfilled') setSecondResult(checks[1].value);
+      else if (checks[1]?.status === 'rejected') setSecondRequestError(errorMessage(checks[1].reason));
+      if (secondText) {
+        setComparison(checks.every(check => check.status === 'fulfilled')
+          ? compareReportGrades(reportText, secondText)
+          : { outcome: 'unavailable', reason: 'Comparison unavailable: both files must complete their verification request.',
+              probes: [], totals: [] });
       }
-
-      let payload: unknown;
-      try {
-        payload = await response.json();
-      } catch {
-        throw new Error('The verifier returned a response that could not be read.');
-      }
-      if (!isVerifyResult(payload)) {
-        throw new Error('The verifier returned an unexpected response. Please try again.');
-      }
-      if (requestId === requestIdRef.current) setResult(payload);
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       if (timedOut) {
@@ -175,12 +155,6 @@ export default function VerifyReport() {
     }
   }
 
-  const resultLabel = result?.integrity.verdict === 'INTACT'
-    ? 'Digest matches'
-    : result?.integrity.verdict === 'ALTERED'
-      ? 'Digest does not match'
-      : 'Could not verify';
-
   return (
     <PublicSiteLayout className="landing">
       <div className="wrap verify-page">
@@ -196,7 +170,7 @@ export default function VerifyReport() {
           <div className="verify-form-intro">
             <span className="eyebrow">Report check</span>
             <h2 id="verify-form-title">Check integrity and authenticity</h2>
-            <p>Supported reports use schema 3 and verdict-v3. No account is needed.</p>
+            <p>Supported reports use schema 3 and verdict-v3 or verdict-v4. No account is needed.</p>
           </div>
 
           <form className="verify-form" onSubmit={handleSubmit} noValidate>
@@ -223,18 +197,37 @@ export default function VerifyReport() {
                 id="verify-file"
                 type="file"
                 accept=".json,application/json"
-                onChange={handleFileChange}
+                onChange={event => handleFileChange(event)}
                 aria-describedby="verify-file-note"
               />
               {fileName && <span className="verify-file-name">{fileName}</span>}
               <span id="verify-file-note" className="verify-file-note">Files over 1 MiB are not read.</span>
             </div>
 
+            <div className="verify-file-row">
+              <label htmlFor="verify-second-file">Optional second JSON file to compare</label>
+              <input id="verify-second-file" type="file" accept=".json,application/json"
+                onChange={event => handleFileChange(event, true)}
+                aria-describedby="verify-second-note verify-second-input-error" />
+              {secondName && <span className="verify-file-name">{secondName}</span>}
+              <span id="verify-second-note" className="verify-file-note">
+                Maximum 1 MiB per file. Each file gets its own integrity and signature check.
+              </span>
+              {(secondName || secondInputError) && <button type="button" onClick={() => {
+                clearPreviousCheck();
+                secondReadId.current += 1;
+                setSecondText(''); setSecondName(''); setSecondInputError('');
+                const input = document.getElementById('verify-second-file') as HTMLInputElement | null;
+                if (input) input.value = '';
+              }}>Remove second file</button>}
+            </div>
             {inputError && <p className="verify-message verify-message-error" id="verify-input-error" role="alert">{inputError}</p>}
             {requestError && <p className="verify-message verify-message-error" role="alert">{requestError}</p>}
+            {secondInputError && <p className="verify-message verify-message-error" id="verify-second-input-error" role="alert">File two: {secondInputError}</p>}
+            {secondRequestError && <p className="verify-message verify-message-error" role="alert">File two: {secondRequestError}</p>}
 
-            <button className="button verify-submit" type="submit" disabled={pending}>
-              {pending ? 'Checking report…' : 'Verify report'}
+            <button className="button verify-submit" type="submit" disabled={pending || readingFiles > 0 || !!secondInputError}>
+              {pending ? 'Checking report…' : secondText ? 'Verify and compare reports' : 'Verify report'}
             </button>
             <p className="verify-privacy-note">
               The request contains only the JSON you provide. This page does not scan a target, rerun
@@ -250,56 +243,13 @@ export default function VerifyReport() {
           </section>
         )}
 
-        {result && !pending && (
-          <section
-            className={`verify-result verify-result-${result.integrity.verdict.toLowerCase()}`}
-            aria-labelledby="verify-result-title"
-            aria-live="polite"
-          >
-            <div className="verify-result-heading">
-              <span className="eyebrow">Integrity</span>
-              <span className={`verify-verdict verify-verdict-${result.integrity.verdict.toLowerCase()}`}>{result.integrity.verdict}</span>
-            </div>
-            <h2 id="verify-result-title">{resultLabel}</h2>
-            <p className="verify-result-reason">{result.integrity.reason}</p>
-            <dl className="verify-result-meta">
-              <div>
-                <dt>Algorithm</dt>
-                <dd>{result.integrity.algorithm ?? 'Not declared'}</dd>
-              </div>
-              <div>
-                <dt>Declared probe set</dt>
-                <dd>{result.integrity.probe_set_version ?? 'Not declared'}</dd>
-              </div>
-              {result.catalog && (
-                <div>
-                  <dt>Probe-set catalog</dt>
-                  <dd>{result.catalog.attestation ?? 'Not evaluated'} (catalog sha256 {result.catalog.sha256.slice(0, 12)}…)</dd>
-                </div>
-              )}
-            </dl>
-          </section>
-        )}
-
-        {result && !pending && (
-          <section className="verify-result" aria-labelledby="verify-authenticity-title" aria-live="polite">
-            <div className="verify-result-heading">
-              <span className="eyebrow">Authenticity</span>
-              <span className="verify-verdict">
-                {result.authenticity.verdict}{result.authenticity.verdict === 'SIGNED BY' ? ` ${result.authenticity.key_id}` : ''}
-              </span>
-            </div>
-            <h2 id="verify-authenticity-title">Signature verification</h2>
-            <p className="verify-result-reason">{result.authenticity.reason}</p>
-            <dl className="verify-result-meta">
-              <div><dt>Claimed key_id</dt><dd>{result.authenticity.key_id ?? 'Not declared'}</dd></div>
-              {result.probe_statuses && (
-                <div><dt>Probe statuses</dt><dd>{result.probe_statuses.verdict}: {result.probe_statuses.reason}</dd></div>
-              )}
-              <div><dt>Published keys</dt><dd><a href="/keys.json">/keys.json</a></dd></div>
-            </dl>
-          </section>
-        )}
+        {result && !pending && <>
+          {comparison && <h2>File one — {fileName || 'Pasted JSON'}</h2>}
+          <VerifyResultPanels result={result} />
+        </>}
+        {secondResult && !pending && <VerifyResultPanels result={secondResult} second />}
+        {comparison && !pending && <ReportGradeComparison comparison={comparison} first={result}
+          second={secondResult} names={[fileName || 'Pasted JSON', secondName]} />}
 
         <section className="verify-limits" aria-labelledby="verify-limits-title">
           <span className="eyebrow">What this check tells you</span>
@@ -312,8 +262,9 @@ export default function VerifyReport() {
             not to excluded fields such as timestamps.
           </p>
           <p>
-            Probe statuses sit outside the hash. Only a verified sig_version 3 or 4 signature covers
-            them; for every other report, including one with a valid older signature, this page says
+            Under verdict-v3, probe statuses sit outside the hash; verdict-v4 includes graded probe rows.
+            Only a verified sig_version 3 or 4 signature authenticates them;
+            for every other report, including one with a valid older signature, this page says
             the probe statuses are NOT VERIFIED. Signatures are checked against a pinned key history:
             a key withdrawn from publication rejects every signature, because a report carries no
             signed signing time.
@@ -325,7 +276,7 @@ export default function VerifyReport() {
           </p>
           <div className="verify-support-note">
             <strong>Supported format</strong>
-            <span>Schema-3 reports using verdict-v3, plus the pre-schema-3 format written by releases 1.1.21 to 1.1.24. That format is checked with its own pre-1.1.25 algorithm and its result is marked LEGACY; it was never signed, so it always shows NOT SIGNED. This site checks Ed25519 signatures; it does not create them or hold private keys. Signing belongs in the CLI on the signer’s machine. Unsigned reports show NOT SIGNED. This tool does not scan or rerun tests, and it does not retain submitted reports.</span>
+            <span>Schema-3 reports using verdict-v3 or verdict-v4, plus the pre-schema-3 format written by releases 1.1.21 to 1.1.24. That format is checked with its own pre-1.1.25 algorithm and its result is marked LEGACY; it was never signed, so it always shows NOT SIGNED. This site checks Ed25519 signatures; it does not create them or hold private keys. Signing belongs in the CLI on the signer’s machine. Unsigned reports show NOT SIGNED. This tool does not scan or rerun tests, and it does not retain submitted reports.</span>
           </div>
         </section>
       </div>

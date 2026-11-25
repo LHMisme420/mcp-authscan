@@ -256,6 +256,15 @@
   border-top: 1px solid var(--line);
 }
 
+.verify-comparison { overflow-wrap: anywhere; }
+.verify-comparison > p,
+.verify-comparison li { font-size: 12px; line-height: 1.7; }
+.verify-comparison-scroll { overflow-x: auto; margin-top: 18px; }
+.verify-comparison-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+.verify-comparison-table caption { text-align: left; font-weight: 700; margin-bottom: 8px; }
+.verify-comparison-table th,
+.verify-comparison-table td { padding: 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+
 .verify-limits h2 { max-width: 650px; }
 .verify-limits > p {
   max-width: 800px;
