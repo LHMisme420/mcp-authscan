@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import PublicSiteLayout from './PublicSiteLayout';
+import ReleaseEvidence from './ReleaseEvidence';
 import VerifyResultPanels from './VerifyResultPanels';
 import ReportGradeComparison from './ReportGradeComparison';
 import { compareReportGrades, type GradeComparison } from './compareReportGrades';
@@ -165,6 +166,8 @@ export default function VerifyReport() {
           <p><strong>Integrity.</strong> Does this file still match the hash it carries? Intact, altered, or unreadable with the reason printed.</p>
           <p><strong>Authenticity.</strong> Is it signed by the key it claims? Signed by that key, not signed, signature invalid, or unknown key.</p>
         </header>
+
+        <ReleaseEvidence />
 
         <section className="verify-workspace" aria-labelledby="verify-form-title">
           <div className="verify-form-intro">
