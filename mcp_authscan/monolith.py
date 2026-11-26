@@ -2551,17 +2551,13 @@ def main():
                     help="scan scope (what was tested)")
     ap.add_argument(
         "--deployment-challenge",
-        type=lambda value: (
-            value if __import__(
-                "mcp_authscan.assurance_freshness",
-                fromlist=["valid_challenge"]
-            ).valid_challenge(value)
-            else ap.error(
-                "deployment challenge must be 64 lowercase hex characters"
-            )
-        ),
-        metavar="HEX",
-        help="bind authentication assurance to a deployment challenge",
+        metavar="HEX|FILE",
+        action="append",
+        help="64 lowercase hex: bind authentication assurance to a deployment challenge (unchanged). "
+             "Otherwise a reviewer-issued deployment-challenge-v1 JSON file: fetch its nonce from "
+             "https://TARGET_ORIGIN/.well-known/mcp-authscan-challenge and bind the observation into a "
+             "sig_version 5 signature (requires --sign; see docs/DEPLOYMENT_ACKNOWLEDGMENT.md). "
+             "May be given twice, once as each kind; combines with --authentication-assurance",
     )
 
     ap.add_argument(
@@ -2590,6 +2586,29 @@ def main():
                          "attestation and can never satisfy a delta")
 
     args = ap.parse_args()
+    # --deployment-challenge: a 64-hex value keeps its authentication-assurance meaning;
+    # any other value names a reviewer-issued deployment-challenge-v1 file (DAP). The two
+    # are never confused: the DAP nonce is not an assurance challenge, nor the reverse.
+    args.deployment_ack_challenge = None
+    values, args.deployment_challenge = args.deployment_challenge or [], None
+    from mcp_authscan.assurance_freshness import valid_challenge
+    hex_values = [v for v in values if valid_challenge(v)]
+    files = [v for v in values if not valid_challenge(v)]
+    if len(hex_values) > 1 or len(files) > 1:
+        ap.error("--deployment-challenge may be given at most once as 64-hex and once as a "
+                 "deployment-challenge-v1 file")
+    if hex_values:
+        args.deployment_challenge = hex_values[0]
+    if files:
+        from mcp_authscan import deployment_ack
+        try:
+            args.deployment_ack_challenge = deployment_ack.load_challenge(files[0])
+        except deployment_ack.ChallengeInvalid as e:
+            ap.error("deployment challenge must be 64 lowercase hex characters or a valid "
+                     "deployment-challenge-v1 file (%s)" % e)
+        if not args.sign:
+            ap.error("a deployment-challenge-v1 file requires --sign: an unsigned acknowledgment "
+                     "is never presented as established")
     if args.sign and (not args.json or args.html or args.sarif):
         ap.error("--sign requires --json and cannot be combined with --html or --sarif")
     args.signing_key = None
@@ -2690,6 +2709,22 @@ def main():
     except ValueError as e:
         print(f"[!] Target validation failed: {e}", file=sys.stderr)
         sys.exit(3)
+
+    # Deployment acknowledgment: observed before the scan, through the same pinned
+    # transport and destination policy. A challenge that is malformed or names another
+    # target refuses the run (no scan, no report); any observation is recorded as made.
+    deployment_record = None
+    if args.deployment_ack_challenge is not None:
+        from mcp_authscan import deployment_ack
+        try:
+            deployment_record = deployment_ack.observe(
+                args.deployment_ack_challenge, requested_target=args.target,
+                allow_private=bool(args.allow_private))
+        except deployment_ack.ChallengeInvalid as e:
+            print(f"[!] Deployment acknowledgment INVALID: {e}. No scan run, no report written.", file=sys.stderr)
+            sys.exit(2)
+        print(f"[*] Deployment acknowledgment {deployment_record['result']}: {deployment_record['reason']}",
+              file=sys.stderr)
 
     if is_http_target:
         try:
@@ -3330,7 +3365,7 @@ def main():
     ledgers = open_ledgers(args, observations, canonical_payload)
     if args.sign:
         from mcp_authscan.report_signing import sign_report
-        from mcp_authscan.report_verify import EVIDENCE_KEY, PROVENANCE_KEY, SIG_VERSION_KEY, build_provenance, sig_version_for, signed_content
+        from mcp_authscan.report_verify import EVIDENCE_KEY, PROVENANCE_KEY, SIG_VERSION_KEY, build_provenance, operations_binding, sig_version_for, signed_content
         # Declare the signed form explicitly; a verifier reads it, it does not guess it.
         # Authentication assurance must be signed independently of
         # whether access-class ledger observations were available.
@@ -3345,13 +3380,26 @@ def main():
                 sys.exit(4)
             if EVIDENCE_KEY not in canonical_payload:
                 canonical_payload[EVIDENCE_KEY] = evidence_emit.evidence_binding([])
+        if deployment_record is not None:
+            # Outside report_hash (graded hashes unchanged), inside the sig_version 5 signature.
+            from mcp_authscan import evidence_emit
+            from mcp_authscan.report_verify import DEPLOYMENT_KEY
+            canonical_payload[DEPLOYMENT_KEY] = deployment_record
+            if EVIDENCE_KEY not in canonical_payload:
+                canonical_payload[EVIDENCE_KEY] = evidence_emit.evidence_binding([])
 
         try:
             if EVIDENCE_KEY in canonical_payload:
                 canonical_payload[PROVENANCE_KEY] = build_provenance()
             canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
-            if assurance_requested and canonical_payload[SIG_VERSION_KEY] != 4:
-                raise ValueError("authentication assurance requires signature version 4")
+            # Never downgrade or drop a component: assurance needs signed operations
+            # (form 4, or form 5 alongside an acknowledgment); an acknowledgment needs form 5.
+            if assurance_requested and (
+                    canonical_payload[SIG_VERSION_KEY] != (5 if deployment_record is not None else 4)
+                    or operations_binding(canonical_payload) is None):
+                raise ValueError("authentication assurance requires signed content_observed.operations")
+            if deployment_record is not None and canonical_payload[SIG_VERSION_KEY] != 5:
+                raise ValueError("deployment acknowledgment requires signature version 5")
             signed_content(canonical_payload, F)
         except Exception as exc:
             print(

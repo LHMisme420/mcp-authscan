@@ -27,7 +27,7 @@ report_hash; neither answer is derived from the other. ``failed_stage`` names
 the first failing stage in the fixed order.
 
 What a valid signature proves depends on its sig_version. Probe statuses are
-outside report_hash; only a verified sig_version 3 or 4 signature covers them.
+outside report_hash; only a verified sig_version 3, 4 or 5 signature covers them.
 For every other report ``probe_statuses`` is NOT VERIFIED, also when an older
 signature form verifies.
 """
@@ -67,6 +67,10 @@ COVERS = {
     rv.SIG_VERSION_PROVENANCE: ("graded report", "evidence", "probes", "provenance"),
     rv.SIG_VERSION_OPERATIONS: ("graded report", "evidence", "probes", "provenance",
                                 "content_observed.operations"),
+    # Form 5 signs content_observed.operations when present (null otherwise); verify()
+    # reports operations NOT VERIFIED for a form-5 report that declares none.
+    rv.SIG_VERSION_DEPLOYMENT: ("graded report", "evidence", "probes", "provenance",
+                                "content_observed.operations", "deployment_acknowledgment"),
 }
 # Authenticity verdicts that fail the stage. NOT SIGNED and NOT CHECKED do not:
 # they mean authenticity was not established, not that it was contradicted.
@@ -228,10 +232,12 @@ def _coverage(verdict, sig_version):
                 "reason": f"sig_version {sig_version} does not cover {name}; {needs}."}
 
     return covers, {
-        "probe_statuses": component("probes", "only sig_version 3 or 4 covers probe statuses"),
-        "operations": component("content_observed.operations", "only sig_version 4 covers operations"),
+        "probe_statuses": component("probes", "only sig_version 3 or later covers probe statuses"),
+        "operations": component("content_observed.operations", "only sig_version 4 or 5 covers operations"),
         "evidence": component("evidence", "sig_version 2 or later covers evidence"),
         "provenance": component("provenance", "sig_version 3 or later covers provenance"),
+        "deployment_acknowledgment": component("deployment_acknowledgment",
+                                               "only sig_version 5 covers deployment_acknowledgment"),
     }
 
 
@@ -273,7 +279,9 @@ def _authenticity(payload, findings, legacy, integrity_verdict, anchor, anchor_e
         message = str(error)
         component = ("sig_version" if message.startswith("sig_version") else
                      "evidence" if message.startswith("evidence") else
-                     "content_observed" if message.startswith("content_observed") else "provenance")
+                     "content_observed" if message.startswith("content_observed") else
+                     "deployment_acknowledgment" if message.startswith("deployment_acknowledgment") else
+                     "provenance")
         return result("DIVERGENCE", f"Signed-content component differs or cannot be reconstructed: {component}.", key_id)
     if entry["status"] != "active":
         where = f" in commit {entry['withdrawn_commit']}" if entry.get("withdrawn_commit") else ""
@@ -431,6 +439,14 @@ def verify(text, *, anchor="packaged", catalog_file=None, key_history_file=None)
     covers, components = _coverage(auth["verdict"], auth["sig_version"])
     auth["covers"] = list(covers)
     out["authenticity"] = auth
+    if auth["sig_version"] == rv.SIG_VERSION_DEPLOYMENT and components["operations"]["verdict"] == "VERIFIED":
+        try:
+            declared = rv.operations_binding(payload) is not None
+        except ValueError:
+            declared = False
+        if not declared:
+            components["operations"] = {"verdict": "NOT VERIFIED",
+                                        "reason": "This sig_version 5 report declares no content_observed.operations."}
     out.update(components)
     if not intact:
         out["failed_stage"] = "integrity"

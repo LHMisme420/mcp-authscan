@@ -42,7 +42,9 @@ def verify_text(text):
             message = str(error)
             divergence = ("sig_version" if message.startswith("sig_version") else
                           "evidence" if message.startswith("evidence") else
-                          "content_observed" if message.startswith("content_observed") else "provenance")
+                          "content_observed" if message.startswith("content_observed") else
+                          "deployment_acknowledgment" if message.startswith("deployment_acknowledgment") else
+                          "provenance")
     if readable and result["integrity"]["verdict"] == "ALTERED":
         divergence = divergence or "report"
     verdict = result["integrity"]["verdict"] if readable else "UNREADABLE"

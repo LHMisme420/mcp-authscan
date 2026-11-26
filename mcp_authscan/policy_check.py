@@ -7,6 +7,11 @@ from mcp_authscan.report_verify import authenticity
 SEVERITY_ORDER = ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
 FAIL_ON_FLOOR = 'HIGH'  # code floor; a policy may tighten it, never loosen below this
 _RULE_SEPARATORS = '-_:./'
+# verification.COVERS component name -> the engine result that establishes it.
+_ENGINE_COMPONENT = {
+    'evidence': 'evidence', 'probes': 'probe_statuses', 'provenance': 'provenance',
+    'content_observed.operations': 'operations', 'deployment_acknowledgment': 'deployment_acknowledgment',
+}
 
 
 def _rule_matches(rule, bad):
@@ -16,15 +21,17 @@ def _rule_matches(rule, bad):
     return r == b or (r.startswith(b) and r[len(b)] in _RULE_SEPARATORS)
 
 
-def _authentication_contradiction(report):
+def _authentication_contradiction(report, operations_verified):
     """Positive observations only: neither a public OAuth document nor missing
-    coverage proves that the resource accepted an unauthenticated client."""
+    coverage proves that the resource accepted an unauthenticated client.
+
+    ``operations_verified`` is the verification engine's result: True only when an
+    authentic signature covers content_observed (form 4, or form 5 with operations)."""
     for finding in report.get('findings', []):
         if _rule_matches(finding.get('rule', ''), 'ZERO-AUTH'):
             return 'declared authentication required; zero-auth finding ' + str(finding['rule'])
     content = report.get('content_observed')
-    # Existing form-4 signatures bind content_observed; older forms do not.
-    if (report.get('sig_version') == 4 and isinstance(content, dict)
+    if (operations_verified is True and isinstance(content, dict)
             and content.get('credential_context') == 'anonymous'
             and content.get('session_established') is True):
         return 'declared authentication required; content_observed.session_established is true'
@@ -128,12 +135,23 @@ def evaluate(
         return {'verdict': 'REJECT', 'check': 'NOT-REPRODUCIBLE',
                 'detail': ('LEGACY_' if _legacy else '') + ('MATCH' if engine['integrity']['verdict'] == 'INTACT' else 'MISMATCH')}
     digest = engine['integrity']['recomputed']
+    # Component coverage comes from the engine, never from the declared sig_version:
+    # content_observed (operations and authentication assurance) counts as signed only
+    # when an authentic form-4 signature, or form-5 signature with operations, covers it.
+    operations_verified = engine.get('operations', {}).get('verdict') == 'VERIFIED'
+    dap_required = policy.get('deployment-acknowledgment-required', False)
+    if type(dap_required) is not bool:
+        return {'verdict': 'REJECT', 'check': 'DEPLOYMENT-ACKNOWLEDGMENT-POLICY-INVALID',
+                'detail': 'deployment-acknowledgment-required must be true or false'}
+    if 'deployment-acknowledgment-challenge' in policy and not dap_required:
+        return {'verdict': 'REJECT', 'check': 'DEPLOYMENT-ACKNOWLEDGMENT-POLICY-INVALID',
+                'detail': 'deployment-acknowledgment-challenge requires deployment-acknowledgment-required'}
     declared = policy.get('declared-authentication-required', False)
     if not isinstance(declared, bool):
         return {'verdict': 'REJECT', 'check': 'POLICY-INVALID',
                 'detail': 'declared-authentication-required must be true or false'}
     if declared and engine['probe_statuses']['verdict'] == 'VERIFIED':
-        contradiction = _authentication_contradiction(report)
+        contradiction = _authentication_contradiction(report, operations_verified)
         if contradiction:
             return {'verdict': 'CONTRADICTED', 'check': 'AUTHENTICATION-REQUIRED',
                     'detail': contradiction}
@@ -181,6 +199,15 @@ def evaluate(
     want = policy.get("min-sig-version")
     d = int(want) - int(report.get("sig_version", 1)) if want else 0
     if d > 0: return {"verdict": "REJECT", "check": "SIG-VERSION", "detail": "sig_version " + str(report.get("sig_version", 1)) + " below " + str(want)}
+    if want:
+        # A higher form satisfies a lower minimum only if the engine verified every
+        # component the minimum form signs (form 5 without operations is not form 4).
+        unproven = [c for c in verification.COVERS.get(int(want), ())
+                    if c in _ENGINE_COMPONENT and engine[_ENGINE_COMPONENT[c]]['verdict'] != 'VERIFIED']
+        if unproven:
+            return {"verdict": "REJECT", "check": "SIG-VERSION",
+                    "detail": "sig_version " + str(report.get("sig_version", 1)) + " signature does not cover "
+                              + ", ".join(unproven) + " required by min-sig-version " + str(want)}
     floor_scheme = policy.get("min-graded-scheme")
     if floor_scheme is not None:
         from mcp_authscan.report_verify import GRADED_SCHEME_RANK, graded_scheme_rank
@@ -225,7 +252,7 @@ def evaluate(
         )
 
         if (
-            report.get('sig_version') != 4
+            not operations_verified
             or not isinstance(assurance, dict)
             or not isinstance(report.get('target'), str)
             or not report['target']
@@ -260,14 +287,29 @@ def evaluate(
         if freshness:
             return freshness
 
+    if dap_required:
+        # Fail closed: only a verified sig_version 5 acknowledgment bound to the
+        # reviewer-issued challenge named by the policy, with an exact nonce, satisfies it.
+        from mcp_authscan import deployment_ack
+        try:
+            reviewer = deployment_ack.validate_challenge(policy.get('deployment-acknowledgment-challenge'))
+        except deployment_ack.ChallengeInvalid as error:
+            return {'verdict': 'REJECT', 'check': 'DEPLOYMENT-ACKNOWLEDGMENT-POLICY-INVALID',
+                    'detail': 'deployment-acknowledgment-challenge: ' + str(error)}
+        ack = deployment_ack.verify_report(raw, reviewer, anchor=verification.anchor_from_keys(keys))
+        if ack['verdict'] != deployment_ack.ACKNOWLEDGED:
+            return {'verdict': 'REJECT', 'check': 'DEPLOYMENT-ACKNOWLEDGMENT',
+                    'detail': ack['verdict'] + ': ' + ack['reason']}
+
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
     if req and not missed and scope_ops:
-        # Only a sig_version 4 signature covers content_observed.operations (checked above by
-        # authenticity()); no other report can prove which operations ran.
-        signed_ops = set((report.get('content_observed') or {}).get('operations') or []) if report.get('sig_version') == 4 else None
+        # Only a verified signature covering content_observed.operations (form 4, or
+        # form 5 with operations) can prove which operations ran.
+        signed_ops = set((report.get('content_observed') or {}).get('operations') or []) if operations_verified else None
         unproven = [o for o in scope_ops if signed_ops is None or o not in signed_ops]
         if unproven:
-            why = 'operations not signed (sig_version 4 required): ' if signed_ops is None else 'scope operations not observed: '
+            why = ('operations not signed (sig_version 4 required, or 5 with operations): '
+                   if signed_ops is None else 'scope operations not observed: ')
             return {'verdict': 'CONDITIONAL', 'check': 'SCOPE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; ' + why + ', '.join(unproven)}
     if req and not missed:
         if top is not None:

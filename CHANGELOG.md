@@ -12,6 +12,30 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.47] - 2026-11-26
+
+### Added
+- Policy-based assurance with CURRENT, STALE, REGRESSED and INCONCLUSIVE verdicts.
+- Deployment Acknowledgment Proof using reviewer-issued challenges.
+- Signed deployment acknowledgment and authentication-assurance evidence in one report.
+- Ed25519 signature form 5, preserving historical signature forms.
+- Offline acknowledgment verification and optional reviewer-side live confirmation.
+- Real cryptographic regression tests using ephemeral keys.
+
+### Security and evidence limitations
+- CURRENT means verified evidence satisfies a declared policy; it does not establish current deployment security.
+- REGRESSED identifies changed graded content, not necessarily worsening security.
+- A signed challenge observation does not independently prove the network request occurred.
+- Deployment acknowledgment establishes evidence of control over a publication location, not necessarily tenant ownership or authorization.
+- Scanner-reported timestamps do not independently establish when a scan occurred.
+
+### Validation
+- Full regression suite: 1,150 passed, 3 skipped, 114 subtests passed.
+- Focused release tests: 106 passed.
+- Clean wheel installation verified.
+
+
+
 ## [1.1.46] - 2026-11-25
 
 **Published PyPI wheel SHA-256:**
