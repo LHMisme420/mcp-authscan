@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-11-26T01:07:23.983477+00:00",
+  "package": "mcp-authscan",
+  "version": "1.1.46",
+  "wheel_sha256": "19d405f2962276d8909a6f08fd02fe21349d9c52f224c3ef9e69b634f6ae1f87",
+  "installed_module": "/home/lhmisme/authscan-146-proof/.venv/lib/python3.13/site-packages/mcp_authscan/__init__.py",
+  "tests": [
+    {
+      "check": "REBINDING",
+      "result": "PASS",
+      "exit_code": 0,
+      "output": "...\n3 passed in 0.50s\n[*] Detected live server URL\n[*] Preflight: Checking if target is an MCP server...\n[!] Target unreachable: https://rebind.test/mcp did not answer (destination refused: refusing to fetch https://rebind.test/mcp: rebind.test resolves to non-public address 127.0.0.1)\n[!] refusing to fetch https://rebind.test/mcp: rebind.test resolves to non-public address 127.0.0.1\n[!] Target validation failed: Target mapped.test resolves to private IP ::ffff:127.0.0.1 (DNS rebinding protection)\n[!] Target validation failed: Target mixed.test resolves to private IP 10.0.0.1 (DNS rebinding protection)\n"
+    },
+    {
+      "check": "PREFLIGHT_CHALLENGES",
+      "result": "PASS",
+      "exit_code": 0,
+      "output": "\nNONSENSE_SCHEME: HIT\n.\nMISSING_HEADER: HIT\n.\nVALID_BEARER_CONTROL: HIT\n.\n3 passed in 0.16s\n"
+    }
+  ],
+  "overall": "PASS"
+}
