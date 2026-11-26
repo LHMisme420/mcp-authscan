@@ -1,6 +1,0 @@
-https://api.inference.sh/mcp
-https://mizan.ac/mcp
-https://mcp.snag.ac/mcp
-https://tandem.ac/mcp
-https://apexai.academy/mcp
-https://mcpplaygroundonline.com/mcp-complex-server
