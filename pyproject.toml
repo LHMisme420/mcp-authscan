@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.46"  # single source of truth
+version = "1.1.47"  # single source of truth
 description = "MCP security assessment and deployment authorization with cryptographically signed evidence, authentication assurance, freshness enforcement, replay resistance, reproducible reports, and CI/CD policy gates."
 readme = "README.md"
 license = {text = "MIT"}
