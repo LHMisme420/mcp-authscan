@@ -276,8 +276,11 @@ SIG_VERSION_GRADED = 1     # signed bytes: canonical graded report (the report_h
 SIG_VERSION_EVIDENCE = 2   # signed bytes: canonical {"sig_version": 2, "evidence": ..., "report": ...}
 SIG_VERSION_PROVENANCE = 3
 SIG_VERSION_OPERATIONS = 4  # adds content_observed (with its operations list) to the form-3 bytes
-SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE, SIG_VERSION_PROVENANCE, SIG_VERSION_OPERATIONS)
+SIG_VERSION_DEPLOYMENT = 5  # form-4 bytes (operations optional) plus deployment_acknowledgment
+SIG_VERSIONS = (SIG_VERSION_GRADED, SIG_VERSION_EVIDENCE, SIG_VERSION_PROVENANCE, SIG_VERSION_OPERATIONS,
+                SIG_VERSION_DEPLOYMENT)
 CONTENT_KEY = "content_observed"
+DEPLOYMENT_KEY = "deployment_acknowledgment"
 OPERATIONS = ("initialize", "tools/list", "prompts/list", "resources/list")
 
 
@@ -285,8 +288,9 @@ def operations_binding(payload):
     """content_observed when it declares operations, validated; None when it does not.
 
     An operation is listed only if it succeeded: initialize when the MCP session was
-    established, each */list when its result list was parsed. Signed only at
-    sig_version 4; outside report_hash.
+    established, each */list when its result list was parsed. Signed at sig_version 4
+    and 5 (the whole content_observed object, authentication_assurance included);
+    outside report_hash.
     """
     co = payload.get(CONTENT_KEY)
     if not isinstance(co, dict) or "operations" not in co:
@@ -311,8 +315,22 @@ def operations_binding(payload):
     return co
 
 
+def deployment_binding(payload):
+    """The structurally validated deployment_acknowledgment record, or None when absent.
+
+    Signed only at sig_version 5; outside report_hash. Semantic checks (challenge id,
+    nonce equality, response digest, result recomputation) live in deployment_ack.
+    """
+    if DEPLOYMENT_KEY not in payload:
+        return None
+    from mcp_authscan.deployment_ack import record_structure
+    return record_structure(payload[DEPLOYMENT_KEY])
+
+
 def sig_version_for(payload):
     """The sig_version a new signature over ``payload`` must declare."""
+    if DEPLOYMENT_KEY in payload:
+        return SIG_VERSION_DEPLOYMENT
     if PROVENANCE_KEY in payload:
         return SIG_VERSION_OPERATIONS if operations_binding(payload) is not None else SIG_VERSION_PROVENANCE
     return SIG_VERSION_EVIDENCE if EVIDENCE_KEY in payload else SIG_VERSION_GRADED
@@ -336,6 +354,9 @@ def signed_content(payload, findings):
         raise ValueError(f"sig_version: unknown value {version!r}")
     canonical = canonical_report(payload, findings)
     ev = evidence_binding(payload)
+    if version != SIG_VERSION_DEPLOYMENT and DEPLOYMENT_KEY in payload:
+        raise ValueError("sig_version: %d does not cover deployment_acknowledgment; it requires sig_version 5"
+                         % version)
     if version == SIG_VERSION_GRADED:
         if ev is not None:
             raise ValueError("sig_version: 1 does not cover an evidence field; evidence requires sig_version 2")
@@ -354,6 +375,19 @@ def signed_content(payload, findings):
     if version == SIG_VERSION_PROVENANCE:
         if ops is not None:
             raise ValueError("sig_version: 3 does not cover content_observed.operations; operations require sig_version 4")
+        return serialize(body)
+    if version == SIG_VERSION_DEPLOYMENT:
+        dap = deployment_binding(payload)
+        if dap is None:
+            raise ValueError("sig_version: 5 requires a deployment_acknowledgment field")
+        # Form 5 signs content_observed (null when it declares no operations), so any
+        # other content_observed, such as an authentication_assurance block without
+        # operations, would sit outside the signature: refuse it instead.
+        if ops is None and payload.get(CONTENT_KEY) not in (None, {}):
+            raise ValueError("content_observed: sig_version 5 covers content_observed only when it "
+                             "declares operations")
+        body[CONTENT_KEY] = ops
+        body[DEPLOYMENT_KEY] = dap
         return serialize(body)
     if ops is None:
         raise ValueError("sig_version: 4 requires content_observed.operations")
@@ -463,7 +497,7 @@ def main(argv=None):
             probes = ("signed" if engine["probe_statuses"]["verdict"] == "VERIFIED"
                       else "NOT VERIFIED (outside report_hash; needs sig_version 3 checked with --keys)")
             operations = ("signed" if engine["operations"]["verdict"] == "VERIFIED"
-                          else "NOT VERIFIED (needs sig_version 4 checked with --keys)")
+                          else "NOT VERIFIED (needs sig_version 4, or 5 with operations, checked with --keys)")
             if engine["format"].get("hash_scheme") == HASH_SCHEME_V4 and engine["probe_statuses"]["verdict"] != "VERIFIED":
                 probes = "in report_hash (verdict-v4); signature NOT VERIFIED"
             report_ok = verification.passed(engine, require_signature=True)

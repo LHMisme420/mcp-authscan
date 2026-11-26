@@ -25,11 +25,16 @@ def report(context=None):
     "context", [None, "credentialed", "unknown"]
 )
 def test_no_false_contradiction(context):
-    assert _authentication_contradiction(report(context)) is None
+    assert _authentication_contradiction(report(context), True) is None
 
 
 def test_anonymous_contradiction():
-    assert _authentication_contradiction(report("anonymous"))
+    assert _authentication_contradiction(report("anonymous"), True)
+
+
+def test_unverified_operations_never_contradict():
+    # The declared sig_version is not coverage; only the engine's verified result is.
+    assert _authentication_contradiction(report("anonymous"), False) is None
 
 
 def test_legacy_binding():

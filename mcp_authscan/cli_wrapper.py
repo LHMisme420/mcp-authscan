@@ -3,6 +3,12 @@ import sys
 from . import monolith
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "assurance":
+        from .assurance import main as assurance_main
+        return assurance_main(sys.argv[2:])
+    if len(sys.argv) > 1 and sys.argv[1] == "challenge":
+        from .deployment_ack import main as challenge_main
+        return challenge_main(sys.argv[2:])
     """Call monolith main, catching any unhandled exceptions."""
     # Handle --version flag
     if "--version" in sys.argv:
@@ -19,4 +25,4 @@ def main():
         sys.exit(4)
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

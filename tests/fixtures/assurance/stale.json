@@ -1,0 +1,22 @@
+{
+  "reports": [
+    {
+      "_test_signed": true,
+      "hash_scheme": "verdict-v4",
+      "target": "https://example.test/mcp",
+      "report_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "probes": [
+        {
+          "name": "issuer-identity",
+          "status": "PASS"
+        }
+      ]
+    }
+  ],
+  "times": [
+    "2026-11-20T11:00:00Z"
+  ],
+  "max_age_days": 3,
+  "require_second_run": false,
+  "expected": "STALE"
+}
