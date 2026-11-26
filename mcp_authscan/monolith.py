@@ -2549,6 +2549,26 @@ def main():
                     help="contact email for scan authorization")
     ap.add_argument("--scope", metavar="SCOPE",
                     help="scan scope (what was tested)")
+    ap.add_argument(
+        "--deployment-challenge",
+        type=lambda value: (
+            value if __import__(
+                "mcp_authscan.assurance_freshness",
+                fromlist=["valid_challenge"]
+            ).valid_challenge(value)
+            else ap.error(
+                "deployment challenge must be 64 lowercase hex characters"
+            )
+        ),
+        metavar="HEX",
+        help="bind authentication assurance to a deployment challenge",
+    )
+
+    ap.add_argument(
+        "--authentication-assurance",
+        action="store_true",
+        help="run an explicitly authorized initialization authentication contrast"
+    )
     ap.add_argument("--probe-tools", action=argparse.BooleanOptionalAction, default=False,
                     help="after a zero-auth handshake, send one unauthenticated tools/call (arguments {}) "
                          "to the first tool whose name is a read-only word (list, get, read, status, "
@@ -2756,7 +2776,27 @@ def main():
                 print("[!] %s" % e, file=sys.stderr)
                 sys.exit(6)
             F.extend(cobs.get("findings") or [])
-            args.content_observed = {k: cobs[k] for k in ("version", "session_established", "operations", "inspected", "reasons") if k in cobs}
+            args.content_observed = {k: cobs[k] for k in ("version", "credential_context", "session_established", "operations", "inspected", "reasons") if k in cobs}
+
+            if getattr(args, "authentication_assurance", False):
+                from mcp_authscan import authentication_assurance
+
+                try:
+                    args.content_observed["authentication_assurance"] = (
+                        authentication_assurance.observe(
+                            args.target,
+                            token=os.environ.get("MCPAUTHSCAN_TOKEN") or None,
+                            allow_private=args.allow_private,
+                            deployment_challenge=getattr(
+                                args, "deployment_challenge", None
+                            ),
+                        )
+                    )
+                except EgressRefusalError:
+                    print("[!] Authentication assurance egress refused",
+                          file=sys.stderr)
+                    sys.exit(6)
+
 
         # Check for discovery incomplete (OAuth detected but discovery chain failed)
         if discovery_info and discovery_info.get("status") == "DISCOVERY_INCOMPLETE":
@@ -3292,9 +3332,34 @@ def main():
         from mcp_authscan.report_signing import sign_report
         from mcp_authscan.report_verify import EVIDENCE_KEY, PROVENANCE_KEY, SIG_VERSION_KEY, build_provenance, sig_version_for, signed_content
         # Declare the signed form explicitly; a verifier reads it, it does not guess it.
-        if EVIDENCE_KEY in canonical_payload:
-            canonical_payload[PROVENANCE_KEY] = build_provenance()
-        canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
+        # Authentication assurance must be signed independently of
+        # whether access-class ledger observations were available.
+        assurance_requested = getattr(args, "authentication_assurance", False)
+        if assurance_requested:
+            from mcp_authscan import evidence_emit
+            content = canonical_payload.get("content_observed")
+            if not isinstance(content, dict) or not isinstance(
+                content.get("authentication_assurance"), dict
+            ):
+                print("[!] --sign: authentication assurance missing. No report written.", file=sys.stderr)
+                sys.exit(4)
+            if EVIDENCE_KEY not in canonical_payload:
+                canonical_payload[EVIDENCE_KEY] = evidence_emit.evidence_binding([])
+
+        try:
+            if EVIDENCE_KEY in canonical_payload:
+                canonical_payload[PROVENANCE_KEY] = build_provenance()
+            canonical_payload[SIG_VERSION_KEY] = sig_version_for(canonical_payload)
+            if assurance_requested and canonical_payload[SIG_VERSION_KEY] != 4:
+                raise ValueError("authentication assurance requires signature version 4")
+            signed_content(canonical_payload, F)
+        except Exception as exc:
+            print(
+                "[!] --sign: evidence binding failed: "
+                + type(exc).__name__ + ". No report written.",
+                file=sys.stderr,
+            )
+            sys.exit(4)
         if not sign_report(canonical_payload, signed_content(canonical_payload, F), key=args.signing_key):
             canonical_payload.pop(SIG_VERSION_KEY, None)
             canonical_payload.pop(PROVENANCE_KEY, None)

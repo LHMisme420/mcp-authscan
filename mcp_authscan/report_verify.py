@@ -291,6 +291,13 @@ def operations_binding(payload):
     co = payload.get(CONTENT_KEY)
     if not isinstance(co, dict) or "operations" not in co:
         return None
+    if "credential_context" in co:
+        if co["credential_context"] not in (
+            "anonymous", "credentialed", "unknown"
+        ):
+            raise ValueError(
+                "content_observed.credential_context: invalid value"
+            )
     ops, est = co["operations"], co.get("session_established")
     if not isinstance(ops, list) or not all(isinstance(o, str) for o in ops) or len(set(ops)) != len(ops):
         raise ValueError("content_observed.operations must be a list of distinct strings")

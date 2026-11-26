@@ -48,6 +48,20 @@ def _post_jsonrpc(endpoint, payload, token, session_id=None, allow_private=None,
     return _egress_guard(req, allow_private=allow_private, allowed_hosts=allowed_hosts)
 
 
+def _rpc_result(msg, request_id):
+    """Return a matching successful JSON-RPC result, or None."""
+    if not isinstance(msg, dict):
+        return None
+    if msg.get("jsonrpc") != "2.0":
+        return None
+    if type(msg.get("id")) is not type(request_id):
+        return None
+    if msg.get("id") != request_id or "error" in msg:
+        return None
+    result = msg.get("result")
+    return result if isinstance(result, dict) else None
+
+
 def open_session(endpoint, token, allow_private=None, allowed_hosts=None):
     """Initialize an MCP session and return what tools/list needs. Produces no verdict."""
     init = {
@@ -75,6 +89,33 @@ def open_session(endpoint, token, allow_private=None, allowed_hosts=None):
     except Exception as exc:
         return {"established": False, "http_status": status,
                 "reason": "initialize body unreadable: %s" % exc}
+    result = _rpc_result(msg, init["id"])
+    server = result.get("serverInfo") if result is not None else None
+
+    if (
+        result is None
+        or not isinstance(result.get("protocolVersion"), str)
+        or not result["protocolVersion"]
+        or not isinstance(result.get("capabilities"), dict)
+        or not isinstance(server, dict)
+        or not isinstance(server.get("name"), str)
+        or not server["name"]
+        or not isinstance(server.get("version"), str)
+        or not server["version"]
+    ):
+        return {
+            "established": False,
+            "http_status": status,
+            "reason": "invalid MCP initialize result",
+        }
+
+    if result["protocolVersion"] != PROTOCOL_VERSION:
+        return {
+            "established": False,
+            "http_status": status,
+            "reason": "unsupported negotiated protocol version",
+        }
+
     note = {"jsonrpc": "2.0", "method": "notifications/initialized"}
     try:
         nstatus, _, _ = _post_jsonrpc(endpoint, note, token, session_id=session_id,
@@ -83,9 +124,13 @@ def open_session(endpoint, token, allow_private=None, allowed_hosts=None):
         raise
     except Exception:
         nstatus = None
-    result = msg.get("result") if isinstance(msg, dict) else None
-    result = result if isinstance(result, dict) else {}
-    server = result.get("serverInfo") if isinstance(result.get("serverInfo"), dict) else {}
+    if nstatus is None or not (200 <= int(nstatus) < 300):
+        return {
+            "established": False,
+            "http_status": status,
+            "notify_status": nstatus,
+            "reason": "initialized notification not accepted",
+        }
     return {
         "established": True,
         "session_id": session_id,

@@ -222,10 +222,10 @@ def probe_anon_initialize(target_url: str) -> ProbeRecord:
             return ProbeRecord(
                 probe_id="anon-initialize",
                 name="anon-initialize",
-                status="PASS",
+                status="NOT_OBSERVED",
                 http_status=status_code,
                 body_sha256=body_hash,
-                detail="Correctly returned error to unauthenticated request",
+                detail="JSON-RPC error does not establish authentication enforcement",
                 endpoint=target_url
             )
 
@@ -323,7 +323,7 @@ def probe_anon_tools_list(target_url: str) -> ProbeRecord:
                         http_status=status_code,
                         body_sha256=body_hash,
                         detail=f"Unauthenticated tools/list returned {len(tool_names)} tools: enumeration confirmed",
-                        severity="CRITICAL",
+                        severity="MEDIUM",
                         endpoint=target_url
                     )
 
@@ -332,10 +332,10 @@ def probe_anon_tools_list(target_url: str) -> ProbeRecord:
             return ProbeRecord(
                 probe_id="anon-tools-list",
                 name="anon-tools-list",
-                status="PASS",
+                status="NOT_OBSERVED",
                 http_status=status_code,
                 body_sha256=body_hash,
-                detail="Correctly returned error to unauthenticated request",
+                detail="JSON-RPC error does not establish authentication enforcement",
                 endpoint=target_url
             )
 

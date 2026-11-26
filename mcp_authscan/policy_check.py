@@ -25,6 +25,7 @@ def _authentication_contradiction(report):
     content = report.get('content_observed')
     # Existing form-4 signatures bind content_observed; older forms do not.
     if (report.get('sig_version') == 4 and isinstance(content, dict)
+            and content.get('credential_context') == 'anonymous'
             and content.get('session_established') is True):
         return 'declared authentication required; content_observed.session_established is true'
     target = report.get('target')
@@ -57,8 +58,55 @@ def _self_manifest_status(report):
     return 'MANIFEST MATCHES INSTALLED' if own.get('tool_manifest') == prov.get('tool_manifest') else 'MANIFEST NOT INSTALLED'
 
 
-def evaluate(report_path, policy_path, keys_path):
+def evaluate(
+    report_path, policy_path, keys_path, *,
+    challenge_db=None, deployment_id=None,
+):
     policy = json.load(open(policy_path))
+    from mcp_authscan import assurance_freshness
+
+    single_use = policy.get(
+        "single-use-authorization-required", False
+    )
+
+    if type(single_use) is not bool:
+        return {
+            "verdict": "REJECT",
+            "check": "SINGLE-USE-POLICY-INVALID",
+            "detail": "Single-use requirement must be boolean",
+        }
+
+    registry_requested = (
+        challenge_db is not None or deployment_id is not None
+    )
+
+    if single_use or registry_requested:
+        if not (
+            single_use
+            and isinstance(challenge_db, str)
+            and challenge_db.strip()
+            and isinstance(deployment_id, str)
+            and deployment_id.strip()
+            and policy.get("verified-authentication-required") is True
+            and assurance_freshness.valid_challenge(
+                policy.get("expected-deployment-challenge")
+            )
+            and isinstance(
+                policy.get("expected-assurance-target"), str
+            )
+            and policy.get("expected-assurance-target").strip()
+            and "max-assurance-age-seconds" in policy
+        ):
+            return {
+                "verdict": "REJECT",
+                "check": "SINGLE-USE-CONFIGURATION",
+                "detail": "Trusted registry, deployment and challenge policy required",
+            }
+
+    invalid_freshness = assurance_freshness.validate_policy(policy)
+
+    if invalid_freshness:
+        return invalid_freshness
     with open(report_path, 'rb') as _fh:
         raw = _fh.read()                      # D3: read the report bytes once...
     report = json.loads(raw)
@@ -101,6 +149,14 @@ def evaluate(report_path, policy_path, keys_path):
     for bad in policy.get('forbidden-findings', []):
         if any(_rule_matches(r, bad) for r in rules):
             return {'verdict': 'REJECT', 'check': 'FINDING-PRESENT', 'detail': bad}
+    for finding in report.get('findings', []):
+        severity = str(finding.get('severity')).upper()
+        if severity not in SEVERITY_ORDER:
+            return {
+                'verdict': 'REJECT',
+                'check': 'FINDING-SEVERITY-INVALID',
+                'detail': str(finding.get('rule')) + ' ' + severity
+            }
     floor = policy.get('fail-on')
     if floor is not None:
         if str(floor).upper() not in SEVERITY_ORDER:
@@ -147,6 +203,63 @@ def evaluate(report_path, policy_path, keys_path):
         if pin not in ('MANIFEST MATCHES PIN', 'MANIFEST MATCHES INSTALLED'):
             tv = (report.get('provenance') or {}).get('tool_version') if isinstance(report.get('provenance'), dict) else None
             return {'verdict': 'REJECT', 'check': 'MANIFEST-PIN', 'detail': pin + ' (tool_version ' + str(tv) + ')'}
+    # Positive authentication assurance is opt-in.
+    positive_auth = policy.get(
+        'verified-authentication-required', False
+    )
+
+    if type(positive_auth) is not bool:
+        return {
+            'verdict': 'REJECT',
+            'check': 'AUTHENTICATION-POLICY-INVALID',
+            'detail': 'verified-authentication-required must be true or false',
+        }
+
+    if positive_auth:
+        from mcp_authscan.authentication_assurance import derive_verdict
+
+        content = report.get('content_observed')
+        assurance = (
+            content.get('authentication_assurance')
+            if isinstance(content, dict) else None
+        )
+
+        if (
+            report.get('sig_version') != 4
+            or not isinstance(assurance, dict)
+            or not isinstance(report.get('target'), str)
+            or not report['target']
+            or assurance.get('endpoint') != report['target']
+        ):
+            return {
+                'verdict': 'CONDITIONAL',
+                'check': 'AUTHENTICATION-ASSURANCE-MISSING',
+                'detail': 'Signed authentication assurance for the assessed target is required',
+            }
+
+        auth_verdict = derive_verdict(assurance)
+
+        if auth_verdict == 'CONTRADICTED':
+            return {
+                'verdict': 'REJECT',
+                'check': 'AUTHENTICATION-ASSURANCE-CONTRADICTED',
+                'detail': 'Unauthorized initialization acceptance observed',
+            }
+
+        if auth_verdict != 'VERIFIED':
+            return {
+                'verdict': 'CONDITIONAL',
+                'check': 'AUTHENTICATION-ASSURANCE-INCONCLUSIVE',
+                'detail': 'Authentication enforcement was not demonstrated',
+            }
+
+        freshness = assurance_freshness.evaluate(
+            assurance, policy
+        )
+
+        if freshness:
+            return freshness
+
     scope_ops = [str(o) for o in ((policy.get('scope') or {}).get('operations') or [])]
     if req and not missed and scope_ops:
         # Only a sig_version 4 signature covers content_observed.operations (checked above by
@@ -159,6 +272,44 @@ def evaluate(report_path, policy_path, keys_path):
     if req and not missed:
         if top is not None:
             return {'verdict': 'CONDITIONAL', 'check': 'SEVERITY', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; ' + top + ' finding present and no fail-on set'}
+        if single_use:
+            import hashlib
+            from mcp_authscan import challenge_registry
+
+            try:
+                accepted = challenge_registry.consume(
+                    challenge_db,
+                    challenge=assurance["deployment_challenge"],
+                    target=assurance["endpoint"],
+                    deployment_id=deployment_id,
+                    report_digest=hashlib.sha256(raw).hexdigest(),
+                    assessment_started_at=assurance["assessment_started_at"],
+                    assessment_completed_at=assurance["assessment_completed_at"],
+                    max_age=policy["max-assurance-age-seconds"],
+                    max_skew=policy.get("max-clock-skew-seconds", 0),
+                )
+            except Exception as exc:
+                return {
+                    "verdict": "REJECT",
+                    "check": "CHALLENGE-REGISTRY-ERROR",
+                    "detail": type(exc).__name__,
+                }
+
+            if not accepted:
+                return {
+                    "verdict": "REJECT",
+                    "check": "CHALLENGE-NOT-AUTHORIZED",
+                    "detail": "Unknown, expired, consumed or mismatched challenge",
+                }
+
+            return {
+                "verdict": "CLEAN",
+                "check": "SINGLE-USE-AUTHORIZED",
+                "detail": "Verified challenge atomically consumed",
+                "deployment_id": deployment_id,
+                "report_sha256": hashlib.sha256(raw).hexdigest(),
+            }
+
         return {'verdict': 'CLEAN', 'check': 'ALL', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req))}
     return {'verdict': 'CONDITIONAL', 'check': 'COVERAGE', 'detail': 'hash ' + digest[:8] + ' passed ' + str(passed) + ' of ' + str(len(req)) + '; not passing: ' + ', '.join(missed or ['none'])}
 
