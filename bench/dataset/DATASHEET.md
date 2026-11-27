@@ -66,6 +66,13 @@ Everything runs against loopback fixtures. No external system is scanned.
   attended `--acquire-token` mode. The labels were corrected, and the first run
   is kept as recorded.
 
+
+## Negative controls (false-positive rate)
+
+Six cases are secure or benign-but-unusual servers that must yield **no finding** (`negative_control: true`, asserting `_findings_count: 0`): the secure baseline, a trailing-slash issuer, grant-types registration, and token endpoints returning 501, an empty 204, and an HTML 400. Each run's `summary.json` reports `negative_controls`, `negative_controls_clean` and `false_positive_rate`.
+
+mcp-authscan 1.1.47: 6/6 clean, **false-positive rate 0.0**. Detection (176 flaw labels) and precision (6 negative controls) are measured in the same run.
+
 ## What it does not show
 
 - The fixture imitates flaws. It is not any real product's code.
