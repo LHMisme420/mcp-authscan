@@ -22,6 +22,11 @@ jobs:
       CONTACT: "lhmisme2011@gmail.com"
       AUTHORIZED_BY: "LHMisme420 (endpoint owner)"
       AUTH_BASIS: "owner-operated endpoint; scanned by its own repository CI"
+      # Fallback client when the server refuses dynamic registration: a public
+      # client (no secret) an earlier scan registered on this server. The
+      # scanner uses it only if registration supplies none.
+      MCPAUTHSCAN_CLIENT_ID: "f2eedcfd-1482-4639-b3f1-2bbb6e2a34ec"
+      MCPAUTHSCAN_REDIRECT_URI: "http://localhost/mcp-authscan/callback"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
