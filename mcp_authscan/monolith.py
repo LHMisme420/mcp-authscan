@@ -78,6 +78,8 @@ def validate_target_host(hostname, port):
     if not addr_info:
         raise ValueError(f"Cannot resolve {hostname}")
     addresses = sorted({info[4][0] for info in addr_info})
+    if is_permitted_private_host(hostname):
+        return addresses[0]
     for address in addresses:
         if not is_global_address(address):
             raise ValueError(
@@ -127,6 +129,40 @@ def is_global_address(address):
 
 
 ALLOW_PRIVATE_TARGETS = False
+# Set from --allow-private-host: one exact hostname (or IP literal) that may resolve to a
+# non-global address. Default None. Exact string match only: no wildcards, no CIDR, and
+# no alias expansion (localhost, 127.0.0.1 and ::1 are three different hosts).
+PRIVATE_HOST_PERMITTED = None
+
+
+def is_permitted_private_host(hostname):
+    return bool(PRIVATE_HOST_PERMITTED) and (hostname or "").lower() == PRIVATE_HOST_PERMITTED
+
+
+_HOST_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+def private_host_arg(value):
+    """argparse type for --allow-private-host: one exact host, refused if it is a pattern."""
+    host = (value or "").strip().lower()
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+    if ip is not None:
+        return host if host == str(ip) else _bad_host(value)
+    if not host or len(host) > 253 or not all(_HOST_LABEL.match(l) for l in host.split(".")):
+        _bad_host(value)
+    return host
+
+
+def _bad_host(value):
+    import argparse
+    raise argparse.ArgumentTypeError(
+        "%r is not a single exact host (no wildcards, CIDR, ports, brackets or trailing dot; "
+        "IP literals in canonical form)" % (value,))
+
+
 def assert_url_is_fetchable(url, allow_private=None):
     """Refuse to fetch a URL that could reach the scanner's own network.
 
@@ -142,7 +178,7 @@ def assert_url_is_fetchable(url, allow_private=None):
         raise ValueError(f"refusing to fetch non-HTTP(S) URL: {url}")
     if not parsed.hostname:
         raise ValueError(f"refusing to fetch URL without a host: {url}")
-    if allow_private:
+    if allow_private or is_permitted_private_host(parsed.hostname):
         return
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
@@ -1090,7 +1126,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = '2026.11.23.1'  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = '2026.11.27.1'  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -2436,6 +2472,7 @@ def generate_html_report(findings, target, output_file, payload=None):
     ex_text = ', '.join('%s (%s)' % (e.get('name'), e.get('reason') or 'reason not recorded') for e in ex) if ex else 'none'
     rows = [
         ('Scope', payload.get('scope', '')),
+        ('Permitted private host', payload.get('scope_private_host') or 'none'),
         ('Scan mode', payload.get('scan_mode', '')),
         ('Probe set', payload.get('probe_set_version', '')),
         ('Severity calibration', payload.get('severity_calibration_version')
@@ -2530,6 +2567,9 @@ def main():
                     help="pin or compare the MCP surface the server declares; a missing file is written, an existing file is diffed")
     ap.add_argument("--allow-private", action="store_true",
                     help="allow scanning private/loopback targets (127.0.0.0/8, 10.0.0.0/8, etc) - opt-in for lab and staging")
+    ap.add_argument("--allow-private-host", metavar="HOST", type=private_host_arg, default=None,
+                    help="allow exactly one named host to resolve to a private address (exact match; "
+                         "no wildcards, CIDR or loopback aliases). Off by default")
 
     # Authorization and compliance tracking
     ap.add_argument("--authorized-by", metavar="NAME",
@@ -2641,6 +2681,8 @@ def main():
     # Also set it in oauth_probes_v2 module
     import mcp_authscan.oauth_probes_v2 as oauth_probes_v2
     oauth_probes_v2.ALLOW_PRIVATE_TARGETS = ALLOW_PRIVATE_TARGETS
+    global PRIVATE_HOST_PERMITTED
+    PRIVATE_HOST_PERMITTED = getattr(args, "allow_private_host", None)
     oauth_probes_v2.ACQUIRE_TOKEN = bool(getattr(args, "acquire_token", False))
     oauth_probes_v2.ATTENDED_WAIT_SECONDS = 0.0
     _common.VERBOSE = bool(getattr(args, "verbose", False))
@@ -2652,6 +2694,7 @@ def main():
         ALLOWED_HOSTS.add(host.lower())
     import mcp_authscan.monolith as _realmono
     _realmono.ALLOWED_HOSTS = ALLOWED_HOSTS
+    _realmono.PRIVATE_HOST_PERMITTED = PRIVATE_HOST_PERMITTED
 
     # AUTHORIZATION CHECK: refuse to run without authorization metadata
     if not args.authorized_by:
@@ -3262,6 +3305,7 @@ def main():
             excl_out.append({"name": k[0], "reason": k[1]})
     canonical_payload["excluded"] = excl_out
     canonical_payload["scope"] = args.scope or "OAuth authorization server configuration for %s" % args.target
+    canonical_payload["scope_private_host"] = PRIVATE_HOST_PERMITTED
     canonical_payload["not_tested"] = list(metadata.not_tested or [])
     for key in ("probes_attempted", "probes_passed", "probes_failed", "probes_observed", "probes_not_observed", "probes_excluded"):
         canonical_payload.pop(key, None)

@@ -12,7 +12,7 @@ mcp-authscan asks whether an MCP endpoint requires a credential at all, then gra
 
 Same local fixture, two tools, both scanners run against it. Cisco AI Defense mcp-scanner with its yara analyzer flagged read_file HIGH and greet SAFE. mcp-authscan flagged the same tool, plus a resource pointing at file:///etc/passwd and an endpoint accepting calls with no credential.
 
-Current report contract: verdict-v4 schema version 3 (graded `report_hash` over the totals, findings and one row per probe: id, name, status, HTTP status, prerequisite met, limitation, severity) plus a separate `probe-evidence-v1` `evidence_hash` over one body digest per probe row; verdict-v3 reports still verify under verdict-v3, probe set 2026.11.23.1, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
+Current report contract: verdict-v4 schema version 3 (graded `report_hash` over the totals, findings and one row per probe: id, name, status, HTTP status, prerequisite met, limitation, severity) plus a separate `probe-evidence-v1` `evidence_hash` over one body digest per probe row; verdict-v3 reports still verify under verdict-v3, probe set 2026.11.27.1, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
 
 Against the field: 16,072 registry endpoints walked, 57.1% of the 14,339 that speak MCP completed a handshake with no credential.
 
@@ -125,7 +125,7 @@ Findings from the official MCP reference servers were reported to the maintainer
 
 ## Versions
 
-Current source version 1.1.47 and probe set 2026.11.23.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
+Current source version 1.1.48 and probe set 2026.11.27.1 are versioned separately, so adding a probe never rewrites how a past report reads. A probe set stamp is `YYYY.MM.DD.N`, the date (America/New_York) the probe set changed plus a per-day counter; a test fails if the probe set changes and the stamp does not. Earlier date-only stamps and the four that were mis-dated are listed in CHANGELOG.md under "Probe set stamps".
 
 ## Want your own MCP server reviewed?
 
