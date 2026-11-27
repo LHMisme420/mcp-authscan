@@ -105,7 +105,7 @@ def main():
     git = lambda *a: subprocess.run(["git", "-C", ROOT, *a], capture_output=True, text=True).stdout.strip()
     summary = {"schema": "mcp-authscan-dataset-run-v1", "run": stamp,
                "scanner_version": importlib.metadata.version("mcp-authscan"),
-               "repo_commit": git("rev-parse", "HEAD"), "repo_dirty": bool(git("status", "--porcelain")),
+               "repo_commit": git("rev-parse", "HEAD"), "repo_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
                "python": platform.python_version(), "cases": len(spec["cases"]), "rows": len(rows),
                "labeled_rows": scored, "labeled_hit": hit, "labeled_miss": scored - hit,
                "cases_sha256": hashlib.sha256(open(os.path.join(HERE, "cases.json"), "rb").read()).hexdigest()}
