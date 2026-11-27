@@ -140,3 +140,6 @@ mcp-authscan/
 
 # Zenodo bundle build output
 /mcp-authscan-dataset-v1.zip
+
+# SDK watch records are published evidence (conformance/watch.py)
+!conformance/watch/log.jsonl
