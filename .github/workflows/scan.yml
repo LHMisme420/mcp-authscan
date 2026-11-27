@@ -37,10 +37,10 @@ jobs:
       - name: Scan
         run: |
           set -uo pipefail
+          code=0
           mcp-authscan "$TARGET" --sarif --output scan.sarif --evidence-dir evidence --fail-on high \
             --authorized-by "$AUTHORIZED_BY" --auth-basis "$AUTH_BASIS" --contact "$CONTACT" \
-            --scope "live endpoint auth posture"
-          code=$?
+            --scope "live endpoint auth posture" || code=$?
           if [ "$code" -eq 5 ]; then
             echo "::warning::Incomplete coverage (exit 5): at least one probe could not observe its property. No FAIL at or above high."
           elif [ "$code" -ne 0 ]; then
