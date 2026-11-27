@@ -8,8 +8,13 @@ jobs:
       contents: read
       security-events: write
     env:
-      TARGET: "tollbooth-authority.fastmcp.app/mcp"
+      # Owner-operated endpoint: the repository owner authorizes this scan.
+      # The CLI refuses to run without an authorization basis, and since 1.1.47
+      # a live target needs an explicit scheme.
+      TARGET: "https://tollbooth-authority.fastmcp.app/mcp"
       CONTACT: "lhmisme2011@gmail.com"
+      AUTHORIZED_BY: "LHMisme420 (endpoint owner)"
+      AUTH_BASIS: "owner-operated endpoint; scanned by its own repository CI"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,9 +23,9 @@ jobs:
       - name: Install
         run: pip install mcp-authscan
       - name: Scan
-        run: mcp-authscan "$TARGET" --sarif --output scan.sarif --contact "$CONTACT" --fail-on high --scope "live endpoint auth posture"
+        run: mcp-authscan "$TARGET" --sarif --output scan.sarif --authorized-by "$AUTHORIZED_BY" --auth-basis "$AUTH_BASIS" --contact "$CONTACT" --fail-on high --scope "live endpoint auth posture"
       - name: Report
-        run: mcp-authscan "$TARGET" --json --output scan.json --contact "$CONTACT" --scope "live endpoint auth posture"
+        run: mcp-authscan "$TARGET" --json --output scan.json --authorized-by "$AUTHORIZED_BY" --auth-basis "$AUTH_BASIS" --contact "$CONTACT" --scope "live endpoint auth posture"
       - name: Save report
         uses: actions/upload-artifact@v4
         with:
