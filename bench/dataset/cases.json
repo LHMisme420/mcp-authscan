@@ -1,20 +1,13 @@
 {
-  "schema": "mcp-authscan-dataset-cases-v1",
+  "schema": "mcp-authscan-dataset-cases-v2",
   "fixture": "fixture_oauth.py",
-  "note": "Labels are fixed before a run and state only what the fixture configuration determines. A probe with no label is observed and recorded, not scored.",
+  "note": "Labels are fixed before a run and state only what the configuration determines. default_labels apply to every case with defaults != false; a case's labels override them. _exit_code and _findings_count label the whole scan. A probe with no label is recorded, not scored.",
   "cases": [
     {
       "id": "C00-secure-baseline",
       "env": {},
       "flaw": "none: S256-only PKCE, exact redirect match, asymmetric JWKS, no CORS on the token endpoint",
-      "labels": {
-        "issuer-identity": "PASS",
-        "resource-binding": "PASS",
-        "token-cache-control": "PASS",
-        "jwks-keys": "PASS",
-        "pkce-s256": "PASS",
-        "redirect-uri-exact": "PASS"
-      }
+      "labels": {}
     },
     {
       "id": "C01-pkce-plain-accepted",
@@ -132,6 +125,269 @@
         "pkce-s256": "EXCLUDED",
         "redirect-uri-exact": "EXCLUDED"
       }
+    },
+    {
+      "id": "C11-pkce-plain-and-jwks-symmetric",
+      "env": {
+        "PKCE_PLAIN": "accept",
+        "JWKS_HS": "1"
+      },
+      "flaw": "C01 and C05",
+      "labels": {
+        "pkce-s256": "FAIL",
+        "jwks-keys": "FAIL"
+      }
+    },
+    {
+      "id": "C12-pkce-plain-and-jwks-absent",
+      "env": {
+        "PKCE_PLAIN": "accept",
+        "JWKS": "absent"
+      },
+      "flaw": "C01 and C04",
+      "labels": {
+        "pkce-s256": "FAIL",
+        "jwks-keys": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C13-redirect-prefix-and-jwks-symmetric",
+      "env": {
+        "REDIRECT_MATCH": "prefix",
+        "JWKS_HS": "1"
+      },
+      "flaw": "C02 and C05",
+      "labels": {
+        "redirect-uri-exact": "FAIL",
+        "jwks-keys": "FAIL"
+      }
+    },
+    {
+      "id": "C14-redirect-prefix-and-jwks-absent",
+      "env": {
+        "REDIRECT_MATCH": "prefix",
+        "JWKS": "absent"
+      },
+      "flaw": "C02 and C04",
+      "labels": {
+        "redirect-uri-exact": "FAIL",
+        "jwks-keys": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C15-registration-refused-masks-pkce-plain",
+      "env": {
+        "REGISTRATION": "fail",
+        "PKCE_PLAIN": "accept"
+      },
+      "flaw": "C01 behind refused registration: the flaw is present but untestable without a client",
+      "labels": {
+        "pkce-s256": "EXCLUDED",
+        "redirect-uri-exact": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C16-registration-refused-masks-redirect-prefix",
+      "env": {
+        "REGISTRATION": "fail",
+        "REDIRECT_MATCH": "prefix"
+      },
+      "flaw": "C02 behind refused registration",
+      "labels": {
+        "pkce-s256": "EXCLUDED",
+        "redirect-uri-exact": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C17-registration-refused-and-jwks-symmetric",
+      "env": {
+        "REGISTRATION": "fail",
+        "JWKS_HS": "1"
+      },
+      "flaw": "C05 with refused registration: the JWKS flaw needs no client",
+      "labels": {
+        "jwks-keys": "FAIL",
+        "pkce-s256": "EXCLUDED",
+        "redirect-uri-exact": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C18-registration-refused-operator-client",
+      "env": {
+        "REGISTRATION": "fail"
+      },
+      "flaw": "refused registration, operator client supplied (MCPAUTHSCAN_CLIENT_ID/REDIRECT_URI)",
+      "labels": {},
+      "scan_env": {
+        "MCPAUTHSCAN_CLIENT_ID": "fixture-client",
+        "MCPAUTHSCAN_REDIRECT_URI": "{base}/cb"
+      }
+    },
+    {
+      "id": "C19-registration-refused-operator-client-unmasks-pkce",
+      "env": {
+        "REGISTRATION": "fail",
+        "PKCE_PLAIN": "accept"
+      },
+      "flaw": "C15 with an operator client: the masked flaw becomes visible",
+      "labels": {
+        "pkce-s256": "FAIL"
+      },
+      "scan_env": {
+        "MCPAUTHSCAN_CLIENT_ID": "fixture-client",
+        "MCPAUTHSCAN_REDIRECT_URI": "{base}/cb"
+      }
+    },
+    {
+      "id": "C20-redirect-hosts-loopback-ip-only",
+      "env": {
+        "REDIRECT_HOSTS": "127.0.0.1"
+      },
+      "flaw": "registration accepts only 127.0.0.1 redirects: the scanner's second candidate",
+      "labels": {}
+    },
+    {
+      "id": "C21-redirect-hosts-none-acceptable",
+      "env": {
+        "REDIRECT_HOSTS": "example.invalid"
+      },
+      "flaw": "registration refuses every loopback candidate",
+      "labels": {
+        "pkce-s256": "EXCLUDED",
+        "redirect-uri-exact": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C22-token-endpoint-501",
+      "env": {
+        "TOKEN_SHAPE": "501"
+      },
+      "flaw": "token endpoint answers HTTP 501 with an empty body: not a pass for any token-endpoint probe",
+      "labels": {
+        "token-cache-control": "NOT_OBSERVED",
+        "password-grant": "NOT_OBSERVED",
+        "client-auth": "NOT_OBSERVED"
+      }
+    },
+    {
+      "id": "C23-token-endpoint-empty204",
+      "env": {
+        "TOKEN_SHAPE": "empty204"
+      },
+      "flaw": "token endpoint answers HTTP 204 with no body: not a pass for any token-endpoint probe",
+      "labels": {
+        "token-cache-control": "NOT_OBSERVED",
+        "password-grant": "NOT_OBSERVED",
+        "client-auth": "NOT_OBSERVED"
+      }
+    },
+    {
+      "id": "C24-token-endpoint-html400",
+      "env": {
+        "TOKEN_SHAPE": "html400"
+      },
+      "flaw": "token endpoint answers HTTP 400 with an HTML body: not a pass for any token-endpoint probe",
+      "labels": {
+        "token-cache-control": "NOT_OBSERVED",
+        "password-grant": "NOT_OBSERVED",
+        "client-auth": "NOT_OBSERVED"
+      }
+    },
+    {
+      "id": "A00-open-noauth",
+      "fixture": "bench/answer-key/fixtures/open_noauth.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 1,
+        "_findings_count": 2
+      }
+    },
+    {
+      "id": "A01-closed-401",
+      "fixture": "bench/answer-key/fixtures/closed_401.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 5,
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "A02-closed-oauth",
+      "fixture": "bench/answer-key/fixtures/closed_oauth.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 5,
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "A03-html-page",
+      "fixture": "bench/answer-key/fixtures/html_page.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 4,
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "A04-open-with-discovery",
+      "fixture": "bench/answer-key/fixtures/open_with_discovery.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 1,
+        "_findings_count": 1
+      }
+    },
+    {
+      "id": "A05-challenge-basic",
+      "fixture": "bench/answer-key/fixtures/challenge_basic.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 4,
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "A06-challenge-noheader",
+      "fixture": "bench/answer-key/fixtures/challenge_noheader.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 4,
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "A07-plaintext-200",
+      "fixture": "bench/answer-key/fixtures/plaintext_200.py",
+      "port_arg": true,
+      "defaults": false,
+      "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
+      "labels": {
+        "_exit_code": 4,
+        "_findings_count": 0
+      }
     }
-  ]
+  ],
+  "default_labels": {
+    "issuer-identity": "PASS",
+    "resource-binding": "PASS",
+    "token-cache-control": "PASS",
+    "jwks-keys": "PASS",
+    "pkce-s256": "PASS",
+    "redirect-uri-exact": "PASS"
+  }
 }

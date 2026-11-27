@@ -44,22 +44,28 @@ def wait_listening(port, proc, timeout=10.0):
     return False
 
 
-def run_case(case):
+def run_case(case, default_fixture):
     port = free_port()
+    base = "http://127.0.0.1:%d" % port
     env = {k: v for k, v in os.environ.items() if not k.startswith("MCPAUTHSCAN_")}
-    env.update(case["env"], PORT=str(port))
-    fx = subprocess.Popen([sys.executable, os.path.join(ROOT, "fixture_oauth.py")], env=env,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    env.update(case.get("env", {}), PORT=str(port))
+    fixture = os.path.join(ROOT, case.get("fixture", default_fixture))
+    argv = [sys.executable, fixture] + ([str(port)] if case.get("port_arg") else [])
+    fx = subprocess.Popen(argv, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         if not wait_listening(port, fx):
             raise RuntimeError("fixture did not start for " + case["id"])
         scan_env = {k: v for k, v in os.environ.items() if not k.startswith("MCPAUTHSCAN_")}
-        r = subprocess.run(SCAN + ["http://127.0.0.1:%d/mcp" % port], capture_output=True,
+        scan_env.update({k: v.replace("{base}", base) for k, v in case.get("scan_env", {}).items()})
+        r = subprocess.run(SCAN + [base + "/mcp"], capture_output=True,
                            text=True, env=scan_env, timeout=180)
     finally:
         fx.terminate()
         fx.wait()
-    report = json.loads(r.stdout)
+    try:
+        report = json.loads(r.stdout)
+    except ValueError:
+        report = None  # no JSON report (e.g. exit 4, not an MCP server)
     return r.returncode, report
 
 
@@ -70,19 +76,25 @@ def main():
     os.makedirs(out)
     rows, scored, hit = [], 0, 0
     for case in spec["cases"]:
-        code, report = run_case(case)
+        code, report = run_case(case, spec["fixture"])
+        emitted = report is not None
+        report = report or {}
+        labels = dict(spec.get("default_labels", {}) if case.get("defaults", True) else {})
+        labels.update(case.get("labels", {}))
         seen = {p["name"]: p for p in report.get("probes", [])}
-        for name in sorted(set(seen) | set(case["labels"])):
+        seen["_exit_code"] = {"status": code}
+        seen["_findings_count"] = {"status": len(report.get("findings", []))}
+        for name in sorted(set(seen) | set(labels)):
             p = seen.get(name, {})
-            label = case["labels"].get(name)
+            label = labels.get(name)
             observed = p.get("status")
             match = None if label is None else (observed == label)
             if match is not None:
                 scored += 1
                 hit += match
-            rows.append({"case": case["id"], "env": case["env"], "probe": name, "label": label,
+            rows.append({"case": case["id"], "env": case.get("env", {}), "probe": name, "label": label,
                          "observed": observed, "severity": p.get("severity"),
-                         "limitation": p.get("limitation"), "match": match, "exit_code": code,
+                         "limitation": p.get("limitation"), "match": match, "exit_code": code, "report_emitted": emitted,
                          "report_hash": report.get("report_hash")})
             if match is False:
                 print("MISS %s %s label=%s observed=%s" % (case["id"], name, label, observed))
