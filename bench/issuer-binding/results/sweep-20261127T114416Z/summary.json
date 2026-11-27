@@ -1,0 +1,10 @@
+{
+  "schema": "mcp-authscan-client-sweep-v1",
+  "run": "20261127T114416Z",
+  "rows": 16,
+  "verdicts": {
+    "EXCLUDED": 4,
+    "FAIL": 8,
+    "PASS": 4
+  }
+}
