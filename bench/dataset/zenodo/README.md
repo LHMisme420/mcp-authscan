@@ -53,4 +53,4 @@ Creative Commons Attribution 4.0 International (CC-BY-4.0).
 
 ## Cite
 
-Leroy H. Mason (2026). *MCP AuthScan labeled dataset.* Zenodo. DOI: <added on publish>.
+Leroy H. Mason (2026). *MCP AuthScan labeled dataset.* Zenodo. Version DOI 10.5281/zenodo.24588724. Record: https://zenodo.org/records/24588724
