@@ -1,0 +1,43 @@
+name: release-notes
+# Manually triggered. Replaces the notes of an existing GitHub release with that
+# version's section of CHANGELOG.md on the default branch, so provenance added
+# after a release (published hashes, limitations) reaches the release page.
+# It edits notes only: it never creates a release, changes assets or moves a tag.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag, e.g. v1.1.47"
+        required: true
+        type: string
+permissions:
+  contents: write   # needed to edit release notes
+concurrency:
+  group: release-notes-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  sync-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7 # v4
+
+      - name: Extract the CHANGELOG section
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::tag must look like v1.2.3, got: $TAG"; exit 1
+          fi
+          python3 scripts/changelog_section.py "${TAG#v}" CHANGELOG.md > notes.md
+          echo "--- notes for $TAG ---"; cat notes.md
+
+      - name: Update the release notes
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json tagName >/dev/null
+          gh release edit "$TAG" --notes-file notes.md
+          echo "Updated notes for $TAG"

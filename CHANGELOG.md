@@ -14,6 +14,14 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [1.1.47] - 2026-11-26
 
+**Published PyPI artifact SHA-256:**
+- `mcp_authscan-1.1.47-py3-none-any.whl`: `7944a31953f3d12847eb2f08262077f39ce71b8387ce2d9381cd407359c3ff88`
+- `mcp_authscan-1.1.47.tar.gz`: `b5cb0bbd57f89f0f245a2e749df401b549f1505504706cce4bd44f5d4044bfb0`
+
+Tag `v1.1.47` (commit `8c5b497`). Both digests match the assets attached to the GitHub release.
+
+Post-release: the 1.1.47 README and `mcp_authscan/pyproject.toml` still read 1.1.46. Neither affects the installed tool; both are corrected on `main`.
+
 ### Added
 - Policy-based assurance with CURRENT, STALE, REGRESSED and INCONCLUSIVE verdicts.
 - Deployment Acknowledgment Proof using reviewer-issued challenges.
