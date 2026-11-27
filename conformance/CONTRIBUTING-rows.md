@@ -105,3 +105,20 @@ This covers single-verdict **client-credentials** binding rows from
 (`metadata_issuer` / `credential_binding` / `token_response_iss`) is produced by a
 separate conformance harness and is **not** covered by this guide. Node client
 rows (`--client-kind node`) are not yet documented here.
+
+### What `matrix.json` `credential_binding` measures
+
+It is an **access-token** check, not a client-credentials check. The client
+completes a login against server A (token `at-clean-<A port>`). It then
+connects, with the same token store, to server B, which has its own issuer.
+FAIL means A's access token reached B. It differs from
+`bench/issuer-binding/run_issuer_binding_sdk.py`, which asks whether a stored
+client *secret* bound to one issuer is presented to another. Python SDK 1.30.0
+fails this check and passes that one.
+
+Re-run 2026-11-27 with pinned venvs (`conformance/fixtures/drive2.py` now runs on
+mcp 1.x and 2.x): mcp 1.30.0, 2.0.0 and 2.3.0 all FAIL. The stored token is
+attached to the first request to B (`server/discover`), before any discovery.
+Both servers share one token store here. Whether that is SDK behaviour to fix or
+a store the SDK expects to be per-server is not settled; check the SDK's
+`TokenStorage` contract before treating it as a vulnerability.

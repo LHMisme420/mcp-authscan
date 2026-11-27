@@ -1,6 +1,11 @@
 import json, os, sys, anyio
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+import inspect
+from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+try:
+    from mcp import Client  # mcp 2.x: Client(transport)
+except ImportError:  # mcp 1.x
+    from mcp import ClientSession as Client
+TAKES_TRANSPORT = "server" in inspect.signature(Client.__init__).parameters
 from mcp.client.auth import OAuthClientProvider
 from mcp.shared.auth import OAuthClientMetadata, OAuthToken, OAuthClientInformationFull
 PORT = sys.argv[1] if len(sys.argv) > 1 else "9201"
@@ -46,15 +51,26 @@ async def redirect(u):
     ST.append(u.partition("state=")[2].partition(chr(38))[0])
     print("AUTH_URL", u, flush=True)
 async def callback():
-    return ("fake-code", ST[0] if ST else "")
+    state = ST[0] if ST else ""
+    try:  # mcp 2.x returns a typed result, 1.x a (code, state) tuple
+        from mcp.shared.auth import AuthorizationCodeResult
+        return AuthorizationCodeResult(code="fake-code", state=state)
+    except ImportError:
+        return ("fake-code", state)
 async def main():
     meta = OAuthClientMetadata(client_name="matrix-probe", redirect_uris=["http:" + "//127.0.0.1:9301/callback"])
     auth = OAuthClientProvider(server_url=URL, client_metadata=meta, storage=Store().boot(), redirect_handler=redirect, callback_handler=callback)
     try:
-        async with streamablehttp_client(URL, auth=auth) as (r, w, x):
-            async with ClientSession(r, w) as s:
-                await s.initialize()
-                print("INITIALIZED", flush=True)
+        async with create_mcp_http_client(auth=auth) as http:
+            transport = streamable_http_client(URL, http_client=http)
+            if TAKES_TRANSPORT:
+                async with Client(transport) as s:
+                    print("INITIALIZED", flush=True)
+            else:
+                async with transport as streams:
+                    async with Client(streams[0], streams[1]) as s:
+                        await s.initialize()
+                        print("INITIALIZED", flush=True)
     except Exception as e:
         print("ENDED", repr(e), flush=True)
 anyio.run(main)
