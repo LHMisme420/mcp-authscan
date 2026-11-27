@@ -1,8 +1,9 @@
 # Releasing mcp-authscan to PyPI
 
 Publishing is automated by `.github/workflows/release.yml`: pushing a `v*` tag
-builds the sdist + wheel, uploads to PyPI (if a token is configured), and
-creates a GitHub release with the artifacts.
+rebuilds the wheel reproducibly, refuses unless it matches `release/anchors.tsv`,
+uploads it to PyPI through trusted publishing (with PEP 740 attestations), and
+creates a GitHub release with the verified wheel.
 
 ## One-time setup
 
@@ -10,15 +11,13 @@ creates a GitHub release with the artifacts.
    If it's taken, pick another distribution name in `pyproject.toml` (repository root) (`name =`)
    — the import package `mcp_authscan` can stay the same.
 2. **Create a PyPI account** at https://pypi.org and verify your email.
-3. **Create an API token:** PyPI → Account settings → API tokens → *Add API
-   token*. Scope it to the project after the first upload, or "entire account"
-   for the very first publish.
-4. **Add it as a repo secret:** GitHub → repo Settings → Secrets and variables →
-   Actions → *New repository secret* → name it exactly `PYPI_API_TOKEN`, paste
-   the token value.
+3. **Trusted publisher (configured 2026-11-27):** PyPI → mcp-authscan → Publishing →
+   GitHub publisher with owner `LHMisme420`, repository `mcp-authscan`, workflow
+   `release.yml`, no environment. No API token or repo secret is used. A leftover
+   `PYPI_API_TOKEN` secret is no longer read and can be deleted.
 
-If `PYPI_API_TOKEN` is not set, the release workflow still runs and creates the
-GitHub release — it just skips the PyPI upload.
+Attestations exist only for wheels this workflow uploads. Do not upload by hand:
+a hand-uploaded version gets no attestation, and the workflow then only verifies it.
 
 ## Cutting a release
 

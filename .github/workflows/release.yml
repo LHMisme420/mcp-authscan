@@ -1,17 +1,19 @@
 name: release
 permissions:
   contents: write   # needed to create the GitHub release
+  id-token: write   # PyPI trusted publishing (OIDC); no API token is stored
 on:
   push:
     tags:
       - "v*"
 # Nothing reaches PyPI or a GitHub release unless the wheel matches the anchor
 # recorded in release/anchors.tsv (the hash published in CHANGELOG.md and on the
-# site). The intended order is: upload the audited wheel from the owner's machine,
-# then push the tag. This job then finds the version on PyPI, checks PyPI's wheel
-# against the anchor, uploads nothing, and attaches the verified wheel to the
-# GitHub release. If the version is not on PyPI yet, it uploads only a wheel whose
-# hash matches the anchor. The sdist is not reproducible, so CI never uploads one.
+# site). Push the tag; do not upload by hand. If the version is not on PyPI yet,
+# this job uploads only a wheel whose hash matches the anchor, via PyPI trusted
+# publishing, which attaches PEP 740 attestations (Sigstore-signed provenance tying
+# the wheel to this workflow run). If PyPI already has the version, it checks PyPI's
+# wheel against the anchor and uploads nothing. The sdist is not reproducible, so CI
+# never uploads one.
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -94,19 +96,21 @@ jobs:
           PY
           echo "present=true" >> "$GITHUB_OUTPUT"
 
-      - name: Publish the verified wheel to PyPI (only if PyPI does not have it)
+      - name: Stage only the anchored wheel for upload
         if: steps.pypi.outputs.present == 'false'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "$TWINE_PASSWORD" ]; then
-            echo "::error::PYPI_API_TOKEN not set and PyPI has no ${{ steps.anchor.outputs.version }}. Upload from the release machine first."
-            exit 1
-          fi
-          pip install twine
-          twine upload --non-interactive "${{ steps.anchor.outputs.wheel }}"
+          mkdir -p upload
+          cp "${{ steps.anchor.outputs.wheel }}" upload/
+          echo "$(sha256sum upload/*.whl)"
+          test "$(ls upload | wc -l)" = 1
+
+      - name: Publish the verified wheel to PyPI with attestations (only if PyPI does not have it)
+        if: steps.pypi.outputs.present == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: upload/
+          attestations: true
 
       - name: Create GitHub release with the verified wheel
         env:
