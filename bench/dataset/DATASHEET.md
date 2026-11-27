@@ -3,6 +3,8 @@
 A ground-truth set of MCP authorization-server configurations, each with known
 correct probe verdicts, scanned by mcp-authscan and recorded probe by probe.
 
+**Cite:** Mason, Leroy H. (2026). *MCP AuthScan labeled dataset.* Zenodo. Version DOI [10.5281/zenodo.24588724](https://doi.org/10.5281/zenodo.24588724).
+
 ## What it is
 
 - **Cases** (`cases.json`): one configuration of the local fixture
