@@ -15,7 +15,7 @@ From a clone of this repo:
 
 ```bash
 python3 -m venv .runner
-.runner/bin/pip install .          # installs mcp-authscan (1.1.20)
+.runner/bin/pip install .          # installs mcp-authscan from this checkout
 ```
 
 ## 2. Client venv (the SDK under test)
@@ -122,3 +122,20 @@ attached to the first request to B (`server/discover`), before any discovery.
 Both servers share one token store here. Whether that is SDK behaviour to fix or
 a store the SDK expects to be per-server is not settled; check the SDK's
 `TokenStorage` contract before treating it as a vulnerability.
+
+## Reproducing the published matrix
+
+The client environments behind `matrix.json` are pinned in this repo: `conformance/requirements/*.lock.txt`
+(full `pip freeze` of each Python client: mcp 1.29.1, mcp 1.30.0, fastmcp 4.1.2 with mcp 2.3.0 and
+py-key-value-aio 0.4.6) and `conformance/package-lock.json` (`@modelcontextprotocol/sdk` 1.32.2).
+No files outside the repo are needed.
+
+```bash
+conformance/run_rows.sh            # all four clients
+```
+
+It builds each client from its lock, re-runs the `credential_binding` column against a copy of
+`matrix.json`, and diffs the result against the published file: `REPRODUCED` (exit 0) or `DIFFERS` (exit 1).
+`metadata_issuer` and `token_response_iss` are graded from captured fixture logs by
+`conformance_meta.py` / `conformance_token.py` and are not re-run by this script.
+Paths can be overridden with `HARNESS`, `MATRIX`, `TS_DRIVER`, `PY_MCP_1_29_1`, `PY_MCP_1_30_0`, `PY_FASTMCP_4_1_2`.
