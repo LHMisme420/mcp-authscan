@@ -21,7 +21,7 @@ reportlab>=5.1.0,<6
 werkzeug
 gunicorn
 # PDF handling: camelot 2.0.0 uses playa-pdf instead of pypdf
-camelot-py>=2.0.0,<3
+camelot-py>=2.2.0,<3
 # OAuth and observability: pinned to patched versions
 oauthlib>=4.0.1
 opentelemetry-api>=1.45.2
