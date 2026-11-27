@@ -108,6 +108,27 @@ def seeded_client_info(redirect_uri, issuer):
     return info
 
 
+_CLIENT_TAKES_TRANSPORT = "server" in inspect.signature(Client.__init__).parameters
+
+
+def _flat(body):
+    """Captured bodies come from parse_qs: each value is a list."""
+    return {k: (v[0] if isinstance(v, list) and v else v) for k, v in (body or {}).items()}
+
+
+def seeded_credential_present(captured):
+    """The seeded (issuer-bound) credential reached the token endpoint. A secret the
+    provider obtained by re-registering with this server is correct behaviour."""
+    for entry in captured:
+        body = _flat(entry.get("body"))
+        if body.get("client_id") == "seeded-client" or body.get("client_secret") == "seeded-secret":
+            return "seeded client_secret"
+        auth = entry.get("authorization") or ""
+        if auth and "seeded" in auth:
+            return "seeded authorization header"
+    return None
+
+
 def _leaf(exc):
     while isinstance(exc, BaseExceptionGroup) and exc.exceptions:
         exc = exc.exceptions[0]
@@ -140,7 +161,16 @@ async def run_mode(mode):
             recorded["authorize_url"] = authorization_url
 
         async def callback_handler():
-            return ("decoy-code", None)
+            # Echo the state the provider put in the authorization URL, as a real
+            # redirect would; returning None trips the SDK's state check.
+            from urllib.parse import parse_qs, urlsplit
+            q = parse_qs(urlsplit(recorded["authorize_url"] or "").query)
+            state = (q.get("state") or [None])[0]
+            try:  # mcp 2.x returns a typed result, 1.x a (code, state) tuple
+                from mcp.shared.auth import AuthorizationCodeResult
+                return AuthorizationCodeResult(code="decoy-code", state=state)
+            except ImportError:
+                return ("decoy-code", state)
 
         # Provider built INSIDE the coroutine run by asyncio.run (not at import, not before
         # the loop) -- building it earlier is what caused the lock error before.
@@ -162,12 +192,17 @@ async def run_mode(mode):
         try:
             # streamable_http_client(url, http_client=...) exists in mcp 1.29+ and 2.x;
             # the yielded streams are a 3-tuple in 1.x and TransportStreams in 2.x.
-            async with create_mcp_http_client(auth=provider) as http, \
-                    streamable_http_client(base + "/mcp", http_client=http) as streams:
-                async with Client(streams[0], streams[1]) as client:
-                    await client.initialize()
-                    await client.list_tools()
-            cred = credential_present(server.captured)
+            async with create_mcp_http_client(auth=provider) as http:
+                transport = streamable_http_client(base + "/mcp", http_client=http)
+                if _CLIENT_TAKES_TRANSPORT:  # mcp 2.x: Client(transport) connects itself
+                    async with Client(transport) as client:
+                        await client.list_tools()
+                else:  # mcp 1.x: ClientSession(read, write)
+                    async with transport as streams:
+                        async with Client(streams[0], streams[1]) as client:
+                            await client.initialize()
+                            await client.list_tools()
+            cred = seeded_credential_present(server.captured)
             if cred:
                 verdict = "FAIL"
                 reason = "credential (%s) reached the decoy token endpoint" % cred
@@ -177,7 +212,7 @@ async def run_mode(mode):
         except Exception as exc:
             exc = _leaf(exc)
             first = str(exc).splitlines()[0] if str(exc) else "(no message)"
-            cred = credential_present(server.captured)
+            cred = seeded_credential_present(server.captured)
             if isinstance(exc, (TypeError, AttributeError, ImportError, NameError)):
                 # A harness/API mismatch, not an OAuth decision: never score it PASS.
                 verdict = "EXCLUDED"
@@ -204,9 +239,19 @@ async def run_mode(mode):
                 "body_keys": sorted((e.get("body") or {}).keys()),
             })
 
+        ids = {str(_flat(e.get("body")).get("client_id") or "") for e in server.captured}
+        seeded = seeded_credential_present(server.captured)
+        if mode == "consistent" and seeded:
+            # Control: the bound credential going to its own issuer is expected, not a finding.
+            verdict, reason = "EXCLUDED", "control: the issuer-bound credential was presented to its own issuer, as expected"
+        elif mode == "mismatch" and not seeded and "decoy-registered-client" in ids:
+            verdict, reason = "PASS", ("discarded the credential bound to another issuer and re-registered with "
+                                       "this server; the bound credential never reached the token endpoint")
         return {
             "client": "mcp-sdk %s" % _sdk_version(),
             "mode": mode,
+            "token_client_ids": sorted({str(_flat(e.get("body")).get("client_id") or "") for e in server.captured}),
+            "touches": list(server.touches),
             "verdict": verdict,
             "authorize_url": recorded["authorize_url"],
             "evidence": evidence,
