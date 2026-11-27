@@ -1,0 +1,14 @@
+{
+  "schema": "mcp-authscan-dataset-run-v1",
+  "run": "20261127T112901Z",
+  "scanner_version": "1.1.47",
+  "repo_commit": "f1b306bf353f36c0547f75394f8258c6485eb152",
+  "repo_dirty": true,
+  "python": "3.13.18",
+  "cases": 11,
+  "rows": 154,
+  "labeled_rows": 20,
+  "labeled_hit": 17,
+  "labeled_miss": 3,
+  "cases_sha256": "0132a80452bd485f86f93030cd90f345df17bbbc698ddc092bc4de3d46bb15f4"
+}

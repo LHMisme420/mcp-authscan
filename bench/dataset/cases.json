@@ -1,0 +1,137 @@
+{
+  "schema": "mcp-authscan-dataset-cases-v1",
+  "fixture": "fixture_oauth.py",
+  "note": "Labels are fixed before a run and state only what the fixture configuration determines. A probe with no label is observed and recorded, not scored.",
+  "cases": [
+    {
+      "id": "C00-secure-baseline",
+      "env": {},
+      "flaw": "none: S256-only PKCE, exact redirect match, asymmetric JWKS, no CORS on the token endpoint",
+      "labels": {
+        "issuer-identity": "PASS",
+        "resource-binding": "PASS",
+        "token-cache-control": "PASS",
+        "jwks-keys": "PASS",
+        "pkce-s256": "PASS",
+        "redirect-uri-exact": "PASS"
+      }
+    },
+    {
+      "id": "C01-pkce-plain-accepted",
+      "env": {
+        "PKCE_PLAIN": "accept"
+      },
+      "flaw": "authorization endpoint accepts code_challenge_method=plain",
+      "cwe": "CWE-327",
+      "labels": {
+        "pkce-s256": "FAIL",
+        "redirect-uri-exact": "PASS"
+      }
+    },
+    {
+      "id": "C02-redirect-prefix-match",
+      "env": {
+        "REDIRECT_MATCH": "prefix"
+      },
+      "flaw": "redirect_uri compared by prefix, not exact match",
+      "cwe": "CWE-601",
+      "labels": {
+        "redirect-uri-exact": "FAIL",
+        "pkce-s256": "PASS"
+      }
+    },
+    {
+      "id": "C03-pkce-plain-and-redirect-prefix",
+      "env": {
+        "PKCE_PLAIN": "accept",
+        "REDIRECT_MATCH": "prefix"
+      },
+      "flaw": "both C01 and C02",
+      "labels": {
+        "pkce-s256": "FAIL",
+        "redirect-uri-exact": "FAIL"
+      }
+    },
+    {
+      "id": "C04-jwks-absent",
+      "env": {
+        "JWKS": "absent"
+      },
+      "flaw": "metadata publishes no jwks_uri",
+      "labels": {
+        "jwks-keys": "EXCLUDED"
+      }
+    },
+    {
+      "id": "C05-jwks-symmetric-key",
+      "env": {
+        "JWKS_HS": "1"
+      },
+      "flaw": "JWKS publishes a symmetric (oct/HS) key",
+      "cwe": "CWE-321",
+      "labels": {
+        "jwks-keys": "FAIL"
+      }
+    },
+    {
+      "id": "C06-token-cors-wildcard-no-token",
+      "env": {
+        "TOKEN_CORS": "wildcard"
+      },
+      "flaw": "token endpoint sends ACAO *, but issues no token without client authentication",
+      "labels": {
+        "token-cors": "NOT_OBSERVED"
+      }
+    },
+    {
+      "id": "C07-token-cors-wildcard",
+      "env": {
+        "TOKEN_CORS": "wildcard",
+        "MISBEHAVE": "1"
+      },
+      "flaw": "ACAO *; tokens issued only to an authenticated registered client. The plain token-cors probe sends no client credentials, so it cannot reach a 2xx token response; a verdict needs the attended --acquire-token mode (PROBE_CONTRACT.md [4])",
+      "cwe": "CWE-942",
+      "labels": {
+        "token-cors": "NOT_OBSERVED"
+      },
+      "label_revision": "r2: was FAIL in run-20261127T112901Z; corrected after reading the fixture (MISBEHAVE authenticates the client)"
+    },
+    {
+      "id": "C08-token-cors-wildcard-credentials",
+      "env": {
+        "TOKEN_CORS": "wildcard-cred",
+        "MISBEHAVE": "1"
+      },
+      "flaw": "origin reflected with credentials; tokens issued only to an authenticated registered client. The plain token-cors probe sends no client credentials, so it cannot reach a 2xx token response; a verdict needs the attended --acquire-token mode (PROBE_CONTRACT.md [4])",
+      "cwe": "CWE-942",
+      "labels": {
+        "token-cors": "NOT_OBSERVED"
+      },
+      "label_revision": "r2: was FAIL in run-20261127T112901Z; corrected after reading the fixture (MISBEHAVE authenticates the client)"
+    },
+    {
+      "id": "C09-token-cors-origin-echo",
+      "env": {
+        "TOKEN_CORS": "echo",
+        "MISBEHAVE": "1"
+      },
+      "flaw": "origin reflected; tokens issued only to an authenticated registered client. The plain token-cors probe sends no client credentials, so it cannot reach a 2xx token response; a verdict needs the attended --acquire-token mode (PROBE_CONTRACT.md [4])",
+      "cwe": "CWE-942",
+      "labels": {
+        "token-cors": "NOT_OBSERVED"
+      },
+      "label_revision": "r2: was FAIL in run-20261127T112901Z; corrected after reading the fixture (MISBEHAVE authenticates the client)"
+    },
+    {
+      "id": "C10-registration-refused",
+      "env": {
+        "REGISTRATION": "fail"
+      },
+      "flaw": "dynamic client registration refused and no operator client supplied",
+      "labels": {
+        "pkce-s256": "EXCLUDED",
+        "redirect-uri-exact": "EXCLUDED"
+      }
+    }
+  ]
+}
