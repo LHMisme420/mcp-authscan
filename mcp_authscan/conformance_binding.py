@@ -1,8 +1,15 @@
 import json, os, shutil, subprocess, sys, time
-H = os.path.abspath(os.environ.get("HARNESS", os.path.expanduser("~/matrix/harness")))
+# Paths come from the environment, defaulting to the repo-local tree conformance/run_rows.sh builds.
+CONF = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "conformance")
+H = os.path.abspath(os.environ.get("HARNESS", os.path.join(CONF, ".work")))
 L = os.path.join(H, "logs")
 MATRIX = os.path.abspath(os.environ.get("MATRIX", "matrix.json"))
-TS = os.environ.get("TS_DRIVER", os.path.expanduser("~/matrix/ts/t3.mjs"))
+TS = os.environ.get("TS_DRIVER", os.path.join(H, "t3.mjs"))
+PY = {
+    "python-sdk 1.29.1": os.environ.get("PY_MCP_1_29_1", os.path.join(CONF, ".envs", "mcp-1.29.1", "bin", "python")),
+    "python-sdk 1.30.0": os.environ.get("PY_MCP_1_30_0", os.path.join(CONF, ".envs", "mcp-1.30.0", "bin", "python")),
+    "fastmcp 4.1.2": os.environ.get("PY_FASTMCP_4_1_2", os.path.join(CONF, ".envs", "fastmcp-4.1.2", "bin", "python")),
+}
 CLIENTS = ["python-sdk 1.29.1", "python-sdk 1.30.0", "fastmcp 4.1.2", "typescript-sdk 1.32.2"]
 def need(path):
     if not os.path.exists(path):
@@ -29,11 +36,11 @@ def clear_stores():
         shutil.rmtree(d)
 def drive(name, port):
     if name == "python-sdk 1.29.1":
-        cmd = [os.path.expanduser("~/matrix/.venv-mcp1291/bin/python"), need(os.path.join(H, "drive2.py")), str(port)]
+        cmd = [need(PY[name]), need(os.path.join(H, "drive2.py")), str(port)]
     elif name == "python-sdk 1.30.0":
-        cmd = [sys.executable, need(os.path.join(H, "drive2.py")), str(port)]
+        cmd = [need(PY[name]), need(os.path.join(H, "drive2.py")), str(port)]
     elif name == "fastmcp 4.1.2":
-        cmd = [os.path.expanduser("~/matrix/.venv-fm/bin/python"), need(os.path.join(H, "drive3.py")), str(port)]
+        cmd = [need(PY[name]), need(os.path.join(H, "drive3.py")), str(port)]
     else:
         cmd = ["node", need(TS), "http:" + "//127.0.0.1:" + str(port) + "/mcp", os.path.join(H, "store-ts.json")]
     r = subprocess.run(cmd, cwd=H, capture_output=True, text=True, timeout=90)
