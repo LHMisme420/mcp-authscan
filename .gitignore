@@ -137,3 +137,6 @@ mcp-authscan/
 
 # Labeled dataset rows are published data
 !bench/dataset/results/*/rows.jsonl
+
+# Zenodo bundle build output
+/mcp-authscan-dataset-v1.zip
