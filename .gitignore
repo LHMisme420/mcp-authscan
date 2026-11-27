@@ -134,3 +134,6 @@ mcp-authscan/
 /urls.txt
 /remote_urls.txt
 /_scratch/
+
+# Labeled dataset rows are published data
+!bench/dataset/results/*/rows.jsonl
