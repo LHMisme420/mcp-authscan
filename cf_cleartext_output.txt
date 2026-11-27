@@ -1,4 +1,0 @@
-https /register 201 {"client_id":"kmELb75X3_xifjUk","redirect_uris":["http://127.0.0.1:8765/callback"],"client_name":"cf-probe","grant_types":["authorization_code"],"response_types":["code"],"token_endpoint_auth_method":"none","client_id_issued_at":1794338831}
-cid kmELb75X3_xifjUk
-https /token 400 {"error":"invalid_grant","error_description":"Invalid authorization code format"}
-http /token 400 {"error":"invalid_grant","error_description":"Invalid authorization code format"}
