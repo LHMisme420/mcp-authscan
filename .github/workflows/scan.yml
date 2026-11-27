@@ -1,6 +1,13 @@
 name: MCP auth scan
+# Live scan of the owner-operated endpoint. Each scan registers an OAuth client
+# on the target that the scanner does not remove, so this runs on main, weekly
+# and on demand rather than on every branch push.
 on:
   push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -8,8 +15,13 @@ jobs:
       contents: read
       security-events: write
     env:
-      TARGET: "tollbooth-authority.fastmcp.app/mcp"
+      # Owner-operated endpoint: the repository owner authorizes this scan.
+      # The CLI refuses to run without an authorization basis, and since 1.1.47
+      # a live target needs an explicit scheme.
+      TARGET: "https://tollbooth-authority.fastmcp.app/mcp"
       CONTACT: "lhmisme2011@gmail.com"
+      AUTHORIZED_BY: "LHMisme420 (endpoint owner)"
+      AUTH_BASIS: "owner-operated endpoint; scanned by its own repository CI"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,16 +29,33 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: pip install mcp-authscan
+      # Exit codes (EXIT_CODES.md): 1 is a FAIL at or above --fail-on and fails
+      # the job. 5 is incomplete coverage (a probe sent but not demonstrated); it
+      # is reported as a warning, since it is not a finding. Anything else fails.
+      # One scan per run (each registers a client): SARIF for code scanning,
+      # plus the security-state-v1 and observation-v1 JSON evidence it writes.
       - name: Scan
-        run: mcp-authscan "$TARGET" --sarif --output scan.sarif --contact "$CONTACT" --fail-on high --scope "live endpoint auth posture"
-      - name: Report
-        run: mcp-authscan "$TARGET" --json --output scan.json --contact "$CONTACT" --scope "live endpoint auth posture"
+        run: |
+          set -uo pipefail
+          mcp-authscan "$TARGET" --sarif --output scan.sarif --evidence-dir evidence --fail-on high \
+            --authorized-by "$AUTHORIZED_BY" --auth-basis "$AUTH_BASIS" --contact "$CONTACT" \
+            --scope "live endpoint auth posture"
+          code=$?
+          if [ "$code" -eq 5 ]; then
+            echo "::warning::Incomplete coverage (exit 5): at least one probe could not observe its property. No FAIL at or above high."
+          elif [ "$code" -ne 0 ]; then
+            echo "::error::mcp-authscan exited $code"
+            exit "$code"
+          fi
       - name: Save report
+        if: always() && hashFiles('scan.sarif') != ''
         uses: actions/upload-artifact@v4
         with:
           name: scan-report
-          path: scan.json
+          path: |
+            scan.sarif
+            evidence/
       - uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('scan.sarif') != ''
         with:
           sarif_file: scan.sarif
