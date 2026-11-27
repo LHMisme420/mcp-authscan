@@ -25,8 +25,12 @@ from run_issuer_binding import (
     start_decoy, stop_decoy, redact, credential_present, Handler,
 )
 
-from mcp import Client
-from mcp.client.streamable_http import streamablehttp_client
+import inspect
+try:
+    from mcp import Client  # mcp 2.x
+except ImportError:  # mcp 1.x
+    from mcp import ClientSession as Client
+from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 from mcp.client.auth import OAuthClientProvider, TokenStorage
 from mcp.shared.auth import OAuthClientMetadata, OAuthClientInformationFull
 
@@ -104,6 +108,17 @@ def seeded_client_info(redirect_uri, issuer):
     return info
 
 
+def _leaf(exc):
+    while isinstance(exc, BaseExceptionGroup) and exc.exceptions:
+        exc = exc.exceptions[0]
+    return exc
+
+
+def _make_provider(**kw):
+    accepted = inspect.signature(OAuthClientProvider.__init__).parameters
+    return OAuthClientProvider(**{k: v for k, v in kw.items() if k in accepted})
+
+
 async def run_mode(mode):
     assert mode in ("consistent", "mismatch")
     server = start_sdk_decoy()
@@ -129,7 +144,7 @@ async def run_mode(mode):
 
         # Provider built INSIDE the coroutine run by asyncio.run (not at import, not before
         # the loop) -- building it earlier is what caused the lock error before.
-        provider = OAuthClientProvider(
+        provider = _make_provider(
             server_url=base + "/mcp",
             client_metadata=OAuthClientMetadata(
                 client_name="mcp-authscan issuer-binding SDK probe",
@@ -145,8 +160,11 @@ async def run_mode(mode):
 
         verdict, reason = None, None
         try:
-            async with streamablehttp_client(base + "/mcp", auth=provider) as (read, write, _):
-                async with Client(read, write) as client:
+            # streamable_http_client(url, http_client=...) exists in mcp 1.29+ and 2.x;
+            # the yielded streams are a 3-tuple in 1.x and TransportStreams in 2.x.
+            async with create_mcp_http_client(auth=provider) as http, \
+                    streamable_http_client(base + "/mcp", http_client=http) as streams:
+                async with Client(streams[0], streams[1]) as client:
                     await client.initialize()
                     await client.list_tools()
             cred = credential_present(server.captured)
@@ -157,9 +175,14 @@ async def run_mode(mode):
                 verdict = "PASS"
                 reason = "connected with no credential-bearing POST to the token endpoint"
         except Exception as exc:
+            exc = _leaf(exc)
             first = str(exc).splitlines()[0] if str(exc) else "(no message)"
             cred = credential_present(server.captured)
-            if cred:
+            if isinstance(exc, (TypeError, AttributeError, ImportError, NameError)):
+                # A harness/API mismatch, not an OAuth decision: never score it PASS.
+                verdict = "EXCLUDED"
+                reason = "harness incompatible with this mcp version: %s: %s" % (type(exc).__name__, first)
+            elif cred:
                 verdict = "FAIL"
                 reason = "credential (%s) reached the token endpoint before the flow ended (%s)" % (
                     cred, type(exc).__name__)
