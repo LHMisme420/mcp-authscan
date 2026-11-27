@@ -162,6 +162,12 @@ python -m mcp_authscan.policy_check REPORT.json POLICY.json KEYS.json
 
 It prints one JSON decision, `{"verdict", "check", "detail"}`, and exits **1 on `REJECT` or `CONTRADICTED`**. `CLEAN` and `CONDITIONAL` exit 0, so a CI step that must not accept partial coverage has to check the verdict, not just the exit code.
 
+For CI, use the strict gate instead. Only `CLEAN` exits 0:
+
+```bash
+mcp-authscan-gate REPORT.json POLICY.json KEYS.json   # 0 CLEAN, 2 CONDITIONAL, 1 REJECT/CONTRADICTED/error
+```
+
 | Verdict | Meaning |
 |---|---|
 | `REJECT` | untrusted or invalid signature, hash mismatch, a required probe missing, duplicated or `FAIL`, a forbidden finding, a finding at or above `fail-on`, `sig_version` below `min-sig-version`, `hash_scheme` below `min-graded-scheme`, or (with `require-manifest-pin`) a tool manifest not pinned for its version |
