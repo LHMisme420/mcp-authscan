@@ -136,6 +136,8 @@ conformance/run_rows.sh            # all four clients
 
 It builds each client from its lock, re-runs the `credential_binding` column against a copy of
 `matrix.json`, and diffs the result against the published file: `REPRODUCED` (exit 0) or `DIFFERS` (exit 1).
-`metadata_issuer` and `token_response_iss` are graded from captured fixture logs by
-`conformance_meta.py` / `conformance_token.py` and are not re-run by this script.
+`metadata_issuer` is graded from captured fixture logs by `conformance_meta.py` and is not
+re-run by this script. `token_response_iss` is `NOT_REQUIRED` for every client: RFC 6749
+section 5.1 and the MCP spec put the issuer check on the authorization response (RFC 9207),
+not the token response, so `conformance_tokencell.py` records the observation and never grades it.
 Paths can be overridden with `HARNESS`, `MATRIX`, `TS_DRIVER`, `PY_MCP_1_29_1`, `PY_MCP_1_30_0`, `PY_FASTMCP_4_1_2`.
