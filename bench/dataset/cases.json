@@ -1,13 +1,16 @@
 {
-  "schema": "mcp-authscan-dataset-cases-v2",
+  "schema": "mcp-authscan-dataset-cases-v3",
   "fixture": "fixture_oauth.py",
-  "note": "Labels are fixed before a run and state only what the configuration determines. default_labels apply to every case with defaults != false; a case's labels override them. _exit_code and _findings_count label the whole scan. A probe with no label is recorded, not scored.",
+  "note": "Labels are fixed before a run and state only what the configuration determines. default_labels apply to every case with defaults != false; a case's labels override them. _exit_code and _findings_count label the whole scan. A probe with no label is recorded, not scored. Cases tagged \"negative_control\": true assert _findings_count: 0 (a secure or benign server must yield no finding); they measure the false-positive rate.",
   "cases": [
     {
       "id": "C00-secure-baseline",
       "env": {},
       "flaw": "none: S256-only PKCE, exact redirect match, asymmetric JWKS, no CORS on the token endpoint",
-      "labels": {}
+      "labels": {
+        "_findings_count": 0
+      },
+      "negative_control": true
     },
     {
       "id": "C01-pkce-plain-accepted",
@@ -266,8 +269,10 @@
       "labels": {
         "token-cache-control": "NOT_OBSERVED",
         "password-grant": "NOT_OBSERVED",
-        "client-auth": "NOT_OBSERVED"
-      }
+        "client-auth": "NOT_OBSERVED",
+        "_findings_count": 0
+      },
+      "negative_control": true
     },
     {
       "id": "C23-token-endpoint-empty204",
@@ -278,8 +283,10 @@
       "labels": {
         "token-cache-control": "NOT_OBSERVED",
         "password-grant": "NOT_OBSERVED",
-        "client-auth": "NOT_OBSERVED"
-      }
+        "client-auth": "NOT_OBSERVED",
+        "_findings_count": 0
+      },
+      "negative_control": true
     },
     {
       "id": "C24-token-endpoint-html400",
@@ -290,8 +297,10 @@
       "labels": {
         "token-cache-control": "NOT_OBSERVED",
         "password-grant": "NOT_OBSERVED",
-        "client-auth": "NOT_OBSERVED"
-      }
+        "client-auth": "NOT_OBSERVED",
+        "_findings_count": 0
+      },
+      "negative_control": true
     },
     {
       "id": "A00-open-noauth",
@@ -378,6 +387,28 @@
       "flaw": "answer-key fixture; whole-scan labels from bench/answer-key/key.json",
       "labels": {
         "_exit_code": 4,
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "N00-trailing-slash-issuer",
+      "env": {
+        "TRAILING_SLASH": "1"
+      },
+      "negative_control": true,
+      "flaw": "issuer rendered with a trailing slash; a valid RFC 8414 variant",
+      "labels": {
+        "_findings_count": 0
+      }
+    },
+    {
+      "id": "N01-registration-grant-types",
+      "env": {
+        "REGISTRATION": "grant_types"
+      },
+      "negative_control": true,
+      "flaw": "registration echoes authorization_code+refresh_token grant types; benign",
+      "labels": {
         "_findings_count": 0
       }
     }

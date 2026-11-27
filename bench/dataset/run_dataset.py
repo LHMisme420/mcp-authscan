@@ -75,6 +75,7 @@ def main():
     out = os.path.join(HERE, "results", "run-" + stamp)
     os.makedirs(out)
     rows, scored, hit = [], 0, 0
+    neg_total = neg_clean = 0
     for case in spec["cases"]:
         code, report = run_case(case, spec["fixture"])
         emitted = report is not None
@@ -84,6 +85,9 @@ def main():
         seen = {p["name"]: p for p in report.get("probes", [])}
         seen["_exit_code"] = {"status": code}
         seen["_findings_count"] = {"status": len(report.get("findings", []))}
+        if case.get("negative_control"):
+            neg_total += 1
+            neg_clean += 1 if len(report.get("findings", [])) == 0 else 0
         for name in sorted(set(seen) | set(labels)):
             p = seen.get(name, {})
             label = labels.get(name)
@@ -108,6 +112,8 @@ def main():
                "repo_commit": git("rev-parse", "HEAD"), "repo_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
                "python": platform.python_version(), "cases": len(spec["cases"]), "rows": len(rows),
                "labeled_rows": scored, "labeled_hit": hit, "labeled_miss": scored - hit,
+               "negative_controls": neg_total, "negative_controls_clean": neg_clean,
+               "false_positive_rate": (0.0 if neg_total == 0 else round((neg_total - neg_clean) / neg_total, 4)),
                "cases_sha256": hashlib.sha256(open(os.path.join(HERE, "cases.json"), "rb").read()).hexdigest()}
     with open(os.path.join(out, "summary.json"), "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
