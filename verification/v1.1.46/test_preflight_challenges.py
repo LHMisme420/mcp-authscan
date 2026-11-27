@@ -95,3 +95,36 @@ def test_preflight_200_tool_list_is_not_bearer_protected():
     if not passed:
         print(log)
     assert passed, "200 tool-list zero-auth must verify as MCP but not as Bearer-protected"
+
+
+def _contrast_server(anon_status):
+    """Fake endpoint: the token request lists tools; a request without one gets anon_status."""
+    import json as _json
+    tools = _json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": "list_items"}]}}).encode()
+
+    def fake_guard(req, **kwargs):
+        if req.get_header("Authorization") == "Bearer good" or anon_status == 200:
+            return 200, {}, tools
+        return anon_status, {"www-authenticate": 'Bearer realm="x"'}, b""
+    return fake_guard
+
+
+@pytest.mark.parametrize(
+    "name,anon_status,token,status,outcome",
+    [
+        ("ENFORCED", 401, "good", "PASS", "ENFORCED"),
+        ("NOT_ENFORCED", 200, "good", "FAIL", "NOT ENFORCED"),
+        ("EXCLUDED_TOKEN_REJECTED", 401, "bad", "EXCLUDED", "EXCLUDED"),
+        ("EXCLUDED_TOKEN_ABSENT", 401, None, "EXCLUDED", "EXCLUDED"),
+    ],
+)
+def test_enforcement_contrast(name, anon_status, token, status, outcome):
+    from mcp_authscan import target_probes as tp
+    with patch.object(tp, "_egress_guard", side_effect=_contrast_server(anon_status)):
+        rec = tp.enforcement_contrast_probe("https://fixture.invalid/mcp", bearer_token=token)
+    text = rec.detail or rec.limitation or ""
+    passed = rec.status == status and text.startswith(outcome + ":")
+    if status == "EXCLUDED":
+        passed = passed and tp.ENFORCEMENT_PREREQ in text and rec.status != "PASS"
+    print(f"\n{name}: {'HIT' if passed else 'MISS'} status={rec.status} {text}")
+    assert passed, f"{name}: got {rec.status} {text!r}"
