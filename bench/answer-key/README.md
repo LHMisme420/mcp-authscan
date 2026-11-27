@@ -17,3 +17,16 @@ Run it from the repo root:
 The point is that the grade is not the scanner grading itself. A page server
 that is not MCP gets the same verdict as a closed server: no findings and no
 clean bill. A miss is a defect in the scanner, not in the key.
+
+## Latest result
+
+`results/run-20261127T111606Z`: mcp-authscan 1.1.47 at commit `45caeba` (clean checkout).
+
+| Fixtures | Hit | Miss | True positive | False negative | True negative | False positive |
+|---|---|---|---|---|---|---|
+| 8 | 8 | 0 | 2 | 0 | 6 | 0 |
+
+Positive means the key expects at least one finding. Each fixture is a local
+server; nothing outside the machine is scanned. To check the record was not
+edited, run `sha256sum -c SHA256SUMS` in the run directory. To reproduce it, run
+`python3 bench/answer-key/run_key.py` from the repo root.

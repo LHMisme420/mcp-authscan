@@ -1,0 +1,10 @@
+HIT  open_noauth expect HIGH 2f exit1 got HIGH 2f exit1
+HIT  closed_401 expect INCONCLUSIVE 0f exit5 got INCONCLUSIVE 0f exit5
+HIT  closed_oauth expect PASS 0f exit5 got PASS 0f exit5
+HIT  html_page expect NOT_OBSERVED 0f exit4 got NOT_OBSERVED 0f exit4
+HIT  open_with_discovery expect HIGH 1f exit1 got HIGH 1f exit1
+HIT  challenge_basic expect NOT_OBSERVED 0f exit4 got NOT_OBSERVED 0f exit4
+HIT  challenge_noheader expect NOT_OBSERVED 0f exit4 got NOT_OBSERVED 0f exit4
+HIT  plaintext_200 expect NOT_OBSERVED 0f exit4 got NOT_OBSERVED 0f exit4
+
+ANSWER KEY 8 hit 0 miss
