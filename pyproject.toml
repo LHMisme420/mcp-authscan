@@ -44,6 +44,7 @@ Changelog = "https://github.com/LHMisme420/mcp-authscan/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mcp-authscan = "mcp_authscan.cli_wrapper:main"
+mcp-authscan-gate = "mcp_authscan.strict_gate:main"
 
 [tool.setuptools]
 # This project root is the package itself; web imports keep their existing paths.

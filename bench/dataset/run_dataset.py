@@ -69,8 +69,15 @@ def run_case(case, default_fixture):
     return r.returncode, report
 
 
-def main():
+def main(argv=None):
+    # --negative-only: run just the negative-control cases (CI regression gate for false positives).
+    negative_only = "--negative-only" in (sys.argv[1:] if argv is None else argv)
     spec = json.load(open(os.path.join(HERE, "cases.json"), encoding="utf-8"))
+    if negative_only:
+        spec["cases"] = [c for c in spec["cases"] if c.get("negative_control")]
+        if not spec["cases"]:
+            print("no negative_control cases in cases.json")
+            return 1
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = os.path.join(HERE, "results", "run-" + stamp)
     os.makedirs(out)
@@ -122,6 +129,9 @@ def main():
         for name in ("rows.jsonl", "summary.json"):
             f.write("%s  %s\n" % (hashlib.sha256(open(os.path.join(out, name), "rb").read()).hexdigest(), name))
     print("\nDATASET %d cases, %d rows, labeled %d/%d hit -> %s" % (len(spec["cases"]), len(rows), hit, scored, out))
+    if negative_only:
+        print("NEGATIVE CONTROLS %d/%d clean (zero findings)" % (neg_clean, neg_total))
+        return 0 if hit == scored and neg_clean == neg_total else 1
     return 0 if hit == scored else 1
 
 

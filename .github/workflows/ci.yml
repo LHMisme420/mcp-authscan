@@ -118,3 +118,17 @@ jobs:
         run: python3 -m unittest tests.test_python_dependency_security -v
       - name: Verify single-scan schema-3 hashes, PDF content and tenant isolation
         run: python3 -m unittest tests.test_scan_report_v3 -v
+
+  negative-controls:
+    # False-positive regression gate: every bench/dataset case tagged negative_control
+    # (a secure or benign fixture) must produce zero findings and match its labels.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements-dev.txt -e .
+      - name: Run negative-control dataset cases
+        run: python bench/dataset/run_dataset.py --negative-only
