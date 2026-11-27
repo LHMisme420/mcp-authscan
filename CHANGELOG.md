@@ -12,6 +12,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- 1.1.48 (planned, unpublished): `--allow-private-host HOST`, probe set 2026.11.27.1. See "Probe set stamps".
+
 ## [1.1.47] - 2026-11-26
 
 **Published PyPI artifact SHA-256:**
@@ -391,6 +393,7 @@ Ships probe set `2026.11.16.1`, which no earlier release carried. Its recorded c
 
 ### Probe set stamps
 
+- 2026.11.27.1: `--allow-private-host HOST` (default off) lets exactly one named host resolve to a non-global address, in target validation (DNS rebinding protection, exit 3) and in the guarded pinned fetch. Exact match only: no wildcards, no CIDR, no loopback alias expansion (localhost, 127.0.0.1 and ::1 are distinct). The permitted host is written to the report as `scope_private_host` and to the Scope block. Grading unchanged; scans without the flag behave as 2026.11.23.1. tests/test_allow_private_host.py.
 - 2026.11.21.1: `oauth_probes_v2.ALLOW_PRIVATE_TARGETS` has a module-level default (False, the same as `monolith.ALLOW_PRIVATE_TARGETS`). Before it, a probe called without `monolith.main()` first (a library caller, or a test run outside pytest's conftest) raised `NameError`, which the probe's broad except recorded as NOT_OBSERVED with `Request failed: name 'ALLOW_PRIVATE_TARGETS' is not defined`. CLI scans were not affected: `main()` sets the flag before any probe runs, so no CLI report is regraded. Also removed with no fingerprint change: a dead first definition of `probe_resource_authorization_servers` (shadowed by the second) and a duplicate `_NoRedirect`. tests/test_probe_module_defaults.py.
 - 2026.11.19.3: token-cors [4] is EXCLUDED, prerequisite "a client_credentials grant the token endpoint accepts", limitation "No client-credentials grant (unsupported_grant_type)", when the token endpoint answers `unsupported_grant_type`: a positive statement that the target offers no such grant, the same bucket and reason as token-audience [11]. Previously NOT_OBSERVED, so a server built correctly without client_credentials scanned as incomplete (exit 5, coverage below 1.0). Other 4xx errors stay NOT_OBSERVED. tests/test_credential_grant_client.py, tests/test_verdict_contract.py (plain mode, 9004).
 - 2026.11.19.2: **one probe can no longer end a scan.** Every probe runs through `_common.isolated`: a probe that raises is NOT_OBSERVED for that probe alone, with the exception named (redacted) in its limitation and on stderr, and the scan writes its report. Scope refusals still exit 6. From 367ea5f (stamp 2026.11.16.1) probe 15 built a PASS from a 401 with no body and no headers, record() refused it, and the scan ended `Internal scan error`, exit 4, no report. Probe 15 now records the headers its verdict rests on. tests/probe_set_fingerprint.py reads the probe order through `isolated(...)`; the order component is unchanged from 2026.11.19.1. tests/test_probe_isolation.py.

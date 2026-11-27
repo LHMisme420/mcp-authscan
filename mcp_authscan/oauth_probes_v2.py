@@ -87,7 +87,7 @@ def _resolve_pinned(url, allow_private=None):
     permitted = (
         monolith.ALLOW_PRIVATE_TARGETS
         if allow_private is None else allow_private
-    )
+    ) or monolith.is_permitted_private_host(parsed.hostname)
 
     try:
         records = socket.getaddrinfo(
