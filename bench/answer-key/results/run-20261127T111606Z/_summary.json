@@ -1,0 +1,20 @@
+{
+  "tool": "bench/answer-key/run_key.py",
+  "scanner_version": "1.1.47",
+  "installed_from": "editable checkout (pip install -e .)",
+  "repo_commit": "45caeba09df01910c2337ae4b9a608c465a1cff8",
+  "repo_dirty_files": "",
+  "python": "3.13.18",
+  "platform": "Linux-6.18.44-fc-v880-x86_64-with-glibc2.39",
+  "fixtures": 8,
+  "hit": 8,
+  "miss": 0,
+  "with_findings": {
+    "true_positive": 2,
+    "false_negative": 0
+  },
+  "without_findings": {
+    "true_negative": 6,
+    "false_positive": 0
+  }
+}
