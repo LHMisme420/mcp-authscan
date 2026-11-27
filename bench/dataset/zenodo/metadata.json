@@ -1,0 +1,31 @@
+{
+  "title": "MCP AuthScan labeled dataset: ground-truth OAuth authorization-server configurations for MCP scanner accuracy",
+  "upload_type": "dataset",
+  "description": "A ground-truth dataset of Model Context Protocol (MCP) OAuth authorization-server configurations with known-correct probe verdicts, used to measure the accuracy of the mcp-authscan security scanner. Each configuration is a local fixture with one flaw (or a known combination) switched on, labeled before the scanner runs: plain PKCE acceptance, prefix redirect matching, symmetric/absent JWKS keys, permissive token-endpoint CORS, refused dynamic registration, and masking/unmasking interactions. Version 1 (mcp-authscan 1.1.47): 33 cases, 462 recorded probe rows, 176 of 176 labeled verdicts correct. Every run ships rows.jsonl, a provenance summary, and SHA-256 checksums. The dataset measures the scanner's own accuracy against local fixtures only; it imitates flaw classes and does not contain any third-party vulnerability. Provenance: github.com/LHMisme420/mcp-authscan at commit 8f3f2a770c0f8de9057856d97931fe013c02968e.",
+  "creators": [
+    { "name": "Mason, Leroy H.", "orcid": "REPLACE-WITH-YOUR-ORCID" }
+  ],
+  "keywords": [
+    "Model Context Protocol",
+    "MCP",
+    "OAuth 2.0",
+    "authorization server",
+    "security scanner",
+    "benchmark",
+    "ground truth",
+    "PKCE",
+    "issuer binding",
+    "AI agent security"
+  ],
+  "license": "cc-by-4.0",
+  "access_right": "open",
+  "version": "1.0",
+  "related_identifiers": [
+    {
+      "relation": "isSupplementTo",
+      "identifier": "https://github.com/LHMisme420/mcp-authscan",
+      "scheme": "url"
+    }
+  ],
+  "notes": "Reference run results/run-20261127T124143Z recorded from a clean checkout (repo_dirty=false) at provenance commit 8f3f2a7."
+}
