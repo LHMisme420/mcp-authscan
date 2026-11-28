@@ -28,7 +28,7 @@ jobs:
       MCPAUTHSCAN_CLIENT_ID: "f2eedcfd-1482-4639-b3f1-2bbb6e2a34ec"
       MCPAUTHSCAN_REDIRECT_URI: "http://localhost/mcp-authscan/callback"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
