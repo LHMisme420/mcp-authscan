@@ -46,7 +46,8 @@ PROBE_SET_RELEASES = {
     # 1.1.50 is planned (description probe gaps closed); this mapping does not establish publication.
     "2026.11.28.2": ["1.1.50"],
     # 1.1.51 is planned (description substring inside report_hash); this mapping does not establish publication.
-    "2026.11.28.3": ["1.1.51"],
+    # 1.1.52 is planned (same probe set as 1.1.51); this mapping does not establish publication.
+    "2026.11.28.3": ["1.1.51", "1.1.52"],
 }
 
 

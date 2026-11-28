@@ -12,6 +12,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- 1.1.52 (planned, unpublished): OWASP MCP Top 10 tag on every emitted rule and on description findings in JSON, text and SARIF (#108); version from package metadata only (#101); tests run the interpreter's console script (#105); endpoint-study registry (#104, #106, #107). Probe set unchanged (2026.11.28.3).
+
 
 
 
