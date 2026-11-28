@@ -6,7 +6,7 @@ flask-jwt-extended>=4.7,<5
 httpx>=0.28.1,<1
 schedule>=1.2.2,<2
 requests==2.34.2
-certifi==2026.10.23
+certifi==2026.11.20
 idna==3.20
 pillow==13.0.0
 # Override the older setuptools bundled by the immutable Python toolchain.
