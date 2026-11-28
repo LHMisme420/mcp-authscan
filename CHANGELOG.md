@@ -16,7 +16,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 ## [1.1.48] - 2026-11-28
 
 **Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
-- `mcp_authscan-1.1.48-py3-none-any.whl`: `918bdc069998dcd0e88b3afc33b52ccadcdd6e39675a9e823803df0cb581fb9c` (commit `ec29258`, SOURCE_DATE_EPOCH 1795824493)
+- `mcp_authscan-1.1.48-py3-none-any.whl`: `c050f0088a3d9c0213c9c7bc5144f7478243a2a45c2b5840345cefca54121729` (commit `ec29258`, SOURCE_DATE_EPOCH 1795824493)
 
 Planned: published by the release workflow through PyPI trusted publishing with PEP 740 attestations. Not yet published.
 
