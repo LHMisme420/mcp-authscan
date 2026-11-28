@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
         if not probe_4:
             print("ERROR: Probe 4 not found!")
-            print(f"DEBUG: oauth_records: {oauth_records}")
+            print(f"DEBUG: oauth_records_count={len(oauth_records)}, probe_ids={[getattr(p, 'probe_id', None) for p in oauth_records]}")
             sys.exit(1)
 
         print(f"\nProbe 4 (token-cors):")
