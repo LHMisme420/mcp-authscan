@@ -236,7 +236,7 @@ test('/sample-report preserves observations and digests with two price-labeled c
     'tool-call probe not run.',
     'One probe passed. Fifteen were excluded. Coverage, 1 of 1 testable probe.',
     'Sibling transport and origin parity were excluded on a 404.',
-    '5f6dc1c9219129473aa84458901209c973ef5d43a564c29976e3efd34eebeaa0',
+    'e08ed15790a437ed93573757e377f153aedd043a430cf1e3de93ddea514063e5',
     'd66a10a3c4d4e66a041476f3598920092a915a34c33c61083609440c1242d607',
     'This server has not been retested.',
   ]) assert(text.includes(exact), `Supplied report changed: ${exact}`);
