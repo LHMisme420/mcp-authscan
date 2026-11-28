@@ -84,7 +84,6 @@ def new_strings(r):
         "download": "v/bin/pip download --no-deps mcp-authscan==%s -d wheel" % v,
         "sha256sum": "sha256sum wheel/mcp_authscan-%s-py3-none-any.whl" % v,
         "expect": "Exit code %d: %s. Coverage %s." % (r["exit_code"], find, r["coverage"]),
-        "report_hash": "Report hash: %s" % r["report_hash"],
         "state_id": "Security state ID (anonymous): %s" % r["state_id"],
         "rh_short": "const RH_SHORT = '%s';" % (r["report_hash"] or "")[:8],
         "release_line": "The second lists release %s for probe" % v,
@@ -99,9 +98,9 @@ PATTERNS = {  # current value on the site, located by the stable text around it
     "download": r"v/bin/pip download --no-deps mcp-authscan==[0-9.]+ -d wheel",
     "sha256sum": r"sha256sum wheel/mcp_authscan-[0-9.]+-py3-none-any\.whl",
     "expect": r"Exit code \d+: [^<]*?Coverage [0-9.]+\.",
-    "report_hash": r"Report hash: [0-9a-f]{64}",
     "state_id": r"Security state ID \(anonymous\): [0-9a-f]{64}",
-    "rh_short": r"const RH_SHORT = '[0-9a-f]+';",
+    "rh_short": r"const RH_SHORT = '[0-9a-f]+';",  # the sample's hash; the page's "Report hash:" line
+    # belongs to the frozen owner-approved redacted report and is never regenerated
     "release_line": r"The second lists release [0-9.]+ for probe",
     "probe_set_line": r"set [0-9.]+ and installed_matches true\.",
 }

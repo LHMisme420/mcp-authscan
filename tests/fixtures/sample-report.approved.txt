@@ -23,5 +23,5 @@ Outside the hash, and marked as such: the tools digest, 15 tools, d66a10a3c4d4e6
 A second party re-runs the same probe set on the same target. MATCH means identical graded content. DIVERGENCE names the differing fields rather than calling the tool wrong. NOT REPRODUCIBLE means the hash cannot be recomputed.
 WHAT THIS DOES NOT CLAIM
 Not a certification. Not a guarantee of security. No claim that the scanner is right; the point is that the claim is inspectable. Acceptance is the buyer's decision.
-This server has not been retested. An assessment includes one retest of the same endpoint after fixes, and the two hashes side by side are the before and after.
+This server has not been retested. The full assessment includes one retest of the same endpoint after fixes, and the two hashes side by side are the before and after.
 Single-server assessment — $1,750 Full assessment — $3,500
