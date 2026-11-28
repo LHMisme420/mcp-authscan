@@ -1,0 +1,63 @@
+name: sdk-watch
+# Weekly: re-run the credential_binding conformance check against every new release
+# of the tracked MCP client SDKs (conformance/watch.py). New records are attested
+# (Sigstore, via GitHub artifact attestations) and proposed as a PR for review;
+# nothing is published to main without a merge.
+on:
+  schedule:
+    - cron: "41 13 * * 1"   # Mondays 13:41 UTC
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  attestations: write
+concurrency:
+  group: sdk-watch
+  cancel-in-progress: false
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: pip install -e .
+      - name: Measure new SDK releases
+        run: python conformance/watch.py
+      - name: Detect new records
+        id: diff
+        run: |
+          if git status --porcelain conformance/watch | grep -q .; then
+            echo "new=true" >> "$GITHUB_OUTPUT"
+            git diff -- conformance/watch/log.jsonl
+          else
+            echo "No new SDK releases to measure."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Attest the watch log
+        if: steps.diff.outputs.new == 'true'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: conformance/watch/log.jsonl
+      - name: Propose the new records as a PR
+        if: steps.diff.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="sdk-watch/$(date -u +%Y%m%dT%H%M%SZ)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add conformance/watch
+          summary=$(cat conformance/.work/summary.md)
+          git commit -q -m "sdk-watch: measure new MCP client releases" -m "$summary"
+          git push -q origin "$branch"
+          gh pr create --base main --head "$branch" --title "sdk-watch: new MCP client releases measured" \
+            --body "$(printf 'Automated weekly run of conformance/watch.py. Records are attested: gh attestation verify conformance/watch/log.jsonl -R %s\n\n%s\n' "$GITHUB_REPOSITORY" "$summary")"

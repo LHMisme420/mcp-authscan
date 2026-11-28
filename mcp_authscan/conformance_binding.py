@@ -34,15 +34,20 @@ def clear_stores():
     d = os.path.join(H, "fmstore")
     if os.path.isdir(d):
         shutil.rmtree(d)
+def env_dir(name):
+    """Per-version client tree for versions outside PY/TS (built by conformance/watch.py)."""
+    return os.path.join(CONF, ".envs", name.replace(" ", "-"))
 def drive(name, port):
-    if name == "python-sdk 1.29.1":
-        cmd = [need(PY[name]), need(os.path.join(H, "drive2.py")), str(port)]
-    elif name == "python-sdk 1.30.0":
-        cmd = [need(PY[name]), need(os.path.join(H, "drive2.py")), str(port)]
-    elif name == "fastmcp 4.1.2":
-        cmd = [need(PY[name]), need(os.path.join(H, "drive3.py")), str(port)]
+    kind = name.split(" ")[0]
+    if kind in ("python-sdk", "fastmcp"):
+        py = PY.get(name) or os.path.join(env_dir(name), "bin", "python")
+        script = "drive2.py" if kind == "python-sdk" else "drive3.py"
+        cmd = [need(py), need(os.path.join(H, script)), str(port)]
+    elif kind == "typescript-sdk":
+        ts = TS if name == "typescript-sdk 1.32.2" else os.path.join(env_dir(name), "t3.mjs")
+        cmd = ["node", need(ts), "http:" + "//127.0.0.1:" + str(port) + "/mcp", os.path.join(H, "store-ts.json")]
     else:
-        cmd = ["node", need(TS), "http:" + "//127.0.0.1:" + str(port) + "/mcp", os.path.join(H, "store-ts.json")]
+        raise SystemExit("unknown client kind: " + name)
     r = subprocess.run(cmd, cwd=H, capture_output=True, text=True, timeout=90)
     out = r.stdout + r.stderr
     if r.returncode != 0:
@@ -85,4 +90,5 @@ def main():
                 r["credential_binding"] = cell
         print(name, "credential_binding", cell, n, flush=True)
         json.dump(rows, open(MATRIX, "w"), indent=4)
-main()
+if __name__ == "__main__":
+    main()
