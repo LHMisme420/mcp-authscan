@@ -1,0 +1,25 @@
+{
+  "note": "Dataset registry: one entry per endpoint study. Published sentences are generated from this file (python tools/endpoint_studies.py --write); a test refuses any recorded count printed without its study id in the same paragraph. Empty string = not sourced from the repo or a run output; never filled by estimate.",
+  "studies": [
+    {
+      "id": "EP-2ddd960",
+      "registry_walk": "",
+      "walk_finished": "",
+      "dated": "2026-11-07",
+      "dated_by": "commit 2ddd960, which first published the figures in README.md; the date the line was written, not a walk date",
+      "endpoints": 16072,
+      "speak_mcp": 14339,
+      "figures": {"no_credential_handshake_pct_of_speak_mcp": 57.1}
+    },
+    {
+      "id": "EP-registry-later",
+      "registry_walk": "",
+      "walk_finished": "",
+      "dated": "",
+      "dated_by": "",
+      "endpoints": null,
+      "speak_mcp": null,
+      "figures": {}
+    }
+  ]
+}
