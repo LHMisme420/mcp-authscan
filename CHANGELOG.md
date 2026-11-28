@@ -12,11 +12,17 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- 1.1.52 (planned, unpublished): OWASP MCP Top 10 tag on every emitted rule and on description findings in JSON, text and SARIF (#108); version from package metadata only (#101); tests run the interpreter's console script (#105); endpoint-study registry (#104, #106, #107). Probe set unchanged (2026.11.28.3).
 
 
 
 
+
+## [1.1.52] - 2026-11-28
+
+**Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
+- `mcp_authscan-1.1.52-py3-none-any.whl`: `f961017b13073f9705f579832ce59144cc836d7c9f039f6ee28a7bffe437d339` (commit `a15c56e`, SOURCE_DATE_EPOCH 1795876931)
+
+- OWASP MCP Top 10 tag on every emitted rule and on description findings in JSON, text and SARIF (#108). Version from package metadata only (#101). Probe set unchanged (2026.11.28.3).
 
 ## [1.1.51] - 2026-11-28
 
