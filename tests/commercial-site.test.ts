@@ -127,7 +127,7 @@ test('homepage sells named independent assessments without recurring offers or c
     card.querySelector('p')?.textContent,
   ]);
   assert.deepEqual(tierText, [
-    ['Single-server assessment', '1750 dollars', 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.'],
+    ['Single-server assessment', '1750 dollars', 'One MCP server. Written scope and authorization before testing, evidence-backed findings, and a written report signed by the named researcher. No retest; the full assessment includes one.'],
     ['Full assessment', '3500 dollars', 'A server or fleet, one written report, one retest, and the written scope agreed by email before testing.'],
   ]);
   assert.equal(document.querySelector('.pricing-tiers button')?.textContent, 'Start an assessment');
@@ -236,7 +236,7 @@ test('/sample-report preserves observations and digests with two price-labeled c
     'tool-call probe not run.',
     'One probe passed. Fifteen were excluded. Coverage, 1 of 1 testable probe.',
     'Sibling transport and origin parity were excluded on a 404.',
-    'e08ed15790a437ed93573757e377f153aedd043a430cf1e3de93ddea514063e5',
+    '5f6dc1c9219129473aa84458901209c973ef5d43a564c29976e3efd34eebeaa0',
     'd66a10a3c4d4e66a041476f3598920092a915a34c33c61083609440c1242d607',
     'This server has not been retested.',
   ]) assert(text.includes(exact), `Supplied report changed: ${exact}`);
