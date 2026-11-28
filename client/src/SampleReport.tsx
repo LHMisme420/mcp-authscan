@@ -5,7 +5,7 @@ import PublicSiteLayout from './PublicSiteLayout';
 // 2026-11-19: owner-requested change. The AgentPayStore run is labelled a development
 // build (its probe set 2026.11.16.2 is in no release) and a reproducible 1.1.26 sample
 // sits beside it in its own article, outside the approved-copy fixture.
-const RH_SHORT = 'f679fc77';
+const RH_SHORT = '5f6dc1c9';
 const FIXTURE = `import json, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class H(BaseHTTPRequestHandler):
@@ -61,7 +61,7 @@ export default function SampleReport() {
             Those exclusions are the finding seen from the other side. A server with no authorization server cannot be tested for token handling, because there is no token.
           </p>
           <h2>REPEATABILITY</h2>
-          <p>Report hash: e08ed15790a437ed93573757e377f153aedd043a430cf1e3de93ddea514063e5</p>
+          <p>Report hash: 5f6dc1c9219129473aa84458901209c973ef5d43a564c29976e3efd34eebeaa0</p>
           <p>
             hash computed over authorization, scan mode, probe status, findings, and the exit contract, condition, code and fail-on; excludes run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, tools digest, and finding detail text.
           </p>
@@ -74,7 +74,7 @@ export default function SampleReport() {
           <h2>WHAT THIS DOES NOT CLAIM</h2>
           <p>Not a certification. Not a guarantee of security. No claim that the scanner is right; the point is that the claim is inspectable. Acceptance is the buyer's decision.</p>
           <p>
-            This server has not been retested. An assessment includes one retest of the same endpoint after fixes, and the two hashes side by side are the before and after.
+            This server has not been retested. The full assessment includes one retest of the same endpoint after fixes, and the two hashes side by side are the before and after.
           </p>
           <div className="hero-ctas">
             <a className="button" href="https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01">Single-server assessment — $1,750</a>{' '}
@@ -87,14 +87,14 @@ export default function SampleReport() {
             Everything below uses a published release and a published probe set, so you can repeat it and compare
             your result with the one shown. The target is a small test server you run on your own machine.
           </p>
-          <p>Scanner: mcp-authscan 1.1.26, probe set 2026.11.19.3, severity calibration 2026.11.07.1.</p>
-          <p>Wheel sha256: b67e59bc4bffa9291d66f20657e471308db5d3cf325a0dad95ebc6234989e7cf</p>
+          <p>Scanner: mcp-authscan 1.1.51, probe set 2026.11.28.3, severity calibration 2026.11.07.1.</p>
+          <p>Wheel sha256: e4f41d0987db4caadacd13741c620bc1bd404f1b81db74d249c39ee5a20ea159</p>
           <h2>STEPS</h2>
           <p>1. Install the release and check you received the published wheel:</p>
           <pre><code>{`python3 -m venv v
-v/bin/pip install "mcp-authscan[signing]==1.1.26"
-v/bin/pip download --no-deps mcp-authscan==1.1.26 -d wheel
-sha256sum wheel/mcp_authscan-1.1.26-py3-none-any.whl`}</code></pre>
+v/bin/pip install "mcp-authscan[signing]==1.1.51"
+v/bin/pip download --no-deps mcp-authscan==1.1.51 -d wheel
+sha256sum wheel/mcp_authscan-1.1.51-py3-none-any.whl`}</code></pre>
           <p>2. Save this test server as fixture.py and start it. It answers MCP with no authentication and lists one tool:</p>
           <pre><code>{FIXTURE}</code></pre>
           <pre><code>{`python3 fixture.py 19191 &`}</code></pre>
@@ -110,8 +110,8 @@ sha256sum wheel/mcp_authscan-1.1.26-py3-none-any.whl`}</code></pre>
           <pre><code>{`v/bin/python -m mcp_authscan.report_verify report.json
 v/bin/python -m mcp_authscan.releases report.json`}</code></pre>
           <p>
-            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.26 for probe
-            set 2026.11.19.3 and installed_matches true. A different hash means different graded content: a
+            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.51 for probe
+            set 2026.11.28.3 and installed_matches true. A different hash means different graded content: a
             different release, probe set, server or URL. The port is part of the URL.
           </p>
           <p>

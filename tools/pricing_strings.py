@@ -28,8 +28,17 @@ def classify(line, at):
     """Which tier a retest claim attaches to: the nearest tier marker before the claim."""
     s = [m.start() for m in SINGLE.finditer(line) if m.start() < at]
     f = [m.start() for m in FULL.finditer(line) if m.start() < at]
-    if not s and not f:
-        return "no tier named (reads as every assessment)"
+    if not s and not f:  # tier named after the claim, within the same sentence
+        end = len(line)
+        for m in re.finditer(r"[.!?](\s|$)", line[at:]):
+            end = at + m.start(); break
+        s = [m.start() for m in SINGLE.finditer(line, at, end)]
+        f = [m.start() for m in FULL.finditer(line, at, end)]
+        if not s and not f:
+            return "no tier named (reads as every assessment)"
+        if f and (not s or min(f) < min(s)):
+            return "retest attached to the full tier"
+        return "retest INCLUDED with the single server"
     if f and (not s or max(f) > max(s)):
         return "retest attached to the full tier"
     return "retest INCLUDED with the single server"

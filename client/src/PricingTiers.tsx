@@ -5,7 +5,7 @@ const tiers = [
   {
     name: 'Single-server assessment',
     price: '1750 dollars',
-    body: 'One MCP server or a small set of endpoints. Written scope and authorization before testing, evidence-backed findings, a written report signed by the named researcher, and one retest of the same endpoint after fixes.',
+    body: 'One MCP server. Written scope and authorization before testing, evidence-backed findings, and a written report signed by the named researcher. No retest; the full assessment includes one.',
     className: '',
     checkout: 'https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01',
     buyLabel: 'Pay for the single-server assessment — $1,750',
