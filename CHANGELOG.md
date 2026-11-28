@@ -12,6 +12,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- 1.1.51 (planned, unpublished): description finding substring and offset inside report_hash (verdict-v4); verifier consistency check. Probe set 2026.11.28.3.
+
 
 
 
@@ -421,6 +423,7 @@ Ships probe set `2026.11.16.1`, which no earlier release carried. Its recorded c
 
 ### Probe set stamps
 
+- 2026.11.28.3: Description rows: the FLAGGED row name now carries the quoted substring (ASCII-escaped) after the offset, so report_hash (hash_scheme verdict-v4, row projection probe_id, name, status, http_status, prerequisite_met, limitation, severity) covers verdict, severity, offset and quoted substring. Not a hash-schema change. The verifier rejects a FLAGGED description row whose displayed offset or substring disagrees with its name. evidence_hash (probe-evidence-v1) is unchanged and does not cover status.
 - 2026.11.28.2: Description probe gaps closed (rules 2026.11.28.2): tag/bidi/soft-hyphen characters, mixed-script lookalike words, URL-safe base64, obfuscated and protocol-relative domains, integer IPs, phrase matching after NFKC/whitespace/hidden-char folding, title field, prompts and resources graded. Calibration unchanged.
 - 2026.11.28.1: tool description probe (DESC-T1 hidden content, DESC-T2 off-domain destination, DESC-T3 annotation contradiction, DESC-T4 caller-directed phrase) over the tools/list items content_probe already fetched; no new request. FLAGGED rows carry test id, field, quoted substring and offset in body_sha256; CLEAN per tool; EXCLUDED when the list is unreadable. Severity MEDIUM, HIGH only for off-domain within one sentence of a credential word or an annotation contradiction (calibration 2026.11.28.1). Answer keys: tests/fixtures/description_answer_key.json.
 - 2026.11.27.1: `--allow-private-host HOST` (default off) lets exactly one named host resolve to a non-global address, in target validation (DNS rebinding protection, exit 3) and in the guarded pinned fetch. Exact match only: no wildcards, no CIDR, no loopback alias expansion (localhost, 127.0.0.1 and ::1 are distinct). The permitted host is written to the report as `scope_private_host` and to the Scope block. Grading unchanged; scans without the flag behave as 2026.11.23.1. tests/test_allow_private_host.py.

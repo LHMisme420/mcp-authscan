@@ -121,6 +121,17 @@ def probe_rows(probes):
     return sorted(rows, key=serialize)
 
 
+def _check_description_rows(probes):
+    """A FLAGGED description row's offset and quoted substring are hashed inside its name; the
+    displayed fields must agree with that name, or the report does not verify."""
+    for p in probes:
+        if p.get("probe_class") != "description" or p.get("status") != "FLAGGED":
+            continue
+        want = "@%s:%s" % (p.get("offset"), json.dumps(p.get("substring"), ensure_ascii=True))
+        if not str(p.get("name", "")).endswith(want):
+            raise ValueError("description row fields disagree with its hashed name: %r" % (p.get("name"),))
+
+
 def canonical_report(payload, findings):
     scheme = payload.get("hash_scheme", HASH_SCHEME)
     if scheme not in HASH_SCHEMES:
@@ -134,6 +145,7 @@ def canonical_report(payload, findings):
     if scheme == HASH_SCHEME_V4:
         result["hash_scheme"] = scheme
         result["probes"] = probe_rows(payload["probes"])
+        _check_description_rows(payload["probes"])
     # Sorting by covered content makes timestamps and database insertion order
     # irrelevant. Preserve duplicates: two identical findings still count twice.
     result["findings"] = sorted(
