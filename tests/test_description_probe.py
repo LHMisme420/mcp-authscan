@@ -155,3 +155,50 @@ def test_no_false_positives_on_ordinary_text():
                       "Returns the current weather for a city. See https://mcp.example.com/docs. Uses e.g. JSON.",
                       "inputSchema": {"type": "object", "properties": {"city": {"type": "string"}}}}], T)
     assert [r["status"] for r in rows] == ["CLEAN"]
+
+
+def test_report_hash_covers_status_substring_and_offset():
+    """Tampering with any of status, quoted substring or offset of a FLAGGED row breaks report_hash."""
+    import copy
+    from mcp_authscan import report_verify as rv
+    case = next(c for c in KEY["fixtures"] if c["id"] == "flagged")
+    with fixture(case["server"], case["port"]):
+        r = scan(case["port"], "--json")
+    p = json.loads(r.stdout[r.stdout.find("{"):])
+    assert p["hash_scheme"] == "verdict-v4"
+    findings = p.get("findings") or []
+    assert rv.compute(p, findings)[0] == p["report_hash"]
+
+    def tampered(fn):
+        t = copy.deepcopy(p)
+        row = next(x for x in t["probes"] if x.get("probe_class") == "description" and x["status"] == "FLAGGED")
+        fn(row)
+        return rv.compute(t, findings)[0]
+
+    def edit_sub(x):
+        x["name"] = x["name"].replace(json.dumps(x["substring"], ensure_ascii=True), '"edited"')
+        x["substring"] = "edited"
+
+    def edit_off(x):
+        x["name"] = x["name"].replace("@%d:" % x["offset"], "@999:")
+        x["offset"] = 999
+
+    for fn in (lambda x: x.update(status="CLEAN"), edit_sub, edit_off):
+        assert tampered(fn) != p["report_hash"]
+    for row in rows_of(p):
+        if row["status"] == "FLAGGED":
+            assert row["name"].endswith("@%d:%s" % (row["offset"], json.dumps(row["substring"], ensure_ascii=True)))
+
+
+def test_editing_only_the_displayed_substring_fails_verification():
+    import copy
+    from mcp_authscan import report_verify as rv
+    rows = dp.grade([{"name": "x", "description": "see https://evil.example.org/a"}], T)
+    p = {"probes": rows}
+    rv._check_description_rows(p["probes"])  # consistent rows pass
+    t = copy.deepcopy(rows); t[0]["substring"] = "https://docs.example.com"
+    with pytest.raises(ValueError, match="disagree"):
+        rv._check_description_rows(t)
+    t = copy.deepcopy(rows); t[0]["offset"] = 0
+    with pytest.raises(ValueError, match="disagree"):
+        rv._check_description_rows(t)

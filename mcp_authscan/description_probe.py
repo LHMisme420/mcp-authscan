@@ -258,7 +258,10 @@ def _grade_items(kind, items, target_domain):
             continue
         for test_id, field, offset, sub, why, text in sorted(hits, key=lambda h: (h[0], h[1], h[2], h[3])):
             sev, basis = _severity(test_id, text, offset)
-            rows.append(_row(test_id, "%s:%s:%s@%d" % (prefix, test_id, field, offset), "FLAGGED", sev, basis,
+            # The quoted substring (ASCII-escaped) is part of the name, so report_hash (verdict-v4 row
+            # projection: probe_id, name, status, ..., severity) covers it as well as the offset.
+            quoted = json.dumps(sub, ensure_ascii=True)
+            rows.append(_row(test_id, "%s:%s:%s@%d:%s" % (prefix, test_id, field, offset, quoted), "FLAGGED", sev, basis,
                              {"kind": kind, "tool": label, "test_id": test_id, "field": field,
                               "substring": sub, "offset": offset}, why))
     return rows

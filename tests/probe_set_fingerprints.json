@@ -350,6 +350,17 @@
         "code": "cd3b6622ff8dfd7eb769f419df8bbc3bd9e05ab148edea9b3903afecfb58679b",
         "description_rules": "a03d1f8c97baaafb6de7649ce71ca2d7bb52530267ca893cdfef7cc12afe12ba"
       }
+    },
+    "2026.11.28.3": {
+      "changed": "Description rows: the FLAGGED row name now carries the quoted substring (ASCII-escaped) after the offset, so report_hash (hash_scheme verdict-v4, row projection probe_id, name, status, http_status, prerequisite_met, limitation, severity) covers verdict, severity, offset and quoted substring. Not a hash-schema change. The verifier rejects a FLAGGED description row whose displayed offset or substring disagrees with its name. evidence_hash (probe-evidence-v1) is unchanged and does not cover status.",
+      "fingerprint": "bb98c4b7d1813103004e857ef0f12dea0896d66363f1716c5df1a45b3f4c4209",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "12557e906cc0ddbb46b5315edfada57e37633ace95f0dbc44fc50b45704877c1",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "cd3b6622ff8dfd7eb769f419df8bbc3bd9e05ab148edea9b3903afecfb58679b",
+        "description_rules": "b6b69bd1be32eabe8d2e370742659b31deec12011b1578a1959ebd0c06621be4"
+      }
     }
   },
   "withdrawn": {
