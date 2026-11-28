@@ -12,9 +12,15 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- 1.1.50 (planned, unpublished): description probe gaps closed, probe set 2026.11.28.2.
 
 
+
+## [1.1.50] - 2026-11-28
+
+**Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
+- `mcp_authscan-1.1.50-py3-none-any.whl`: `c71f5e590eeb20557a3d3b0267b905c5971f66c9695699f8f30ec13dbf07ed22` (commit `7174857`, SOURCE_DATE_EPOCH 1795857381)
+
+- Description probe: seven evasion gaps closed, prompts and resources graded; probe set 2026.11.28.2 (#99).
 
 ## [1.1.49] - 2026-11-28
 
