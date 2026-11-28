@@ -1,4 +1,5 @@
 """The installed package metadata is the only version source; every other declaration must agree."""
+import json
 import re
 import tomllib
 from importlib.metadata import version
@@ -33,3 +34,28 @@ def test_init_declares_no_literal_version():
 
 def test_running_version_is_a_shipped_or_planned_release():
     assert any(META in v for v in releases.PROBE_SET_RELEASES.values())
+
+
+class _Dist:
+    def __init__(self, ver, located, url=None):
+        self.version, self._located, self._url = ver, located, url
+
+    def locate_file(self, rel):
+        return self._located
+
+    def read_text(self, name):
+        return json.dumps({"url": self._url}) if (name == "direct_url.json" and self._url) else None
+
+
+def test_metadata_used_only_when_it_owns_the_running_file(tmp_path):
+    from mcp_authscan import _owned_version
+    tree = tmp_path / "tree"; (tree / "mcp_authscan").mkdir(parents=True)
+    here = tree / "mcp_authscan" / "__init__.py"; here.write_text("")
+    other = tmp_path / "site-packages" / "mcp_authscan" / "__init__.py"
+    other.parent.mkdir(parents=True); other.write_text("")
+    # installed copy is this file
+    assert _owned_version(_Dist("1.1.51", here), here) == "1.1.51"
+    # editable install pointing at this tree
+    assert _owned_version(_Dist("1.1.51", other, "file://%s" % tree), here) == "1.1.51"
+    # metadata from another copy: never reported as this tree's version
+    assert _owned_version(_Dist("1.1.45", other, "file:///somewhere/else"), here) == "1.1.45+not-this-tree"

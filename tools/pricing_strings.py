@@ -78,7 +78,15 @@ def main():
     for rel, n, claim, text in retest_single:
         print("%s:%d  %s\n    %s" % (rel, n, claim, text))
     claims = {c for _, _, c, _ in retest_single}
-    if "retest INCLUDED with the single server" in claims and any("full tier" in c for c in claims):
+    single_retest = T["single"]["includes_retest"]
+    if single_retest is False:
+        move = [(r, n, c, t) for r, n, c, t in retest_single if c != "retest attached to the full tier"]
+        if move:
+            print("\nMOVE: pricing.json says the single server has no retest; these strings say otherwise or do not name the tier:")
+            for r, n, c, t in move:
+                print("  %s:%d (%s)\n    %s" % (r, n, c, t))
+            conflicts.extend(move)
+    if single_retest is None and "retest INCLUDED with the single server" in claims and any("full tier" in c for c in claims):
         print("CONFLICT: the site states both. Authoritative source is the Stripe line item at %s; "
               "pricing.json leaves includes_retest null until it is confirmed." % T["single"]["checkout"])
     print("\n== Canonical page strings (generated from pricing/pricing.json) ==")
@@ -87,7 +95,7 @@ def main():
     open_q = [t["open_question"] for t in T.values() if t.get("open_question")]
     for q in open_q:
         print("OPEN: " + q)
-    return 1 if conflicts or open_q or len(claims) > 1 else 0
+    return 1 if conflicts or open_q else 0
 
 
 if __name__ == "__main__":

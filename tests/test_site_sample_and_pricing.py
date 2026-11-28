@@ -31,6 +31,9 @@ def test_pricing_audit_flags_the_retest_conflict_and_prices_agree():
     assert "PRICE NOT IN pricing.json" not in r.stdout
     assert "client/src/PricingTiers.tsx:8  retest INCLUDED with the single server" in r.stdout
     assert "README.md:138  retest attached to the full tier" in r.stdout
-    assert "CONFLICT" in r.stdout and r.returncode == 1  # stays red until the Stripe line item is confirmed
     src = json.loads((ROOT / "pricing" / "pricing.json").read_text())
-    assert src["tiers"]["single"]["includes_retest"] is None
+    assert src["tiers"]["single"]["includes_retest"] is False and src["tiers"]["full"]["includes_retest"] is True
+    # until the site strings move, the audit lists them and stays red
+    for where in ("client/src/PricingTiers.tsx:8", "client/src/AssessmentSections.tsx:124", "client/src/SampleReport.tsx:77"):
+        assert "  %s (" % where in r.stdout
+    assert r.returncode == 1

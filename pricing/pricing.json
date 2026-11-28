@@ -5,8 +5,9 @@
       "name": "Single-server assessment",
       "price_usd": 1750,
       "checkout": "https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01",
-      "includes_retest": null,
-      "open_question": "Does the Stripe line item for the single-server assessment include one retest? The site states both."
+      "includes_retest": false,
+      "open_question": null,
+      "retest_basis": "Owner decision 2026-11-28: rate structure puts the retest on the full tier; 1,750 is one server, no retest."
     },
     "full": {
       "name": "Full assessment",
