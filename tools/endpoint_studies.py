@@ -25,7 +25,7 @@ def sentence(s):
     pct = s["figures"].get("no_credential_handshake_pct_of_speak_mcp")
     tail = ", %s%% of the %s that speak MCP completed a handshake with no credential" % (pct, format(s["speak_mcp"], ",")) \
         if pct is not None else ", %s speak MCP" % format(s["speak_mcp"], ",")
-    return "Study %s (dated %s by %s; %s): %s registry endpoints walked%s." % (
+    return "Study %s (published %s, %s; %s): %s registry endpoints walked%s." % (
         s["id"], s["dated"], s["dated_by"], walk, format(s["endpoints"], ","), tail)
 
 
@@ -79,7 +79,8 @@ def gaps():
     for s in REG["studies"]:
         for k in ("registry_walk", "walk_finished", "dated", "endpoints", "speak_mcp"):
             if s[k] in ("", None):
-                out.append("%s: %s not sourced" % (s["id"], k))
+                why = s.get("registry_walk_empty_because") if k == "registry_walk" else s.get("pending")
+                out.append("%s: %s not sourced%s" % (s["id"], k, (" (" + why + ")") if why else ""))
     return out
 
 

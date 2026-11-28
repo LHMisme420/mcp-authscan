@@ -15,7 +15,7 @@ Same local fixture, two tools, both scanners run against it. Cisco AI Defense mc
 Current report contract: verdict-v4 schema version 3 (graded `report_hash` over the totals, findings and one row per probe: id, name, status, HTTP status, prerequisite met, limitation, severity) plus a separate `probe-evidence-v1` `evidence_hash` over one body digest per probe row; verdict-v3 reports still verify under verdict-v3, probe set 2026.11.28.3, calibration 2026.11.07.1. Every zero-auth finding carries severity_basis naming which grade applied. See [single-scan integrity and exact serialization](docs/report-hash-v3.md).
 
 <!-- endpoint-studies:start -->
-Against the field: Study EP-2ddd960 (dated 2026-11-07 by commit 2ddd960, which first published the figures in README.md; the date the line was written, not a walk date; walk and walk date not recorded): 16,072 registry endpoints walked, 57.1% of the 14,339 that speak MCP completed a handshake with no credential.
+Against the field: Study registry-study (published 2026-11-07, commit 2ddd960, the date the claim was published, not the date the walk finished; walk and walk date not recorded): 16,072 registry endpoints walked, 57.1% of the 14,339 that speak MCP completed a handshake with no credential.
 <!-- endpoint-studies:end -->
 
 
