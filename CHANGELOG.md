@@ -12,8 +12,15 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- 1.1.49 (planned, unpublished): tool description probe, probe set 2026.11.28.1.
 
+
+## [1.1.49] - 2026-11-28
+
+**Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
+- `mcp_authscan-1.1.49-py3-none-any.whl`: `f65aba56d3d940a712c8fc86ae210d2c9367c2bd188e05f2f72b3761ad68c0ad` (commit `0145246`, SOURCE_DATE_EPOCH 1795856384)
+
+- Tool description probe DESC-T1..T4, probe set 2026.11.28.1, calibration 2026.11.28.1 (#98).
+- `authz_response_iss` conformance column, RFC 9207 (#97); `metadata_issuer` reproducible (#96).
 
 ## [1.1.48] - 2026-11-28
 
