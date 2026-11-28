@@ -17,6 +17,8 @@ LOG = os.path.join(WATCH, "log.jsonl")
 LOCKS = os.path.join(WATCH, "locks")
 WORK = os.path.join(CONF, ".work")
 
+COLUMNS = ("credential_binding", "metadata_issuer")
+
 # client kind -> (registry, package)
 CLIENTS = {
     "python-sdk": ("pypi", "mcp"),
@@ -38,22 +40,26 @@ def vkey(v):
 
 
 def measured():
-    """(kind, version) -> verdict, from matrix.json plus the watch log."""
+    """(kind, version) -> {column: verdict}, from matrix.json plus the watch log (later records win)."""
     seen = {}
     for row in json.load(open(os.path.join(ROOT, "matrix.json"))):
         kind, _, ver = row["client"].partition(" ")
-        seen[(kind, ver)] = row["credential_binding"]
+        seen[(kind, ver)] = {c: row[c] for c in COLUMNS if c in row}
     if os.path.exists(LOG):
         for line in open(LOG):
             if line.strip():
                 r = json.loads(line)
-                seen[(r["client"], r["version"])] = r["credential_binding"]
+                seen.setdefault((r["client"], r["version"]), {}).update({c: r[c] for c in COLUMNS if c in r})
     return seen
 
 
-def previous(seen, kind, version):
-    older = sorted((v for (k, v) in seen if k == kind and vkey(v) < vkey(version)), key=vkey)
-    return {"version": older[-1], "credential_binding": seen[(kind, older[-1])]} if older else None
+def complete(seen, kind, version):
+    return all(c in seen.get((kind, version), {}) for c in COLUMNS)
+
+
+def previous(seen, kind, version, column="credential_binding"):
+    older = sorted((v for (k, v) in seen if k == kind and vkey(v) < vkey(version) and column in seen[(k, v)]), key=vkey)
+    return {"version": older[-1], column: seen[(kind, older[-1])][column]} if older else None
 
 
 def build(kind, version):
@@ -79,11 +85,18 @@ def build(kind, version):
 
 
 def summary_line(r):
-    p = r["previous"]
-    line = "- %s %s: credential_binding %s" % (r["client"], r["version"], r["credential_binding"])
-    if p:
-        line += " (previous %s: %s)" % (p["version"], p["credential_binding"])
-    return line + (" **CHANGED**" if r["changed"] else "")
+    parts = []
+    for c in COLUMNS:
+        if c not in r:
+            continue
+        p = (r.get("previous") or {}).get(c)
+        part = "%s %s" % (c, r[c])
+        if p:
+            part += " (previous %s: %s)" % (p["version"], p[c])
+        if c in (r.get("changed") or []):
+            part += " **CHANGED**"
+        parts.append(part)
+    return "- %s %s: %s" % (r["client"], r["version"], "; ".join(parts))
 
 
 def prepare_harness():
@@ -109,7 +122,7 @@ def main(argv=None):
     todo = []
     for kind, (registry, package) in CLIENTS.items():
         v = latest(registry, package)
-        status = "already measured" if (kind, v) in seen else "NEW"
+        status = "already measured" if complete(seen, kind, v) else "NEW"
         print("%-15s latest %-10s %s" % (kind, v, status), flush=True)
         if status == "NEW":
             todo.append((kind, v))
@@ -126,27 +139,28 @@ def main(argv=None):
         ext = "package-lock.json" if kind == "typescript-sdk" else "lock.txt"
         lock_path = os.path.join(LOCKS, "%s-%s.%s" % (kind, version, ext))
         open(lock_path, "w").write(lock)
-        verdict, evidence = cb.binding("%s %s" % (kind, version), 9271, 9272)
-        prev = previous(seen, kind, version)
+        name = "%s %s" % (kind, version)
+        results = {}
+        for col, run in cb.CHECKS.items():
+            results[col] = run(name)
+        prev = {c: previous(seen, kind, version, c) for c in COLUMNS}
         rec = {
             "checked_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "client": kind,
             "version": version,
-            "credential_binding": verdict,
-            "evidence_requests": evidence,
+            **{c: results[c][0] for c in COLUMNS},
+            "evidence_requests": {c: results[c][1] for c in COLUMNS},
             "previous": prev,
-            "changed": bool(prev) and prev["credential_binding"] != verdict,
+            "changed": [c for c in COLUMNS if prev[c] and prev[c][c] != results[c][0]],
             "lock": os.path.relpath(lock_path, ROOT),
             "lock_sha256": lock_sha,
             "harness_commit": git_head(),
         }
         with open(LOG, "a") as f:
             f.write(json.dumps(rec, sort_keys=True) + "\n")
-        seen[(kind, version)] = verdict
+        seen[(kind, version)] = {c: rec[c] for c in COLUMNS}
         summary.append(summary_line(rec))
-        print("%s %s credential_binding %s%s" % (kind, version, verdict,
-              "  CHANGED from %s (%s)" % (prev["credential_binding"], prev["version"]) if rec["changed"] else ""),
-              flush=True)
+        print(summary_line(rec)[2:], flush=True)
     open(os.path.join(WORK, "summary.md"), "w").write("\n".join(summary) + "\n")
     return 0
 
