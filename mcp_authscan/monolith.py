@@ -1126,7 +1126,7 @@ def status_from_counts(status, counts):
 
 VERSION = __version__  # derived from the package; see mcp_authscan/__init__.py
 SEVERITY_CALIBRATION_VERSION = "2026.11.07.1"  # YYYY.MM.DD.N: zero-auth severity now reflects the demonstrated surface, not the mere absence of auth. CRITICAL only when a tool name shows a write/delete/execute action; see CHANGELOG "Severity calibration".
-PROBE_SET_VERSION = '2026.11.27.1'  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
+PROBE_SET_VERSION = '2026.11.28.1'  # YYYY.MM.DD.N: America/New_York date the probe set changed, per-day counter from 1. History: CHANGELOG.md "Probe set stamps"; tests/test_probe_set_stamp.py fails if the probe set changes without a new stamp.
 
 def get_git_metadata(target_path):
     """Extract git information if target is in a git repo."""
@@ -1806,7 +1806,7 @@ def _ghsa_uri(ref):
     m = re.search(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}", ref or "", re.I)
     return f"https://github.com/advisories/{m.group(0)}" if m else None
 
-def to_sarif(findings, target, tool_call_probe=None):
+def to_sarif(findings, target, tool_call_probe=None, description_rows=None):
     """Build a SARIF 2.1.0 log. Carries the same report_sha256 receipt as --json
     (over the identical findings payload) in run.properties so a SARIF run is as
     anchorable as a JSON one."""
@@ -1863,6 +1863,27 @@ def to_sarif(findings, target, tool_call_probe=None):
             }}],
             "partialFingerprints": {"vataAuthscan/v1": fp},
             "properties": props,
+        })
+    for r in description_rows or []:
+        if r.get("status") != "FLAGGED":
+            continue
+        rid = r["test_id"]
+        if rid not in rule_index:
+            rule_index[rid] = len(rules)
+            rules.append({"id": rid, "name": "ToolDescription" + rid.replace("-", ""),
+                          "shortDescription": {"text": "tool description literal test " + rid},
+                          "helpUri": "https://github.com/LHMisme420/mcp-authscan#tool-description-probe",
+                          "properties": {}})
+        results.append({
+            "ruleId": rid, "ruleIndex": rule_index[rid],
+            "level": SARIF_LEVEL.get(r["severity"], "warning"),
+            "message": {"text": "%s: tool %s, %s at offset %d: %r [%s]" % (
+                rid, r["tool"], r["field"], r["offset"], r["substring"], r["severity"])},
+            "locations": [{"physicalLocation": {"artifactLocation": {"uri": target}}}],
+            "partialFingerprints": {"vataAuthscan/v1": r["body_sha256"][:16]},
+            "properties": {"vataSeverity": r["severity"], "severityBasis": r["severity_basis"],
+                           "tool": r["tool"], "field": r["field"], "substring": r["substring"],
+                           "offset": r["offset"], "bodySha256": r["body_sha256"]},
         })
     blob = json.dumps({"target": target, "count": len(findings), "findings": findings},
                       sort_keys=True).encode()
@@ -2854,6 +2875,10 @@ def main():
                 print("[!] %s" % e, file=sys.stderr)
                 sys.exit(6)
             F.extend(cobs.get("findings") or [])
+            from mcp_authscan import description_probe
+            _treason = next((r for r in (cobs.get("reasons") or [])
+                             if r.startswith("tools/list") or r.startswith("session not established")), None)
+            args.description_rows = description_probe.grade(cobs.get("tools_items"), args.target, reason=_treason)
             args.content_observed = {k: cobs[k] for k in ("version", "credential_context", "session_established", "operations", "inspected", "reasons") if k in cobs}
 
             if getattr(args, "authentication_assurance", False):
@@ -3235,9 +3260,11 @@ def main():
                 if k.lower() not in varying_headers
             }
         probes.append(probe)
+    # Tool-description rows: graded and hashed like every probe row (probe_id, name, status,
+    # severity, body_sha256), never counted toward coverage or the exit code.
+    probes.extend(getattr(args, "description_rows", None) or [])
 
-    
-
+    from mcp_authscan import description_probe as _dp
     canonical_payload = {
         "surface_drift": surface_drift,
         "probes": probes,
@@ -3245,6 +3272,10 @@ def main():
         "scan_mode": scan_mode,
         "discovery_status": discovery_status_of(discovery_info),
         "probe_set_version": PROBE_SET_VERSION,
+        "description_probe": ({"rules_version": _dp.RULES["rules_version"],
+                               "phrases_version": _dp.PHRASES["phrases_version"],
+                               "calibration_version": _dp.DESCRIPTION_CALIBRATION_VERSION}
+                              if getattr(args, "description_rows", None) else None),
         "severity_calibration_version": (
             SEVERITY_CALIBRATION_VERSION
             if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED" else None),
@@ -3473,7 +3504,8 @@ def main():
         html_file = generate_html_report(F, args.target, args.output or "mcp-authscan-report.html", canonical_payload)
         print(f"[+] HTML report saved to {html_file}")
     elif args.sarif:
-        print(json.dumps(to_sarif(F, args.target, tool_call_summary(tool_call_probe) if tool_call_probe is not None else None), indent=2))
+        print(json.dumps(to_sarif(F, args.target, tool_call_summary(tool_call_probe) if tool_call_probe is not None else None,
+                                  description_rows=getattr(args, "description_rows", None)), indent=2))
     elif args.json:
         report_json = json.dumps(canonical_payload, indent=2)
         commit_report_and_ledgers(args, report_json, ledgers, canonical_payload)
@@ -3630,6 +3662,12 @@ def main():
             extra = " (no finding at or above --fail-on)" if exit_condition == "below_threshold" else ""
             if (discovery_info or {}).get("status") == "ZERO_AUTH_DETECTED":
                 print(f"Severity calibration: {SEVERITY_CALIBRATION_VERSION}")
+            if getattr(args, "description_rows", None):
+                from mcp_authscan import description_probe as _dpt
+                print("Tool descriptions (rules %s, phrases %s, calibration %s):" % (
+                    _dpt.RULES["rules_version"], _dpt.PHRASES["phrases_version"], _dpt.DESCRIPTION_CALIBRATION_VERSION))
+                for _l in _dpt.text_lines(args.description_rows):
+                    print(_l)
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:

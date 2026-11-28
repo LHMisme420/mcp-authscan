@@ -328,6 +328,17 @@
         "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
         "code": "cd3b6622ff8dfd7eb769f419df8bbc3bd9e05ab148edea9b3903afecfb58679b"
       }
+    },
+    "2026.11.28.1": {
+      "changed": "Tool description probe (DESC-T1..T4) over the tools/list items already fetched: hidden content, off-domain destinations, annotation contradiction, caller-directed phrases. Rules in description_rules.json / description_phrases.json (2026.11.28.1); calibration 2026.11.28.1. Rows are graded and hashed but never counted toward coverage or the exit code.",
+      "fingerprint": "6dfd743083ba5d90379535389c247c21b994ff68e31dcfd942bda92564a89eb8",
+      "components": {
+        "probe_order": "e5f2f9954681d0c9201e78b5225e30262b85f635f327c78eefa0b1dd07c0f736",
+        "probe_records": "12557e906cc0ddbb46b5315edfada57e37633ace95f0dbc44fc50b45704877c1",
+        "vocabulary": "d00019ce26a1ce2efdd8ccf1b2b27873193a55ba29bd852dd7f26277bf9d2a40",
+        "code": "cd3b6622ff8dfd7eb769f419df8bbc3bd9e05ab148edea9b3903afecfb58679b",
+        "description_rules": "3b3ed18e664eb80fc2492d8fb8206215cf619f9ab9a793b3fec60552b3327d43"
+      }
     }
   },
   "withdrawn": {

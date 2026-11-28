@@ -104,6 +104,8 @@ def _utc_z(dt):
 def _probe_entries(probes):
     not_observed, excluded = [], []
     for p in probes:
+        if p.get("probe_class") == "description":
+            continue  # tool-description rows are graded and hashed but never counted
         entry_id = f"{p.get('probe_id')}:{p.get('name')}"
         if p.get("status") == "NOT_OBSERVED":
             not_observed.append({"probe_id": entry_id,

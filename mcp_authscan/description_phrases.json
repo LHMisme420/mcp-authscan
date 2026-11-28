@@ -1,0 +1,18 @@
+{
+  "phrases_version": "2026.11.28.1",
+  "note": "Caller-directed phrases, matched case-insensitively as literal substrings. First-action orders and asks to withhold from the user.",
+  "first_action": [
+    "before using any other tool", "before calling any other tool", "before any other tool",
+    "call this tool first", "always call this tool first", "use this tool first", "you must call this tool",
+    "you must first call", "you must always call", "always call this tool before", "before responding to the user",
+    "before answering the user", "before you answer", "first, call", "ignore previous instructions",
+    "ignore all previous instructions", "ignore prior instructions"
+  ],
+  "withhold": [
+    "do not tell the user", "don't tell the user", "do not mention this", "don't mention this",
+    "do not mention to the user", "without telling the user", "without informing the user",
+    "do not inform the user", "hide this from the user", "keep this from the user", "do not reveal",
+    "don't reveal", "never reveal", "do not show the user", "don't show the user", "the user must not know",
+    "the user should not know", "do not disclose to the user", "silently"
+  ]
+}
