@@ -12,10 +12,16 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- 1.1.51 (planned, unpublished): description finding substring and offset inside report_hash (verdict-v4); verifier consistency check. Probe set 2026.11.28.3.
 
 
 
+
+## [1.1.51] - 2026-11-28
+
+**Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
+- `mcp_authscan-1.1.51-py3-none-any.whl`: `e4f41d0987db4caadacd13741c620bc1bd404f1b81db74d249c39ee5a20ea159` (commit `8770c4b`, SOURCE_DATE_EPOCH 1795858202)
+
+- Description findings: verdict, severity, offset and quoted substring inside `report_hash` (hash_scheme verdict-v4); not a hash-schema change. Verifier rejects display fields that disagree with the hashed row. Probe set 2026.11.28.3 (#100).
 
 ## [1.1.50] - 2026-11-28
 
