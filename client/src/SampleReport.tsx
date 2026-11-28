@@ -87,14 +87,14 @@ export default function SampleReport() {
             Everything below uses a published release and a published probe set, so you can repeat it and compare
             your result with the one shown. The target is a small test server you run on your own machine.
           </p>
-          <p>Scanner: mcp-authscan 1.1.51, probe set 2026.11.28.3, severity calibration 2026.11.07.1.</p>
-          <p>Wheel sha256: e4f41d0987db4caadacd13741c620bc1bd404f1b81db74d249c39ee5a20ea159</p>
+          <p>Scanner: mcp-authscan 1.1.52, probe set 2026.11.28.3, severity calibration 2026.11.07.1.</p>
+          <p>Wheel sha256: f961017b13073f9705f579832ce59144cc836d7c9f039f6ee28a7bffe437d339</p>
           <h2>STEPS</h2>
           <p>1. Install the release and check you received the published wheel:</p>
           <pre><code>{`python3 -m venv v
-v/bin/pip install "mcp-authscan[signing]==1.1.51"
-v/bin/pip download --no-deps mcp-authscan==1.1.51 -d wheel
-sha256sum wheel/mcp_authscan-1.1.51-py3-none-any.whl`}</code></pre>
+v/bin/pip install "mcp-authscan[signing]==1.1.52"
+v/bin/pip download --no-deps mcp-authscan==1.1.52 -d wheel
+sha256sum wheel/mcp_authscan-1.1.52-py3-none-any.whl`}</code></pre>
           <p>2. Save this test server as fixture.py and start it. It answers MCP with no authentication and lists one tool:</p>
           <pre><code>{FIXTURE}</code></pre>
           <pre><code>{`python3 fixture.py 19191 &`}</code></pre>
@@ -110,7 +110,7 @@ sha256sum wheel/mcp_authscan-1.1.51-py3-none-any.whl`}</code></pre>
           <pre><code>{`v/bin/python -m mcp_authscan.report_verify report.json
 v/bin/python -m mcp_authscan.releases report.json`}</code></pre>
           <p>
-            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.51 for probe
+            The first prints MATCH and UNSIGNED with the report hash above. The second lists release 1.1.52 for probe
             set 2026.11.28.3 and installed_matches true. A different hash means different graded content: a
             different release, probe set, server or URL. The port is part of the URL.
           </p>
