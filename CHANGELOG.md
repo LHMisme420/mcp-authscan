@@ -18,7 +18,7 @@ aims to follow [Semantic Versioning](https://semver.org/).
 **Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
 - `mcp_authscan-1.1.48-py3-none-any.whl`: `c050f0088a3d9c0213c9c7bc5144f7478243a2a45c2b5840345cefca54121729` (commit `ec29258`, SOURCE_DATE_EPOCH 1795824493)
 
-Planned: published by the release workflow through PyPI trusted publishing with PEP 740 attestations. Not yet published.
+Published 2026-11-28 by the release workflow (run 46124393268) via PyPI trusted publishing with PEP 740 attestations; PyPI serves this exact hash. Tag `v1.1.48`.
 
 - `--allow-private-host HOST`: one exact private host, default off (#88). Probe set 2026.11.27.1.
 - `mcp-authscan-gate`: strict CI gate, only CLEAN exits 0 (#89); negative-control dataset cases run in CI (#89).
