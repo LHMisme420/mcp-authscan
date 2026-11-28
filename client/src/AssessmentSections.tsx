@@ -121,7 +121,7 @@ export function AssessmentMethodology() {
           </article>
           <article className="method-item">
             <span className="method-index">06</span>
-            <div><h3>Retest means a separate observed result</h3><p>One retest is part of the agreed offer. When requested after remediation, it checks agreed criteria and records the result; it is not implied to have happened in advance.</p></div>
+            <div><h3>Retest means a separate observed result</h3><p>One retest is part of the full assessment. When requested after remediation, it checks agreed criteria and records the result; it is not implied to have happened in advance.</p></div>
           </article>
         </div>
         <div className="status-key" aria-label="Assessment verdict definitions">

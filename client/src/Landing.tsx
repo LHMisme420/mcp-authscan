@@ -134,7 +134,7 @@ export default function Landing({ homepageVariant = false }: { homepageVariant?:
             </div>
             <div className="tooling-links" aria-label="Scanner project links">
               <pre className="free-run-command"><code>pip install mcp-authscan{"\n"}mcp-authscan https://api.example.com/mcp --authorized-by &quot;Your Name&quot; --auth-basis &quot;written consent&quot; --contact &quot;you@example.com&quot;</code></pre>
-              <p className="release-anchor">Current release: mcp-authscan 1.1.44, probe set 2026.11.23.1. Wheel sha256 <code>d01d148feba8199bdc9aadd2109680744eb8eb791c0dd629f1c77e749d3350c3</code>. Compare it: <code>pip download --no-deps mcp-authscan==1.1.44</code>, then <code>sha256sum</code> the wheel.</p>
+              <p className="release-anchor">Current release: mcp-authscan 1.1.51, probe set 2026.11.28.3. Wheel sha256 <code>e4f41d0987db4caadacd13741c620bc1bd404f1b81db74d249c39ee5a20ea159</code>. Compare it: <code>pip download --no-deps mcp-authscan==1.1.44</code>, then <code>sha256sum</code> the wheel.</p>
               <a className="text-link" href="https://pypi.org/project/mcp-authscan/" target="_blank" rel="noopener noreferrer">mcp-authscan on PyPI</a>
               <Link className="text-link" href="/sample-report">View sample report</Link>
               <Link className="text-link assessment-discovery-link" href="/assessment">An MCP AuthScan assessment</Link>
