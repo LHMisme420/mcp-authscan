@@ -13,7 +13,7 @@ pillow==13.0.0
 setuptools==84.2.1
 aiohttp
 anthropic
-authlib>=1.9.8,<2.0.0
+authlib>=1.9.10,<2.0.0
 # Ed25519 report signatures are verified by the Python engine (mcp_authscan.verification).
 cryptography>=50.0.2,<51
 redis
