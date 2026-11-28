@@ -61,7 +61,7 @@ export default function SampleReport() {
             Those exclusions are the finding seen from the other side. A server with no authorization server cannot be tested for token handling, because there is no token.
           </p>
           <h2>REPEATABILITY</h2>
-          <p>Report hash: 5f6dc1c9219129473aa84458901209c973ef5d43a564c29976e3efd34eebeaa0</p>
+          <p>Report hash: e08ed15790a437ed93573757e377f153aedd043a430cf1e3de93ddea514063e5</p>
           <p>
             hash computed over authorization, scan mode, probe status, findings, and the exit contract, condition, code and fail-on; excludes run start time, elapsed time, server-varying headers, tool version, scope statement, client registration block, tools digest, and finding detail text.
           </p>
