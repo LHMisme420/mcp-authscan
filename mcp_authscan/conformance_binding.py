@@ -106,8 +106,49 @@ def metadata(name, port):
         raise RuntimeError("fixture recorded nothing on " + str(port) + ", harness did not run")
     cell, n, _why = cell_from_log(f, sink_log)
     return cell, n
+def recs(port):
+    out = []
+    for x in lines(port):
+        try:
+            out.append(json.loads(x))
+        except ValueError:
+            pass
+    return out
+def _follow(name, mode, port):
+    """Run one follow-authorize flow against a fixture; return its parsed request log."""
+    clear_stores()
+    f = os.path.join(L, str(port) + ".jsonl")
+    if os.path.exists(f):
+        os.remove(f)
+    a = start(mode, port)
+    old = os.environ.get("FOLLOW_AUTHORIZE")
+    os.environ["FOLLOW_AUTHORIZE"] = "1"
+    try:
+        out = drive(name, port)
+    finally:
+        a.terminate()
+        if old is None:
+            os.environ.pop("FOLLOW_AUTHORIZE", None)
+        else:
+            os.environ["FOLLOW_AUTHORIZE"] = old
+    r = recs(port)
+    if not [x for x in r if x.get("p") == "/authorize"]:
+        raise RuntimeError("client never reached /authorize on " + str(port) + ": " + out[-300:])
+    return r
+def authiss(name, port):
+    """authz_response_iss (RFC 9207; MCP draft "Authorization Response Validation", a client MUST):
+    the authorization redirect carries iss naming a foreign issuer. FAIL = the code was sent to the
+    token endpoint anyway; PASS = no token request, and only if the same flow with a correct
+    redirect (control, port+1) does request a token; otherwise EXCLUDED."""
+    tokens = lambda r: [x for x in r if x.get("p") == "/token" and x.get("m") == "POST"]
+    bad = tokens(_follow(name, "badauthiss", port))
+    if bad:
+        return "FAIL", len(bad)
+    control = tokens(_follow(name, "clean", port + 1))
+    return ("PASS", len(control)) if control else ("EXCLUDED", 0)
 CHECKS = {"credential_binding": lambda name: binding(name, 9271, 9272),
-          "metadata_issuer": lambda name: metadata(name, 9281)}
+          "metadata_issuer": lambda name: metadata(name, 9281),
+          "authz_response_iss": lambda name: authiss(name, 9291)}
 def main():
     names = sys.argv[1:] if len(sys.argv) > 1 else CLIENTS
     rows = json.load(open(MATRIX))

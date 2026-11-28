@@ -17,7 +17,7 @@ LOG = os.path.join(WATCH, "log.jsonl")
 LOCKS = os.path.join(WATCH, "locks")
 WORK = os.path.join(CONF, ".work")
 
-COLUMNS = ("credential_binding", "metadata_issuer")
+COLUMNS = ("credential_binding", "metadata_issuer", "authz_response_iss")
 
 # client kind -> (registry, package)
 CLIENTS = {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Rebuild every conformance client from the pinned locks and re-run the credential_binding
-# and metadata_issuer columns of matrix.json. token_response_iss is NOT_REQUIRED (never graded);
-# conformance_authiss needs a driver that follows /authorize.
+# metadata_issuer and authz_response_iss columns of matrix.json. token_response_iss is
+# NOT_REQUIRED (never graded).
 # Output: conformance/.work/matrix.json, diffed against the published matrix.json.
 # Usage: conformance/run_rows.sh [CLIENT ...]   (default: all four clients)
 set -euo pipefail

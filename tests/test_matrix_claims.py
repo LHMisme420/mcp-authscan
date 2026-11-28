@@ -15,3 +15,15 @@ def test_token_response_iss_is_never_graded():
 def test_tokencell_cannot_write_a_grade():
     src = (ROOT / "mcp_authscan" / "conformance_tokencell.py").read_text()
     assert 'verdict = "NOT_REQUIRED"' in src
+
+
+def test_every_row_has_the_graded_columns():
+    rows = json.loads((ROOT / "matrix.json").read_text())
+    for row in rows:
+        for col in ("credential_binding", "metadata_issuer", "authz_response_iss"):
+            assert row[col] in {"PASS", "FAIL", "EXCLUDED", "NOT_OBSERVED"}, (row["client"], col)
+
+
+def test_authz_response_iss_pass_requires_a_control():
+    src = (ROOT / "mcp_authscan" / "conformance_binding.py").read_text()
+    assert '_follow(name, "clean", port + 1)' in src and '"EXCLUDED"' in src

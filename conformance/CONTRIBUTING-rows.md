@@ -134,8 +134,8 @@ No files outside the repo are needed.
 conformance/run_rows.sh            # all four clients
 ```
 
-It builds each client from its lock, re-runs the `credential_binding` and `metadata_issuer`
-columns against a copy of `matrix.json`, and diffs the result against the published file:
+It builds each client from its lock, re-runs the `credential_binding`, `metadata_issuer` and
+`authz_response_iss` columns against a copy of `matrix.json`, and diffs the result against the published file:
 `REPRODUCED` (exit 0) or `DIFFERS` (exit 1). `metadata_issuer` serves authorization-server
 metadata naming a foreign issuer (a sink on 127.0.0.1:9999) and is graded by `conformance_meta.py`.
 `token_response_iss` is `NOT_REQUIRED` for every client: RFC 6749 section 5.1 and the MCP spec
