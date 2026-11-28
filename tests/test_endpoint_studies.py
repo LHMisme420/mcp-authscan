@@ -22,7 +22,7 @@ def test_no_recorded_count_without_its_study_id_in_the_same_paragraph():
 def test_the_check_catches_a_bare_count():
     texts = {"x": "Intro.\n\nWe walked 16,072 registry endpoints.\n\nMore.",
              "y": "Of those, 14339 speak MCP and 57.1% answered.",
-             "ok": "Study EP-2ddd960 (2026-11-07): 16,072 walked."}
+             "ok": "Study registry-study (2026-11-07): 16,072 walked."}
     got = {(w, f) for w, f, _ in es.violations(texts)}
     assert got == {("x", "16,072"), ("y", "14339"), ("y", "57.1%")}
 
@@ -38,3 +38,10 @@ def test_every_unsourced_field_is_empty_not_estimated():
             assert s["walk_finished"] == "", s["id"]
         if s["endpoints"] is None:
             assert s["speak_mcp"] is None and s["figures"] == {}, s["id"]
+
+
+def test_registry_study_is_dated_by_publication_and_names_why_the_walk_is_empty():
+    s = next(x for x in es.REG["studies"] if x["id"] == "registry-study")
+    assert (s["endpoints"], s["speak_mcp"], s["figures"]["no_credential_handshake_pct_of_speak_mcp"]) == (16072, 14339, 57.1)
+    assert s["dated"] == "2026-11-07" and "2ddd960" in s["dated_by"] and "not the date the walk finished" in s["dated_by"]
+    assert s["registry_walk"] == "" and s["registry_walk_empty_because"]
