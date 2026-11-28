@@ -1,0 +1,20 @@
+{
+  "note": "Single source for page pricing strings. Generate and audit with: python tools/pricing_strings.py. The Stripe checkout line item is authoritative on what a buyer gets; a field it has not confirmed is null with the open question named.",
+  "tiers": {
+    "single": {
+      "name": "Single-server assessment",
+      "price_usd": 1750,
+      "checkout": "https://buy.stripe.com/8x2bJ18pI9tP9Dq64E7Vm01",
+      "includes_retest": false,
+      "open_question": null,
+      "retest_basis": "Owner decision 2026-11-28: rate structure puts the retest on the full tier; 1,750 is one server, no retest."
+    },
+    "full": {
+      "name": "Full assessment",
+      "price_usd": 3500,
+      "checkout": "https://buy.stripe.com/dRmfZh35o6hDcPCakU7Vm02",
+      "includes_retest": true,
+      "open_question": null
+    }
+  }
+}

@@ -39,6 +39,7 @@ jobs:
             echo "::error::Tag says $v but pyproject.toml says $pv."
             exit 1
           fi
+          echo "About to publish: mcp-authscan $v (tag $GITHUB_REF_NAME, pyproject $pv, anchor $sha)"
           {
             echo "version=$v"
             echo "sha=$sha"
