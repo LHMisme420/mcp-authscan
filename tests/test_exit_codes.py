@@ -1,4 +1,5 @@
 """Exit code proof: scanner verdict → exit code mapping."""
+from tests._scanner import SCANNER
 import json
 import subprocess
 import sys
@@ -34,13 +35,13 @@ class ExitCodeTests(unittest.TestCase):
     def test_exit_3_private_ip_rebinding_protection(self):
         """Exit 3: private IP triggers DNS rebinding protection."""
         server = self._start_server(9003, 401)
-        result = subprocess.run(["mcp-authscan", "http://127.0.0.1:9003", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
+        result = subprocess.run([SCANNER, "http://127.0.0.1:9003", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
         self.assertEqual(result.returncode, 3)
         server.shutdown()
 
     def test_exit_3_unreachable_target(self):
         """Exit 3: network unreachable."""
-        result = subprocess.run(["mcp-authscan", "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
+        result = subprocess.run([SCANNER, "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test", "--contact", "test@test.com"], capture_output=True)
         self.assertEqual(result.returncode, 3)
 
     def test_exit_3_refused_when_target_neither_url_nor_readable_source(self):
@@ -83,10 +84,10 @@ if __name__ == "__main__":
 
 
 def test_contact_is_required():
-    help_out = subprocess.run(["mcp-authscan", "-h"], capture_output=True).stdout
+    help_out = subprocess.run([SCANNER, "-h"], capture_output=True).stdout
     assert b"[--contact" not in help_out
     result = subprocess.run(
-        ["mcp-authscan", "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test"],
+        [SCANNER, "http://127.0.0.1:9999", "--authorized-by", "Test", "--auth-basis", "Test"],
         capture_output=True,
     )
     assert result.returncode == 2

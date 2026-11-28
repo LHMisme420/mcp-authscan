@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from mcp_authscan import report_verify
 
 ROOT = Path(__file__).resolve().parents[1]
-SCANNER = shutil.which("mcp-authscan")
+from tests._scanner import SCANNER
 TOKEN = "synthetic-cli-assurance-token"
 CHALLENGE = "a" * 64
 
