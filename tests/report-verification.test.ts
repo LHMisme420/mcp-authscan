@@ -13,7 +13,7 @@ import { build } from 'esbuild';
 // Every verdict is decided by the Python engine (mcp_authscan.verification). These tests
 // check that the route forwards the engine's verdict unchanged and decides nothing itself.
 
-const CATALOG_SHA256 = '5b75b516c0de611b5de872ee734d74ce46fd86170721a89e7567894e2b1e813a';
+const CATALOG_SHA256 = '6d9242a8a3d69ef4813d5285191afd461d55f14f242f84bb9cad2c039d859cb3';
 
 // RFC 8032 test 1: public key and signature only. No private key is used.
 const vectorKey: PublishedKey = {
