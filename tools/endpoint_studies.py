@@ -17,16 +17,24 @@ REG = json.loads((ROOT / "data" / "endpoint_studies.json").read_text(encoding="u
 START, END = "<!-- endpoint-studies:start -->", "<!-- endpoint-studies:end -->"
 
 
+def _num(f):
+    v = f["value"]
+    return "%s%%" % v if f.get("unit") == "%" else format(v, ",")
+
+
 def sentence(s):
-    if s["endpoints"] is None or s["speak_mcp"] is None:
+    if s.get("endpoints") is None:
         return None
-    walk = "registry walk %s, finished %s" % (s["registry_walk"], s["walk_finished"]) if s["registry_walk"] and s["walk_finished"] \
-        else "walk and walk date not recorded"
-    pct = s["figures"].get("no_credential_handshake_pct_of_speak_mcp")
-    tail = ", %s%% of the %s that speak MCP completed a handshake with no credential" % (pct, format(s["speak_mcp"], ",")) \
-        if pct is not None else ", %s speak MCP" % format(s["speak_mcp"], ",")
-    return "Study %s (published %s, %s; %s): %s registry endpoints walked%s." % (
-        s["id"], s["dated"], s["dated_by"], walk, format(s["endpoints"], ","), tail)
+    parts = []
+    for f in s["figures"]:
+        t = "%s %s" % (_num(f), f["text"])
+        if f.get("pct") is not None:
+            t += " (%s%%)" % f["pct"]
+        parts.append(t)
+    walk = "registry walk %s, finished %s" % (s["registry_walk"], s["walk_finished"]) \
+        if s["registry_walk"] and s["walk_finished"] else "walk and walk date not recorded"
+    return "Study %s (published %s, %s; %s; %s): %s endpoints; %s." % (
+        s["id"], s["dated"], s["dated_by"], s["method"], walk, format(s["endpoints"], ","), "; ".join(parts))
 
 
 def block():
@@ -34,7 +42,8 @@ def block():
     return "\n".join([START, "\n\n".join("Against the field: " + l for l in lines), END])
 
 
-FORBIDDEN = ("16585", "16,585")  # never in anything a buyer can read
+FORBIDDEN = ("16585", "16,585",  # never in anything a buyer can read
+             "63.1%", "13.1%")  # a different cut of the census than its post (61.3/15.4); publish only once recorded as a labelled later read
 
 
 def published_texts():
@@ -50,23 +59,30 @@ def published_texts():
     return out
 
 
-def _forms(v):
-    if isinstance(v, float):
-        return ["%s%%" % v]
-    return [str(v), format(v, ",")]
+MIN_DISTINCT = 1000  # smaller bare integers (23, 447, 501) are not identifiable on their own; checked via their study sentence
+
+
+def _checked_forms(s):
+    forms = [str(s["endpoints"]), format(s["endpoints"], ",")] if s.get("endpoints") else []
+    for f in s["figures"]:
+        if f.get("unit") == "%":
+            forms.append("%s%%" % f["value"])
+        elif f["value"] >= MIN_DISTINCT:
+            forms += [str(f["value"]), format(f["value"], ",")]
+        if f.get("pct") is not None:
+            forms.append("%s%%" % f["pct"])
+    return forms
 
 
 def violations(texts):
     """(where, count, study id) for each recorded count printed without its study id in the paragraph."""
     bad = []
     for s in REG["studies"]:
-        values = [v for v in (s["endpoints"], s["speak_mcp"], *s["figures"].values()) if v is not None]
         for where, text in texts.items():
             for para in re.split(r"\n\s*\n", text):
-                for v in values:
-                    for form in _forms(v):
-                        if re.search(r"(?<![\d,.])%s(?![\d,])" % re.escape(form), para) and s["id"] not in para:
-                            bad.append((where, form, s["id"]))
+                for form in _checked_forms(s):
+                    if re.search(r"(?<![\d,.])%s(?![\d,])" % re.escape(form), para) and s["id"] not in para:
+                        bad.append((where, form, s["id"]))
     return bad
 
 
@@ -77,7 +93,7 @@ def forbidden(texts):
 def gaps():
     out = []
     for s in REG["studies"]:
-        for k in ("registry_walk", "walk_finished", "dated", "endpoints", "speak_mcp"):
+        for k in ("registry_walk", "walk_finished", "dated", "endpoints"):
             if s[k] in ("", None):
                 why = s.get("registry_walk_empty_because") if k == "registry_walk" else s.get("pending")
                 out.append("%s: %s not sourced%s" % (s["id"], k, (" (" + why + ")") if why else ""))
