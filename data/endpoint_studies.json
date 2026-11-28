@@ -1,32 +1,72 @@
 {
-  "note": "Dataset registry: one entry per endpoint study. Published sentences are generated from this file (python tools/endpoint_studies.py --write); a test refuses any recorded count printed without its study id in the same paragraph. Empty string = not sourced from the repo or a run output; never filled by estimate.",
+  "note": "Dataset registry: one entry per endpoint study. Published sentences are generated from this file (python tools/endpoint_studies.py --write); a test refuses any recorded count printed without its study id in the same paragraph. Empty string = not sourced; never filled by estimate.",
   "studies": [
     {
       "id": "census",
-      "source": "",
+      "source": "https://x.com/Lhmisme/status/2118644562591629444",
+      "source_note": "Figures transcribed by the owner from the post on 2026-11-28; X refuses automated reads, so the post text was not fetched by the agent.",
+      "method": "two passes over the same hosts, one for discovery metadata and one for an initialize with no credential",
       "registry_walk": "",
-      "registry_walk_empty_because": "",
+      "registry_walk_empty_because": "The post does not name the registry walk.",
       "walk_finished": "",
-      "dated": "",
-      "dated_by": "",
-      "endpoints": null,
-      "speak_mcp": null,
-      "figures": {},
-      "pending": "Figures and date come only from the published census post; its text is not in the repo and was not found by search on 2026-11-28."
+      "dated": "2026-11-06",
+      "dated_by": "the X post, the date the census was published, not the date the walk finished",
+      "endpoints": 16047,
+      "figures": [
+        {
+          "value": 5993,
+          "text": "answered 404 at the protected-resource well-known path"
+        },
+        {
+          "value": 5045,
+          "text": "published metadata"
+        },
+        {
+          "value": 501,
+          "text": "challenge a credential"
+        },
+        {
+          "value": 447,
+          "text": "do not"
+        },
+        {
+          "value": 23,
+          "text": "of the 5,045 advertise an issuer that is not theirs",
+          "pct": 0.46
+        },
+        {
+          "value": 61.3,
+          "unit": "%",
+          "text": "of the challenging servers publish metadata"
+        },
+        {
+          "value": 15.4,
+          "unit": "%",
+          "text": "of the non-challenging ones do"
+        }
+      ]
     },
     {
       "id": "registry-study",
       "source": "README.md, as first published by commit 2ddd960",
+      "method": "registry endpoints walked with an initialize and no credential",
       "registry_walk": "",
       "registry_walk_empty_because": "No run output of this walk exists in the repo or on the owner's machine (searched 2026-11-28); the figures come from the published text only.",
       "walk_finished": "",
       "dated": "2026-11-07",
       "dated_by": "commit 2ddd960, the date the claim was published, not the date the walk finished",
       "endpoints": 16072,
-      "speak_mcp": 14339,
-      "figures": {
-        "no_credential_handshake_pct_of_speak_mcp": 57.1
-      }
+      "figures": [
+        {
+          "value": 14339,
+          "text": "speak MCP"
+        },
+        {
+          "value": 57.1,
+          "unit": "%",
+          "text": "of those completed a handshake with no credential"
+        }
+      ]
     }
   ]
 }
