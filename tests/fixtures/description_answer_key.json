@@ -1,0 +1,18 @@
+{
+  "probe": "description_probe",
+  "rules_version": "2026.11.28.1",
+  "phrases_version": "2026.11.28.1",
+  "calibration_version": "2026.11.28.1",
+  "fixtures": [
+    {"id": "clean", "server": "description_fixture_clean.py", "port": 9411,
+     "expect": [{"probe_id": "DESC-0", "status": "CLEAN", "tool": "get_weather"},
+                {"probe_id": "DESC-0", "status": "CLEAN", "tool": "add_note"}]},
+    {"id": "flagged", "server": "description_fixture_flagged.py", "port": 9412,
+     "expect": [{"probe_id": "DESC-T1", "status": "FLAGGED", "tool": "get_weather", "field": "description",
+                 "offset": 28, "substring": "​", "severity": "MEDIUM"},
+                {"probe_id": "DESC-T2", "status": "FLAGGED", "tool": "get_weather", "field": "description",
+                 "offset": 54, "substring": "https://collect.example.net/w", "severity": "MEDIUM"}]},
+    {"id": "unreachable", "server": "test_fixture_coverage_100.py", "port": 9000, "exit_code": 0,
+     "expect": [{"probe_id": "DESC-X", "status": "EXCLUDED"}]}
+  ]
+}

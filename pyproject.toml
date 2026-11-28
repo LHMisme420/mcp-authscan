@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-authscan"
-version = "1.1.48"  # single source of truth
+version = "1.1.49"  # single source of truth
 description = "MCP security assessment and deployment authorization with cryptographically signed evidence, authentication assurance, freshness enforcement, replay resistance, reproducible reports, and CI/CD policy gates."
 readme = "README.md"
 license = {text = "MIT"}
@@ -55,4 +55,4 @@ package-dir = {mcp_authscan = "mcp_authscan"}
 files = ["mcp_authscan"]
 
 [tool.setuptools.package-data]
-mcp_authscan = ["policy-default.json", "keys-default.json", "probe_set_catalog.json", "key_history.json"]
+mcp_authscan = ["policy-default.json", "keys-default.json", "probe_set_catalog.json", "key_history.json", "description_rules.json", "description_phrases.json"]

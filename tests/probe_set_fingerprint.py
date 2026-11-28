@@ -181,6 +181,12 @@ def components():
         "probe_records": _probe_records(closure),
         "vocabulary": _vocabulary(),
         "code": {k: _canon(closure[k]) for k in sorted(closure)},
+        # Tool description probe: its code and both versioned rule files are part of the probe set.
+        "description_rules": {
+            "code": _canon(ast.parse((PACKAGE / "description_probe.py").read_text(encoding="utf-8"))),
+            "rules": json.loads((PACKAGE / "description_rules.json").read_text(encoding="utf-8")),
+            "phrases": json.loads((PACKAGE / "description_phrases.json").read_text(encoding="utf-8")),
+        },
     }
     return {k: hashlib.sha256(json.dumps(v, sort_keys=True).encode("utf-8")).hexdigest()
             for k, v in parts.items()}, parts

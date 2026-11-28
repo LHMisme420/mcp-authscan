@@ -41,6 +41,8 @@ PROBE_SET_RELEASES = {
     "2026.11.23.1": ["1.1.40", "1.1.41", "1.1.42", "1.1.44", "1.1.46", "1.1.47"],
     # 1.1.48 is planned (--allow-private-host); this mapping does not establish publication.
     "2026.11.27.1": ["1.1.48"],
+    # 1.1.49 is planned (tool description probe); this mapping does not establish publication.
+    "2026.11.28.1": ["1.1.49"],
 }
 
 

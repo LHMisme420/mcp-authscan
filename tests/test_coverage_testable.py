@@ -37,7 +37,7 @@ class CoverageOverTestable(unittest.TestCase):
             p.wait(timeout=5)
         report = json.loads(j.stdout[j.stdout.find("{"):])
         counts = report["counts"]
-        excluded = sorted(x["name"] for x in report["probes"] if x["status"] == "EXCLUDED")
+        excluded = sorted(x["name"] for x in report["probes"] if x["status"] == "EXCLUDED" and x.get("probe_class") != "description")
         # 11 OAuth records plus CORS, rate-limit and, since 367ea5f, alternate transport (probe 15),
         # which this fixture answers 404 on /sse and so EXCLUDES. Testable stays 7.
         self.assertEqual(14, counts["in_scope"])

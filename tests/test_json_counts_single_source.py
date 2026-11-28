@@ -43,7 +43,7 @@ class JsonCountsSingleSource(unittest.TestCase):
         report = json.loads(j.stdout[j.stdout.find("{"):])
         counts = report["counts"]
 
-        records = [SimpleNamespace(probe_id=x["probe_id"], status=x["status"]) for x in report["probes"]]
+        records = [SimpleNamespace(probe_id=x["probe_id"], status=x["status"]) for x in report["probes"] if x.get("probe_class") != "description"]
         self.assertEqual(count_probes(records), counts)
         self.assertEqual(set(VALID_STATUSES) | {"in_scope", "attempted"}, set(counts))
 

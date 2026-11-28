@@ -12,6 +12,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- 1.1.49 (planned, unpublished): tool description probe, probe set 2026.11.28.1.
+
 
 ## [1.1.48] - 2026-11-28
 
@@ -404,6 +406,7 @@ Ships probe set `2026.11.16.1`, which no earlier release carried. Its recorded c
 
 ### Probe set stamps
 
+- 2026.11.28.1: tool description probe (DESC-T1 hidden content, DESC-T2 off-domain destination, DESC-T3 annotation contradiction, DESC-T4 caller-directed phrase) over the tools/list items content_probe already fetched; no new request. FLAGGED rows carry test id, field, quoted substring and offset in body_sha256; CLEAN per tool; EXCLUDED when the list is unreadable. Severity MEDIUM, HIGH only for off-domain within one sentence of a credential word or an annotation contradiction (calibration 2026.11.28.1). Answer keys: tests/fixtures/description_answer_key.json.
 - 2026.11.27.1: `--allow-private-host HOST` (default off) lets exactly one named host resolve to a non-global address, in target validation (DNS rebinding protection, exit 3) and in the guarded pinned fetch. Exact match only: no wildcards, no CIDR, no loopback alias expansion (localhost, 127.0.0.1 and ::1 are distinct). The permitted host is written to the report as `scope_private_host` and to the Scope block. Grading unchanged; scans without the flag behave as 2026.11.23.1. tests/test_allow_private_host.py.
 - 2026.11.21.1: `oauth_probes_v2.ALLOW_PRIVATE_TARGETS` has a module-level default (False, the same as `monolith.ALLOW_PRIVATE_TARGETS`). Before it, a probe called without `monolith.main()` first (a library caller, or a test run outside pytest's conftest) raised `NameError`, which the probe's broad except recorded as NOT_OBSERVED with `Request failed: name 'ALLOW_PRIVATE_TARGETS' is not defined`. CLI scans were not affected: `main()` sets the flag before any probe runs, so no CLI report is regraded. Also removed with no fingerprint change: a dead first definition of `probe_resource_authorization_servers` (shadowed by the second) and a duplicate `_NoRedirect`. tests/test_probe_module_defaults.py.
 - 2026.11.19.3: token-cors [4] is EXCLUDED, prerequisite "a client_credentials grant the token endpoint accepts", limitation "No client-credentials grant (unsupported_grant_type)", when the token endpoint answers `unsupported_grant_type`: a positive statement that the target offers no such grant, the same bucket and reason as token-audience [11]. Previously NOT_OBSERVED, so a server built correctly without client_credentials scanned as incomplete (exit 5, coverage below 1.0). Other 4xx errors stay NOT_OBSERVED. tests/test_credential_grant_client.py, tests/test_verdict_contract.py (plain mode, 9004).
