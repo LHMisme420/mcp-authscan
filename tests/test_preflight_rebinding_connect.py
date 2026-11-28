@@ -9,6 +9,7 @@ The attacker rebinds: the first resolution answers public (which the destination
 accepts), every later resolution answers loopback. A preflight that binds its check to the
 address it actually connects to opens no socket.
 """
+from tests._scanner import SCANNER
 import socket
 import sys
 
@@ -45,7 +46,7 @@ def _run_live_scan(monkeypatch, tmp_path, host):
     """Drive a real live scan of https://<host>/mcp through the CLI entry point."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv",
-                        ["mcp-authscan", f"https://{host}/mcp", "--contact", "x@example.test",
+                        [SCANNER, f"https://{host}/mcp", "--contact", "x@example.test",
                          "--authorized-by", "test", "--auth-basis", "test"])
     try:
         monolith.main()

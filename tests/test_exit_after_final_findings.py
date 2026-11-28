@@ -15,7 +15,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 FIX = ROOT / "bench" / "answer-key" / "fixtures"
-SCANNER = shutil.which("mcp-authscan")
+from tests._scanner import SCANNER
 AUTH = ["--contact", "lhmisme2011@gmail.com", "--authorized-by", "Leroy H. Mason",
         "--auth-basis", "Own fixture, local loopback", "--allow-private"]
 

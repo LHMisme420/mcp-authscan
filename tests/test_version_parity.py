@@ -6,6 +6,7 @@ Adding a probe should never require a tool version bump,
 and tool improvements should not invalidate existing probe definitions.
 """
 
+from tests._scanner import SCANNER
 import pytest
 from pathlib import Path
 import json
@@ -61,7 +62,7 @@ class TestVersionParity:
         # Integration test: mcp-authscan --version outputs both versions
         import subprocess
         result = subprocess.run(
-            ["mcp-authscan", "--version"],
+            [SCANNER, "--version"],
             capture_output=True,
             text=True
         )
