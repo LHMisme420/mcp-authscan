@@ -24,4 +24,5 @@ def cell_from_log(path, sink):
 def main():
     sink = sys.argv[2] if len(sys.argv) > 2 else ""
     print(cell_from_log(sys.argv[1], sink))
-main()
+if __name__ == "__main__":
+    main()

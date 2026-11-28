@@ -80,15 +80,44 @@ def binding(name, p1, p2):
     if not new:
         raise RuntimeError("fixture recorded nothing on " + str(p2) + ", harness did not run")
     return "NOT_OBSERVED", 0
+def metadata(name, port):
+    """metadata_issuer: the AS metadata names a foreign issuer (127.0.0.1:9999, a sink).
+    PASS = read the metadata and stopped; FAIL = followed the foreign issuer or requested
+    a token anyway; EXCLUDED = never reached the authorization step (graded by conformance_meta)."""
+    from mcp_authscan.conformance_meta import cell_from_log
+    clear_stores()
+    f = os.path.join(L, str(port) + ".jsonl")
+    if os.path.exists(f):
+        os.remove(f)
+    sink_log = os.path.join(H, "sink9999.log")
+    if os.path.exists(sink_log):
+        os.remove(sink_log)
+    sk = subprocess.Popen([sys.executable, need(os.path.join(H, "sink.py"))], cwd=H,
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        a = start("badmeta", port)
+        try:
+            drive(name, port)
+        finally:
+            a.terminate()
+    finally:
+        sk.terminate()
+    if not lines(port):
+        raise RuntimeError("fixture recorded nothing on " + str(port) + ", harness did not run")
+    cell, n, _why = cell_from_log(f, sink_log)
+    return cell, n
+CHECKS = {"credential_binding": lambda name: binding(name, 9271, 9272),
+          "metadata_issuer": lambda name: metadata(name, 9281)}
 def main():
     names = sys.argv[1:] if len(sys.argv) > 1 else CLIENTS
     rows = json.load(open(MATRIX))
     for name in names:
-        cell, n = binding(name, 9271, 9272)
-        for r in rows:
-            if r["client"] == name:
-                r["credential_binding"] = cell
-        print(name, "credential_binding", cell, n, flush=True)
-        json.dump(rows, open(MATRIX, "w"), indent=4)
+        for col, run in CHECKS.items():
+            cell, n = run(name)
+            for r in rows:
+                if r["client"] == name:
+                    r[col] = cell
+            print(name, col, cell, n, flush=True)
+            json.dump(rows, open(MATRIX, "w"), indent=4)
 if __name__ == "__main__":
     main()
