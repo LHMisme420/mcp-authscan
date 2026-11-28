@@ -43,7 +43,7 @@ ENGINE = "mcp-authscan-verify/1"
 STAGES = ("catalog", "format", "integrity", "authenticity")
 
 # Immutable expected digests. Never derive either value from the loaded file.
-CATALOG_SHA256 = "5b75b516c0de611b5de872ee734d74ce46fd86170721a89e7567894e2b1e813a"
+CATALOG_SHA256 = "6d9242a8a3d69ef4813d5285191afd461d55f14f242f84bb9cad2c039d859cb3"
 KEY_HISTORY_SHA256 = "d2b99e9713f749956dc087a8a19f08611b43f8e93de22dd1427a0898d62f54b7"
 
 NOT_CHECKED = "NOT CHECKED"

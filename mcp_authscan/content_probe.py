@@ -121,8 +121,7 @@ def observe(endpoint, token=None, allow_private=None, allowed_hosts=None):
             out["reasons"].append("%s: no result.%s" % (method, key))
             continue
         out["inspected"][key] = len(items)
-        if key == "tools":
-            out["tools_items"] = items  # graded by description_probe; never re-fetched
+        out[key + "_items"] = items  # graded by description_probe; never re-fetched
         out["operations"].append(method)
         out["findings"].extend(_scan(endpoint, key, items))
     return out

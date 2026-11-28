@@ -43,6 +43,8 @@ PROBE_SET_RELEASES = {
     "2026.11.27.1": ["1.1.48"],
     # 1.1.49 is planned (tool description probe); this mapping does not establish publication.
     "2026.11.28.1": ["1.1.49"],
+    # 1.1.50 is planned (description probe gaps closed); this mapping does not establish publication.
+    "2026.11.28.2": ["1.1.50"],
 }
 
 
