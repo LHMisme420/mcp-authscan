@@ -1882,6 +1882,7 @@ def to_sarif(findings, target, tool_call_probe=None, description_rows=None):
             "locations": [{"physicalLocation": {"artifactLocation": {"uri": target}}}],
             "partialFingerprints": {"vataAuthscan/v1": r["body_sha256"][:16]},
             "properties": {"vataSeverity": r["severity"], "severityBasis": r["severity_basis"],
+                           "owasp": tag(rid), "owaspMapping": MAPPING_VERSION,
                            "tool": r["tool"], "field": r["field"], "substring": r["substring"],
                            "offset": r["offset"], "bodySha256": r["body_sha256"]},
         })
@@ -2881,6 +2882,9 @@ def main():
             args.description_rows = description_probe.grade(cobs.get("tools_items"), args.target, reason=_treason,
                                                           prompts=cobs.get("prompts_items"),
                                                           resources=cobs.get("resources_items"))
+            for _r in args.description_rows:
+                if _r.get("status") == "FLAGGED":
+                    _r["owasp"] = tag(_r["test_id"])  # not in the hashed row projection
             args.content_observed = {k: cobs[k] for k in ("version", "credential_context", "session_established", "operations", "inspected", "reasons") if k in cobs}
 
             if getattr(args, "authentication_assurance", False):
@@ -3267,6 +3271,10 @@ def main():
     probes.extend(getattr(args, "description_rows", None) or [])
 
     from mcp_authscan import description_probe as _dp
+    # OWASP MCP Top 10 tag on every finding, from one table (owasp_mapping). Not a hashed key.
+    for _f in F:
+        if isinstance(_f, dict) and not _f.get("owasp"):
+            _f["owasp"] = tag(_f.get("rule"))
     canonical_payload = {
         "surface_drift": surface_drift,
         "probes": probes,
@@ -3668,8 +3676,8 @@ def main():
                 from mcp_authscan import description_probe as _dpt
                 print("Tool descriptions (rules %s, phrases %s, calibration %s):" % (
                     _dpt.RULES["rules_version"], _dpt.PHRASES["phrases_version"], _dpt.DESCRIPTION_CALIBRATION_VERSION))
-                for _l in _dpt.text_lines(args.description_rows):
-                    print(_l)
+                for _r, _l in zip(args.description_rows, _dpt.text_lines(args.description_rows)):
+                    print(_l + ("  [OWASP %s]" % _r["owasp"] if _r.get("owasp") else ""))
             print(f"Exit contract: {EXIT_CONTRACT} | condition: {exit_condition}{extra} | exit code: {exit_code}")
             print("=" * 80)
             if metadata.elapsed_seconds is not None:

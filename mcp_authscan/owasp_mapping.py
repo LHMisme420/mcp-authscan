@@ -7,7 +7,7 @@ Subversion". The name recorded here is the one on the project page, and
 MAPPING_VERSION identifies which revision this table was built against.
 """
 
-MAPPING_VERSION = "2026.11.02.1"
+MAPPING_VERSION = "2026.11.28.1"
 
 CATEGORIES = {
     "MCP01": "Token Mismanagement & Secret Exposure",
@@ -40,6 +40,38 @@ RULE_CATEGORY = {
     "ZERO-AUTH": "MCP07",
     "MCPC-1": "MCP03",  # directive-like content in metadata
     "MCPC-2": "MCP10",  # resource or metadata names a private path
+    # live probes outside the OAuth set
+    "MCP-TRANSPORT-1": "MCP07",  # sibling transport serves with no credential
+    "MCPD-1": "MCP03",           # tool/resource surface changed since the pinned baseline (rug pull)
+    # tool-description probe (DESC-T1..T4): indicators in metadata the agent reads
+    "DESC-T1": "MCP03",  # hidden content: invisible/control characters, HTML comment, encoded run
+    "DESC-T2": "MCP03",  # off-domain destination in a description
+    "DESC-T3": "MCP03",  # annotation contradicts the description
+    "DESC-T4": "MCP03",  # caller-directed phrase
+    # static source rules (scan of server code)
+    "A1": "MCP07",   # authorize handler reads parameters without validation
+    "A2": "MCP01",   # hardcoded default credential / admin re-seed
+    "A3": "MCP02",   # token validated but no role, tenant or scope enforced
+    "A5": "MCP02",   # excluded_tools enforced on one surface only
+    "A6": "MCP07",   # authz gated on one method or path
+    "A7": "MCP02",   # unscoped data access where a tenant-scoped sibling exists
+    "A10": "MCP07",  # network server with auth None by default
+    "B1": "MCP07",   # PKCE not validated, downgradeable or disabled
+    "B2": "MCP07",   # authorization code not invalidated after redemption
+    "B3": "MCP01",   # long TTL near authorization-code context
+    "C1": "MCP07",   # issuer not bound (M2M provider)
+    "C2": "MCP07",   # deprecated provider that cannot bind an issuer
+    "C3": "MCP07",   # issuer validation disabled
+    "D1": "MCP04",   # SDK pin inside a published advisory range
+    "E1": "MCP10",   # session-keyed store shared across callers
+    "E2": "MCP01",   # sensitive value written raw to logs
+    "E3": "MCP03",   # prompt-injection payload in tool output or description
+}
+
+# Rules this tool emits that no OWASP MCP Top 10 category describes. Named, with the reason,
+# so a missing mapping is a decision on record rather than an oversight.
+NO_CATEGORY = {
+    "A4": "SSRF surface (outbound request to a non-literal URL). None of the ten categories covers server-side request forgery; filing it under one would overclaim.",
 }
 
 UNTESTED = {
