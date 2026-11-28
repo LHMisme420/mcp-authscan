@@ -12,7 +12,18 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- 1.1.48 (planned, unpublished): `--allow-private-host HOST`, probe set 2026.11.27.1. See "Probe set stamps".
+
+## [1.1.48] - 2026-11-28
+
+**Anchored wheel SHA-256 (release/anchors.tsv; CI refuses to publish any other):**
+- `mcp_authscan-1.1.48-py3-none-any.whl`: `918bdc069998dcd0e88b3afc33b52ccadcdd6e39675a9e823803df0cb581fb9c` (commit `ec29258`, SOURCE_DATE_EPOCH 1795824493)
+
+Planned: published by the release workflow through PyPI trusted publishing with PEP 740 attestations. Not yet published.
+
+- `--allow-private-host HOST`: one exact private host, default off (#88). Probe set 2026.11.27.1.
+- `mcp-authscan-gate`: strict CI gate, only CLEAN exits 0 (#89); negative-control dataset cases run in CI (#89).
+- Conformance: pinned client environments and `conformance/run_rows.sh` (#90); `token_response_iss` is NOT_REQUIRED, not FAIL (#91); weekly SDK release watch (#93).
+- Release: trusted publishing with attestations (#92).
 
 ## [1.1.47] - 2026-11-26
 
