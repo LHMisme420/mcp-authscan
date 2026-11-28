@@ -12,7 +12,7 @@ spec.loader.exec_module(watch)
 
 def test_previous_picks_highest_older_version_per_column():
     seen = {("python-sdk", "1.29.1"): {"credential_binding": "FAIL", "metadata_issuer": "FAIL"},
-            ("python-sdk", "1.30.0"): {"credential_binding": "FAIL", "metadata_issuer": "PASS"},
+            ("python-sdk", "1.30.0"): {"credential_binding": "FAIL", "metadata_issuer": "PASS", "authz_response_iss": "FAIL"},
             ("python-sdk", "2.3.0"): {"credential_binding": "FAIL"},
             ("fastmcp", "4.1.2"): {"credential_binding": "PASS"}}
     assert watch.previous(seen, "python-sdk", "2.10.0") == {"version": "2.3.0", "credential_binding": "FAIL"}
@@ -40,6 +40,7 @@ def test_log_records_are_complete_and_locked():
         r = json.loads(line)
         assert r["credential_binding"] in {"PASS", "FAIL", "NOT_OBSERVED"}
         assert r.get("metadata_issuer", "PASS") in {"PASS", "FAIL", "EXCLUDED"}
+        assert r.get("authz_response_iss", "PASS") in {"PASS", "FAIL", "EXCLUDED"}
         lock = ROOT / r["lock"]
         assert lock.exists(), r["lock"]
         import hashlib

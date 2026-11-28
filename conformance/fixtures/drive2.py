@@ -47,16 +47,38 @@ class Store:
     async def set_client_info(self, i):
         self.info = i
         self.save()
+# FOLLOW_AUTHORIZE=1: request the authorization URL and hand the client the redirect's real
+# code/state/iss (authz_response_iss check). Unset: synthesize the code, as the other checks expect.
+FOLLOW = os.environ.get("FOLLOW_AUTHORIZE") == "1"
+REDIR = {}
 async def redirect(u):
     ST.append(u.partition("state=")[2].partition(chr(38))[0])
     print("AUTH_URL", u, flush=True)
+    if FOLLOW:
+        import urllib.request, urllib.error
+        from urllib.parse import urlparse, parse_qs
+        class NoFollow(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *a, **k):
+                return None
+        try:
+            urllib.request.build_opener(NoFollow).open(u, timeout=10)
+        except urllib.error.HTTPError as e:
+            loc = e.headers.get("Location", "")
+            q = parse_qs(urlparse(loc).query)
+            REDIR.update({k: v[0] for k, v in q.items()})
+            print("REDIRECT", loc, flush=True)
 async def callback():
-    state = ST[0] if ST else ""
-    try:  # mcp 2.x returns a typed result, 1.x a (code, state) tuple
+    state = REDIR.get("state", ST[0] if ST else "")
+    code = REDIR.get("code", "fake-code")
+    iss = REDIR.get("iss")
+    try:  # mcp 2.x returns a typed result (with iss), 1.x a (code, state) tuple (no iss channel)
         from mcp.shared.auth import AuthorizationCodeResult
-        return AuthorizationCodeResult(code="fake-code", state=state)
+        fields = getattr(AuthorizationCodeResult, "model_fields", {})
+        if "iss" in fields:
+            return AuthorizationCodeResult(code=code, state=state, iss=iss)
+        return AuthorizationCodeResult(code=code, state=state)
     except ImportError:
-        return ("fake-code", state)
+        return (code, state)
 async def main():
     meta = OAuthClientMetadata(client_name="matrix-probe", redirect_uris=["http:" + "//127.0.0.1:9301/callback"])
     auth = OAuthClientProvider(server_url=URL, client_metadata=meta, storage=Store().boot(), redirect_handler=redirect, callback_handler=callback)

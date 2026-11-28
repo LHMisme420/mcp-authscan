@@ -37,6 +37,8 @@ Four MCP clients measured against two OAuth properties: whether the client valid
 
 Results and the versions measured are in matrix.json. The fixtures and drivers are in conformance/fixtures, and the client versions are pinned in conformance/requirements and conformance/package-lock.json. `conformance/run_rows.sh` rebuilds every client and re-runs the `credential_binding` and `metadata_issuer` columns against the published file. New client releases are measured weekly by `conformance/watch.py` (workflow `sdk-watch`): each new version of the Python SDK, fastmcp and the TypeScript SDK is built from a clean environment, re-run through the same checks, and appended with its dependency lock to `conformance/watch/log.jsonl`.
 
+The `authz_response_iss` column tests RFC 9207 authorization-response issuer validation, which the current MCP draft makes a client MUST ("Authorization Response Validation"): the authorization redirect carries an `iss` naming a foreign issuer, and a client FAILs if it still sends the code to the token endpoint. A PASS counts only if the same client does request a token when `iss` is correct (a built-in control); otherwise the cell is EXCLUDED. The TypeScript SDK 1.32.2 has no way to receive `iss` (`finishAuth(code)`), and python-sdk 1.x callbacks return only `(code, state)`.
+
 The `token_response_iss` column is `NOT_REQUIRED`, not a grade: RFC 6749 section 5.1 and the MCP authorization spec place the issuer check on the authorization response (RFC 9207), not the token response, so a client that ignores `iss` in a token response is not failing a requirement. An earlier version of this matrix marked all four clients FAIL there; that grading was withdrawn on these grounds.
 
 ## Authorized use
